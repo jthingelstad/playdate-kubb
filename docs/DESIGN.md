@@ -302,6 +302,7 @@ card, and the flows for hand-off, raising, punishment placement, saved games and
 input is a brief with the constraints and the stage 1 screenshots; its output goes into
 `docs/` as the visual spec that stages 4 to 7 are checked against. Crank feel is not a design
 question; it is tuned on hardware. Stages 2 and 3 run alongside the session.
+The brief is `docs/DESIGN-BRIEF.md`, with the current screens in `docs/brief/`.
 
 **Stage 1 as built** (differences from sections 3 and 4, to revisit in the hardware and
 design sessions):

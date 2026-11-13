@@ -288,7 +288,7 @@ test("toss: in, out (rethrow) and out twice", function()
 	local r = still(s.pieces)
 	place(r, s.kubb, { x = 0.3, y = 9.0, standing = false, angle = 0 }) -- past B's baseline
 	match.resolve(m, r, false)
-	expect.eq(m.text, "kubb out: rethrow")
+	expect.eq(m.text, "kubb out: rethrown last")
 	-- every first throw comes before the rethrows (II.C.5)
 	s = setup(m, "toss")
 	expect.truthy(not s.rethrow)

@@ -214,7 +214,7 @@ function match.resolve(m, res, illegal)
 		else
 			if k.where == "pitch" then parts[1] = "kubb in"
 			elseif k.where == "punish" then parts[1] = "out twice: punishment kubb"
-			else parts[1] = "kubb out: rethrow" end
+			else parts[1] = "kubb out: rethrown last" end
 			if hasNote(sheetTurn.notes, nn + 1, "II.C.4b") then parts[1] = "own half hit: kubb out" end
 			if inkCount("N") > before.N then parts[#parts + 1] = "on a kubb: lowered" end
 			local q = inkCount("Q") - before.Q
