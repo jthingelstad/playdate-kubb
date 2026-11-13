@@ -41,6 +41,14 @@ end
 print(string.format("best with debris: %.0f steps/s, %.3f ms/step (%+.0f%%), collision phase %.3f ms/step (%+.0f%%)",
 	bestD.stepsPerSecond, bestD.msPerStep, (bestD.msPerStep / best.msPerStep - 1) * 100,
 	bestD.hotMsPerStep, (bestD.hotMsPerStep / best.hotMsPerStep - 1) * 100))
+-- the match case's physics with the lone flight off and on
+local world = tw.world
+local lone = world.loneFlight
+for _, on in ipairs { false, true } do
+	world.loneFlight = on
+	print(bench.matchPhysics(os.clock))
+end
+world.loneFlight = lone
 if profile then
 	for _, l in ipairs(bench.profile(os.clock)) do print(l) end
 end

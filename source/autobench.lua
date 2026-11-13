@@ -199,6 +199,15 @@ local function body()
 	-- the match case
 	out(auto.matchCase(y))
 	y()
+	-- its physics alone, with the lone flight off and on
+	local lone = tw.world.loneFlight
+	for _, on in ipairs { false, true } do
+		tw.world.loneFlight = on
+		collectgarbage("collect")
+		out { bench.matchPhysics(clock, function() y() end) }
+		y()
+	end
+	tw.world.loneFlight = lone
 
 	-- per-phase profile
 	local pl = bench.profile(clock, 24, function() y() end)

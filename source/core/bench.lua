@@ -7,6 +7,8 @@ import "core/tw"
 import "core/world"
 import "core/quat"
 import "core/autothrow"
+import "core/drill"
+import "core/match"
 
 local world, quat = tw.world, tw.quat
 
@@ -222,6 +224,51 @@ function bench.profile(clock, chunk, yield)
 		end
 	end
 	return lines
+end
+
+-- The match case's throws (bench.matchThrows) stepped to rest with nothing
+-- drawn: ms per step for each kind of step (lone: taken by world.loneFlight;
+-- air: one body awake and no contact; ground: one body awake touching
+-- something; multi: two or more awake). Returns one line of text. The device
+-- runs it with world.loneFlight off and on.
+function bench.matchPhysics(clock, yield)
+	local acc = { lone = { 0, 0 }, air = { 0, 0 }, ground = { 0, 0 }, multi = { 0, 0 } }
+	local steps, busy = 0, 0
+	for _, t in ipairs(bench.matchThrows) do
+		local s = bench.matchSetup(t.projectile)
+		local w = world.new { surface = "grass", pieces = tw.match.worldPieces(s) }
+		local a = bench.matchThrow(t)
+		if a.drill then
+			local drill = tw.drill
+			local sol = drill.solve(a.drill.markerX, a.drill.markerY, 0, {})
+			local L = drill.launch(sol, { power = sol.band, smoothness = 1, tilt = 0 }, 0, {})
+			world.launchDrill(w, s.kubb, sol.x, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand, L.spin,
+				L.wobble, L.digGain)
+		else
+			world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt, s.batonId)
+		end
+		while not world.isAtRest(w) do
+			local t0 = clock()
+			world.step(w)
+			local dt = clock() - t0
+			local c
+			if w.loneStep == w.steps then c = "lone"
+			elseif w.awakeCount >= 2 then c = "multi"
+			elseif w.contacts > 0 then c = "ground"
+			else c = "air" end
+			local A = acc[c]
+			A[1], A[2] = A[1] + 1, A[2] + dt
+			steps, busy = steps + 1, busy + dt
+			if yield and steps % 24 == 0 then yield() end
+		end
+	end
+	local parts = {}
+	for _, c in ipairs { "lone", "air", "ground", "multi" } do
+		local A = acc[c]
+		parts[#parts + 1] = string.format("%s %d at %.3f", c, A[1], A[1] > 0 and A[2] * 1000 / A[1] or 0)
+	end
+	return string.format("match physics (lone flight %s): %d steps, %.3f ms/step; %s",
+		world.loneFlight and "on" or "off", steps, busy * 1000 / steps, table.concat(parts, ", "))
 end
 
 -- One line of text for the result (the device appends it to bench.txt).

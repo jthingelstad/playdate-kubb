@@ -108,6 +108,10 @@ end
 for _, l in ipairs(perThrow) do print(l) end
 print(string.format("%d throws, %d steps (%.0f per throw), slow tail (< %.2f m/s) %d steps (%.0f%%)",
 	throws, allSteps, allSteps / throws, slow, tailSteps, tailSteps * 100 / allSteps))
+local total = 0
+for _, c in ipairs(classes) do
+	for _, k in ipairs(phases) do total = total + acc[c][k] end
+end
 for _, c in ipairs(classes) do
 	local A = acc[c]
 	if A.steps > 0 then
@@ -117,6 +121,6 @@ for _, c in ipairs(classes) do
 			parts[#parts + 1] = string.format("%s %.4f", k, A[k] * 1000 / A.steps)
 		end
 		print(string.format("%-6s %5d steps (%2.0f%%) %.4f ms/step (%2.0f%% of the time): %s", c, A.steps,
-			A.steps * 100 / allSteps, sum * 1000 / A.steps, 0, table.concat(parts, ", ")))
+			A.steps * 100 / allSteps, sum * 1000 / A.steps, sum * 100 / total, table.concat(parts, ", ")))
 	end
 end
