@@ -39,6 +39,17 @@ test("far base kubb at (0, 8) is at least 12 px tall and 5 px wide from every ai
 	end
 end)
 
+test("stepping back from the line keeps the far base kubb at least 12 px tall", function()
+	local c = camera.new()
+	for _, back in ipairs { 0.5, 1.5, 3.0 } do
+		for _, x in ipairs { 0, 2.5, -2.5 } do
+			camera.aim(c, x, -back, 0, FAR, back)
+			local h = camera.uprightPx(c, 0, 8, 0.15)
+			expect.truthy(h >= 12, string.format("back %.1f at x %.1f: height %.2f", back, x, h))
+		end
+	end
+end)
+
 test("every far base kubb is at least 12 px tall unless f is at its clamp", function()
 	local c = camera.new()
 	for _, p in ipairs(POSES) do
