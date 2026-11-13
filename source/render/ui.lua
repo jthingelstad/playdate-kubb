@@ -15,6 +15,7 @@
 --                         a ringed A or B and one word, the disc's left edge
 --                         at x, its top at y (15 px tall). white = on black.
 --                         Returns the width.
+--   ui.buttonWidth(word)  the width ui.button will take.
 --
 -- A text call costs about 0.6 ms on the device: draw these into a cached
 -- image (the title's and the cards' do) and copy that.
@@ -74,6 +75,10 @@ function ui.button(letter, word, x, y, white)
 	ui.text(f, letter, x + r + 1, ty, not white, "center")
 	local w = ui.text(f, word, x + 2 * r + ui.tune.buttonGap, ty, white)
 	return 2 * r + ui.tune.buttonGap + w
+end
+
+function ui.buttonWidth(word)
+	return 2 * ui.tune.buttonR + ui.tune.buttonGap + ui.label():getTextWidth(string.upper(word))
 end
 
 tw.render.ui = ui
