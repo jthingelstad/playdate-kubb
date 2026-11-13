@@ -147,6 +147,19 @@ end
 function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power, crank)
 	local t = hud.tune
 	local cx, cy, r = t.gaugeX, t.gaugeY, t.gaugeR
+	if thrown then
+		-- the baton is away: only a small result label at the bottom, so the
+		-- gauge does not cover the flight and the impact
+		local label = (legal and "*THROWN* " or "*HELICOPTER* ") .. floor((power or 0) * 100 + 0.5) .. "%"
+		local w, h = gfx.getTextSize(label)
+		local lx, ly = cx - floor(w / 2), camera.SCREEN_H - h - 4
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRect(lx - 3, ly - 2, w + 6, h + 3)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.drawRect(lx - 3, ly - 2, w + 6, h + 3)
+		gfx.drawText(label, lx, ly)
+		return
+	end
 	gfx.setColor(gfx.kColorWhite)
 	gfx.fillCircleAtPoint(cx, cy, r + 7)
 	gfx.setColor(gfx.kColorBlack)
