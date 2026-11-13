@@ -15,7 +15,7 @@ SIM_TIMEOUT := 60
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-.PHONY: build test test-lua test-node games selftest clean
+.PHONY: build test test-lua test-node games selftest bench clean
 
 build: $(PDX)
 
@@ -73,6 +73,11 @@ selftest: build
 	  echo "selftest $$s: $$status in $${secs}s"; \
 	done; \
 	exit $$fail
+
+# The physics benchmark on the desktop (the device runs the same scenario from
+# the System Menu "Bench" item).
+bench:
+	"$(LUA)" tools/bench.lua
 
 clean:
 	rm -rf build
