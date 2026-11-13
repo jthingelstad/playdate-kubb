@@ -13,6 +13,18 @@
 -- first frame of the wind-up to the frame of the release or let-down. "sign"
 -- is swing.tune.forwardSign at the time. "result" is absent for a let-down;
 -- "loft" and "distance" are added by the game once the baton lands.
+--
+-- A drilled kubb (core/drill) adds, after those, "mode":"drill" (a baton
+-- line has no "mode") and, in meters with y measured from the thrower's
+-- baseline and x across in the thrower's view:
+--   "band"      the power the marker needed (the band's center)
+--   "verdict"   "short", "on" or "long": the power against the band
+--   "cut"       1 (A held: curls right), -1 (B: curls left) or 0
+--   "markerX","markerY"   the landing marker
+--   "landX","landY"       where the kubb first touched anything
+--   "restX","restY"       where it came to rest
+--   "throwerX"            where the thrower stood on the baseline
+-- and "launchSpeed" is then the drill's own launch speed.
 import "core/tw"
 import "core/swing"
 
@@ -23,6 +35,8 @@ local trace = {}
 local RESULT_KEYS = {
 	"power", "powerCap", "smoothness", "tilt", "legal", "launchSpeed", "tumbleRate", "backswing",
 	"releaseSpeed", "peakSpeed", "frames", "how", "loft", "distance",
+	-- drills only (absent on a baton line)
+	"mode", "band", "verdict", "cut", "markerX", "markerY", "landX", "landY", "restX", "restY", "throwerX",
 }
 
 local function num(v)
