@@ -319,7 +319,9 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
   lying tossed kubb must stay to the one recorded at rest for that exact pose to be used.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction (also the light that
-  shades the faces), face-shade thresholds, patterns, stakes, HUD placement, the throw
+  shades the faces), face-shade thresholds, patterns, stakes, the king's carving
+  (`kingCrown`, `kingBand`: drawing only, the physics king stays a plain box; the `king`
+  scenario shows it), HUD placement, the throw
   gauge (`hud.swingGauge`: the arm that turns with the crank), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
   the same pixels).
