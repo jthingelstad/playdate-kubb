@@ -194,6 +194,16 @@ Rules V4.0 unless a question below changes it.
   from the king and stakes (II.C.6, II.D.11). A thrown kubb that knocks an established field
   kubb out of bounds sends that kubb back to be thrown again (II.C.5a): this is the rescue,
   `Q`.
+- **Judged at the final position** (Jamie, 2026-11-13): in or out is not judged when a kubb
+  stops. The kubbs of a round (first throws, then rethrows) all stay on the pitch where they
+  lie, out ones too, and later kubbs may move them; when the round's last kubb is at rest
+  every kubb is judged where it lies. A kubb on another is lowered (`N`) unless the one under
+  it is out; an established kubb out is rescued (`Q`); a kubb thrown once and out is
+  rethrown in the next round, all of them picked up at once; a kubb thrown twice and still
+  out is a punishment kubb (`P`). A kubb out then knocked in is not rethrown; a rescue knocked
+  back in is no rescue. A kubb that touches a field kubb in the thrower's own half (II.C.4b)
+  is out whatever happens to it later; that field kubb is put back at once. The king toppled
+  by a kubb still loses at once. Details: AGENTS.md "Judged at the final position".
 - **Raising:** see Q2.
 - Opening batons: see Q1. Early base kubbs: see Q3.
 
