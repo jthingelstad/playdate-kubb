@@ -286,20 +286,79 @@ function raising.punishmentCandidates(ctx)
 	return out
 end
 
+-- A spot this far (center to center) from everything is valid without the
+-- rectangle tests: farther than a baton length plus both half-diagonals from
+-- the king and the stakes, and than both half-diagonals from every kubb.
+local KUBB_DIAG = HALF_SIDE * sqrt(2)
+local LYING_DIAG = sqrt(HALF_LONG * HALF_LONG + HALF_SIDE * HALF_SIDE)
+local scratch = { x = 0, y = 0, standing = true, angle = 0 }
+
+-- The spot (x, y) with nothing near it: true, or nil when something is close
+-- enough that raising.punishmentCheck has to decide. Makes no tables.
+local function clearSpot(x, y, ctx)
+	local king = ctx.king
+	if king then
+		local dx, dy = king.x - x, king.y - y
+		local r = pitch.batonLength + KUBB_DIAG + pitch.kingSide / 2 * sqrt(2) + 1e-6
+		if dx * dx + dy * dy < r * r then return nil end
+	end
+	local r = pitch.batonLength + KUBB_DIAG + 1e-6
+	local r2 = r * r
+	local stakes = pitch.stakes
+	for i = 1, #stakes do
+		local dx, dy = stakes[i].x - x, stakes[i].y - y
+		if dx * dx + dy * dy < r2 then return nil end
+	end
+	r = KUBB_DIAG + LYING_DIAG + 1e-6
+	r2 = r * r
+	local others = ctx.others
+	if others then
+		for i = 1, #others do
+			local o = others[i].pose
+			local dx, dy = o.x - x, o.y - y
+			if dx * dx + dy * dy < r2 then return nil end
+		end
+	end
+	return true
+end
+
 -- The automatic placement: deep in the half (far from the attacker) and away
 -- from other kubbs. `policy` may be a function(candidates, ctx) -> pose.
+-- The default search makes no table per spot: on the device the plain
+-- candidate list (2091 spots, a dozen rectangles each) ran past the 10 s
+-- watchdog. It picks the same spot as scoring raising.punishmentCandidates.
 function raising.autoPunishment(ctx, policy)
-	local cands = raising.punishmentCandidates(ctx)
-	if #cands == 0 then return nil end
-	if type(policy) == "function" then return policy(cands, ctx) end
-	local best, bestScore = nil, -huge
-	for _, c in ipairs(cands) do
-		local sp = spread(c, ctx)
-		if sp > 1 then sp = 1 end
-		local s = pitch.fromBaseline(pitch.other(ctx.half), c.y) + 0.5 * sp - 0.01 * math.abs(c.x)
-		if s > bestScore + 1e-12 then best, bestScore = c, s end
+	if type(policy) == "function" then
+		local cands = raising.punishmentCandidates(ctx)
+		if #cands == 0 then return nil end
+		return policy(cands, ctx)
 	end
-	return best
+	local g = raising.tune.punishGrid
+	local y0 = pitch.baseline[ctx.half]
+	local dirY = ctx.half == "A" and 1 or -1
+	local nx = floor(2 * pitch.halfWidth / g + 0.5)
+	local ny = floor(pitch.center / g + 0.5)
+	local far = pitch.other(ctx.half)
+	local p = scratch
+	local bx, by, bestScore = nil, nil, -huge
+	for j = 0, ny do
+		-- rows run from the deepest; a row whose best possible score cannot
+		-- beat the spot in hand ends the search (the usual case: row one)
+		local rowBest = pitch.fromBaseline(far, y0 + dirY * j * g) + 0.5
+		if rowBest <= bestScore + 1e-12 then break end
+		for i = 0, nx do
+			p.x, p.y = -pitch.halfWidth + i * g, y0 + dirY * j * g
+			if rowBest - 0.01 * math.abs(p.x) > bestScore + 1e-12 and raising.inBounds(p, ctx.half)
+				and (clearSpot(p.x, p.y, ctx) or raising.punishmentCheck(p, ctx)) then
+				local sp = spread(p, ctx)
+				if sp > 1 then sp = 1 end
+				local s = pitch.fromBaseline(far, p.y) + 0.5 * sp - 0.01 * math.abs(p.x)
+				if s > bestScore + 1e-12 then bx, by, bestScore = p.x, p.y, s end
+			end
+		end
+	end
+	if not bx then return nil end
+	return { x = bx, y = by, standing = true, angle = 0 }
 end
 
 tw.raising = raising
