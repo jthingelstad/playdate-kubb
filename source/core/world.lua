@@ -252,6 +252,47 @@ function world.launchKubb(w, id, x, lineY, swivel, loftDeg, speed, tumbleRate)
 		world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, 0))
 end
 
+-- A drilled kubb (core/drill): it leaves the hand at (x, lineY, handHeight)
+-- along the swivel at the loft, its long axis pointing down the line of
+-- flight with the nose noseDownDeg below the horizontal. It spins about that
+-- axis at spinRate (rad/s; the cut, + = anti-clockwise seen from behind) and
+-- the release roll is chosen so that after the flight it lands rolled
+-- rollLandDeg onto a long edge. wobbleRate (rad/s) turns it nose over tail
+-- about the right-hand axis (a jerky swing). digGain is how much harder its
+-- first touches dig into the ground than the surface's dig (body.digGain).
+function world.drillLaunchState(x, lineY, swivel, loftDeg, speed, noseDownDeg, rollLandDeg, spinRate, wobbleRate)
+	local dx, dy = sin(swivel), cos(swivel)
+	local lx, ly, lz = launchDir(swivel, loftDeg)
+	local ft = tw.flight.tune
+	local h = ft.handHeight
+	-- flight time until the center is a half side above the grass
+	local vz = speed * lz
+	local h0 = h - (tw.drill and tw.drill.tune.landZ or 0.07)
+	local T = (vz + sqrt(vz * vz + 2 * ft.g * h0)) / ft.g
+	local a = rad(noseDownDeg)
+	local ca, sa = cos(a), sin(a)
+	-- local z: the long axis; x: the right-hand side, then rolled by phi about z
+	local zx, zy, zz = dx * ca, dy * ca, -sa
+	local rx, ry, rz = dy, -dx, 0
+	local yx, yy, yz = zy * rz - zz * ry, zz * rx - zx * rz, zx * ry - zy * rx
+	local phi = rad(rollLandDeg) - spinRate * T
+	local c, s = cos(phi), sin(phi)
+	local xx, xy, xz = c * rx + s * yx, c * ry + s * yy, c * rz + s * yz
+	yx, yy, yz = -s * rx + c * yx, -s * ry + c * yy, -s * rz + c * yz
+	local qw, qx, qy, qz = quat.fromAxes(xx, xy, xz, yx, yy, yz, zx, zy, zz)
+	return x, lineY, h, qw, qx, qy, qz,
+		speed * lx, speed * ly, speed * lz,
+		spinRate * zx + wobbleRate * rx, spinRate * zy + wobbleRate * ry, spinRate * zz
+end
+
+function world.launchDrill(w, id, x, lineY, swivel, loftDeg, speed, noseDownDeg, rollLandDeg, spinRate,
+		wobbleRate, digGain)
+	local b = world.launch(w, "kubb", id, world.drillLaunchState(x, lineY, swivel, loftDeg, speed,
+		noseDownDeg, rollLandDeg, spinRate, wobbleRate))
+	b.digGain = digGain or 1
+	return b
+end
+
 -- ---------------------------------------------------------------------------
 -- The solver's contacts
 --
@@ -726,7 +767,7 @@ function world.step(w)
 						local steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
 						local ramp = (-v0 - surf.digSpeed) / surf.digRamp
 						if ramp > 1 then ramp = 1 end
-						dig = surf.dig * steep * ramp * pointed(a)
+						dig = surf.dig * steep * ramp * pointed(a) * a.digGain
 						local lever = surf.digLever * min(1, dig)
 						if lever > a.dig then a.dig = lever end
 					end
