@@ -297,6 +297,24 @@ design sessions):
   baseline; a baton at rest on plain white ground reads as floating; when swivelled, far
   kubbs can pass under the minimap.
 
+**Stage 3 match as built** (the bare two-player game; AGENTS.md "Match"):
+
+- It is pass and play on one Playdate (stage 5's mode, without names): teams "Team A" and
+  "Team B" with one player each, a hand-off card before each team's turn, and Team B
+  throwing from the far baseline with the whole pitch turned 180 degrees, so every throw is
+  made from the bottom of the screen. The title offers Match and Practice pitch.
+- Kubbs are lobbed, not drilled: the baton's swing, a kubb body turning end over end at
+  half the swing's tumble, no cut. The follow and impact cameras are the baton's.
+- Raising and punishment placement are automatic (the engine's policies); there is no
+  raising view yet.
+- The aim camera frames the live targets (field kubbs, else base kubbs, else the king) and,
+  for near field kubbs, looks nearer than 7.5 m (1.5 m past the nearest, at least 3 m).
+- The advantage line is a dotted 2 px line on the pitch and a dotted row on the minimap.
+  The d-pad walks up to it; king shots are from the baseline.
+- The System Menu's third item is per scene: "Pitch" on the practice pitch, "Match" in a
+  match (resign, or leave to the title without a game file). A resign is the team on turn.
+- The game file is written to `games/` in the Data folder when the match ends.
+
 Stages 2 and 3 do not depend on each other (rules talks to physics only through "what did
 this throw topple and where did things come to rest"), so they run in parallel in separate
 worktrees after stage 1.

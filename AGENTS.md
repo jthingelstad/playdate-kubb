@@ -31,7 +31,8 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   `tools/games.lua` (no physics; `GAMES_SEED`, default 1), writes them to `build/games/`, then
   runs the notation gate over all of them. Every game must pass with zero warnings. Same seed,
   same files. It prints a count of the rare events it produced (rescues, punishment kubbs,
-  early kings, helicopters and so on).
+  early kings, helicopters and so on). Then it plays `PHYS_N` (5) matches with real physics
+  (`tools/physmatch.lua`, see "Headless games") into `build/physgames/` and gates them too.
 - `make bench`: the physics benchmark on the desktop (`tools/bench.lua`, three runs of
   `core/bench`, prints each and the best). `lua5.4 tools/bench.lua [runs] [--profile]
   [--micro]` adds the per-phase profile of `world.step` and the micro benchmarks of
@@ -203,6 +204,15 @@ plays one game; `tests/lua/test_games.lua` plays 50 and checks invariants after 
 action; `tools/games.lua` writes N games. `tests/fixtures/games/` holds ten generated games
 plus the two hand-written ones; `make test` gates them.
 
+`core/autothrow.lua` is a scripted thrower for physics: for a match setup it picks where to
+stand, swivel, loft, launch speed and tumble (seeded scatter, `autothrow.tune`), aiming
+batons at the nearest live target and tosses at a random spot in the far half clear of the
+king. `tools/physmatch.lua [--n --seed --out --maxturns -v]` plays whole matches through
+`core/match` with every throw run by `core/world` to rest (the match scene's path without
+the screen; about 0.7 s a match on a Mac) and writes the game files. Past `--maxturns`
+(40) the team on turn resigns. With no scatter every baton hits and a game never ends
+(every toppled field kubb comes straight back), so the scatter is not zero.
+
 ## Simulator self-tests
 
 - `Playdate Simulator <abs pdx> selftest=<name> out=<abs dir>`: arguments after the pdx
@@ -241,6 +251,19 @@ plus the two hand-written ones; `make test` gates them.
   are the Mac's, not the device's). They set loft and position in `setup`, not through the
   controls. Strong throws use loft 30 or less: at full speed and 35 degrees the baton
   lands past the far baseline.
+- Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
+  from `source/selftest/_match.lua`: `opts` are `scenes/match` options (`seed` for
+  `core/autothrow` throws instead of the crank, `instant`, `skipHandoff`, `maxTurns`),
+  `step(ms, ctx, h)` runs after each frame with `h.feed(steps)`, `h.pressA()` and
+  `h.idle()` for scripted input. `tw.selftest.pitchMatchesEngine(ms)` checks every item on
+  screen against the engine's state. Scenarios: `match-opening` (crank throws: Team A's two
+  opening batons, the hand-off card, Team B's first throw in its turned view),
+  `match-toss` (a kubb toss played back and the automatic raising after it) and
+  `match-whole` (a scripted match to a winner as fast as the Simulator goes, the d-pad
+  walk up to the advantage line on the way; its marker names the game file, which the
+  Makefile copies to `build/selftest/games/` and runs the notation gate over). The
+  Simulator's floats differ from the desktop's, so the same seed plays a different match
+  there than in `tools/physmatch.lua`: the checks do not depend on what happens.
 
 ## Input provider
 
@@ -269,7 +292,12 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
   back the player may step, swivel and loft gearing, double-tap time, rest hold, practice
   surface, physics time budget per frame and how far ahead it may record, impact-camera
-  slew and baton framing radius.
+  slew and baton framing radius, the tossed kubb's tumble (`tossTumble`) and the instant
+  rest hold.
+- `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
+  turned, and how high a tossed kubb must rest to be on another.
+- `tw.autothrow.tune` (`source/core/autothrow.lua`): the scripted thrower's loft, aim and
+  scatter.
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
   margin, bounce threshold and passes, wood-on-wood friction and bounce, sleep and wake
   thresholds, topple angle, out margin, maximum throw time, stake height.
@@ -301,7 +329,9 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   order, unless `stakes = false`) and then the pieces (`{id, kind, x, y, yaw}` standing, or
   a full pose `qw..qz`, `z`, `toppled` for a piece already down). `world.launchBaton(w, x,
   lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg)` takes the stage 1 swing outputs
-  (tilt is a real tilted spin axis); `world.launch` throws any body, a kubb included.
+  (tilt is a real tilted spin axis); `world.launch` throws any body, a kubb included;
+  `world.launchKubb(w, id, x, lineY, swivel, loftDeg, speed, tumbleRate)` lobs kubb `id`
+  like a clean baton (upright in the hand, end over end, no tilt).
   `world.step` advances one fixed step (1/240 s), `world.run`, `world.isAtRest`,
   `world.result` (touched, stakesTouched, toppled, kingToppled, outNotToppled, rest poses,
   firstContact, firstHit).
@@ -364,7 +394,7 @@ and copying a full-screen image about 0.7 ms. So:
 
 - `render/world` keeps the last frame as an image and copies it when a frame shows
   exactly what the last one did. The key is the camera, the item list and its length,
-  the pose version and the baton.
+  the pose version, the baton and `render.world.advantageY` (the match's advantage line).
 - Each item keeps what depends only on its pose (world corners, the shadow outline, face
   normals and shades). Change a pose only through `render.world.setPose`: it marks the item
   stale and bumps `render.world.poseVersion()`, which is what invalidates the caches. After
@@ -376,9 +406,10 @@ and copying a full-screen image about 0.7 ms. So:
 - `render/hud` draws each part (minimap, loft and power panel, gauge dial) as a layer: to
   the screen while its inputs change, into an image (on the 8 px grid, through
   `gfx.setDrawOffset`) once a frame repeats the last frame's inputs, then copied until an
-  input changes. The minimap layer keys on the pose version; the aim line, player, landing
-  mark and baton dot are drawn on top every frame. Text boxes and text are cached as images
-  by their string (at most 32 each).
+  input changes. The minimap layer keys on the pose version and the advantage line; the aim
+  line, player, landing mark and baton dot are drawn on top every frame. Text boxes and text
+  are cached as images by their string (at most 32 each); the match's status lines are two
+  such boxes, and its hand-off and winner cards one image each (`hud.card`).
 - A new part of the HUD that depends on something must put it in its layer's key, or the
   layer will show a stale image. `make selftest` frames compared pixel for pixel before
   and after (`cache = false` against `true`) catch this.
@@ -390,7 +421,55 @@ render items of `render/world`, carries every piece's pose). System Menu "Pitch"
 "reset" stands everything back up (`throw.reset`); it also happens by itself after the
 throw that leaves every far base kubb down. The System Menu holds three custom items at
 most (Readout, Record, Pitch), so Pitch is an options item that acts when the menu closes
-and then reads "play" again.
+and then reads "play" again; its "title" goes back to the title screen.
+
+## Match
+
+The title (`scenes/title.lua`) offers "Match" and "Practice pitch"; `main.lua` opens one
+scene at a time and rebuilds the System Menu for it (Readout, Record, then the scene's
+own item). Practice is the throw scene exactly as before.
+
+- `core/frame.lua`: the thrower's view frame. Team B's throws are made in the pitch turned
+  180 degrees about its center, `(x, y) -> (-x, 8 - y)`, angles + pi, quaternions
+  `(0,0,0,1) * q`; the turn is its own inverse. So the throw scene, cameras, flight, HUD
+  and physics always throw from y = 0 toward +y, and Team B sees its own baseline at the
+  bottom of the screen.
+- `core/outcome.lua`: physics to rules. `outcome.pieces(g, side)` gives the engine's pitch
+  as `core/world` pieces in the view frame (with `role`, `half` and the world `pose`);
+  `outcome.baton(res, pieces, side, illegal)` and `outcome.toss(res, pieces, side, id)`
+  turn a `world.result` into the outcome records above (rest poses back in the world frame:
+  standing when the long axis is within 45 degrees of vertical; `onTop` when a tossed kubb
+  rests clearly above the ground, the nearest piece under it).
+- `core/match.lua`: one plain table `m` (the engine game, start time, mode, per-turn toss
+  count) that a resume can save. `match.setup(m)` raises lying kubbs and places punishment
+  kubbs with the engine's policies, then returns the next throw in the view frame (kind,
+  projectile, pieces, `forwardY` = how far forward the thrower may walk, `advY`, `targets`,
+  `label` such as "Team B  baton 2 of 6"); `match.resolve(m, res, illegal)` applies a
+  finished throw and sets `m.text` (the result line); `match.resign`, `match.file`.
+- `scenes/match.lua`: phases handoff ("Team B / your turn: press A", before each team's
+  turn), play (the throw scene set up by `throw.prepare`: pieces, lines, projectile,
+  targets; `s.auto = false` stops it in mode `done` after the rest hold) and over (the
+  winner card; the game file was written to `games/` in the Data folder, DESIGN 7). The
+  engine rules on a throw as soon as it is at rest, so the result line shows during the
+  rest hold; then the pitch is rebuilt from the engine's state (toppled kubbs leave it,
+  kubbs pushed out are put back, punishment kubbs appear).
+- Kubb toss: the same aim, loft and crank swing as a baton, always from the baseline; the
+  kubb is a real body (`world.launchKubb`) turning at `throw.tune.tossTumble` of the
+  swing's tumble with no tilt (no helicopter), drawn as one more box item.
+- Advantage line: the d-pad walks up past the baseline as far as `forwardY` (the engine's
+  advantage line; king shots are from the baseline). It is drawn on the pitch (dotted, 2 px)
+  and on the minimap.
+- Camera: the aim camera frames the setup's `targets` (standing field kubbs, else base
+  kubbs, else the king) and looks `camera.tune.aim.lookBeyond` past the nearest of them
+  (`camera.lookDistFor`, never nearer than `lookMin`); base kubbs on the far baseline give
+  the practice framing.
+- System Menu "Match": resign (the team on turn gives up, `G`; it waits until nothing is in
+  the air) or title (leave: the match is dropped and no file is written). Pass and play
+  has one Playdate, so the team on turn is whoever holds it.
+- Per frame the match adds two cached text-box draws (status) and, from the throw scene,
+  a dozen-entry target scan for the camera. Once per throw (not per frame) it builds the
+  engine's pieces and outcome tables and rebuilds the items: expect one longer frame on the
+  device when a throw is resolved and the next set up.
 
 ## Slow motion
 
