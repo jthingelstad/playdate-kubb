@@ -32,9 +32,9 @@ camera.tune = {
 		lookBeyond = 1.5,    -- m past the nearest live target the match camera looks (lookDistFor)
 		lookMin = 3.0,       -- m; lookDistFor never looks nearer than this
 	},
-	drill = {              -- the drill aim (a kubb aimed with a ground marker): fixed, higher and
-	                       -- looking down on the whole target half, so the frame cache holds
-	                       -- while the marker moves
+	drill = {              -- the drill aim (a kubb aimed with a ground marker): higher and
+	                       -- looking down on the target half. It steps sideways with the
+	                       -- thrower, who stands behind the marker (Jamie, 2026-11-13)
 		back = 2.5,          -- m behind the baseline
 		height = 5.5,        -- m above the ground (the baton camera is at 3.4)
 		lookDist = 6.4,      -- m out from the baseline to the ground point it looks at
@@ -165,9 +165,10 @@ end
 -- The drill aim camera: straight down the pitch from behind the middle of
 -- the baseline at lineY, high, looking down on the far half. It does not
 -- follow the marker or the thrower.
-function camera.drillAim(c, lineY)
+function camera.drillAim(c, lineY, x)
 	local t = camera.tune.drill
-	camera.lookAt(c, 0, lineY - t.back, t.height, 0, lineY + t.lookDist, 0)
+	x = x or 0
+	camera.lookAt(c, x, lineY - t.back, t.height, x, lineY + t.lookDist, 0)
 	c.cx, c.cy, c.f = camera.SCREEN_W / 2, t.cy, t.f
 	return c
 end

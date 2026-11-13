@@ -474,8 +474,9 @@ the throw scene with `s.drill` on.
   (`flight.tune.handHeight` down to `landZ`), the band center (power) for that distance and
   the flight time. A or B held sets `s.cut` (`drill.CUT_A` = 1 curls right, `CUT_B` = -1
   curls left), read every frame up to the release; in drill mode A and B never swivel or
-  loft and do not stop a wind-up. The aim camera is `camera.drillAim` (fixed, so the world
-  frame cache holds); the marker ring, cross and dotted line are drawn over it each frame
+  loft and do not stop a wind-up. The aim camera is `camera.drillAim`, which steps sideways
+  with the thrower so the player lines up behind the marker (the world frame is redrawn
+  while it moves, as in a baton walk); the marker ring, cross and dotted line are drawn over it each frame
   in `throw.draw` (`drawMarker`), and the minimap's aim line goes to the marker.
 - **Swing to launch** (`drill.launch`): the power error against the band is shrunk by
   `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower` per unit
