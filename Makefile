@@ -11,7 +11,8 @@ PDX      := build/ThrowingWood.pdx
 OUT      := $(CURDIR)/build/selftest
 SIM_TIMEOUT := 60
 
-SCENARIOS := $(filter-out runner,$(basename $(notdir $(wildcard source/selftest/*.lua))))
+# Every source/selftest/*.lua is a scenario except the runner and helpers named _*.
+SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
 .PHONY: build test test-lua test-node selftest clean
