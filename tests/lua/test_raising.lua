@@ -164,3 +164,42 @@ test("II.D.11 automatic punishment spot is valid and deep in the half", function
 	expect.eq(picked.x, cands[1].x)
 	expect.eq(picked.y, cands[1].y)
 end)
+
+-- The automatic punishment search picks the spot the plain candidate list
+-- would, and makes almost no garbage (the device ran past its watchdog when
+-- every spot built a dozen rectangles).
+test("autoPunishment: same spot as the candidate list, little garbage", function()
+	local raising, pitch = tw.raising, tw.pitch
+	local seed = 7
+	local function rnd() seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648 end
+	for round = 1, 12 do
+		local half = (round % 2 == 0) and "A" or "B"
+		local others = {}
+		for i = 1, round - 1 do
+			others[i] = { id = "k" .. i, pose = {
+				x = (rnd() - 0.5) * 2 * pitch.halfWidth, y = rnd() * 2 * pitch.center,
+				standing = rnd() < 0.7, angle = rnd() * 3 } }
+		end
+		local ctx = { half = half, king = { x = 0, y = pitch.center, angle = 0 }, others = others }
+		local best, bestScore = nil, -math.huge
+		for _, c in ipairs(raising.punishmentCandidates(ctx)) do
+			local sp = math.huge
+			for _, o in ipairs(others) do
+				local d = math.sqrt((o.pose.x - c.x) ^ 2 + (o.pose.y - c.y) ^ 2)
+				if d < sp then sp = d end
+			end
+			if sp > 1 then sp = 1 end
+			local s = pitch.fromBaseline(pitch.other(half), c.y) + 0.5 * sp - 0.01 * math.abs(c.x)
+			if s > bestScore + 1e-12 then best, bestScore = c, s end
+		end
+		collectgarbage(); collectgarbage("stop")
+		local k0 = collectgarbage("count")
+		local p = raising.autoPunishment(ctx)
+		local made = collectgarbage("count") - k0
+		collectgarbage("restart")
+		expect.truthy(p and best)
+		expect.near(p.x, best.x, 1e-9); expect.near(p.y, best.y, 1e-9)
+		expect.truthy(raising.punishmentCheck(p, ctx))
+		expect.truthy(made < 400, "garbage " .. made .. " KB")
+	end
+end)
