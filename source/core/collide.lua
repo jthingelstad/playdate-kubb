@@ -139,6 +139,7 @@ end
 -- rule then pushes sideways.
 local refX, refY, refZ
 local REF_COS = math.cos(math.rad(25)) -- a corner's own normal further off than this uses the reference
+-- Returns the least overlap (negative = the gap along that axis).
 local AX = { "r11", "r12", "r13" }
 local AY = { "r21", "r22", "r23" }
 local AZ = { "r31", "r32", "r33" }
@@ -158,6 +159,7 @@ local function referenceAxis(A, B)
 			end
 		end
 	end
+	return best
 end
 
 -- Corners of box A against box B (contacts on A, normals out of B).
@@ -198,7 +200,10 @@ local function cornersInto(A, B, margin, sx_, sy_, sz_)
 end
 
 function collide.boxBox(A, B, margin)
-	referenceAxis(A, B)
+	-- separated along a face axis by margin or more: no corner of either box
+	-- can come within margin of the other (every corner's distance is at
+	-- least that gap), so there is nothing to add
+	if referenceAxis(A, B) <= -margin then return end
 	local nx, ny, nz = refX, refY, refZ
 	cornersInto(A, B, margin, nx, ny, nz)
 	cornersInto(B, A, margin, -nx, -ny, -nz)

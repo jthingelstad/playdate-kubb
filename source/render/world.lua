@@ -74,6 +74,18 @@ local SX, SY = {}, {}
 local WX, WY, WZ = {}, {}, {}
 local order, depth = {}, {}
 
+-- Optional profiling (the device autobench): world.prof = { clock = fn }
+-- and draw adds the seconds of each part into it.
+world.prof = nil
+local RP, rt = nil, 0
+local function lap(name)
+	if RP then
+		local now = RP.clock()
+		RP[name] = (RP[name] or 0) + now - rt
+		rt = now
+	end
+end
+
 local function fillPoly(n)
 	if n >= 3 then gfx.fillPolygon(unpack(poly, 1, 2 * n)) end
 end
@@ -97,6 +109,7 @@ local function drawPitch(c)
 	gfx.setPattern(t.outsidePattern)
 	fillPoly(groundQuad(c, -60, t.outsideFrom, -2.5, t.outsideTo))
 	fillPoly(groundQuad(c, 2.5, t.outsideFrom, 60, t.outsideTo))
+	lap("outside")
 	gfx.setColor(gfx.kColorBlack)
 	gfx.setLineWidth(1)
 	line(c, -2.5, 0, 0, -2.5, 8, 0)
@@ -115,6 +128,7 @@ local function drawPitch(c)
 		line(c, 2.5, y, 0, 2.5, y, t.stakeHeight)
 	end
 	gfx.setLineWidth(1)
+	lap("lines")
 end
 
 -- 2D convex hull (monotone chain) of PX/PY[1..n] into HX/HY; returns the
@@ -276,12 +290,16 @@ end
 -- Draw everything. `items` holds n box items (world.item); `baton` is nil
 -- or {x, y, z, ax, ay, az} (center and unit axis).
 function world.draw(c, items, n, baton)
+	RP = world.prof
+	if RP then rt = RP.clock() end
 	gfx.clear(gfx.kColorWhite)
+	lap("clear")
 	drawPitch(c)
 	updateLight()
 	gfx.setColor(gfx.kColorBlack)
 	for i = 1, n do boxShadow(c, items[i]) end
 	if baton then batonShadow(c, baton) end
+	lap("shadows")
 	-- far to near
 	local m = n
 	for i = 1, n do
@@ -311,6 +329,7 @@ function world.draw(c, items, n, baton)
 	gfx.setColor(gfx.kColorBlack)
 	gfx.setLineWidth(1)
 	gfx.setLineCapStyle(gfx.kLineCapStyleButt)
+	lap("pieces")
 end
 
 tw.render.world = world

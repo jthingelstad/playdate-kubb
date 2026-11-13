@@ -24,6 +24,7 @@ import "recorder"
 import "scenes/title"
 import "scenes/throw"
 import "benchscreen"
+import "autobench"
 import "selftest/runner"
 import "selftest/hello"
 import "selftest/aim-center"
@@ -87,7 +88,15 @@ else
 		pitchItem:setValue("play")
 	end)
 
+	-- the device autobench (autobench.lua): a file named "autobench" in the
+	-- Data folder at launch runs it once before the game
+	local autoRun = playdate.file.exists(tw.autobench.flag) and tw.autobench.start() or nil
+
 	function playdate.update()
+		if autoRun then
+			if tw.autobench.update(autoRun) then autoRun = nil end
+			return
+		end
 		if benchRun then
 			if tw.benchscreen.update(benchRun) then benchRun = nil end
 			return

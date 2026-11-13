@@ -98,6 +98,18 @@ world.surfaces = {
 	-- here as a third parameter set; nothing else should need to change.
 }
 
+-- Optional profiling (the device autobench): set world.prof to a table
+-- from world.newProf(clock) and world.step adds the seconds of each phase
+-- into it. nil (the default) costs one test per phase.
+world.prof = nil
+world.PHASES = { "forces", "pairs", "ground", "prepare", "solve", "integrate", "relax",
+	"restitution", "store", "tail" }
+function world.newProf(clock)
+	local p = { clock = clock, narrow = 0 }
+	for _, k in ipairs(world.PHASES) do p[k] = 0 end
+	return p
+end
+
 -- ---------------------------------------------------------------------------
 -- Building a world
 
@@ -233,37 +245,46 @@ function world.launchBaton(w, x, lineY, swivel, loftDeg, speed, tumbleRate, tilt
 end
 
 -- ---------------------------------------------------------------------------
--- The solver's contact arrays (reused every step; no tables per contact)
+-- The solver's contacts
+--
+-- Speed on the device (AGENTS.md "Physics", device costs): a Lua function
+-- call costs about 9 us there, a C call (math.sqrt, math.abs, math.min) about
+-- 4 us and every switch to another table a cache miss, so the hot paths below
+-- are written out in full: no helper calls per pair, per contact or per pass,
+-- comparisons instead of math.abs/min/max, and each solver contact is one
+-- record (the array part of one table, read with constant indices) rather than
+-- sixty parallel arrays. The arithmetic is the same as the plain version, term
+-- for term and in the same order, so results are unchanged. Ground contacts
+-- (normal +z, tangents +x and +y, nothing on the other side) and contacts
+-- with a sleeping or static body (nothing moves on the other side) skip the
+-- terms that are zero.
 
 local C = collide.C
 local cA, cB, cSlot = C.A, C.B, C.slot
 local cPx, cPy, cPz, cNx, cNy, cNz, cSep = C.px, C.py, C.pz, C.nx, C.ny, C.nz, C.sep
 
-local SA, SB = {}, {}             -- dynamic bodies (SB false = ground or a sleeping body)
-local T1x, T1y, T1z, T2x, T2y, T2z = {}, {}, {}, {}, {}, {}
--- A's angular terms: (ra x d) and I^-1 (ra x d) for d = n, t1, t2
-local AnX, AnY, AnZ, WAnX, WAnY, WAnZ = {}, {}, {}, {}, {}, {}
-local A1X, A1Y, A1Z, WA1X, WA1Y, WA1Z = {}, {}, {}, {}, {}, {}
-local A2X, A2Y, A2Z, WA2X, WA2Y, WA2Z = {}, {}, {}, {}, {}, {}
-local BnX, BnY, BnZ, WBnX, WBnY, WBnZ = {}, {}, {}, {}, {}, {}
-local B1X, B1Y, B1Z, WB1X, WB1Y, WB1Z = {}, {}, {}, {}, {}, {}
-local B2X, B2Y, B2Z, WB2X, WB2Y, WB2Z = {}, {}, {}, {}, {}, {}
-local MN, MT1, MT2 = {}, {}, {}   -- effective masses
-local BIAS, RELAX = {}, {}        -- velocity targets with and without the push
-local V0, MU, E = {}, {}, {}
-local LN, LT1, LT2 = {}, {}, {}   -- accumulated impulses
-local LNMAX = {}                  -- largest normal impulse seen (restitution needs > 0)
-local ACTIVE = {}
+-- Record fields. Kind: 1 ground, 2 two awake bodies, 3 B asleep or static.
+local K_A <const>, K_B <const>, K_KIND <const>, K_IDX <const> = 1, 2, 3, 4
+local K_NX <const>, K_NY <const>, K_NZ <const> = 5, 6, 7
+local K_T1X <const>, K_T1Y <const>, K_T1Z <const>, K_T2X <const>, K_T2Y <const>, K_T2Z <const> = 8, 9, 10, 11, 12, 13
+-- A's angular terms: (ra x d) and I^-1 (ra x d) for d = n, t1, t2; then B's
+local K_ANX <const>, K_ANY <const>, K_ANZ <const>, K_WANX <const>, K_WANY <const>, K_WANZ <const> = 14, 15, 16, 17, 18, 19
+local K_A1X <const>, K_A1Y <const>, K_A1Z <const>, K_WA1X <const>, K_WA1Y <const>, K_WA1Z <const> = 20, 21, 22, 23, 24, 25
+local K_A2X <const>, K_A2Y <const>, K_A2Z <const>, K_WA2X <const>, K_WA2Y <const>, K_WA2Z <const> = 26, 27, 28, 29, 30, 31
+local K_BNX <const>, K_BNY <const>, K_BNZ <const>, K_WBNX <const>, K_WBNY <const>, K_WBNZ <const> = 32, 33, 34, 35, 36, 37
+local K_B1X <const>, K_B1Y <const>, K_B1Z <const>, K_WB1X <const>, K_WB1Y <const>, K_WB1Z <const> = 38, 39, 40, 41, 42, 43
+local K_B2X <const>, K_B2Y <const>, K_B2Z <const>, K_WB2X <const>, K_WB2Y <const>, K_WB2Z <const> = 44, 45, 46, 47, 48, 49
+local K_MN <const>, K_MT1 <const>, K_MT2 <const> = 50, 51, 52   -- effective masses
+local K_BIAS <const>, K_RELAX <const> = 53, 54                  -- velocity targets with and without the push
+local K_V0 <const>, K_MU <const>, K_E <const> = 55, 56, 57
+local K_LN <const>, K_LT1 <const>, K_LT2 <const> = 58, 59, 60   -- accumulated impulses
+local K_LNMAX <const> = 61                                      -- largest normal impulse seen
 
--- Fill the angular terms of one direction for body b at arm (rx, ry, rz).
--- Returns jx, jy, jz (r x d), wx, wy, wz (I^-1 (r x d)), and (r x d).I^-1(r x d).
-local function angular(b, rx, ry, rz, dx, dy, dz)
-	local jx, jy, jz = ry * dz - rz * dy, rz * dx - rx * dz, rx * dy - ry * dx
-	local wx = b.i11 * jx + b.i12 * jy + b.i13 * jz
-	local wy = b.i12 * jx + b.i22 * jy + b.i23 * jz
-	local wz = b.i13 * jx + b.i23 * jy + b.i33 * jz
-	return jx, jy, jz, wx, wy, wz, jx * wx + jy * wy + jz * wz
-end
+local REC = {}   -- the records of this step's active contacts, 1 .. nRec (reused)
+local nRec = 0
+
+-- Per body, filled each step: position, bounding radius, awake, speed bound.
+local BX, BY, BZ, BR, AW, SPD = {}, {}, {}, {}, {}, {}
 
 -- Implicit gyroscopic step (Bullet's computeGyroscopicImpulseImplicit_Body):
 -- one Newton step of I w' = I w - dt w' x I w' in the body frame. Keeps a
@@ -298,7 +319,7 @@ local function gyro(b, dt)
 	local c12 = a23 * a31 - a21 * a33
 	local c13 = a21 * a32 - a22 * a31
 	local det = a11 * c11 + a12 * c12 + a13 * c13
-	if abs(det) < 1e-30 then return end
+	if det < 1e-30 and det > -1e-30 then return end
 	local inv = 1 / det
 	local dx = (c11 * fx + (a13 * a32 - a12 * a33) * fy + (a12 * a23 - a13 * a22) * fz) * inv
 	local dy = (c12 * fx + (a11 * a33 - a13 * a31) * fy + (a13 * a21 - a11 * a23) * fz) * inv
@@ -322,127 +343,146 @@ local function pointed(b)
 end
 world.pointed = pointed
 
-local function moving(b, lin, ang)
-	return b.vx * b.vx + b.vy * b.vy + b.vz * b.vz > lin * lin
-		or b.wx * b.wx + b.wy * b.wy + b.wz * b.wz > ang * ang
-end
-
--- Speed bound of any point of b (for the speculative margin).
-local function pointSpeed(b)
-	if not b.awake then return 0 end
-	return sqrt(b.vx * b.vx + b.vy * b.vy + b.vz * b.vz)
-		+ sqrt(b.wx * b.wx + b.wy * b.wy + b.wz * b.wz) * b.radius
-end
-
-local function pair(w, a, b, margin)
-	if a.shape == 1 then
-		if b.shape == 1 then collide.boxBox(a, b, margin)
-		else collide.capsuleBox(b, a, margin) end
-	else
-		if b.shape == 1 then collide.capsuleBox(a, b, margin)
-		else collide.capsuleCapsule(a, b, margin) end
-	end
-end
-
 local function noteContact(w, b, other, px, py, pz)
 	local rec = { t = w.time, x = px, y = py, z = pz, with = other and other.id or "ground" }
 	if not w.firstContact then w.firstContact = rec end
 	if other and not w.firstHit then w.firstHit = rec end
 end
 
--- One sequential-impulse pass over the contacts.
-local function solve(n, useBias)
-	for i = 1, n do
-		if ACTIVE[i] then
-			local a, b = SA[i], SB[i]
-			local ima = a.im
-			local nx, ny, nz = cNx[i], cNy[i], cNz[i]
-			local avx, avy, avz, awx, awy, awz = a.vx, a.vy, a.vz, a.wx, a.wy, a.wz
-			local bvx, bvy, bvz, bwx, bwy, bwz, imb = 0, 0, 0, 0, 0, 0, 0
-			if b then
-				bvx, bvy, bvz, bwx, bwy, bwz, imb = b.vx, b.vy, b.vz, b.wx, b.wy, b.wz, b.im
-			end
-			local dvx, dvy, dvz = avx - bvx, avy - bvy, avz - bvz
-			-- normal
-			local vn = dvx * nx + dvy * ny + dvz * nz
-				+ awx * AnX[i] + awy * AnY[i] + awz * AnZ[i]
-				- bwx * BnX[i] - bwy * BnY[i] - bwz * BnZ[i]
-			local target = useBias and BIAS[i] or RELAX[i]
-			local old = LN[i]
-			local lam = old - MN[i] * (vn - target)
+-- One sequential-impulse pass over the contacts; tk = K_BIAS or K_RELAX.
+local function solve(tk)
+	for i = 1, nRec do
+		local r = REC[i]
+		local a, kind = r[K_A], r[K_KIND]
+		local ima = a.im
+		local avx, avy, avz, awx, awy, awz = a.vx, a.vy, a.vz, a.wx, a.wy, a.wz
+		if kind == 1 then
+			-- the ground: n = +z, t1 = +x, t2 = +y
+			local anx, any = r[K_ANX], r[K_ANY]
+			local vn = avz + awx * anx + awy * any
+			local old = r[K_LN]
+			local lam = old - r[K_MN] * (vn - r[tk])
 			if lam < 0 then lam = 0 end
-			LN[i] = lam
-			if lam > LNMAX[i] then LNMAX[i] = lam end
+			r[K_LN] = lam
+			if lam > r[K_LNMAX] then r[K_LNMAX] = lam end
 			local d = lam - old
 			if d ~= 0 then
-				avx, avy, avz = avx + ima * d * nx, avy + ima * d * ny, avz + ima * d * nz
-				awx, awy, awz = awx + d * WAnX[i], awy + d * WAnY[i], awz + d * WAnZ[i]
-				if b then
-					bvx, bvy, bvz = bvx - imb * d * nx, bvy - imb * d * ny, bvz - imb * d * nz
-					bwx, bwy, bwz = bwx - d * WBnX[i], bwy - d * WBnY[i], bwz - d * WBnZ[i]
-				end
+				avz = avz + ima * d
+				awx, awy, awz = awx + d * r[K_WANX], awy + d * r[K_WANY], awz + d * r[K_WANZ]
 			end
-			-- friction: both tangents, clamped to the circular cone mu * lambda_n
-			local t1x, t1y, t1z, t2x, t2y, t2z = T1x[i], T1y[i], T1z[i], T2x[i], T2y[i], T2z[i]
-			dvx, dvy, dvz = avx - bvx, avy - bvy, avz - bvz
-			local v1 = dvx * t1x + dvy * t1y + dvz * t1z
-				+ awx * A1X[i] + awy * A1Y[i] + awz * A1Z[i]
-				- bwx * B1X[i] - bwy * B1Y[i] - bwz * B1Z[i]
-			local v2 = dvx * t2x + dvy * t2y + dvz * t2z
-				+ awx * A2X[i] + awy * A2Y[i] + awz * A2Z[i]
-				- bwx * B2X[i] - bwy * B2Y[i] - bwz * B2Z[i]
-			local o1, o2 = LT1[i], LT2[i]
-			local l1, l2 = o1 - MT1[i] * v1, o2 - MT2[i] * v2
-			local cap = MU[i] * lam
+			local a1y, a1z, a2x, a2z = r[K_A1Y], r[K_A1Z], r[K_A2X], r[K_A2Z]
+			local v1 = avx + awy * a1y + awz * a1z
+			local v2 = avy + awx * a2x + awz * a2z
+			local o1, o2 = r[K_LT1], r[K_LT2]
+			local l1, l2 = o1 - r[K_MT1] * v1, o2 - r[K_MT2] * v2
+			local cap = r[K_MU] * lam
 			local m2 = l1 * l1 + l2 * l2
 			if m2 > cap * cap then
 				local s = (m2 > 0) and (cap / sqrt(m2)) or 0
 				l1, l2 = l1 * s, l2 * s
 			end
-			LT1[i], LT2[i] = l1, l2
+			r[K_LT1], r[K_LT2] = l1, l2
+			local d1, d2 = l1 - o1, l2 - o2
+			if d1 ~= 0 or d2 ~= 0 then
+				avx, avy = avx + ima * d1, avy + ima * d2
+				awx = awx + d1 * r[K_WA1X] + d2 * r[K_WA2X]
+				awy = awy + d1 * r[K_WA1Y] + d2 * r[K_WA2Y]
+				awz = awz + d1 * r[K_WA1Z] + d2 * r[K_WA2Z]
+			end
+			a.vx, a.vy, a.vz, a.wx, a.wy, a.wz = avx, avy, avz, awx, awy, awz
+		elseif kind == 3 then
+			-- B asleep or static: nothing moves on its side
+			local nx, ny, nz = r[K_NX], r[K_NY], r[K_NZ]
+			local vn = avx * nx + avy * ny + avz * nz
+				+ awx * r[K_ANX] + awy * r[K_ANY] + awz * r[K_ANZ]
+			local old = r[K_LN]
+			local lam = old - r[K_MN] * (vn - r[tk])
+			if lam < 0 then lam = 0 end
+			r[K_LN] = lam
+			if lam > r[K_LNMAX] then r[K_LNMAX] = lam end
+			local d = lam - old
+			if d ~= 0 then
+				avx, avy, avz = avx + ima * d * nx, avy + ima * d * ny, avz + ima * d * nz
+				awx, awy, awz = awx + d * r[K_WANX], awy + d * r[K_WANY], awz + d * r[K_WANZ]
+			end
+			local t1x, t1y, t1z, t2x, t2y, t2z = r[K_T1X], r[K_T1Y], r[K_T1Z], r[K_T2X], r[K_T2Y], r[K_T2Z]
+			local v1 = avx * t1x + avy * t1y + avz * t1z
+				+ awx * r[K_A1X] + awy * r[K_A1Y] + awz * r[K_A1Z]
+			local v2 = avx * t2x + avy * t2y + avz * t2z
+				+ awx * r[K_A2X] + awy * r[K_A2Y] + awz * r[K_A2Z]
+			local o1, o2 = r[K_LT1], r[K_LT2]
+			local l1, l2 = o1 - r[K_MT1] * v1, o2 - r[K_MT2] * v2
+			local cap = r[K_MU] * lam
+			local m2 = l1 * l1 + l2 * l2
+			if m2 > cap * cap then
+				local s = (m2 > 0) and (cap / sqrt(m2)) or 0
+				l1, l2 = l1 * s, l2 * s
+			end
+			r[K_LT1], r[K_LT2] = l1, l2
 			local d1, d2 = l1 - o1, l2 - o2
 			if d1 ~= 0 or d2 ~= 0 then
 				local px, py, pz = d1 * t1x + d2 * t2x, d1 * t1y + d2 * t2y, d1 * t1z + d2 * t2z
 				avx, avy, avz = avx + ima * px, avy + ima * py, avz + ima * pz
-				awx = awx + d1 * WA1X[i] + d2 * WA2X[i]
-				awy = awy + d1 * WA1Y[i] + d2 * WA2Y[i]
-				awz = awz + d1 * WA1Z[i] + d2 * WA2Z[i]
-				if b then
-					bvx, bvy, bvz = bvx - imb * px, bvy - imb * py, bvz - imb * pz
-					bwx = bwx - d1 * WB1X[i] - d2 * WB2X[i]
-					bwy = bwy - d1 * WB1Y[i] - d2 * WB2Y[i]
-					bwz = bwz - d1 * WB1Z[i] - d2 * WB2Z[i]
-				end
+				awx = awx + d1 * r[K_WA1X] + d2 * r[K_WA2X]
+				awy = awy + d1 * r[K_WA1Y] + d2 * r[K_WA2Y]
+				awz = awz + d1 * r[K_WA1Z] + d2 * r[K_WA2Z]
 			end
 			a.vx, a.vy, a.vz, a.wx, a.wy, a.wz = avx, avy, avz, awx, awy, awz
-			if b then b.vx, b.vy, b.vz, b.wx, b.wy, b.wz = bvx, bvy, bvz, bwx, bwy, bwz end
+		else
+			-- two awake bodies
+			local b = r[K_B]
+			local imb = b.im
+			local bvx, bvy, bvz, bwx, bwy, bwz = b.vx, b.vy, b.vz, b.wx, b.wy, b.wz
+			local nx, ny, nz = r[K_NX], r[K_NY], r[K_NZ]
+			local dvx, dvy, dvz = avx - bvx, avy - bvy, avz - bvz
+			local vn = dvx * nx + dvy * ny + dvz * nz
+				+ awx * r[K_ANX] + awy * r[K_ANY] + awz * r[K_ANZ]
+				- bwx * r[K_BNX] - bwy * r[K_BNY] - bwz * r[K_BNZ]
+			local old = r[K_LN]
+			local lam = old - r[K_MN] * (vn - r[tk])
+			if lam < 0 then lam = 0 end
+			r[K_LN] = lam
+			if lam > r[K_LNMAX] then r[K_LNMAX] = lam end
+			local d = lam - old
+			if d ~= 0 then
+				avx, avy, avz = avx + ima * d * nx, avy + ima * d * ny, avz + ima * d * nz
+				awx, awy, awz = awx + d * r[K_WANX], awy + d * r[K_WANY], awz + d * r[K_WANZ]
+				bvx, bvy, bvz = bvx - imb * d * nx, bvy - imb * d * ny, bvz - imb * d * nz
+				bwx, bwy, bwz = bwx - d * r[K_WBNX], bwy - d * r[K_WBNY], bwz - d * r[K_WBNZ]
+			end
+			local t1x, t1y, t1z, t2x, t2y, t2z = r[K_T1X], r[K_T1Y], r[K_T1Z], r[K_T2X], r[K_T2Y], r[K_T2Z]
+			dvx, dvy, dvz = avx - bvx, avy - bvy, avz - bvz
+			local v1 = dvx * t1x + dvy * t1y + dvz * t1z
+				+ awx * r[K_A1X] + awy * r[K_A1Y] + awz * r[K_A1Z]
+				- bwx * r[K_B1X] - bwy * r[K_B1Y] - bwz * r[K_B1Z]
+			local v2 = dvx * t2x + dvy * t2y + dvz * t2z
+				+ awx * r[K_A2X] + awy * r[K_A2Y] + awz * r[K_A2Z]
+				- bwx * r[K_B2X] - bwy * r[K_B2Y] - bwz * r[K_B2Z]
+			local o1, o2 = r[K_LT1], r[K_LT2]
+			local l1, l2 = o1 - r[K_MT1] * v1, o2 - r[K_MT2] * v2
+			local cap = r[K_MU] * lam
+			local m2 = l1 * l1 + l2 * l2
+			if m2 > cap * cap then
+				local s = (m2 > 0) and (cap / sqrt(m2)) or 0
+				l1, l2 = l1 * s, l2 * s
+			end
+			r[K_LT1], r[K_LT2] = l1, l2
+			local d1, d2 = l1 - o1, l2 - o2
+			if d1 ~= 0 or d2 ~= 0 then
+				local px, py, pz = d1 * t1x + d2 * t2x, d1 * t1y + d2 * t2y, d1 * t1z + d2 * t2z
+				avx, avy, avz = avx + ima * px, avy + ima * py, avz + ima * pz
+				awx = awx + d1 * r[K_WA1X] + d2 * r[K_WA2X]
+				awy = awy + d1 * r[K_WA1Y] + d2 * r[K_WA2Y]
+				awz = awz + d1 * r[K_WA1Z] + d2 * r[K_WA2Z]
+				bvx, bvy, bvz = bvx - imb * px, bvy - imb * py, bvz - imb * pz
+				bwx = bwx - d1 * r[K_WB1X] - d2 * r[K_WB2X]
+				bwy = bwy - d1 * r[K_WB1Y] - d2 * r[K_WB2Y]
+				bwz = bwz - d1 * r[K_WB1Z] - d2 * r[K_WB2Z]
+			end
+			a.vx, a.vy, a.vz, a.wx, a.wy, a.wz = avx, avy, avz, awx, awy, awz
+			b.vx, b.vy, b.vz, b.wx, b.wy, b.wz = bvx, bvy, bvz, bwx, bwy, bwz
 		end
 	end
-end
-
--- Apply impulse lam along the normal of contact i.
-local function applyNormal(i, d)
-	local a, b = SA[i], SB[i]
-	local nx, ny, nz = cNx[i], cNy[i], cNz[i]
-	local ima = a.im
-	a.vx, a.vy, a.vz = a.vx + ima * d * nx, a.vy + ima * d * ny, a.vz + ima * d * nz
-	a.wx, a.wy, a.wz = a.wx + d * WAnX[i], a.wy + d * WAnY[i], a.wz + d * WAnZ[i]
-	if b then
-		local imb = b.im
-		b.vx, b.vy, b.vz = b.vx - imb * d * nx, b.vy - imb * d * ny, b.vz - imb * d * nz
-		b.wx, b.wy, b.wz = b.wx - d * WBnX[i], b.wy - d * WBnY[i], b.wz - d * WBnZ[i]
-	end
-end
-
-local function normalVelocity(i)
-	local a, b = SA[i], SB[i]
-	local vn = a.vx * cNx[i] + a.vy * cNy[i] + a.vz * cNz[i]
-		+ a.wx * AnX[i] + a.wy * AnY[i] + a.wz * AnZ[i]
-	if b then
-		vn = vn - (b.vx * cNx[i] + b.vy * cNy[i] + b.vz * cNz[i])
-			- (b.wx * BnX[i] + b.wy * BnY[i] + b.wz * BnZ[i])
-	end
-	return vn
 end
 
 -- Rolling resistance: an angular impulse of lever * normal impulse against
@@ -455,7 +495,9 @@ local function rollResist(b, lever, impulse)
 	if w2 < 1e-12 then return end
 	local wn = sqrt(w2)
 	local ux, uy, uz = wx / wn, wy / wn, wz / wn
-	local ix, iy, iz = body.invInertiaMul(b, ux, uy, uz)
+	local ix = b.i11 * ux + b.i12 * uy + b.i13 * uz
+	local iy = b.i12 * ux + b.i22 * uy + b.i23 * uz
+	local iz = b.i13 * ux + b.i23 * uy + b.i33 * uz
 	-- angular impulse that stops the spin along u: wn / (u . I^-1 u)
 	local stop = wn / (ux * ix + uy * iy + uz * iz)
 	if L >= stop then
@@ -468,6 +510,9 @@ end
 -- ---------------------------------------------------------------------------
 -- The step
 
+local boxBox, capsuleBox, capsuleCapsule = collide.boxBox, collide.capsuleBox, collide.capsuleCapsule
+local groundBox, groundCapsule = collide.groundBox, collide.groundCapsule
+
 function world.step(w)
 	local t = world.tune
 	local dt = t.dt
@@ -475,60 +520,108 @@ function world.step(w)
 	local surf = w.surface
 	local bodies, nb = w.bodies, w.n
 	local stamp = w.steps
+	local P = world.prof
+	local pc, pt
+	if P then pc = P.clock; pt = pc() end
+	local g = t.g
 
 	-- 1. forces
 	local awakeCount = 0
+	local useGyro = t.gyro
 	for i = 1, nb do
 		local b = bodies[i]
 		if b.awake then
 			awakeCount = awakeCount + 1
-			b.vz = b.vz - t.g * dt
-			if t.gyro then gyro(b, dt) end
+			b.vz = b.vz - g * dt
+			if useGyro then gyro(b, dt) end
 			b.groundImpulse = 0
 		end
 	end
 	w.awakeCount = awakeCount
 
+	if P then local now = pc(); P.forces = P.forces + now - pt; pt = now end
 	-- 2. contacts: pairs, then the ground
-	collide.reset()
+	C.n = 0
+	-- per body: position, radius, awake and the speed bound of any of its
+	-- points (for the speculative margin)
 	for i = 1, nb do
-		local a = bodies[i]
-		local sa = pointSpeed(a)
+		local b = bodies[i]
+		BX[i], BY[i], BZ[i], BR[i] = b.x, b.y, b.z, b.radius
+		local aw = b.awake
+		AW[i] = aw
+		if aw then
+			local vx, vy, vz, wx, wy, wz = b.vx, b.vy, b.vz, b.wx, b.wy, b.wz
+			SPD[i] = sqrt(vx * vx + vy * vy + vz * vz) + sqrt(wx * wx + wy * wy + wz * wz) * b.radius
+		else
+			SPD[i] = 0
+		end
+	end
+	local tmargin = t.margin
+	local wakeLin2, wakeAng2 = t.wakeLin * t.wakeLin, t.wakeAng * t.wakeAng
+	for i = 1, nb do
+		local sa = SPD[i]
+		local ax, ay, az, ar = BX[i], BY[i], BZ[i], BR[i]
 		for j = i + 1, nb do
-			local b = bodies[j]
-			if a.awake or b.awake then
-				local margin = t.margin + (sa + pointSpeed(b)) * dt
-				local dx, dy, dz = a.x - b.x, a.y - b.y, a.z - b.z
-				local reach = a.radius + b.radius + margin
+			if AW[i] or AW[j] then
+				local margin = tmargin + (sa + SPD[j]) * dt
+				local dx, dy, dz = ax - BX[j], ay - BY[j], az - BZ[j]
+				local reach = ar + BR[j] + margin
 				if dx * dx + dy * dy + dz * dz < reach * reach then
+					local a, b = bodies[i], bodies[j]
 					local before = C.n
-					pair(w, a, b, margin)
+					if P then P.narrow = P.narrow + 1 end
+					if a.shape == 1 then
+						if b.shape == 1 then boxBox(a, b, margin)
+						else capsuleBox(b, a, margin) end
+					else
+						if b.shape == 1 then capsuleBox(a, b, margin)
+						else capsuleCapsule(a, b, margin) end
+					end
 					if C.n > before then
 						-- wake a sleeper that an awake, moving body touches
-						if not a.awake and not a.static and moving(b, t.wakeLin, t.wakeAng) then
-							wake(a); a.vz = a.vz - t.g * dt; a.groundImpulse = 0
-						elseif not b.awake and not b.static and moving(a, t.wakeLin, t.wakeAng) then
-							wake(b); b.vz = b.vz - t.g * dt; b.groundImpulse = 0
+						local o, s = nil, 0
+						if not a.awake and not a.static then
+							if b.vx * b.vx + b.vy * b.vy + b.vz * b.vz > wakeLin2
+								or b.wx * b.wx + b.wy * b.wy + b.wz * b.wz > wakeAng2 then o, s = a, i end
+						elseif not b.awake and not b.static then
+							if a.vx * a.vx + a.vy * a.vy + a.vz * a.vz > wakeLin2
+								or a.wx * a.wx + a.wy * a.wy + a.wz * a.wz > wakeAng2 then o, s = b, j end
+						end
+						if o then
+							o.awake = true
+							o.everAwake = true
+							o.sleepTime = 0
+							o.vz = o.vz - g * dt
+							o.groundImpulse = 0
+							AW[s] = true
+							local vx, vy, vz, wx, wy, wz = o.vx, o.vy, o.vz, o.wx, o.wy, o.wz
+							SPD[s] = sqrt(vx * vx + vy * vy + vz * vz) + sqrt(wx * wx + wy * wy + wz * wz) * o.radius
 						end
 					end
 				end
 			end
 		end
 	end
+	if P then local now = pc(); P.pairs = P.pairs + now - pt; pt = now end
 	local nPair = C.n
 	for i = 1, nb do
 		local b = bodies[i]
 		if b.awake then
-			local margin = t.margin + max(0, -b.vz) * dt
-				+ sqrt(b.wx * b.wx + b.wy * b.wy + b.wz * b.wz) * b.radius * dt
-			if b.shape == 1 then collide.groundBox(b, margin) else collide.groundCapsule(b, margin) end
+			local nvz = -b.vz
+			if nvz < 0 then nvz = 0 end
+			local wx, wy, wz = b.wx, b.wy, b.wz
+			local margin = tmargin + nvz * dt + sqrt(wx * wx + wy * wy + wz * wz) * b.radius * dt
+			if b.shape == 1 then groundBox(b, margin) else groundCapsule(b, margin) end
 		end
 	end
+	if P then local now = pc(); P.ground = P.ground + now - pt; pt = now end
 	local n = C.n
 	w.contacts = n
 
-	-- 3. prepare
+	-- 3. prepare: one record per contact with an awake body
 	local slop, pushRate, maxPush = t.slop, t.pushRate, t.maxPush
+	local warmF, pairMu, pairE = t.warm, t.pairMu, t.pairE
+	local m = 0
 	for i = 1, n do
 		local a, b = cA[i], cB[i]
 		local nx, ny, nz = cNx[i], cNy[i], cNz[i]
@@ -537,177 +630,305 @@ function world.step(w)
 			if b and b.awake then
 				a, b = b, a
 				nx, ny, nz = -nx, -ny, -nz
-				cNx[i], cNy[i], cNz[i] = nx, ny, nz
 			else
 				a = nil
 			end
 		end
 		if a and b and not b.awake then b = false end
-		if not a then
-			ACTIVE[i] = false
-		else
-			ACTIVE[i] = true
-			SA[i], SB[i] = a, b
+		if a then
+			m = m + 1
+			local r = REC[m]
+			if not r then r = {}; REC[m] = r end
+			r[K_A], r[K_B], r[K_IDX] = a, b, i
 			local px, py, pz = cPx[i], cPy[i], cPz[i]
-			-- tangents
-			local t1x, t1y, t1z, t2x, t2y, t2z
-			if i > nPair then
-				t1x, t1y, t1z, t2x, t2y, t2z = 1, 0, 0, 0, 1, 0
-			else
-				if abs(nx) < 0.57 then
-					t1x, t1y, t1z = 0, nz, -ny
-				else
-					t1x, t1y, t1z = nz, 0, -nx
-				end
-				local l = 1 / sqrt(t1x * t1x + t1y * t1y + t1z * t1z)
-				t1x, t1y, t1z = t1x * l, t1y * l, t1z * l
-				t2x, t2y, t2z = ny * t1z - nz * t1y, nz * t1x - nx * t1z, nx * t1y - ny * t1x
-			end
-			T1x[i], T1y[i], T1z[i], T2x[i], T2y[i], T2z[i] = t1x, t1y, t1z, t2x, t2y, t2z
-			local rax, ray, raz = px - a.x, py - a.y, pz - a.z
-			local kn, k1, k2 = a.im, a.im, a.im
-			local jx, jy, jz, wx, wy, wz, kk = angular(a, rax, ray, raz, nx, ny, nz)
-			AnX[i], AnY[i], AnZ[i], WAnX[i], WAnY[i], WAnZ[i] = jx, jy, jz, wx, wy, wz
-			kn = kn + kk
-			jx, jy, jz, wx, wy, wz, kk = angular(a, rax, ray, raz, t1x, t1y, t1z)
-			A1X[i], A1Y[i], A1Z[i], WA1X[i], WA1Y[i], WA1Z[i] = jx, jy, jz, wx, wy, wz
-			k1 = k1 + kk
-			jx, jy, jz, wx, wy, wz, kk = angular(a, rax, ray, raz, t2x, t2y, t2z)
-			A2X[i], A2Y[i], A2Z[i], WA2X[i], WA2Y[i], WA2Z[i] = jx, jy, jz, wx, wy, wz
-			k2 = k2 + kk
-			if b then
-				local rbx, rby, rbz = px - b.x, py - b.y, pz - b.z
-				kn, k1, k2 = kn + b.im, k1 + b.im, k2 + b.im
-				jx, jy, jz, wx, wy, wz, kk = angular(b, rbx, rby, rbz, nx, ny, nz)
-				BnX[i], BnY[i], BnZ[i], WBnX[i], WBnY[i], WBnZ[i] = jx, jy, jz, wx, wy, wz
-				kn = kn + kk
-				jx, jy, jz, wx, wy, wz, kk = angular(b, rbx, rby, rbz, t1x, t1y, t1z)
-				B1X[i], B1Y[i], B1Z[i], WB1X[i], WB1Y[i], WB1Z[i] = jx, jy, jz, wx, wy, wz
-				k1 = k1 + kk
-				jx, jy, jz, wx, wy, wz, kk = angular(b, rbx, rby, rbz, t2x, t2y, t2z)
-				B2X[i], B2Y[i], B2Z[i], WB2X[i], WB2Y[i], WB2Z[i] = jx, jy, jz, wx, wy, wz
-				k2 = k2 + kk
-			else
-				BnX[i], BnY[i], BnZ[i], WBnX[i], WBnY[i], WBnZ[i] = 0, 0, 0, 0, 0, 0
-				B1X[i], B1Y[i], B1Z[i], WB1X[i], WB1Y[i], WB1Z[i] = 0, 0, 0, 0, 0, 0
-				B2X[i], B2Y[i], B2Z[i], WB2X[i], WB2Y[i], WB2Z[i] = 0, 0, 0, 0, 0, 0
-			end
-			MN[i], MT1[i], MT2[i] = 1 / kn, 1 / k1, 1 / k2
-			LN[i], LT1[i], LT2[i], LNMAX[i] = 0, 0, 0, 0
-			local v0 = normalVelocity(i)
-			V0[i] = v0
-			-- velocity targets: a speculative contact may close its gap this
-			-- step; an overlapping one is pushed apart (relax: not pushed)
+			local ax, ay, az = a.x, a.y, a.z
+			local rax, ray, raz = px - ax, py - ay, pz - az
+			local ima = a.im
+			local i11, i12, i13, i22, i23, i33 = a.i11, a.i12, a.i13, a.i22, a.i23, a.i33
+			local avx, avy, avz, awx, awy, awz = a.vx, a.vy, a.vz, a.wx, a.wy, a.wz
 			local sep = cSep[i]
+			local bias, relax
 			if sep > 0 then
-				BIAS[i], RELAX[i] = -sep * invDt, -sep * invDt
+				bias, relax = -sep * invDt, -sep * invDt
 			elseif sep < -slop then
-				BIAS[i], RELAX[i] = min(pushRate * (-sep - slop) * invDt, maxPush), 0
+				bias = pushRate * (-sep - slop) * invDt
+				if bias > maxPush then bias = maxPush end
+				relax = 0
 			else
-				BIAS[i], RELAX[i] = 0, 0
+				bias, relax = 0, 0
 			end
+			r[K_BIAS], r[K_RELAX] = bias, relax
+			r[K_LT1], r[K_LT2] = 0, 0
+			r[K_LNMAX] = 0
 			if i > nPair then
-				-- ground: surface friction and bounce, dig, warm start
+				-- the ground: n = +z, t1 = +x, t2 = +y. (ra x d) and I^-1 (ra x d)
+				-- with the zero terms left out.
+				r[K_KIND] = 1
+				r[K_NX], r[K_NY], r[K_NZ] = 0, 0, 1
+				r[K_T1X], r[K_T1Y], r[K_T1Z], r[K_T2X], r[K_T2Y], r[K_T2Z] = 1, 0, 0, 0, 1, 0
+				-- n: j = (ray, -rax, 0)
+				local jx, jy = ray, -rax
+				local wx, wy, wz = i11 * jx + i12 * jy, i12 * jx + i22 * jy, i13 * jx + i23 * jy
+				r[K_ANX], r[K_ANY], r[K_ANZ], r[K_WANX], r[K_WANY], r[K_WANZ] = jx, jy, 0, wx, wy, wz
+				local kn = ima + (jx * wx + jy * wy)
+				-- t1: j = (0, raz, -ray)
+				jy = raz
+				local jz = -ray
+				wx, wy, wz = i12 * jy + i13 * jz, i22 * jy + i23 * jz, i23 * jy + i33 * jz
+				r[K_A1X], r[K_A1Y], r[K_A1Z], r[K_WA1X], r[K_WA1Y], r[K_WA1Z] = 0, jy, jz, wx, wy, wz
+				local k1 = ima + (jy * wy + jz * wz)
+				-- t2: j = (-raz, 0, rax)
+				jx, jz = -raz, rax
+				wx, wy, wz = i11 * jx + i13 * jz, i12 * jx + i23 * jz, i13 * jx + i33 * jz
+				r[K_A2X], r[K_A2Y], r[K_A2Z], r[K_WA2X], r[K_WA2Y], r[K_WA2Z] = jx, 0, jz, wx, wy, wz
+				local k2 = ima + (jx * wx + jz * wz)
+				local mn = 1 / kn
+				r[K_MN], r[K_MT1], r[K_MT2] = mn, 1 / k1, 1 / k2
+				local anx, any = r[K_ANX], r[K_ANY]
+				local v0 = avz + awx * anx + awy * any
+				r[K_V0] = v0
+				-- surface friction and bounce, dig, warm start
 				local k = cSlot[i]
 				local mu, e = surf.mu, surf.e
 				local dig
+				local ln, l1, l2 = 0, 0, 0
 				if a.gStamp[k] == stamp - 1 then
 					dig = a.gDig[k]
-					local wf = t.warm
-					LN[i], LT1[i], LT2[i] = a.gN[k] * wf, a.gT1[k] * wf, a.gT2[k] * wf
+					ln, l1, l2 = a.gN[k] * warmF, a.gT1[k] * warmF, a.gT2[k] * warmF
 				else
 					-- a new contact: how steeply and how fast did it arrive?
 					dig = 0
 					if v0 < -surf.digSpeed and surf.dig > 0 then
-						local vt1 = a.vx + a.wy * raz - a.wz * ray
-						local vt2 = a.vy + a.wz * rax - a.wx * raz
+						local vt1 = avx + awy * raz - awz * ray
+						local vt2 = avy + awz * rax - awx * raz
 						local steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
-						local ramp = min(1, (-v0 - surf.digSpeed) / surf.digRamp)
+						local ramp = (-v0 - surf.digSpeed) / surf.digRamp
+						if ramp > 1 then ramp = 1 end
 						dig = surf.dig * steep * ramp * pointed(a)
 						local lever = surf.digLever * min(1, dig)
 						if lever > a.dig then a.dig = lever end
 					end
 				end
 				a.gDig[k] = dig
-				MU[i] = mu * (1 + dig)
-				E[i] = e * max(0, 1 - dig)
+				r[K_MU] = mu * (1 + dig)
+				local ef = 1 - dig
+				if ef < 0 then ef = 0 end
+				r[K_E] = e * ef
+				r[K_LN], r[K_LT1], r[K_LT2] = ln, l1, l2
+				-- warm start (n = +z, t1 = +x, t2 = +y)
+				if ln > 0 or l1 ~= 0 or l2 ~= 0 then
+					a.vx, a.vy, a.vz = avx + ima * l1, avy + ima * l2, avz + ima * ln
+					a.wx = awx + ln * r[K_WANX] + l1 * r[K_WA1X] + l2 * r[K_WA2X]
+					a.wy = awy + ln * r[K_WANY] + l1 * r[K_WA1Y] + l2 * r[K_WA2Y]
+					a.wz = awz + ln * r[K_WANZ] + l1 * r[K_WA1Z] + l2 * r[K_WA2Z]
+				end
 			else
-				MU[i], E[i] = t.pairMu, t.pairE
-			end
-			-- warm start
-			if LN[i] > 0 or LT1[i] ~= 0 or LT2[i] ~= 0 then
-				local l, l1, l2 = LN[i], LT1[i], LT2[i]
-				local qx, qy, qz = l * nx + l1 * t1x + l2 * t2x, l * ny + l1 * t1y + l2 * t2y, l * nz + l1 * t1z + l2 * t2z
-				a.vx, a.vy, a.vz = a.vx + a.im * qx, a.vy + a.im * qy, a.vz + a.im * qz
-				a.wx = a.wx + l * WAnX[i] + l1 * WA1X[i] + l2 * WA2X[i]
-				a.wy = a.wy + l * WAnY[i] + l1 * WA1Y[i] + l2 * WA2Y[i]
-				a.wz = a.wz + l * WAnZ[i] + l1 * WA1Z[i] + l2 * WA2Z[i]
+				r[K_NX], r[K_NY], r[K_NZ] = nx, ny, nz
+				-- tangents
+				local t1x, t1y, t1z
+				if nx < 0.57 and nx > -0.57 then
+					t1x, t1y, t1z = 0, nz, -ny
+				else
+					t1x, t1y, t1z = nz, 0, -nx
+				end
+				local l = 1 / sqrt(t1x * t1x + t1y * t1y + t1z * t1z)
+				t1x, t1y, t1z = t1x * l, t1y * l, t1z * l
+				local t2x, t2y, t2z = ny * t1z - nz * t1y, nz * t1x - nx * t1z, nx * t1y - ny * t1x
+				r[K_T1X], r[K_T1Y], r[K_T1Z], r[K_T2X], r[K_T2Y], r[K_T2Z] = t1x, t1y, t1z, t2x, t2y, t2z
+				-- A's angular terms for n, t1, t2
+				local jx, jy, jz = ray * nz - raz * ny, raz * nx - rax * nz, rax * ny - ray * nx
+				local wx = i11 * jx + i12 * jy + i13 * jz
+				local wy = i12 * jx + i22 * jy + i23 * jz
+				local wz = i13 * jx + i23 * jy + i33 * jz
+				r[K_ANX], r[K_ANY], r[K_ANZ], r[K_WANX], r[K_WANY], r[K_WANZ] = jx, jy, jz, wx, wy, wz
+				local kn = ima + (jx * wx + jy * wy + jz * wz)
+				jx, jy, jz = ray * t1z - raz * t1y, raz * t1x - rax * t1z, rax * t1y - ray * t1x
+				wx = i11 * jx + i12 * jy + i13 * jz
+				wy = i12 * jx + i22 * jy + i23 * jz
+				wz = i13 * jx + i23 * jy + i33 * jz
+				r[K_A1X], r[K_A1Y], r[K_A1Z], r[K_WA1X], r[K_WA1Y], r[K_WA1Z] = jx, jy, jz, wx, wy, wz
+				local k1 = ima + (jx * wx + jy * wy + jz * wz)
+				jx, jy, jz = ray * t2z - raz * t2y, raz * t2x - rax * t2z, rax * t2y - ray * t2x
+				wx = i11 * jx + i12 * jy + i13 * jz
+				wy = i12 * jx + i22 * jy + i23 * jz
+				wz = i13 * jx + i23 * jy + i33 * jz
+				r[K_A2X], r[K_A2Y], r[K_A2Z], r[K_WA2X], r[K_WA2Y], r[K_WA2Z] = jx, jy, jz, wx, wy, wz
+				local k2 = ima + (jx * wx + jy * wy + jz * wz)
+				local v0 = avx * nx + avy * ny + avz * nz
+					+ awx * r[K_ANX] + awy * r[K_ANY] + awz * r[K_ANZ]
+				if b then
+					r[K_KIND] = 2
+					local imb = b.im
+					local j11, j12, j13, j22, j23, j33 = b.i11, b.i12, b.i13, b.i22, b.i23, b.i33
+					local rbx, rby, rbz = px - b.x, py - b.y, pz - b.z
+					kn, k1, k2 = kn + imb, k1 + imb, k2 + imb
+					jx, jy, jz = rby * nz - rbz * ny, rbz * nx - rbx * nz, rbx * ny - rby * nx
+					wx = j11 * jx + j12 * jy + j13 * jz
+					wy = j12 * jx + j22 * jy + j23 * jz
+					wz = j13 * jx + j23 * jy + j33 * jz
+					r[K_BNX], r[K_BNY], r[K_BNZ], r[K_WBNX], r[K_WBNY], r[K_WBNZ] = jx, jy, jz, wx, wy, wz
+					kn = kn + (jx * wx + jy * wy + jz * wz)
+					jx, jy, jz = rby * t1z - rbz * t1y, rbz * t1x - rbx * t1z, rbx * t1y - rby * t1x
+					wx = j11 * jx + j12 * jy + j13 * jz
+					wy = j12 * jx + j22 * jy + j23 * jz
+					wz = j13 * jx + j23 * jy + j33 * jz
+					r[K_B1X], r[K_B1Y], r[K_B1Z], r[K_WB1X], r[K_WB1Y], r[K_WB1Z] = jx, jy, jz, wx, wy, wz
+					k1 = k1 + (jx * wx + jy * wy + jz * wz)
+					jx, jy, jz = rby * t2z - rbz * t2y, rbz * t2x - rbx * t2z, rbx * t2y - rby * t2x
+					wx = j11 * jx + j12 * jy + j13 * jz
+					wy = j12 * jx + j22 * jy + j23 * jz
+					wz = j13 * jx + j23 * jy + j33 * jz
+					r[K_B2X], r[K_B2Y], r[K_B2Z], r[K_WB2X], r[K_WB2Y], r[K_WB2Z] = jx, jy, jz, wx, wy, wz
+					k2 = k2 + (jx * wx + jy * wy + jz * wz)
+					v0 = v0 - (b.vx * nx + b.vy * ny + b.vz * nz)
+						- (b.wx * r[K_BNX] + b.wy * r[K_BNY] + b.wz * r[K_BNZ])
+				else
+					r[K_KIND] = 3
+				end
+				r[K_MN], r[K_MT1], r[K_MT2] = 1 / kn, 1 / k1, 1 / k2
+				r[K_V0] = v0
+				r[K_MU], r[K_E] = pairMu, pairE
+				r[K_LN] = 0
 			end
 		end
 	end
+	nRec = m
 
+	if P then local now = pc(); P.prepare = P.prepare + now - pt; pt = now end
 	-- 4. solve with the push bias
-	for _ = 1, t.iterations do solve(n, true) end
+	for _ = 1, t.iterations do solve(K_BIAS) end
 
-	-- 5. integrate positions
+	if P then local now = pc(); P.solve = P.solve + now - pt; pt = now end
+	-- 5. integrate positions (quaternion step, normalize, rotation matrix and
+	-- world inverse inertia: quat.integrate and body.updateDerived written out)
+	local h = 0.5 * dt
 	for i = 1, nb do
 		local b = bodies[i]
 		if b.awake then
 			b.x, b.y, b.z = b.x + b.vx * dt, b.y + b.vy * dt, b.z + b.vz * dt
-			b.qw, b.qx, b.qy, b.qz = quat.integrate(b.qw, b.qx, b.qy, b.qz, b.wx, b.wy, b.wz, dt)
-			body.updateDerived(b)
+			local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
+			local wx, wy, wz = b.wx, b.wy, b.wz
+			local dw = -(wx * qx + wy * qy + wz * qz)
+			local dx = wx * qw + wy * qz - wz * qy
+			local dy = wy * qw + wz * qx - wx * qz
+			local dz = wz * qw + wx * qy - wy * qx
+			qw, qx, qy, qz = qw + h * dw, qx + h * dx, qy + h * dy, qz + h * dz
+			local qn = sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
+			if qn < 1e-12 then
+				qw, qx, qy, qz = 1, 0, 0, 0
+			else
+				qn = 1 / qn
+				qw, qx, qy, qz = qw * qn, qx * qn, qy * qn, qz * qn
+			end
+			b.qw, b.qx, b.qy, b.qz = qw, qx, qy, qz
+			local xx, yy, zz = qx * qx, qy * qy, qz * qz
+			local xy, xz, yz = qx * qy, qx * qz, qy * qz
+			local xw, yw, zw = qw * qx, qw * qy, qw * qz
+			local r11, r12, r13 = 1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw)
+			local r21, r22, r23 = 2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw)
+			local r31, r32, r33 = 2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy)
+			b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33 = r11, r12, r13, r21, r22, r23, r31, r32, r33
+			local ia, ic, ie = b.iIx, b.iIy, b.iIz
+			b.i11 = r11 * r11 * ia + r12 * r12 * ic + r13 * r13 * ie
+			b.i12 = r11 * r21 * ia + r12 * r22 * ic + r13 * r23 * ie
+			b.i13 = r11 * r31 * ia + r12 * r32 * ic + r13 * r33 * ie
+			b.i22 = r21 * r21 * ia + r22 * r22 * ic + r23 * r23 * ie
+			b.i23 = r21 * r31 * ia + r22 * r32 * ic + r23 * r33 * ie
+			b.i33 = r31 * r31 * ia + r32 * r32 * ic + r33 * r33 * ie
 		end
 	end
 
+	if P then local now = pc(); P.integrate = P.integrate + now - pt; pt = now end
 	-- 6. relax: remove the push-apart speed
-	for _ = 1, t.relaxIterations do solve(n, false) end
+	for _ = 1, t.relaxIterations do solve(K_RELAX) end
 
+	if P then local now = pc(); P.relax = P.relax + now - pt; pt = now end
 	-- 7. restitution
 	-- (several passes: a box landing flat has four corners, and one pass
 	-- in order over them tips it and overshoots the bounce)
 	local rs = t.restitutionSpeed
-	for _ = 1, t.restitutionIterations do
-		for i = 1, n do
-			if ACTIVE[i] and V0[i] < -rs and LNMAX[i] > 0 and E[i] > 0 then
-				local vn = normalVelocity(i)
-				local old = LN[i]
-				local lam = old - MN[i] * (vn + E[i] * V0[i])
-				if lam < 0 then lam = 0 end
-				LN[i] = lam
-				if lam ~= old then applyNormal(i, lam - old) end
+	local any = false
+	for i = 1, m do
+		local r = REC[i]
+		if r[K_V0] < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then any = true break end
+	end
+	if any then
+		for _ = 1, t.restitutionIterations do
+			for i = 1, m do
+				local r = REC[i]
+				local v0 = r[K_V0]
+				if v0 < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then
+					local a, kind = r[K_A], r[K_KIND]
+					local vn
+					if kind == 1 then
+						vn = a.vz + a.wx * r[K_ANX] + a.wy * r[K_ANY]
+					else
+						vn = a.vx * r[K_NX] + a.vy * r[K_NY] + a.vz * r[K_NZ]
+							+ a.wx * r[K_ANX] + a.wy * r[K_ANY] + a.wz * r[K_ANZ]
+						if kind == 2 then
+							local b = r[K_B]
+							vn = vn - (b.vx * r[K_NX] + b.vy * r[K_NY] + b.vz * r[K_NZ])
+								- (b.wx * r[K_BNX] + b.wy * r[K_BNY] + b.wz * r[K_BNZ])
+						end
+					end
+					local old = r[K_LN]
+					local lam = old - r[K_MN] * (vn + r[K_E] * v0)
+					if lam < 0 then lam = 0 end
+					r[K_LN] = lam
+					if lam ~= old then
+						local d = lam - old
+						local ima = a.im
+						if kind == 1 then
+							a.vz = a.vz + ima * d
+						else
+							local nx, ny, nz = r[K_NX], r[K_NY], r[K_NZ]
+							a.vx, a.vy, a.vz = a.vx + ima * d * nx, a.vy + ima * d * ny, a.vz + ima * d * nz
+							if kind == 2 then
+								local b = r[K_B]
+								local imb = b.im
+								b.vx, b.vy, b.vz = b.vx - imb * d * nx, b.vy - imb * d * ny, b.vz - imb * d * nz
+								b.wx, b.wy, b.wz = b.wx - d * r[K_WBNX], b.wy - d * r[K_WBNY], b.wz - d * r[K_WBNZ]
+							end
+						end
+						a.wx, a.wy, a.wz = a.wx + d * r[K_WANX], a.wy + d * r[K_WANY], a.wz + d * r[K_WANZ]
+					end
+				end
 			end
 		end
 	end
 
+	if P then local now = pc(); P.restitution = P.restitution + now - pt; pt = now end
 	-- 8. store ground impulses; touches
-	for i = 1, n do
-		if ACTIVE[i] then
-			local a, b = SA[i], SB[i]
-			if i > nPair then
-				local k = cSlot[i]
-				a.gStamp[k], a.gN[k], a.gT1[k], a.gT2[k] = stamp, LN[i], LT1[i], LT2[i]
-				a.groundImpulse = a.groundImpulse + LN[i]
-				if LNMAX[i] > 0 and a == w.projectile and not w.firstContact then
-					noteContact(w, a, nil, cPx[i], cPy[i], cPz[i])
-				end
-			elseif LNMAX[i] > 0 then
-				local other = cB[i]
-				local first = cA[i]
-				first.touched, other.touched = true, true
-				local proj = w.projectile
-				if proj and not w.firstHit and (first == proj or other == proj) then
-					noteContact(w, proj, (first == proj) and other or first, cPx[i], cPy[i], cPz[i])
-				end
+	local proj = w.projectile
+	for i = 1, m do
+		local r = REC[i]
+		local idx = r[K_IDX]
+		if r[K_KIND] == 1 then
+			local a = r[K_A]
+			local k = cSlot[idx]
+			local ln = r[K_LN]
+			a.gStamp[k], a.gN[k], a.gT1[k], a.gT2[k] = stamp, ln, r[K_LT1], r[K_LT2]
+			a.groundImpulse = a.groundImpulse + ln
+			if r[K_LNMAX] > 0 and a == proj and not w.firstContact then
+				noteContact(w, a, nil, cPx[idx], cPy[idx], cPz[idx])
+			end
+		elseif r[K_LNMAX] > 0 then
+			local other = cB[idx]
+			local first = cA[idx]
+			first.touched, other.touched = true, true
+			if proj and not w.firstHit and (first == proj or other == proj) then
+				noteContact(w, proj, (first == proj) and other or first, cPx[idx], cPy[idx], cPz[idx])
 			end
 		end
 	end
 
+	if P then local now = pc(); P.store = P.store + now - pt; pt = now end
 	-- rolling resistance and dig, then sleep and bookkeeping
 	w.time = w.time + dt
 	w.steps = stamp + 1
-	local digFade = 1
 	local sinTopple = sin(rad(t.toppleDeg))
 	local half, len, om = t.pitchHalfWidth, t.pitchLength, t.outMargin
+	local sleepLin2, sleepAng2, sleepTime = t.sleepLin * t.sleepLin, t.sleepAng * t.sleepAng, t.sleepTime
 	for i = 1, nb do
 		local b = bodies[i]
 		if b.awake then
@@ -721,13 +942,14 @@ function world.step(w)
 				b.dig = b.dig * exp(-dt / surf.digTime)
 				if b.dig < 1e-5 then b.dig = 0 end
 			end
-			if b.shape == 1 and not b.toppled and abs(b.r33) <= sinTopple then b.toppled = true end
-			if abs(b.x) > half + om or b.y < -om or b.y > len + om then b.leftPitch = true end
-			local v2 = b.vx * b.vx + b.vy * b.vy + b.vz * b.vz
-			local w2 = b.wx * b.wx + b.wy * b.wy + b.wz * b.wz
-			if v2 < t.sleepLin * t.sleepLin and w2 < t.sleepAng * t.sleepAng and gi > 0 then
+			local r33 = b.r33
+			if b.shape == 1 and not b.toppled and r33 <= sinTopple and r33 >= -sinTopple then b.toppled = true end
+			local x, y = b.x, b.y
+			if x > half + om or x < -(half + om) or y < -om or y > len + om then b.leftPitch = true end
+			local vx, vy, vz, wx, wy, wz = b.vx, b.vy, b.vz, b.wx, b.wy, b.wz
+			if vx * vx + vy * vy + vz * vz < sleepLin2 and wx * wx + wy * wy + wz * wz < sleepAng2 and gi > 0 then
 				b.sleepTime = b.sleepTime + dt
-				if b.sleepTime >= t.sleepTime then
+				if b.sleepTime >= sleepTime then
 					b.awake = false
 					b.vx, b.vy, b.vz, b.wx, b.wy, b.wz = 0, 0, 0, 0, 0, 0
 					b.dig = 0
@@ -737,8 +959,10 @@ function world.step(w)
 			end
 		end
 	end
+	if P then local now = pc(); P.tail = P.tail + now - pt end
 	return w
 end
+
 
 -- Everything asleep (or the throw ran past tune.maxTime).
 function world.isAtRest(w)
