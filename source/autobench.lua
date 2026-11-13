@@ -125,6 +125,10 @@ local function body()
 	local r = bench.run(clock, 24, function() y() end)
 	out { bench.line(r, "device") .. "; " .. stats() }
 	y()
+	-- the same throw with a full turn's debris lying on the pitch (asleep)
+	local rd = bench.run(clock, 24, function() y() end, true)
+	out { bench.line(rd, "device with debris") }
+	y()
 
 	-- per-phase profile
 	local pl = bench.profile(clock, 24, function() y() end)
