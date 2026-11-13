@@ -1,0 +1,41 @@
+name: validate
+
+# The merge gate. main takes changes only through a pull request whose
+# `validate` check is green on a branch up to date with main. The job's name
+# IS the required check's name in the main ruleset: rename them together or
+# merges stop.
+#
+# What runs here: the pure-Lua tests for source/core on Lua 5.4. What does
+# not: the pdc build and the Simulator self-tests (they need the Playdate SDK
+# and a Mac), and the notation gate (it reads pk-kubb-score, which is not on
+# GitHub). Those run locally with `make test` and `make selftest` before a
+# pull request is opened.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to a PR supersedes its running check; main's runs finish.
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# No default token permissions; the job asks for its own. Actions are pinned
+# to commit SHAs and checkout leaves no token behind.
+permissions: {}
+
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: install Lua 5.4
+        run: sudo apt-get update -q && sudo apt-get install -y -q lua5.4
+      - name: Lua tests
+        run: make test-lua LUA=lua5.4
