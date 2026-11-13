@@ -34,7 +34,8 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   early kings, helicopters and so on). Then it plays `PHYS_N` (5) matches with real physics
   (`tools/physmatch.lua`, see "Headless games") into `build/physgames/` and gates them too.
 - `make bench`: the physics benchmark on the desktop (`tools/bench.lua`, three runs of
-  `core/bench`, prints each and the best). `lua5.4 tools/bench.lua [runs] [--profile]
+  `core/bench`, prints each and the best; then the same three runs with a full turn's debris
+  asleep on the pitch, and the difference). `lua5.4 tools/bench.lua [runs] [--profile]
   [--micro]` adds the per-phase profile of `world.step` and the micro benchmarks of
   `core/microbench`. See "Measuring on the device" for the device side.
 - `make clean`.
@@ -211,7 +212,14 @@ king. `tools/physmatch.lua [--n --seed --out --maxturns -v]` plays whole matches
 `core/match` with every throw run by `core/world` to rest (the match scene's path without
 the screen; about 0.7 s a match on a Mac) and writes the game files. Past `--maxturns`
 (40) the team on turn resigns. With no scatter every baton hits and a game never ends
-(every toppled field kubb comes straight back), so the scatter is not zero.
+(every toppled field kubb comes straight back), so the scatter is not zero. Its throws go
+into the turn's debris like the match scene's.
+
+`tools/compound.lua [--quick] [--games N] [--tilt deg]` asks whether one baton can take down
+two or three kubbs: a deterministic sweep of core/swing batons (power 0.6 to 1.0, lofts 20
+to 35) at pairs and triples side by side and pairs in line at 3, 7, 15 and 30 cm gaps across
+a sweep of aim offsets, a domino check, and the spacing of standing field kubbs in physics
+matches (about a minute; `--quick` about 10 s).
 
 ## Simulator self-tests
 
@@ -256,9 +264,12 @@ the screen; about 0.7 s a match on a Mac) and writes the game files. Past `--max
   `core/autothrow` throws instead of the crank, `instant`, `skipHandoff`, `maxTurns`),
   `step(ms, ctx, h)` runs after each frame with `h.feed(steps)`, `h.pressA()` and
   `h.idle()` for scripted input. `tw.selftest.pitchMatchesEngine(ms)` checks every item on
-  screen against the engine's state. Scenarios: `match-opening` (crank throws: Team A's two
+  screen against the engine's state and the setup's debris; `tw.selftest.debrisShown(ms)`
+  counts the debris kubbs and batons on screen. Scenarios: `match-opening` (crank throws: Team A's two
   opening batons, the hand-off card, Team B's first throw in its turned view),
-  `match-toss` (a kubb toss played back and the automatic raising after it) and
+  `match-toss` (a kubb toss played back and the automatic raising after it),
+  `match-debris` (a downed kubb and a lying baton on the pitch for the next throw of the
+  turn, that baton among them at rest, gone after the hand-off) and
   `match-whole` (a scripted match to a winner as fast as the Simulator goes, the d-pad
   walk up to the advantage line on the way; its marker names the game file, which the
   Makefile copies to `build/selftest/games/` and runs the notation gate over). The
@@ -303,7 +314,10 @@ Every number that is a guess lives in one table per module, with a comment:
   thresholds, topple angle, out margin, maximum throw time, stake height.
   `tw.world.surfaces`: one parameter set per ground (grass, sand; ice is a marked
   placeholder): friction, bounce, dig, rolling resistance.
-- `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds).
+- `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds,
+  and `bench.debris`, the lying batons and kubbs of a full turn).
+- `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
+  lying tossed kubb must stay to the one recorded at rest for that exact pose to be used.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction (also the light that
   shades the faces), face-shade thresholds, patterns, stakes, HUD placement, the throw
   gauge (`hud.swingGauge`: the arm that turns with the crank), and `cache` in each (the
@@ -378,7 +392,8 @@ The autobench measures a build on the Playdate with nobody pressing anything:
    (`pdutil <port> run /Games/ThrowingWood.pdx`).
 3. At launch the game deletes the flag, runs `source/autobench.lua` (about two minutes)
    and appends to `bench.txt` in the Data folder: the micro benchmarks, the `core/bench`
-   physics line (also with the collector stopped) and its per-phase profile, the draw
+   physics line (also with the collector stopped, and with a full turn's debris asleep on
+   the pitch) and its per-phase profile, the draw
    timings of the throw scene by frame type (aim with the camera still, swivelling,
    walking, then a full throw split into wind-up, flight, impact and rest, with
    `render/world` and HUD part timings), a few drawing primitives, memory and
@@ -397,12 +412,15 @@ and copying a full-screen image about 0.7 ms. So:
   the pose version, the baton and `render.world.advantageY` (the match's advantage line).
 - Each item keeps what depends only on its pose (world corners, the shadow outline, face
   normals and shades). Change a pose only through `render.world.setPose`: it marks the item
-  stale and bumps `render.world.poseVersion()`, which is what invalidates the caches. After
+  stale and bumps `render.world.poseVersion()`, which is what invalidates the caches. A lying
+  baton is an item too (`baton = true`, its axis from the pose): drawn from the cached pose
+  each frame like the flying baton, with nothing prepared. After
   changing `render.world.tune` or anything else the caches cannot see, call
   `render.world.invalidate()`: it drops the frame image and every item's prepared shadow
   and shading.
-- The device autobench turns the crank recorder off while it runs and restores it after,
-  so its scripted throws never reach `traces.jsonl`.
+- The device autobench turns the crank recorder and the frame-time log off while it runs
+  and restores them after, so its scripted throws never reach `traces.jsonl` or
+  `frames.jsonl`.
 - `render/hud` draws each part (minimap, loft and power panel, gauge dial) as a layer: to
   the screen while its inputs change, into an image (on the 8 px grid, through
   `gfx.setDrawOffset`) once a frame repeats the last frame's inputs, then copied until an
@@ -451,8 +469,29 @@ own item). Practice is the throw scene exactly as before.
   targets; `s.auto = false` stops it in mode `done` after the rest hold) and over (the
   winner card; the game file was written to `games/` in the Data folder, DESIGN 7). The
   engine rules on a throw as soon as it is at rest, so the result line shows during the
-  rest hold; then the pitch is rebuilt from the engine's state (toppled kubbs leave it,
-  kubbs pushed out are put back, punishment kubbs appear).
+  rest hold; then the next throw is set up from the engine's state plus the turn's debris
+  (below): standing pieces are where the engine says (kubbs pushed out are put back, raised
+  and punishment kubbs appear).
+- Debris (`core/debris.lua`, carried by `core/match`): within a turn every thrown baton
+  lies where it came to rest and every kubb it toppled that the engine took off the pitch
+  lies where it fell. `match.setup` gives them as `s.debris` (core/world pieces in the view
+  frame, full pose and z, `toppled`, asleep) and a per-turn baton body id `s.batonId`
+  (`baton1` ..); `match.worldPieces(s)` is pieces then debris, the bodies a throw's world
+  starts with. `match.resolve` (`match.carryDebris`) moves the debris to where the throw
+  left it, adds the new baton and newly downed kubbs; a throw the engine puts back (`Z`)
+  leaves the earlier debris as it was and only adds its baton. The debris is kept in the
+  world frame and turned for Team B. A debris kubb is down in the world (`wasToppled`), so
+  hitting it again tops nothing up; a standing kubb it is pushed into counts for this throw
+  as a direct hit would. The hand-off (a new turn), the end of the game and a resign clear
+  it. During the inkast the engine keeps the tossed kubbs on the pitch lying; debris also
+  carries their exact rest pose (tilt, height) while the engine's pose is the one they came
+  to rest at, so they are shown and simulated as they landed until raised. In the scene the
+  debris items follow the engine's pieces; a lying baton is a `baton` item of `render/world`
+  (drawn like the flying baton from its cached pose, nothing prepared); the minimap draws
+  debris as 1 px dots like other toppled pieces. Cost: `make bench` runs its throw again with
+  six lying batons and ten downed kubbs asleep (about +16% per step on the desktop over the
+  whole run, +9% in the collision phase; all of it in the pair loop's sphere checks between
+  awake bodies and the sleeping debris); a sleeping body costs nothing else until woken.
 - Kubb toss: the same aim, loft and crank swing as a baton, always from the baseline; the
   kubb is a real body (`world.launchKubb`) turning at `throw.tune.tossTumble` of the
   swing's tumble with no tilt (no helicopter), drawn as one more box item.
@@ -478,6 +517,36 @@ own item). Practice is the throw scene exactly as before.
 picture around the baton's first hit: the physics runs ahead of the screen, so the hit time
 is known before it is shown. The slow stretch also gives the physics time to catch up on
 the device.
+
+## Frame-time log
+
+To tell the deliberate slow motion from dropped frames, every throw (practice and match)
+appends one JSON line to `frames.jsonl` in the Data folder (`source/framelog.lua`, on outside
+self-tests, no menu item; the line is `core/frametel.encode`, written once in the throw
+scene's `landed`, never during the flight; not in instant mode). Collected with a dozen
+number fields on one table per throw scene (`s.ft`, reset at launch) and two maxima on the
+playback table; nothing is allocated per frame. `traces.jsonl` is separate and unchanged.
+
+```
+{"v":1,"time":"2026-11-20 19:42:07","scene":"match","proj":"baton",
+ "pre":[41,0.82,20.0,24.1],"slow":[52,1.07,20.6,38.2],"post":[30,0.61,20.3,22.0],
+ "starved":3,"stall":44.0,"awake":6,"contacts":27,"bodies":28,"steps":712,"phys":512.3}
+```
+
+- `scene` `practice` | `match`; `proj` `baton` | `kubb`.
+- `pre`, `slow`, `post`: the flight's shown frames before the slow motion, in it
+  (`playback.speed` below 1, the ease back included) and after it, each `[frames, real
+  seconds, mean frame dt ms, max frame dt ms]`. Frame dt is the device's measured frame time
+  without the input's 0.1 s cap (`p.raw`). A throw that hits nothing is all `pre`.
+- `starved`: shown frames whose show time was clamped because the physics had not computed
+  that far (playback waited); `stall`: the longest run of them, ms of real time.
+- `awake`, `contacts`: the most bodies awake and contacts in any physics step; `bodies`:
+  bodies in the world (six stakes included); `steps`: physics steps; `phys`: ms the physics
+  took (`playback` busy time). About 200 to 250 bytes a line.
+
+Slow frames inside `slow` with `starved` 0 are the slow motion doing its job; a mean dt above
+20 ms means dropped frames (the draw or the physics budget overran); `starved` means the
+physics could not keep up. The `flight` self-test reads its line back.
 
 ## Crank traces
 

@@ -148,7 +148,8 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
 - **Compute ahead.** After release there is no more input, so the result is fixed. The
   simulation runs ahead of the picture during the flight and records poses; playback reads the
   recording at 30 fps. If the device falls behind, playback slows down, which reads as slow
-  motion at impact. This is the performance plan for Lua on the device; stage 2 measures it on
+  motion at impact (on top of the deliberate slow motion around the first hit; the
+  frame-time log, `frames.jsonl`, tells the two apart per throw). This is the performance plan for Lua on the device; stage 2 measures it on
   hardware before anything is built on top.
 - **Numbers.** Playdate Lua uses 32-bit floats and desktop Lua uses doubles, so a throw will
   not replay bit-for-bit across the two. Nothing depends on that: saved games are notation,
@@ -314,6 +315,12 @@ design sessions):
 - The System Menu's third item is per scene: "Pitch" on the practice pitch, "Match" in a
   match (resign, or leave to the title without a game file). A resign is the team on turn.
 - The game file is written to `games/` in the Data folder when the match ends.
+- Within a turn the pitch keeps what the throws left there: each thrown baton lies where it
+  came to rest and each kubb it knocked down lies where it fell, as real bodies in the next
+  throw's physics (a baton can hit or skid off them, or push one into a standing kubb and
+  topple it, which counts for that throw). Tossed kubbs lie where they landed until they
+  are raised. The hand-off clears it all and the pitch is the engine's again. The rules
+  engine stays the judge: a kubb already down adds nothing when it is hit again.
 
 Stages 2 and 3 do not depend on each other (rules talks to physics only through "what did
 this throw topple and where did things come to rest"), so they run in parallel in separate
