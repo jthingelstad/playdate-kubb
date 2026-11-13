@@ -12,6 +12,8 @@
 --                      up, growing clockwise; 180 = the bottom of the turn)
 --   p:docked()         is the crank folded away
 --   p:dt()             seconds this frame
+--   p.raw              (device only) seconds this frame, not capped: the
+--                      frame-time log's measure
 -- Button names: "left", "right", "up", "down", "a", "b".
 import "core/tw"
 
@@ -36,6 +38,7 @@ function input.device()
 		local e = playdate.getElapsedTime()
 		playdate.resetElapsedTime()
 		if e <= 0 then e = 1 / playdate.display.getRefreshRate() end
+		self.raw = e
 		self.step = math.min(e, MAX_DT)
 	end
 	function p:held(name) return (self.cur & BUTTONS[name]) ~= 0 end

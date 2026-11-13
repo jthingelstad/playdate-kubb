@@ -25,10 +25,12 @@ import "core/quat"
 import "render/world"
 import "render/hud"
 import "recorder"
+import "framelog"
+import "core/frametel"
 
 local gfx <const> = playdate.graphics
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
-local phys, playback = tw.world, tw.playback
+local phys, playback, frametel = tw.world, tw.playback, tw.frametel
 local render, hud = tw.render.world, tw.render.hud
 local max, min, rad, abs, sqrt, floor = math.max, math.min, math.rad, math.abs, math.sqrt, math.floor
 
@@ -217,6 +219,9 @@ function throw.new(provider)
 		lineY = throw.tune.lineY, forwardY = throw.tune.lineY,
 		projectile = "baton", projectileId = nil, projItem = nil,
 		auto = true,
+		sceneName = "practice",  -- or "match": the frame-time log's scene
+		ft = frametel.new(),     -- this throw's frame times (core/frametel), reset per throw
+		ftInfo = {},             -- the rest of its log line, filled once at rest
 	}
 	throw.standUp(s)
 	updateTargets(s)
@@ -370,6 +375,7 @@ local function launch(s, r)
 	end
 	s.batonIndex = b.index
 	s.pb = playback.new(w, 1 / t.refreshRate)
+	frametel.reset(s.ft)
 	s.showTime = 0
 	s.result = nil
 	s.focusX, s.focusY = fl.lx, fl.ly
@@ -433,6 +439,14 @@ local function landed(s)
 		render.setPose(s.projItem, rb.x, rb.y, rb.z, rb.qw, rb.qx, rb.qy, rb.qz)
 	end
 	s.readout = hud.readoutText(l)
+	if not s.instant then
+		-- the frame-time log: one line per throw, now that it is at rest
+		local info, pb = s.ftInfo, s.pb
+		info.scene, info.proj = s.sceneName, s.projectile
+		info.awake, info.contacts, info.bodies = pb.awakeMax, pb.contactsMax, w.n
+		info.steps, info.phys = pb.steps, pb.busy
+		tw.framelog.write(s.ft, info)
+	end
 	if not s.scripted then
 		local r = s.swing.result
 		r.loft, r.distance = s.loftDeg, l.distance
@@ -473,7 +487,11 @@ local function flightUpdate(s, dt)
 	-- ahead, so the hit is known before it is shown), and never past what is
 	-- recorded (then it waits)
 	local hitAt = pb.w.firstHit and pb.w.firstHit.t or nil
-	s.showTime = min(s.showTime + dt * playback.speed(s.showTime, hitAt), pb.frames * pb.frameDt)
+	local speed = playback.speed(s.showTime, hitAt)
+	local want, have = s.showTime + dt * speed, pb.frames * pb.frameDt
+	-- starved: the picture had to wait for the physics this frame
+	frametel.frame(s.ft, s.input.raw or dt, speed, want > have and not pb.done)
+	s.showTime = min(want, have)
 	-- the nearest frame (floor would stop one short of the last on 32-bit floats)
 	local f = min(pb.frames, floor(s.showTime / pb.frameDt + 0.5))
 	if f ~= pb.frame or f == 0 then

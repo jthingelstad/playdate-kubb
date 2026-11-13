@@ -26,6 +26,7 @@ import "core/tw"
 import "core/vec"
 import "input"
 import "recorder"
+import "framelog"
 import "scenes/title"
 import "scenes/throw"
 import "scenes/match"
@@ -80,6 +81,7 @@ else
 	local open
 
 	tw.recorder.on = true
+	tw.framelog.on = true
 	local menu = playdate.getSystemMenu()
 
 	-- The throw scene of the current scene (the match keeps one inside).

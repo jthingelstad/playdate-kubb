@@ -52,6 +52,8 @@ function playback.new(w, frameDt)
 		rec = {},
 		steps = 0,        -- physics steps taken
 		busy = 0,         -- seconds spent in advance()
+		awakeMax = 0,     -- the most bodies awake in any step
+		contactsMax = 0,  -- the most contacts in any step
 	}
 	record(pb)
 	return pb
@@ -71,6 +73,8 @@ function playback.advance(pb, budget, clock, ahead)
 	while pb.frames < want do
 		world.step(w)
 		n = n + 1
+		if w.awakeCount > pb.awakeMax then pb.awakeMax = w.awakeCount end
+		if w.contacts > pb.contactsMax then pb.contactsMax = w.contacts end
 		local rest = world.isAtRest(w)
 		-- record each display frame this step reached (within half a step)
 		while w.time + dt * 0.5 >= (pb.frames + 1) * pb.frameDt do
