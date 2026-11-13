@@ -46,6 +46,14 @@ for g_i = 1, n do
 	f:close()
 	wins[g.winner] = wins[g.winner] + 1
 	for k, v in pairs(t.stats) do totals[k] = (totals[k] or 0) + v end
+	-- what the score sheets say: rethrows, punishment kubbs, rescues, lowered
+	for _, turn in ipairs(g.sheet.turns) do
+		for _, ink in pairs(turn.inkast) do
+			for _, code in ipairs { "R", "P", "Q", "N" } do
+				if ink[code] > 0 then totals["sheet" .. code] = (totals["sheet" .. code] or 0) + ink[code] end
+			end
+		end
+	end
 	totals["opening_" .. g.opening] = (totals["opening_" .. g.opening] or 0) + 1
 	totals["surface_" .. g.surface] = (totals["surface_" .. g.surface] or 0) + 1
 	totals["first_" .. g.first] = (totals["first_" .. g.first] or 0) + 1
