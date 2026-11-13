@@ -85,12 +85,12 @@ Before the throw:
 |---|---|
 | D-pad left/right | Walk the player along the throwing line (baseline or advantage line, II.B.2). The camera moves with the player. |
 | D-pad down/up | Step back from the throwing line (up to 3 m) and forward again as far as the line. |
-| Hold A + crank | Swivel the player left and right, so a throw need not be straight on. The crank is geared down for fine aim. |
-| Hold B + crank | Loft: crank forward for a higher arc, back for a low driving throw. |
-| Double tap A | Face straight down the pitch again. |
-| Double tap B | Loft back to the default. |
+| Hold B + crank | Swivel the player left and right, so a throw need not be straight on. The crank is geared down for fine aim. |
+| Hold A + crank | Loft: crank forward for a higher arc, back for a low driving throw. |
+| Double tap B | Face straight down the pitch again. |
+| Double tap A | Loft back to the default. |
 
-The throw, with A and B released (set on hardware, 2026-11-13):
+The throw, with A and B released (A and B swapped after play testing; set on hardware, 2026-11-13):
 
 | Input | Does |
 |---|---|
