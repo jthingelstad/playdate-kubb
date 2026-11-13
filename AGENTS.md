@@ -37,7 +37,10 @@ nothing else without asking.
 
 `source/core/` is pure Lua 5.4: no `playdate.*` and no `CoreLibs` imports. A test fails the
 build if either appears. Drawing, input and files live outside `core/` (`main.lua`,
-`scenes/`, `render/`, `selftest/`). Playdate floats are 32-bit, desktop doubles: test
+`input.lua`, `recorder.lua`, `scenes/`, `render/`, `selftest/`). Camera, swing, flight
+and trace math are in `core/` and tested on the desktop. In per-frame paths avoid making
+tables or closures: cameras and scratch arrays are reused, `camera.project` returns
+numbers. Playdate floats are 32-bit, desktop doubles: test
 outcomes with tolerances, never bit-exact.
 
 ## Tests
@@ -70,3 +73,51 @@ there, never copy its files here.
 - The Simulator connects to a Playdate plugged in over USB when it starts. Self-tests do not
   touch the device, but do not unplug or reboot it.
 - Screenshots for Jamie are the 2x frames. The 1x frames are for agent checks.
+- Files in `source/selftest/` whose names start with `_` are helpers, not scenarios (the
+  Makefile skips them). A scenario may set `ctx.note` to a one-line string; the runner
+  appends it to the `DONE` marker (the throw scenarios put `avg_ms`/`max_ms` of
+  update + draw there).
+- Throw-scene scenarios use `tw.selftest.throwScenario{ script, shots, check, maxFrames }`
+  from `source/selftest/_throw.lua`: `script` is an `input.scripted` step list, `shots` an
+  ordered list of predicates `fn(scene, frame)` that each capture one frame when they first
+  return true, `check(scene)` returns an error string or nil. `tw.selftest.windup(deg, n)`
+  and `tw.selftest.flick{deg, ...}` build crank steps in forward degrees and apply the
+  crank sign for you. Every scenario must also be imported from `main.lua`.
+
+## Input provider
+
+Scenes never read `playdate.buttonIsPressed`/`getCrankChange` directly; they read an input
+provider (`source/input.lua`, `tw.input`): `p:advance()` once per frame, then
+`p:held(name)`, `p:pressed(name)` (names `left right up down a b`), `p:crank()` (raw
+degrees this frame, `getCrankChange` sign: negative = anti-clockwise), `p:docked()`,
+`p:dt()`. `input.device()` wraps the hardware (dt measured, capped at 0.1 s);
+`input.scripted(steps, dt)` plays a step list (`n`, `hold`, `press`, `crank`, `cranks`,
+`docked`) at a fixed 1/50 s.
+
+## Tunables
+
+Every number that is a guess lives in one table per module, with a comment:
+
+- `tw.camera.tune` (`source/core/camera.lua`): aim crane, lens range, framing rule,
+  impact camera, follow margins and mid-flight zoom; `tw.camera.minimap` for the minimap.
+- `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
+  to flip if forward feels backwards on hardware), wind-up and swing thresholds, full power
+  speed and backswing, launch speed and tumble ranges, smoothness and tilt.
+- `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range and step,
+  baton size, wobble.
+- `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, swivel
+  gearing and limit, loft key repeat, rest hold.
+- `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction, patterns, stakes,
+  HUD placement.
+
+## Crank traces
+
+The System Menu has "Readout" (the debug line after each throw) and "Record". With
+Record on, every swing is appended as one JSON line to `traces.jsonl` in the game's Data
+folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/`).
+The format is documented at the top of `source/core/trace.lua` (samples are
+`[dt, raw crank degrees]` per frame from the first wind-up frame to release or let-down,
+plus the result). `lua5.4 tools/replay_traces.lua <file>` replays each line through the
+current `core/swing.lua` and prints recorded vs replayed results; `--current-sign`
+replays with today's `forwardSign` instead of the recorded one. The test fixture is
+`tests/fixtures/traces/sample.jsonl`.
