@@ -197,6 +197,9 @@ function throw.draw(s)
 	local power = (s.mode ~= "aim" or sw.phase == "idle") and s.last and s.last.power or nil
 	hud.panel(s.loftDeg, flight.tune.loftMinDeg, flight.tune.loftMaxDeg, cap, power)
 
+	hud.swingGauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
+		swing.tune.fullBackswingDeg, s.mode ~= "aim", s.last and s.last.legal, s.last and s.last.power)
+
 	if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout) end
 	if s.mode == "aim" and s.input:docked() then hud.crankPrompt() end
 end

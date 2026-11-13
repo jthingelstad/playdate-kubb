@@ -16,6 +16,8 @@ local hud = {}
 hud.tune = {
 	panelX = 4, panelY = 194, panelW = 76, panelH = 42,  -- loft + power panel, bottom left
 	readoutX = 4, readoutY = 3,                            -- debug readout, top left
+	gaugeX = 200, gaugeY = 198, gaugeR = 30,               -- throw gauge: arm pivot and arm length
+	gaugeFollowDeg = 70,                                   -- arm angle shown after the release
 }
 
 local function dot(x, y, size)
@@ -123,6 +125,66 @@ function hud.readout(s)
 	gfx.setColor(gfx.kColorBlack)
 	gfx.drawRect(t.readoutX - 2, t.readoutY - 2, w + 4, h + 3)
 	gfx.drawText(s, t.readoutX, t.readoutY)
+end
+
+-- The throw gauge: the throwing arm seen from the side, turning with the
+-- crank, so the player sees which way is the wind-up, how far back counts as
+-- full power and the moment the baton leaves.
+--   phase: the swing phase ("idle" | "winding" | "swinging")
+--   angle: forward degrees from the start of the wind-up (negative = wound back)
+--   backswing: degrees wound back; fullDeg: the backswing that allows full power
+--   thrown: the baton is in the air or just landed; legal, power: that throw
+-- The arm hangs straight down at rest, winds back to the left and swings
+-- forward to the right. A thick arc grows with the backswing up to the
+-- full-power tick. The label under it says what to do next.
+function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power)
+	local t = hud.tune
+	local cx, cy, r = t.gaugeX, t.gaugeY, t.gaugeR
+	gfx.setColor(gfx.kColorWhite)
+	gfx.fillCircleAtPoint(cx, cy, r + 7)
+	gfx.setColor(gfx.kColorBlack)
+	gfx.setLineWidth(1)
+	gfx.drawCircleAtPoint(cx, cy, r + 7)
+	-- ticks: the start (straight down) and the full-power backswing
+	gfx.drawLine(cx, cy + r + 1, cx, cy + r + 6)
+	local fa = rad(-fullDeg)
+	gfx.setLineWidth(3)
+	gfx.drawLine(cx + (r - 1) * sin(fa), cy + (r - 1) * cos(fa), cx + (r + 6) * sin(fa), cy + (r + 6) * cos(fa))
+	-- the backswing so far (drawArc: 0 = up, clockwise; straight down = 180)
+	if not thrown and backswing > 1 then
+		gfx.setLineWidth(5)
+		gfx.drawArc(cx, cy, r + 3, 180, 180 + min(backswing, 180))
+	end
+	-- the arm, and the baton in the hand until it is thrown
+	local a = rad(thrown and t.gaugeFollowDeg or angle)
+	local sx, sy = sin(a), cos(a)
+	gfx.setLineWidth(2)
+	gfx.drawLine(cx, cy, cx + (r - 8) * sx, cy + (r - 8) * sy)
+	gfx.fillCircleAtPoint(cx, cy, 3)
+	if not thrown then
+		gfx.setLineWidth(5)
+		gfx.drawLine(cx + (r - 12) * sx, cy + (r - 12) * sy, cx + (r + 1) * sx, cy + (r + 1) * sy)
+	end
+	gfx.setLineWidth(1)
+	local label
+	if thrown then
+		label = (legal and "*THROWN* " or "*HELICOPTER* ") .. floor((power or 0) * 100 + 0.5) .. "%"
+	elseif phase == "swinging" then
+		label = nil
+	elseif phase == "winding" then
+		label = (backswing >= fullDeg) and "*FULL: flick forward!*" or "*flick forward to throw*"
+	else
+		label = "*crank back to wind up*"
+	end
+	if label then
+		local w, h = gfx.getTextSize(label)
+		local lx, ly = cx - floor(w / 2), cy - r - 12 - h
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRect(lx - 3, ly - 2, w + 6, h + 3)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.drawRect(lx - 3, ly - 2, w + 6, h + 3)
+		gfx.drawText(label, lx, ly)
+	end
 end
 
 function hud.crankPrompt()

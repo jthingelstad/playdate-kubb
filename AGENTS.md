@@ -119,11 +119,12 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, swivel
   gearing and limit, loft key repeat, rest hold.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction, patterns, stakes,
-  HUD placement.
+  HUD placement, the throw gauge (`hud.swingGauge`: the arm that turns with the crank).
 
 ## Crank traces
 
-The System Menu has "Readout" (the debug line after each throw) and "Record". With
+The System Menu has "Readout" (the debug line after each throw) and "Record". Record is
+on by default while the throw is being tuned (self-tests leave it off). With
 Record on, every swing is appended as one JSON line to `traces.jsonl` in the game's Data
 folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/`).
 The format is documented at the top of `source/core/trace.lua` (samples are
