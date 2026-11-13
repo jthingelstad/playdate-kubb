@@ -3,7 +3,8 @@
 -- passed with A. The card must match core/cards for the engine's state.
 -- Frames: 1 the first hand-off whose team throws kubbs in before its
 -- batons (a mid-match card: what the other team took, the kubbs and batons,
--- the pitch), 2 the winner card. Then A must ask for a rematch.
+-- the pitch), 2 the same card with ten kubbs taken (the row must stay left of
+-- the map), 3 the winner card. Then A must ask for a rematch.
 import "selftest/_match"
 import "core/cards"
 
@@ -23,6 +24,11 @@ st.scenarios.cards = st.matchScenario {
 			if not ms.card then error("no hand-off card image") end
 			if not shotHandoff and c.kubbs > 0 and c.took then
 				ctx:capture()
+				-- the fullest "just took" row: ten kubbs must stay clear of the map
+				local full = setmetatable({ took = { field = 5, base = 5 } }, { __index = c })
+				tw.render.cards.handoff(full):draw(0, 0)
+				ctx:capture()
+				ms.card:draw(0, 0)
 				shotHandoff = true
 				notes = notes .. string.format(" handoff=turn%d,%s,kubbs%d,took%d+%d", c.turn, c.to, c.kubbs,
 					c.took.field, c.took.base)
