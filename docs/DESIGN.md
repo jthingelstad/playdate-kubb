@@ -257,8 +257,9 @@ tools/             camera mockups, AI-vs-AI game generator, crank trace tools
 
 Each stage goes to an Opus subagent on its own branch, with this document, the repo's
 `AGENTS.md`, and a brief that lists the files it owns and the checks it must pass. Claude
-reviews every stage before it merges: runs the tests, looks at the screenshots, reads the
-diff, and sends it back with findings until it passes. Jamie gets a hardware build at the
+reviews every stage first: runs the tests, looks at the screenshots, reads the diff, and
+sends it back with findings until it passes. The stage then goes up as a pull request, Codex
+reviews it, and it merges on a green `validate`. Jamie gets a hardware build at the
 points marked.
 
 | # | Stage | Handed | Checked by |
@@ -271,6 +272,29 @@ points marked.
 | 5 | Opponent, pass and play, saved games | Q4, Q5 | AI-vs-AI runs: hit rates per level inside agreed bands, all games through the gate; hand-off screen and name entry screenshots; saved-game viewer screenshots |
 | 6 | Practice drills | Q6 | Each drill's scoring unit-tested; screenshots |
 | 7 | Polish and sound | | Launcher card and icon, menus, crank-docked prompt, sounds, ice surface; full self-test run; a release `.pdx` |
+
+**Design session** (Jamie, 2026-11-13): after the stage 1 hardware session and before stage
+4, a Claude Design session lands the look and the screen-by-screen interactions: how pieces,
+shadows and lines are drawn, ground cues for depth, the HUD, type, menus, title, launcher
+card, and the flows for hand-off, raising, punishment placement, saved games and drills. Its
+input is a brief with the constraints and the stage 1 screenshots; its output goes into
+`docs/` as the visual spec that stages 4 to 7 are checked against. Crank feel is not a design
+question; it is tuned on hardware. Stages 2 and 3 run alongside the session.
+
+**Stage 1 as built** (differences from sections 3 and 4, to revisit in the hardware and
+design sessions):
+
+- The 12 px rule pins the aim lens at about 1000 px, so when the aim is on the far baseline
+  the centerline and the king's base are below the frame. Once there are field kubbs
+  (stage 3) the camera frames the live targets instead.
+- Kubbs are lit from the far left: checker face toward the thrower, black +x face, shadow to
+  the right. The dot pattern outside the sidelines stops at the far baseline.
+- The baton enters the frame about a quarter of the way into its flight, and the lens widens
+  mid-flight.
+- The aim preview is the line on the minimap only; nothing is drawn on the pitch.
+- Open: a full-power throw at the lowest loft (15 degrees) lands at 5.9 m, short of the far
+  baseline; a baton at rest on plain white ground reads as floating; when swivelled, far
+  kubbs can pass under the minimap.
 
 Stages 2 and 3 do not depend on each other (rules talks to physics only through "what did
 this throw topple and where did things come to rest"), so they run in parallel in separate
