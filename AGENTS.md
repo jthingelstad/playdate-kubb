@@ -3,10 +3,21 @@
 A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; read it first.
 `CLAUDE.md` is a symlink to this file.
 
-## Private and local
+## Repo and pull requests
 
-The repo is local only and private until Jamie says otherwise: no GitHub repo, no remote,
-no pushing.
+- GitHub: `jthingelstad/playdate-kubb`, private for now. Jamie plans to make it public, so
+  manage it as if it already were: no account ids, email addresses, device serial numbers,
+  home-directory paths or personal details in files, commit messages or pull requests.
+- `main` takes changes only through a pull request with a green `validate` check on a
+  branch that is up to date with `main` (ruleset "main: pull requests on a green
+  validate"). Merges are rebase merges; auto-merge is on; branches are deleted on merge.
+- `validate` (`.github/workflows/validate.yml`) runs the Lua tests only. Before opening a
+  pull request run `make test` and `make selftest` locally: the notation gate and the
+  Simulator cannot run on GitHub.
+- Codex reviews every pull request. Read its inline findings and fix or answer each one
+  before calling the work done.
+- Other sessions share this checkout. Do side work in a `git worktree`, not by switching
+  branches here.
 
 ## Commands
 
