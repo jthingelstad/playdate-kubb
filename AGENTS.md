@@ -295,6 +295,8 @@ matches (about a minute; `--quick` about 10 s).
   `restShot(n)` (n frames into the rest; the rest hold is 50 frames) and `item(s, id)`.
   A scenario that runs out of frames reports the scene's mode, playback frame and awake
   bodies in its `FAIL` line.
+- `title`: the title with PASS + PLAY chosen (frame 1), PRACTICE after a right press
+  (frame 2), and A must leave with `practice`.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
   group of field kubbs), `skid` and `skid-sand` (the kick after landing on each surface),
   `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
@@ -312,6 +314,8 @@ matches (about a minute; `--quick` about 10 s).
   `match-toss` (a kubb toss played back and the automatic raising after it),
   `match-debris` (a downed kubb and a lying baton on the pitch for the next throw of the
   turn, that baton among them at rest, gone after the hand-off) and
+  `cards` (a scripted match, seed 5: frame 1 the first hand-off with kubbs to throw in
+  and a last turn to report, frame 2 the winner card, then A must ask for a rematch) and
   `match-whole` (a scripted match to a winner as fast as the Simulator goes, the d-pad
   walk up to the advantage line on the way; its marker names the game file, which the
   Makefile copies to `build/selftest/games/` and runs the notation gate over). The
@@ -375,6 +379,9 @@ Every number that is a guess lives in one table per module, with a comment:
   speed").
 - `tw.playback.paceTune`, `tw.playback.calm`, `tw.playback.slow` (`source/core/playback.lua`):
   the pace of the picture, the calm tail and the slow motion ("Playback", "Slow motion").
+- `tw.scenes.title.tune`, `tw.render.cards.tune`, `tw.render.ui.tune`: where the title's
+  menu, the cards' lines, pips and pitch map, and the ringed buttons sit (screen pixels
+  from the design boards), and the system paths tried for the label font.
 - `tw.raising.tune` (`source/core/raising.lua`): the search that slides an obstructed
   footprint clear, and the punishment candidate grid. Stake radius and other piece sizes are
   in `tw.pitch`.
@@ -542,7 +549,9 @@ and copying a full-screen image about 0.7 ms. So:
   input changes. The minimap layer keys on the pose version and the advantage line; the aim
   line, player, landing mark and baton dot are drawn on top every frame. Text boxes and text
   are cached as images by their string (at most 32 each); the match's status lines are two
-  such boxes, and its hand-off and winner cards one image each (`hud.card`).
+  such boxes. The title (one image per highlighted choice) and the match's hand-off and
+  winner cards (`render/cards`, built once per card and kept in `s.card`) are each one
+  cached 400 x 240 image, copied every frame: no text is drawn while they wait.
 - A new part of the HUD that depends on something must put it in its layer's key, or the
   layer will show a stale image. `make selftest` frames compared pixel for pixel before
   and after (`cache = false` against `true`) catch this.
@@ -618,9 +627,46 @@ the throw scene with `s.drill` on.
 - **Self-test** `drill`: the practice pitch, marker moved, A held, a wind-up to the band and
   a clean flick; its marker note gives power, band and the landing and rest distances.
 
+## Woodcut type, title, cards and launcher
+
+The look is `docs/design/` (README and boards). What is built of it here:
+
+- **Display font**: Throwing Wood Display (`source/fonts/ThrowingWoodDisplay-16` and `-32`,
+  cap height 16 and 32 px): capitals, digits and `! . · % ° + - : , / ' ?`. It is a 1-bit
+  rendering of Londrina Solid Black, licensed under the SIL Open Font License 1.1, which
+  reserves the name "Londrina Solid", so the rendering has its own name. The licence and
+  attribution ship in `source/fonts/OFL.txt` (copied into the pdx); the original TTF and
+  licence are in `tools/art/`. At 16 px M, N, W and 8 are cut by hand (`OVERRIDES` in
+  `tools/art/build.py`).
+- **Labels**: Roobert 10 Bold in capitals, loaded at run time from the system
+  (`render.ui.tune.labelPaths`); the system font if that fails. The SDK's font files are not
+  copied into the repo. Roobert has no `·`, so `ui.textDots` draws middle dots as 2 x 2
+  squares.
+- `render/ui.lua` (`tw.render.ui`): the fonts, `ui.text`, `ui.textDots` and `ui.button` (a
+  filled disc with A or B and one word). Draw them into a cached image.
+- **Title** (`scenes/title.lua`, `boards/Title.png`): `images/title` (the wordmark, band and
+  THROWING WOOD, one pre-drawn image) with a menu of what works today (PASS + PLAY,
+  PRACTICE; d-pad either way) and A START. The System Menu is as before.
+- **Cards**: `core/cards.lua` (pure, `test_cards.lua`) works out what the hand-off and winner
+  cards say from the engine and its score sheet: who throws, what the other team's batons
+  took last turn (field and base), kubbs to throw in and batons, base kubbs standing, the
+  pitch for the map in the receiving team's view, and for the winner the turns, minutes
+  (start to finish by the clock: under a minute in the scripted self-tests) and the winner's
+  baton hit rate. `render/cards.lua` draws them (`images/winner` is the burst behind the
+  winner). Nothing is shown that the game does not know.
+- **Launcher** (`source/launcher/`, `imagePath=launcher` in `pdxinfo`): `card.png` 350 x 155,
+  `card-highlighted/1..4.png` with `animation.txt` (the last B tips 0, 5.3, 10.7, 16 degrees),
+  `icon.png` 32 x 32 (the king) and `launchImage.png` 400 x 240 (the title without its menu,
+  the same picture as `images/title`, so the start has no jump).
+- **Regenerating**: `python3 tools/art/build.py` renders every one of these images and both
+  fonts with headless Google Chrome (the SVG from the design boards, thresholded to pure
+  black and white) and Python's standard library; `--preview DIR` also writes 4x previews of
+  the font tables. Commit what it writes.
+
 ## Match
 
-The title (`scenes/title.lua`) offers "Match" and "Practice pitch"; `main.lua` opens one
+The title (`scenes/title.lua`, Woodcut look below) offers "PASS + PLAY" (the match) and
+"PRACTICE" (the practice pitch); `main.lua` opens one
 scene at a time and rebuilds the System Menu for it (Readout, Record, then the scene's
 own item). Practice is the throw scene exactly as before.
 
@@ -641,10 +687,11 @@ own item). Practice is the throw scene exactly as before.
   projectile, pieces, `forwardY` = how far forward the thrower may walk, `advY`, `targets`,
   `label` such as "Team B  baton 2 of 6"); `match.resolve(m, res, illegal)` applies a
   finished throw and sets `m.text` (the result line); `match.resign`, `match.file`.
-- `scenes/match.lua`: phases handoff ("Team B / your turn: press A", before each team's
-  turn), play (the throw scene set up by `throw.prepare`: pieces, lines, projectile,
+- `scenes/match.lua`: phases handoff (the full-screen hand-off card before each team's turn,
+  A to play), play (the throw scene set up by `throw.prepare`: pieces, lines, projectile,
   targets; `s.auto = false` stops it in mode `done` after the rest hold) and over (the
-  winner card; the game file was written to `games/` in the Data folder, DESIGN 7). The
+  winner card; the game file was written to `games/` in the Data folder, DESIGN 7; A is a
+  rematch, B the title). The
   engine rules on a throw as soon as it is at rest, so the result line shows during the
   rest hold; then the next throw is set up from the engine's state plus the turn's debris
   (below): standing pieces are where the engine says (kubbs pushed out are put back, raised
