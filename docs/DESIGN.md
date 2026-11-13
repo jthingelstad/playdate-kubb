@@ -1,0 +1,316 @@
+# Kubb: Throwing Wood — design
+
+A Kubb game for the Playdate. Draft of 2026-11-13, written before any game code.
+Jamie agreed to all seven recommendations in section 10 on 2026-11-13, so each
+"Recommendation" there is the decision.
+
+Sources: U.S. National Kubb Championship Rules V4.0 (usakubb.org; cited below as II.B.4 and so
+on), the Planet Kubb Notation grammar and `kubb.js` in `~/Projects/pk-kubb-score` (read only),
+the 2017 Planet Kubb glossary, and Inside Playdate for SDK 3.1.2.
+
+## 1. What it is
+
+- Bundle `com.thingelstad.throwingwood`, Lua, SDK 3.1.2. A plain Kubb game; no Thingy.
+- Modes: Practice (drills), Versus Computer, Pass and Play.
+- The crank is the throwing arm. Outcomes come from a physics simulation at real dimensions,
+  not from dice.
+- Every finished game is saved as a Planet Kubb Notation `.txt` file that the pk-kubb-score
+  parser accepts.
+
+## 2. Dimensions and constants (confirmed against Rules V4.0, I.B)
+
+| Piece | Size | Mass used |
+|---|---|---|
+| Pitch | 5 m x 8 m, centerline at 4 m, six stakes | |
+| Kubb (10) | 7 x 7 x 15 cm | 0.40 kg (rules: 0.3 to 0.5) |
+| King | 9 x 9 x 30 cm | 1.2 kg (rules: 0.8 to 1.3) |
+| Baton (6) | 30 cm long, 4.4 cm diameter | 0.25 kg (rules: 0.2 to 0.3) |
+
+World coordinates in meters: x across (-2.5 to 2.5), y downfield (0 = Team A's baseline,
+8 = Team B's), z up. The simulation always works in these units; only the renderer knows
+about pixels.
+
+## 3. Camera (the hard problem, settled first)
+
+At true scale from eye level with a normal lens, a base kubb 8 m away is 5 px tall and 2 px
+wide: `docs/camera/a-eye-level-true-scale.png`. That is unplayable, and scaling the pieces up
+would make the physics a lie. The answer is both ideas from the brief: a telephoto aim camera
+and a follow camera, plus a minimap for the whole pitch. Pieces are always drawn at true scale.
+
+**Aim camera** (`b-aim-camera-field.png`, `c-aim-camera-baseline.png`). A crane shot from
+behind the thrower: 3 m behind the throwing line, 3.4 m up, long lens (focal length 880 to
+1000 px, a 23 to 26 degree field of view). It shows the target half only.
+
+- Guarantee: a standing kubb on the far baseline is at least 12 px tall and 5 px wide. Field
+  kubbs near the centerline are about 17 x 8 px, the king about 37 px tall.
+- The lens is too long to show the full 5 m width near the centerline, so the camera moves
+  with the player and pans with the swivel. The view is always centered on where the baton is
+  pointed.
+- From an advantage line the camera moves forward with the throwing line and keeps the same
+  framing rule (farthest live target at least 12 px tall).
+- The pitch is not dithered (Jamie, 2026-11-13: it makes things hard to see). White ground,
+  black lines and stakes; a light pattern only outside the sidelines. Kubbs read by a black
+  outline, a dark side face and a solid black shadow. The mockups predate this and still
+  show a dithered pitch.
+- The raised viewpoint shows each kubb's top face and a hard black ground shadow, which is what
+  makes a white box readable on a white pitch in 1 bit.
+
+**Minimap.** A 45 x 72 px top-down pitch in the top right corner at 9 px per meter: every kubb
+as a 2 px dot, the king as 3 px, the aim line, the advantage line. It is the only view of the
+whole pitch and it is always on during aiming.
+
+**Follow camera.** On release the camera leaves the crane and flies to an **impact camera**
+(`d-impact-camera.png`): low (about 0.9 m), 2.5 to 3 m from the predicted first contact, kubbs
+about 35 px tall, so tipping, rocking and dominoes are visible. It tracks the baton on the way
+in. The flight lasts 0.8 to 1.2 s, which is also when the physics is computed ahead (section 5).
+After everything comes to rest it holds for a beat, then returns to the aim camera.
+
+**Kubb tossing** uses the same aim camera (the target is the same half), and the impact camera
+on the landing spot to show the dig, the cut and any clack.
+
+**Raising view** (`e-raising-view.png`). Near top-down close-up of the fallen kubbs, one at a
+time, with both footprints outlined.
+
+The mockups come from `tools/camera_mockup.py` (pure Python, same projection math the game
+will use). They are sketches of framing and legibility, not of final art.
+
+## 4. Controls
+
+### Batons
+
+Before the throw:
+
+| Input | Does |
+|---|---|
+| D-pad left/right | Walk the player along the throwing line (baseline or advantage line, II.B.2). The camera moves with the player. |
+| Hold d-pad left/right + crank | Swivel the player, so a throw need not be straight on. Walking stops the moment the crank turns; the crank is geared down for fine aim. |
+| D-pad up/down | Loft: low driving throw to high arc. |
+
+The throw, with the d-pad released:
+
+| Input | Does |
+|---|---|
+| Crank back | Wind up. Backswing angle caps the power. |
+| Crank forward flick | The swing. Release happens when the forward swing passes the angle the wind-up started from, or when forward speed falls below half its peak. |
+| Slow crank forward | Lets the wind-up down without throwing. |
+| B (hold, on the other side's turn) | Fast-forward their throws. |
+
+Holding the d-pad to swivel walks the player a few centimeters before the crank starts. If
+that is annoying on hardware, add a short delay before walking begins.
+
+### Kubbs (drilling)
+
+Same walk, swivel, loft and crank swing; always from the baseline (II.C.1). Per the glossary a
+drilled kubb spins on its long axis like a football with the nose down. Two more inputs:
+
+- **Cut:** hold A or B *during the flick* to twist the wrist. A (the right button) is a regular
+  cut (lands and cuts left to right), B (the left button) is a goofy cut, neither is a flat
+  drill. Spin amount follows flick speed. The d-pad cannot carry this: d-pad plus crank is the
+  swivel.
+- **Smoothness:** a clean flick keeps the nose down, so the edge spikes in and the kubb dies. A
+  jerky flick wobbles the nose, and the kubb lands flat or tumbles and bounces.
+
+"The hard way" (land out of bounds and cut back in), nudges and clacks are not special moves;
+they fall out of the physics. How much a kubb cuts depends on the surface (section 5): a lot
+on grass, hardly at all on sand. The Minnesota slide is the same throw on ice, built last.
+
+## 5. Physics
+
+Pure Lua, 3D rigid bodies, fixed 1/240 s step.
+
+- **Baton:** a capsule (segment plus radius) with full 3D orientation. Ground contact at its
+  two end spheres, with friction, so it bounces, skids, and can turn sideways and roll (a
+  steamroller, which is legal).
+- **Kubbs and king:** boxes. Ground contact at the eight corners with friction and low
+  restitution. Tipping about an edge, rocking back upright, and falling are all the same
+  contact solver, not a state machine. A standing kubb sleeps until something touches it.
+- **Collisions:** capsule against box (closest point on the segment to the box), box against
+  box (corners of each inside the other, which misses pure edge-on-edge contact; acceptable at
+  this scale and revisited if dominoes look wrong).
+- **Ground:** the surface is a game option chosen per game (Jamie, 2026-11-13: "Kubb plays
+  very different based on the surface"), and each surface is one set of contact parameters:
+  friction, bounce, and a "dig" term that takes extra energy when a corner or edge arrives
+  steeply.
+  - **Grass:** high friction, little bounce, moderate dig. A flat drill dies, and spin about
+    the long axis turns into sideways travel (the cut). Batons skid and can steamroll.
+  - **Sand:** very high dig and almost no bounce or slide. Kubbs plug where they land and
+    barely cut, so placement is all in the air; batons stop where they hit, so there are no
+    skids into a second kubb.
+  - **Ice** (stage 7): very low friction, for the Minnesota slide.
+  The surface is written to the game file's `[Surface]` header, and practice bests and
+  computer hit rates are kept per surface. Grass and sand are both tuned on hardware in
+  stages 2 and 4.
+- **Toppled** means the long axis came within a few degrees of parallel to the ground at any
+  point. A kubb that falls and ends up standing on an end is still toppled (II.B.10). A kubb
+  pushed out of bounds without toppling goes back (II.B.7).
+- **Compute ahead.** After release there is no more input, so the result is fixed. The
+  simulation runs ahead of the picture during the flight and records poses; playback reads the
+  recording at 30 fps. If the device falls behind, playback slows down, which reads as slow
+  motion at impact. This is the performance plan for Lua on the device; stage 2 measures it on
+  hardware before anything is built on top.
+- **Numbers.** Playdate Lua uses 32-bit floats and desktop Lua uses doubles, so a throw will
+  not replay bit-for-bit across the two. Nothing depends on that: saved games are notation,
+  not replays. Tests assert outcomes with tolerances.
+
+## 6. Rules
+
+Rules V4.0 unless a question below changes it.
+
+- **Turn engine:** a pure-Lua state machine: kubb tossing, rethrows, raising, punishment
+  placement, batons, end of turn. The Playdate layer only feeds it resolved throws and choices.
+- **Order of attack:** field kubbs, then base kubbs, then the king. King shots from the
+  baseline even when there is an advantage line.
+- **Advantage line:** through the center of the standing field kubb closest to the centerline
+  (II.B.2). Batons at kubbs may be thrown from it.
+- **King:** toppled by a baton or a kubb before every kubb is down loses the game at once.
+- **Own-half field kubbs** hit by a baton go back, along with anything else that baton
+  toppled, and the baton is forfeited (II.B.11).
+- **Kubb tossing:** in bounds is judged by the kubb's center against the target half; a kubb
+  that cannot be raised in bounds is rethrown once after the others, and a second failure makes
+  it a punishment kubb, placed by the defender anywhere in their half at least a baton length
+  from the king and stakes (II.C.6, II.D.11). A thrown kubb that knocks an established field
+  kubb out of bounds sends that kubb back to be thrown again (II.C.5a): this is the rescue,
+  `Q`.
+- **Raising:** see Q2.
+- Opening batons: see Q1. Early base kubbs: see Q3.
+
+## 7. Notation and game files
+
+One file per finished game in `games/` inside the game's Data folder, named
+`YYYY-MM-DD-HHMM-<team-a>-v-<team-b>.txt`, in the README format of pk-kubb-score:
+
+```
+[Event "Throwing Wood"]
+[Location "Playdate"]
+[Start "2026-11-20 19:42"]
+[End "2026-11-20 19:58"]
+[Duration "16m"]
+[Surface "Grass"]
+[Team A "Jamie"]
+[Team A Players "Jamie (j)"]
+[Team B "Playdate"]
+[Team B Players "Club (c)"]
+[First "Team A"]
+[Win "Team B"]
+[Scored by "Throwing Wood 1.0.0"]
+[Mode "Versus Computer"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+
+1. j:- j:B
+2. c:I c:F c:- c:B c:-
+3. j:2I j:2F j:- j:B j:- j:- j:B
+```
+
+What the recorder writes:
+
+| Event | Notation |
+|---|---|
+| Kubbs thrown in | `p:5I2R`, `p:2IRP`. No inkast token when there are no kubbs to throw. |
+| Rescue | `Q` on the inkast token; the rescued kubb is also counted in `I`. `Y` (a failed attempt) is intent the game cannot see, so it is never written. |
+| Kubb resting on another kubb | `N` count (provisional in the grammar): see Q2. |
+| Advantage line | `nA`, whole meters from the attacker's baseline, rounded down (so 2A and up is a "meaningful advantage"). |
+| Batons | `-`, `F`, `2F`, `B`, `2FB`, `K`, `=` (king shot missed), `Z` (illegal throw, including II.B.11), `E` (king toppled early), `X` for batons left when the game ends. |
+| King toppled by a thrown or struck kubb | `4IE`, `2FE`. |
+| Resign (menu) | `G` on the resigning team's own turn. |
+| Opening 2-4-6 | Turns 1 and 2 simply have two and four baton tokens, like the 2015 games. |
+| Notes | `# ...` at the end of the turn, for things the tokens cannot say. |
+
+Unfinished games are kept in the datastore so they can be resumed; they are not written to
+`games/` until they end, because a file with no ending draws a parser warning.
+
+**The gate:** a Node test loads `kubb.js` and the generated grammar parser straight from
+`~/Projects/pk-kubb-score` (read only, nothing copied or written there) and runs both over
+every generated game. The grammar must accept every file. `kubb.js` must report the same
+winner as the header, and its warnings are listed and reviewed; the target is zero.
+
+## 8. Engineering
+
+```
+source/            what pdc compiles
+  main.lua         Playdate shell: scenes, input, drawing, files
+  core/            pure Lua, no playdate.* : vec, quat, body, collide, world, swing,
+                   camera math, rules, notation, ai, drills
+  scenes/ render/ selftest/
+tests/lua/         unit and scenario tests for core/, run on desktop Lua 5.4
+tests/node/        notation gate against pk-kubb-score
+tools/             camera mockups, AI-vs-AI game generator, crank trace tools
+```
+
+- `core/` uses Playdate's `import`; the desktop test runner supplies an `import` shim, so the
+  same files run in both places unchanged.
+- **Desktop Lua:** only luajit is installed, and it is Lua 5.1 with extensions. Proposal:
+  `lua@5.4` from Homebrew, installed 2026-11-13 at `/opt/homebrew/opt/lua@5.4/bin/lua5.4`
+  (keg-only). Homebrew's plain `lua` is 5.5, which is not what the Playdate runs.
+- **Headless games:** the AI plays itself on the desktop through the same physics and rules,
+  producing hundreds of games for the notation gate and for tuning hit rates.
+- **Simulator self-test:** `Playdate Simulator <pdx> selftest=<scenario> out=<dir>` (read from
+  `playdate.argv`). A scenario scripts crank samples and button presses, saves frames with
+  `playdate.simulator.writeToFile`, and quits with `playdate.simulator.exit()`. Frames are
+  saved at 1x for the subagents' own checks and at 2x for anything Jamie looks at.
+- `make build`, `make test`, `make selftest`, `make games` with full SDK paths; no
+  `PLAYDATE_SDK_PATH` needed.
+
+## 9. Stages
+
+Each stage goes to an Opus subagent on its own branch, with this document, the repo's
+`AGENTS.md`, and a brief that lists the files it owns and the checks it must pass. Claude
+reviews every stage before it merges: runs the tests, looks at the screenshots, reads the
+diff, and sends it back with findings until it passes. Jamie gets a hardware build at the
+points marked.
+
+| # | Stage | Handed | Checked by |
+|---|---|---|---|
+| 0 | Scaffold and harness | This doc; SDK paths | `make test` green with one trivial Lua test and a hand-written game through the Node gate; `make selftest` produces a PNG from the Simulator (this proves the Simulator can be driven from a script on this Mac, the first risk to retire) |
+| 1 | Camera and throw feel | Section 3 and 4; the mockup script | Projection unit tests (far base kubb at least 12 px); swing-model tests on synthetic and recorded crank traces (clean is legal, jerky is a helicopter); six scripted screenshots reviewed against section 3. Batons fly on a plain arc with no collisions yet. **Hardware: Jamie tunes the flick.** |
+| 2 | Physics | Section 5 | Scenario tests: a nudged kubb rocks and stands, a harder hit topples, a three-kubb domino, baton tumble rate, steep drill loses more energy than a shallow lob; step-rate benchmark on desktop and a timing screen on device. **Hardware: frame rate at impact.** |
+| 3 | Rules and notation | Sections 6 and 7; the answered questions | Rules unit tests per rule cited; a random-thrower plays 500 headless games, all through the gate; a bare two-player game playable start to finish in the Simulator with simple lobbed kubbs and automatic raising |
+| 4 | Drilling and raising | Sections 4 and 6; glossary entries | Tests: flat drill stops within a set distance, regular and goofy cuts go opposite ways, out and rethrow and punishment, rescue writes `Q`; raising screenshots for free, forced and obstructed kubbs. **Hardware: Jamie tunes drilling.** |
+| 5 | Opponent, pass and play, saved games | Q4, Q5 | AI-vs-AI runs: hit rates per level inside agreed bands, all games through the gate; hand-off screen and name entry screenshots; saved-game viewer screenshots |
+| 6 | Practice drills | Q6 | Each drill's scoring unit-tested; screenshots |
+| 7 | Polish and sound | | Launcher card and icon, menus, crank-docked prompt, sounds, ice surface; full self-test run; a release `.pdx` |
+
+Stages 2 and 3 do not depend on each other (rules talks to physics only through "what did
+this throw topple and where did things come to rest"), so they run in parallel in separate
+worktrees after stage 1.
+
+## 10. Decisions (questions as asked, all recommendations accepted)
+
+**Q1. Opening.** Rules V4.0 use 2-4-6: two batons, then four, then six. The 2015 archive games
+use it; the earlier ones use six from the start. *Recommendation:* 2-4-6 by default with a
+"six from the start" option. First throw decided by a coin flip now, and by a lag at the king
+(closest baton without toppling it, II.A) in stage 7.
+
+**Q2. Raising and stacking.** By the rules the defender raises each kubb, keeping two corners
+down, and picks the end only when both footprints are clear and in bounds. A kubb that lands
+on top of another is lowered straight down beside it. There are no towers in the U.S. rules.
+*Recommendation:* follow the rules; when a human defends they pick ends in the raising view,
+with a setting to raise automatically; no tower stacking; write the provisional `N` count
+when a kubb comes to rest on another.
+
+**Q3. Base kubbs knocked early.** Rule II.B.4a: the base kubb is stood back up and stays a
+base kubb. `kubb.js` warns on a `B` while field kubbs stand. *Recommendation:* record what
+counted (`-`, or just the `F` part) and add a note such as `# b3 toppled a base kubb early;
+raised`. A baton that takes the last field kubb and then a base kubb counts both: `FB`.
+
+**Q4. Computer opponent.** *Recommendation:* three levels, Backyard, Club and Championship.
+The computer throws through the same physics: it works out the throw it wants, then its aim,
+power and spin are off by an amount set by the level. Backyard lobs kubbs loosely and throws
+at the nearest kubb (about 20% from 8 m). Club groups kubbs near a center stake and looks for
+doubles (about 40%). Championship drills tight groups with cuts, throws deep when it has more
+kubbs than it can clear, raises to break up lines, and hits about 60% from 8 m.
+
+**Q5. Names, ids and saved games.** *Recommendation:* one player per side in version 1, named
+with the Playdate keyboard; the id is the lowercased name with anything but letters removed
+(`j` style ids if two names collide). The computer is team "Playdate" with the level as its
+player. On the device, a Games list opens a scoresheet view of any saved game with hit % and
+efficiency. Files are read off the device in Data Disk mode, and in the Simulator from
+`~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/games/`. Optional extra: a QR
+code that opens the game in the Planet Kubb Score stats page.
+
+**Q6. Practice drills.** *Recommendation:* five. 8 Meters (six batons at five base kubbs, hit
+% tracked). The House (drill five kubbs; score is how many touch the 2 x 2 baton square at a
+center stake once raised). King Shots (from the baseline, streak counted). Blast (a preset
+group, clear it in as few batons as possible, with first-baton efficiency). Around the Pitch
+(inkast to marked spots, from the Inkastare tips).
+
+**Q7. Lua 5.4.** `brew install lua@5.4` for the desktop tests.
