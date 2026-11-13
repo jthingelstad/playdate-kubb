@@ -3,7 +3,8 @@
 SDK      := $(HOME)/Developer/PlaydateSDK
 PDC      := $(SDK)/bin/pdc
 SIM      := $(SDK)/bin/Playdate Simulator.app/Contents/MacOS/Playdate Simulator
-SIMDATA  := $(SDK)/Disk/Data/com.thingelstad.throwingwood/selftest
+GAMEDATA := $(SDK)/Disk/Data/com.thingelstad.throwingwood
+SIMDATA  := $(GAMEDATA)/selftest
 LUA      := /opt/homebrew/opt/lua@5.4/bin/lua5.4
 NODE     := /opt/homebrew/bin/node
 
@@ -55,6 +56,8 @@ games:
 # The runner writes its marker in the game's Data folder (the only place Lua
 # can write a text file); this copies it into build/selftest and fails unless
 # it says DONE and every frame it counted exists at 400x240 and 800x480.
+# A marker that names a game file (file=games/...: match-whole) has that file
+# copied into build/selftest/games, and the notation gate runs over them.
 selftest: build
 	@rm -rf build/selftest
 	@mkdir -p build/selftest
@@ -79,7 +82,10 @@ selftest: build
 	    done; \
 	  done; \
 	  echo "selftest $$s: $$status in $${secs}s"; \
+	  gf=$$(echo "$$status" | sed -n 's/.* file=\([^ ]*\).*/\1/p'); \
+	  if [ -n "$$gf" ]; then mkdir -p "$(OUT)/games"; cp "$(GAMEDATA)/$$gf" "$(OUT)/games/" || fail=1; fi; \
 	done; \
+	if [ -d "$(OUT)/games" ]; then "$(NODE)" tests/node/notation-gate.mjs "$(OUT)/games" || fail=1; fi; \
 	exit $$fail
 
 # The physics benchmark on the desktop (the device runs the same scenario from
