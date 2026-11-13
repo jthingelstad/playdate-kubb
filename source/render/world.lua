@@ -61,8 +61,11 @@ world.tune = {
 	litAbove = 0.2,
 	darkAbove = -0.35,
 	batonMinPx = 2,
-	kingCrown = 0.2,  -- the crown's points are the top fifth of the king
-	kingBand = 0.62,  -- the groove around the king, as a fraction of the way up
+	-- the king's carving, as fractions of its height and half-width
+	kingCrown = 0.11, -- depth of the crown's cuts
+	kingWaist = 0.55, -- where the bevel into the neck starts
+	kingNeck = 0.66,  -- the top of the neck, under the head's shoulder
+	kingInset = 0.3,  -- how far the neck is cut in
 	cache = true,     -- reuse the last frame's world image when nothing changed
 }
 
@@ -388,76 +391,133 @@ local function batonShadow(c, b)
 	setLineWidth(1)
 end
 
--- The king is the same box to the physics, but it is drawn carved: a crown
--- of four corner points (a V cut into the top of each side, down to a floor
--- inside) and a groove around the body below it. The crown's points lie on
--- the box's vertical edges, at world.tune.kingCrown and kingBand of the way
--- up. On entry SX/SY[1..8] hold the projected corners; 9..12 become the
--- floor corners and 13..16 the groove, above bottom corners 1..4.
+-- The king is the same box to the physics, but it is drawn carved, like a
+-- real one: a body, a waist cut in above it (a bevel up to a narrower neck,
+-- with a square shoulder under the head), and a head whose top is a crown
+-- of low teeth (two V cuts in each side, down to a floor inside).
+--
+-- Every extra point lies on one of the box's four vertical edges, a
+-- fraction u of the way up and pulled a fraction s toward the axis. On
+-- entry SX/SY[1..8] hold the projected corners; the rings above bottom
+-- corners 1..4 go to 9..12 (A: top of the body), 13..16 (B: the neck),
+-- 17..20 (C: under the head) and 21..24 (D: the crown's floor).
 local function shadeOn(shade)
 	if shade == 1 then setColor(WHITE)
 	elseif shade == 2 then setPattern(world.tune.darkPattern)
 	else setColor(BLACK) end
 end
 
+-- One side of a section between two rings (bases L and H into SX/SY).
+local function kingSide(L, H, a, b, shade)
+	shadeOn(shade)
+	fillPolygon(SX[L + a], SY[L + a], SX[L + b], SY[L + b], SX[H + b], SY[H + b], SX[H + a], SY[H + a])
+	setColor(BLACK)
+	drawPolygon(SX[L + a], SY[L + a], SX[L + b], SY[L + b], SX[H + b], SY[H + b], SX[H + a], SY[H + a])
+end
+
+-- A cap: the ring at base L, in the order of face F.
+local function kingCap(L, F, shade)
+	local a, b, c, d = L + F[1], L + F[2], L + F[3], L + F[4]
+	shadeOn(shade)
+	fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[c], SY[c], SX[d], SY[d])
+	setColor(BLACK)
+	drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[c], SY[c], SX[d], SY[d])
+end
+
+-- One side of the head, with the crown's two cuts. inner: the far side,
+-- whose inner wall shows through the near cuts.
+local function kingHeadSide(a, b, shade, inner)
+	local ax, ay, bx, by = SX[16 + a], SY[16 + a], SX[16 + b], SY[16 + b]       -- under the head
+	local fax, fay, fbx, fby = SX[20 + a], SY[20 + a], SX[20 + b], SY[20 + b]   -- the crown's floor
+	local tax, tay, tbx, tby = SX[4 + a], SY[4 + a], SX[4 + b], SY[4 + b]       -- the top corners
+	local v1x, v1y = fax + (fbx - fax) * 0.25, fay + (fby - fay) * 0.25
+	local v2x, v2y = fax + (fbx - fax) * 0.75, fay + (fby - fay) * 0.75
+	local px, py = (tax + tbx) / 2, (tay + tby) / 2
+	shadeOn(inner and 3 or shade)
+	-- up to the floor, then the three teeth: a concave polygon is not safe
+	-- to fill in one piece
+	fillPolygon(ax, ay, bx, by, fbx, fby, fax, fay)
+	fillPolygon(fax, fay, v1x, v1y, tax, tay)
+	fillPolygon(v1x, v1y, v2x, v2y, px, py)
+	fillPolygon(v2x, v2y, fbx, fby, tbx, tby)
+	setColor(BLACK)
+	if not inner then
+		drawPolygon(ax, ay, bx, by, tbx, tby, v2x, v2y, px, py, v1x, v1y, tax, tay)
+	end
+end
+
+local KING_U, KING_S = {}, {}
 local function drawKing(p, FN)
 	local WX, WY, WZ = p.WX, p.WY, p.WZ
 	local t = world.tune
 	local f, cx, cy, near = CF, CCX, CCY, NEAR
 	local cpx, cpy, cpz = CPX, CPY, CPZ
-	for row = 1, 2 do
-		local u = (row == 1) and (1 - t.kingCrown) or t.kingBand
+	KING_U[1], KING_S[1] = t.kingWaist, 0
+	KING_U[2], KING_S[2] = t.kingNeck, t.kingInset
+	KING_U[3], KING_S[3] = t.kingNeck, 0
+	KING_U[4], KING_S[4] = 1 - t.kingCrown, 0
+	-- the axis: from the middle of the bottom to the middle of the top
+	local bx = (WX[1] + WX[2] + WX[3] + WX[4]) / 4
+	local by = (WY[1] + WY[2] + WY[3] + WY[4]) / 4
+	local bz = (WZ[1] + WZ[2] + WZ[3] + WZ[4]) / 4
+	local ux, uy, uz = 2 * (p.x - bx), 2 * (p.y - by), 2 * (p.z - bz)
+	for row = 1, 4 do
+		local u, s = KING_U[row], KING_S[row]
+		local mx, my, mz = bx + ux * u, by + uy * u, bz + uz * u
 		for k = 1, 4 do
 			local wx = WX[k] + (WX[k + 4] - WX[k]) * u
 			local wy = WY[k] + (WY[k + 4] - WY[k]) * u
 			local wz = WZ[k] + (WZ[k + 4] - WZ[k]) * u
-			local dx, dy, dz = wx - cpx, wy - cpy, wz - cpz
+			local dx, dy, dz = wx + (mx - wx) * s - cpx, wy + (my - wy) * s - cpy, wz + (mz - wz) * s - cpz
 			local d = dx * CFX + dy * CFY + dz * CFZ
 			if d < near then return end
-			local s = f / d
-			SX[4 + 4 * row + k] = cx + s * (dx * CRX + dy * CRY + dz * CRZ)
-			SY[4 + 4 * row + k] = cy - s * (dx * CUX + dy * CUY + dz * CUZ)
+			local sc = f / d
+			SX[4 + 4 * row + k] = cx + sc * (dx * CRX + dy * CRY + dz * CRZ)
+			SY[4 + 4 * row + k] = cy - sc * (dx * CUX + dy * CUY + dz * CUZ)
 		end
 	end
-	-- 1. the sides facing away: their inner walls show through the cuts
-	-- 2. the floor of the crown and the underside, when the camera sees them
-	-- 3. the sides facing the camera, each with its cut and its groove
-	for pass = 1, 3 do
-		for fi = 1, 6 do
-			local o = 7 * fi - 7
-			local nx, ny, nz = FN[o + 1], FN[o + 2], FN[o + 3]
-			local front = (cpx - FN[o + 4]) * nx + (cpy - FN[o + 5]) * ny + (cpz - FN[o + 6]) * nz > 0
-			local F = FACES[fi]
-			local a, b, cc, d = F[1], F[2], F[3], F[4]
-			if fi <= 4 then
-				if (pass == 1 and not front) or (pass == 3 and front) then
-					local mx, my = (SX[8 + a] + SX[8 + b]) / 2, (SY[8 + a] + SY[8 + b]) / 2
-					shadeOn(front and FN[o + 7] or 3)
-					-- the body up to the floor, then the two points: a concave
-					-- polygon is not safe to fill in one piece
-					fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[8 + b], SY[8 + b], SX[8 + a], SY[8 + a])
-					fillPolygon(SX[8 + a], SY[8 + a], mx, my, SX[d], SY[d])
-					fillPolygon(SX[8 + b], SY[8 + b], SX[cc], SY[cc], mx, my)
-					setColor(BLACK)
-					if front then
-						drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], mx, my, SX[d], SY[d])
-						if FN[o + 7] ~= 3 then
-							drawLine(SX[12 + a], SY[12 + a], SX[12 + b], SY[12 + b])
-						end
-					end
+	-- which sides face the camera, and which end of the king it looks at
+	local s1, s2, s3, s4
+	for fi = 1, 4 do
+		local o = 7 * fi - 7
+		local front = (cpx - FN[o + 4]) * FN[o + 1] + (cpy - FN[o + 5]) * FN[o + 2] + (cpz - FN[o + 6]) * FN[o + 3] > 0
+		if fi == 1 then s1 = front elseif fi == 2 then s2 = front elseif fi == 3 then s3 = front else s4 = front end
+	end
+	local above = (cpx - p.x) * ux + (cpy - p.y) * uy + (cpz - p.z) * uz > 0
+	local topShade, bottomShade = FN[42], FN[35]
+	-- the three sections, the far one first
+	for step = 1, 3 do
+		local sec = above and step or (4 - step)
+		if sec == 3 then
+			-- the head: from below its underside shows, from above the far
+			-- sides' inner walls and the crown's floor
+			if above then
+				for fi = 1, 4 do
+					local F = FACES[fi]
+					local front = (fi == 1 and s1) or (fi == 2 and s2) or (fi == 3 and s3) or (fi == 4 and s4)
+					if not front then kingHeadSide(F[1], F[2], 3, true) end
 				end
-			elseif pass == 2 and front then
-				if fi == 5 then
-					shadeOn(FN[o + 7])
-					fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
-					setColor(BLACK)
-					drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
-				else
-					-- the floor: the top face's corners, lowered
-					shadeOn(FN[o + 7])
-					fillPolygon(SX[4 + a], SY[4 + a], SX[4 + b], SY[4 + b], SX[4 + cc], SY[4 + cc], SX[4 + d], SY[4 + d])
-					setColor(BLACK)
-				end
+				local F = FACES[5]
+				shadeOn(topShade)
+				fillPolygon(SX[20 + F[1]], SY[20 + F[1]], SX[20 + F[2]], SY[20 + F[2]],
+					SX[20 + F[3]], SY[20 + F[3]], SX[20 + F[4]], SY[20 + F[4]])
+				setColor(BLACK)
+			else
+				kingCap(16, FACES[5], bottomShade)
+			end
+			for fi = 1, 4 do
+				local F = FACES[fi]
+				local front = (fi == 1 and s1) or (fi == 2 and s2) or (fi == 3 and s3) or (fi == 4 and s4)
+				if front then kingHeadSide(F[1], F[2], FN[7 * fi], false) end
+			end
+		else
+			local L, H = 0, 8
+			if sec == 2 then L, H = 8, 12 end
+			if sec == 1 and not above then kingCap(0, FACES[5], bottomShade) end
+			for fi = 1, 4 do
+				local F = FACES[fi]
+				local front = (fi == 1 and s1) or (fi == 2 and s2) or (fi == 3 and s3) or (fi == 4 and s4)
+				if front then kingSide(L, H, F[1], F[2], FN[7 * fi]) end
 			end
 		end
 	end
