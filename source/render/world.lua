@@ -94,10 +94,14 @@ end
 -- minimap caches on it).
 function world.poseVersion() return poseVersion end
 
--- Drop the cached world image (after changing world.tune, say).
+-- Drop the cached world image and every item's prepared shadow and shading
+-- (after changing world.tune, say). Items compare their own generation with
+-- this one, so no item list is needed here.
 local cacheReady = false
+local generation = 0
 function world.invalidate()
 	cacheReady = false
+	generation = generation + 1
 	poseVersion = poseVersion + 1
 end
 
@@ -326,6 +330,7 @@ local function prepare(p)
 		FN[o + 7] = (lit > litAbove) and 1 or ((lit > darkAbove) and 2 or 3)
 	end
 	p.stale = false
+	p.gen = generation
 end
 
 local function boxShadow(p)
@@ -496,7 +501,7 @@ function world.draw(c, items, n, baton)
 	updateLight()
 	for i = 1, n do
 		local p = items[i]
-		if p.stale ~= false then prepare(p) end
+		if p.stale ~= false or p.gen ~= generation then prepare(p) end
 	end
 	lap("prepare")
 	local cache = world.tune.cache
