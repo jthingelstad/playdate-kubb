@@ -9,7 +9,8 @@
 --   "Readout"  the debug line after each throw (power, smoothness, tilt,
 --              LEGAL/HELICOPTER, distance), for tuning on hardware
 --   "Record"   append each swing's crank samples to traces.jsonl in the
---              Data folder (replay with tools/replay_traces.lua)
+--              Data folder (replay with tools/replay_traces.lua). On by
+--              default while the throw is being tuned; self-tests leave it off.
 
 import "CoreLibs/graphics"
 
@@ -27,6 +28,7 @@ import "selftest/loft"
 import "selftest/windup"
 import "selftest/flight"
 import "selftest/helicopter"
+import "selftest/gauge"
 
 local function launchArgs()
 	local args = {}
@@ -49,6 +51,7 @@ else
 	local scene = throw.new(tw.input.device())
 	throw.enter()
 
+	tw.recorder.on = true
 	local menu = playdate.getSystemMenu()
 	menu:addCheckmarkMenuItem("Readout", scene.showReadout, function(on)
 		scene.showReadout = on
