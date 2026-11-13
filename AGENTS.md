@@ -97,15 +97,22 @@ local n = g:need()
 
 - Pieces: kubbs have permanent ids `a1`..`a5` (Team A's base kubbs at x = -2..2, y = 0) and
   `b1`..`b5` (y = 8); the king is `king`. `g.kubbs[id]` = `{ id, kind = "base"|"field",
-  half = "A"|"B", where = "pitch"|"hand"|"out"|"punish", pose, thrown, established }`.
-  `half` is the half a field kubb belongs to (where it was thrown), not recomputed from y.
-  `g.king.pose`. `g:census()` counts kubbs by `where` (always 10).
+  half = "A"|"B", where = "pitch"|"hand"|"out"|"punish", pose, thrown, established, fouled }`.
+  `half` is the half a field kubb belongs to (where it was thrown), not recomputed from y: a
+  kubb thrown this turn is a field kubb of the target half on the pitch wherever it lies
+  until its round is judged. `where = "out"` means picked up for a rethrow. `fouled` marks a
+  thrown kubb that touched the thrower's own half (II.C.4b) until it is judged.
+  `g.king.pose`. `g:census()` counts kubbs by `where` (always 10). `g:liesNow(id)` says
+  `"in"` or `"out"` for where a thrown kubb lies before it is judged; `g.judgment` is what
+  the last judgment did (`thrown, rethrow, punish, rescue, lowered, lifted`), nil after a
+  toss that did not end a round.
 - State: `g.turn`, `g.attacker`, `g.defender`, `g.phase` (`toss`, `rethrow`, `raise`,
   `punish`, `batons`, `over`), `g.batonsLeft`, `g.advantageY`, `g.winner`, `g.how`,
   `g.sheet` (the notation score sheet).
 - `g:need()` returns one of:
   - `{ kind = "toss", side, kubb, rethrow, throwY, half, left }`: the attacker throws kubb
     `kubb` from its baseline `throwY` into `half`. First throws come before rethrows (II.C.6).
+    `left` counts this throw and the rest of its round (see "Judged at the final position").
   - `{ kind = "raise", side, kubb, pose, decision }`: the defender raises a lying kubb.
     `decision = { mode, choices, ends }` from `tw.raising.options`; mode is `choice` (both
     footprints clear and in bounds), `forced` (one), `displaced` (none clear: touching the
@@ -162,10 +169,40 @@ pose unless its center left the pitch (II.B.7: put back).
 
 In bounds is the center of the standing kubb against the defender's half (lines are in). A
 lying kubb is in if either footprint is. Struck field kubbs stay where they come to rest and
-are raised there (II.C.4); one that cannot be raised in bounds is rescued if it was
-established (II.C.5a, `Q`), rethrown if thrown once, a punishment kubb if thrown twice. Base
-kubbs a toss moves are stood back where they were. A kubb resting on another is lowered
-beside it (II.D.6, `N`).
+are raised there (II.C.4). Base kubbs a toss moves are stood back where they were. The king
+toppled by a thrown kubb ends the game at once (`E`). Everything else waits for the
+judgment below.
+
+### Judged at the final position
+
+The ruling (Jamie, 2026-11-13): whether a thrown kubb is in or out is not judged when it
+stops. If a kubb is out and a later kubb moves it in, there is no rethrow; the rethrows go
+by where every kubb lies once they are all thrown, and they come last.
+
+- **Rounds.** A round is every kubb queued when it starts: the first throws (rescued kubbs
+  among them) before the rethrows (II.C.6). While a round has throws left, every thrown kubb
+  stays a piece on the engine's pitch at its rest pose (in, out of bounds, short of the
+  middle line, in the thrower's own half), a field kubb of the target half, and later kubbs
+  can move it. Nothing is judged.
+- **The judgment** (`Game:_judge`, when the round's last throw is at rest), on every field
+  kubb of the target half as it lies then, established ones included:
+  1. a kubb resting on another is lowered beside it (II.D.6, `N`), unless the kubb under it
+     is out (it is picked up: the upper kubb lies where it is, no `N`);
+  2. an established field kubb that cannot be raised in bounds is rescued (II.C.5a, `Q`):
+     back to the attacker as a kubb not yet thrown, thrown in the next round;
+  3. a kubb thrown once that cannot be raised in bounds is picked up and rethrown in the
+     next round (II.C.5b, II.C.6); so is one thrown once that a rethrow knocked out;
+  4. a kubb thrown twice that is still out is a punishment kubb (II.C.5c, II.D.11, `P`).
+  Out kubbs leave the pitch at the judgment, all at once. Rounds go on until nothing is left
+  to throw; then the defender raises and places punishment kubbs as before.
+- **II.C.4b at the final position.** A thrown kubb that touches a field kubb in the
+  thrower's own half fouls at once: that kubb is put back (nothing in the own half is
+  applied), the note is written, and the thrown kubb is out at the judgment wherever it
+  lies by then (it stays on the pitch until then, a piece later kubbs can hit). A thrown kubb
+  lying in the thrower's own half at the end without having touched anything is simply out
+  (not in bounds). Moving a kubb thrown this turn is never II.C.4b, wherever it lies.
+- **A rescue is judged at the end too:** an established kubb knocked out and knocked back in
+  before the round ends stays where it lies, no `Q`.
 
 ## Notation conventions
 
@@ -181,7 +218,9 @@ text; times are `{ year, month, day, hour, min }` tables passed in (no `os.time`
   (rescued kubbs included, so I = kubbs knocked last turn + Q), `R` = every rethrow made,
   `P` = punishment kubbs (also in R), `Q` = rescues, `N` = kubbs that came to rest on another
   (capped at 5, the grammar's limit), `E` = king toppled by a thrown kubb. `Y` is never
-  written. No inkast token when there was nothing to throw.
+  written. No inkast token when there was nothing to throw. `I` and `R` are inked when the
+  kubb is thrown; `P`, `Q` and `N` when the round is judged, to the player who made its last
+  throw (the grammar takes the letters in any order; the token always writes `IRPQN`).
 - When the game ends before the inkast is done (king toppled by a kubb, or a resign), the
   token still counts every kubb that was due, so kubb.js's inkast check holds.
 - `nA` follows the inkast: whole meters from the attacker's own baseline to the advantage
@@ -202,8 +241,11 @@ neighbours toppled or pushed, inkast landing spots with scatter, and rare events
 (rescues, punishment kubbs, kubbs on top of others, helicopters, own-half hits, early base
 kubbs and kings, resigns). Its rates are `thrower.tune`. `thrower.playGame(seed, check)`
 plays one game; `tests/lua/test_games.lua` plays 50 and checks invariants after every
-action; `tools/games.lua` writes N games. `tests/fixtures/games/` holds ten generated games
-plus the two hand-written ones; `make test` gates them.
+action; `tools/games.lua` writes N games. `tests/fixtures/games/` holds eleven generated games
+plus the two hand-written ones; `make test` gates them. The thrower sometimes aims at a kubb
+of this turn lying out near the target half and knocks it toward the middle (`chaseOut`),
+so games have kubbs knocked in before the round is judged; `make games` prints
+`knockedIn`/`knockedOut` and the sheets' `R`, `P`, `Q`, `N` counts.
 
 `core/autothrow.lua` is a scripted thrower for physics: for a match setup it picks where to
 stand, swivel, loft, launch speed and tumble (seeded scatter, `autothrow.tune`), aiming
@@ -509,8 +551,8 @@ the throw scene with `s.drill` on.
   meters with y from the thrower's baseline (`core/trace.lua` header); `launchSpeed` is the
   drill's own. `frames.jsonl` writes `"proj":"drill"`.
 - **Rules.** A drilled kubb's rest goes through `core/outcome.toss` and `core/match` like a
-  lobbed one: short of the middle line or out is a rethrow, out twice a punishment kubb
-  (tested in `test_drill.lua` with real physics).
+  lobbed one: short of the middle line or out when its round is judged is a rethrow, out
+  twice a punishment kubb (tested in `test_drill.lua` with real physics).
 - **Self-test** `drill`: the practice pitch, marker moved, A held, a wind-up to the band and
   a clean flick; its marker note gives power, band and the landing and rest distances.
 
@@ -545,13 +587,15 @@ own item). Practice is the throw scene exactly as before.
   rest hold; then the next throw is set up from the engine's state plus the turn's debris
   (below): standing pieces are where the engine says (kubbs pushed out are put back, raised
   and punishment kubbs appear).
-- Out kubbs wait on the pitch (Jamie, 2026-11-13): a thrown kubb that is out (to be rethrown,
-  or a punishment kubb) stays where it stopped as a debris entry marked `waiting` while the
-  other kubbs are thrown, so later kubbs can hit it. `match.setup` lifts it when it is the
-  kubb being rethrown and lifts them all when the kubb throwing is over. The engine still
-  judges a kubb in or out when it stops; a later kubb knocking a waiting kubb around does
-  not change that. A kubb that comes to rest on a waiting kubb is not on a piece in play
-  (`outcome.toss` takes the debris): it lies where it is, with no `N`.
+- Out kubbs stay on the pitch (Jamie, 2026-11-13): the engine keeps every kubb thrown this
+  round as one of its pieces wherever it lies (Rules engine, "Judged at the final
+  position"), so `outcome.pieces` has them and later kubbs hit them. They leave the pitch
+  when the round is judged (picked up for a rethrow, or a punishment kubb). After a toss
+  that is not the last of its round `m.text` says where the kubb lies now (`kubb in for
+  now`, `kubb out for now`, `own half hit: kubb out`); after the last one it says the
+  judgment (`kubb in`/`all in`, `kubb out: rethrown`/`2 out: rethrown`, `out twice:
+  punishment kubb`, `on a kubb: lowered`, rescues). The label's `of` is the throws made plus
+  those left in the round, so it grows when a judgment adds rethrows.
 - Debris (`core/debris.lua`, carried by `core/match`): within a turn every thrown baton
   lies where it came to rest and every kubb it toppled that the engine took off the pitch
   lies where it fell. `match.setup` gives them as `s.debris` (core/world pieces in the view
@@ -563,9 +607,11 @@ own item). Practice is the throw scene exactly as before.
   world frame and turned for Team B. A debris kubb is down in the world (`wasToppled`), so
   hitting it again tops nothing up; a standing kubb it is pushed into counts for this throw
   as a direct hit would. The hand-off (a new turn), the end of the game and a resign clear
-  it. During the inkast the engine keeps the tossed kubbs on the pitch lying; debris also
-  carries their exact rest pose (tilt, height) while the engine's pose is the one they came
-  to rest at, so they are shown and simulated as they landed until raised. In the scene the
+  it. During the inkast the engine keeps the tossed kubbs on the pitch lying (in or out); debris
+  also carries their exact rest pose (tilt, height) while the engine's pose is the one they
+  came to rest at, so they are shown and simulated as they landed until raised or picked up.
+  A kubb lowered at the judgment no longer matches and is shown flat; one whose support was
+  picked up keeps its spot but drops its exact pose (it would float). In the scene the
   debris items follow the engine's pieces; a lying baton is a `baton` item of `render/world`
   (drawn like the flying baton from its cached pose, nothing prepared); the minimap draws
   debris as 1 px dots like other toppled pieces. Cost: `make bench` runs its throw again with
