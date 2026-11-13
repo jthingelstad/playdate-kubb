@@ -31,6 +31,16 @@ for i = 1, runs do
 end
 print(string.format("best: %.0f steps/s, %.1f ms per simulated second (%.3f ms/step)",
 	best.stepsPerSecond, best.msPerSimSecond, best.msPerStep))
+-- the same throw with a full turn's debris lying on the pitch (asleep)
+local bestD
+for i = 1, runs do
+	local r = bench.run(os.clock, nil, nil, true)
+	print(bench.line(r, "with debris run " .. i))
+	if not bestD or r.seconds < bestD.seconds then bestD = r end
+end
+print(string.format("best with debris: %.0f steps/s, %.3f ms/step (%+.0f%%), collision phase %.3f ms/step (%+.0f%%)",
+	bestD.stepsPerSecond, bestD.msPerStep, (bestD.msPerStep / best.msPerStep - 1) * 100,
+	bestD.hotMsPerStep, (bestD.hotMsPerStep / best.hotMsPerStep - 1) * 100))
 if profile then
 	for _, l in ipairs(bench.profile(os.clock)) do print(l) end
 end

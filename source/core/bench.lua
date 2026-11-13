@@ -5,8 +5,9 @@
 -- function on the device; only the clock differs.
 import "core/tw"
 import "core/world"
+import "core/quat"
 
-local world = tw.world
+local world, quat = tw.world, tw.quat
 
 local bench = {}
 
@@ -23,18 +24,62 @@ bench.pieces = {
 -- end over end at 7 rad/s
 bench.throw = { x = 0, lineY = 0, swivel = 0, loft = 35, speed = 6.0, tumble = 7, tilt = 0 }
 
-function bench.world()
-	local w = world.new{ surface = "grass", pieces = bench.pieces }
+-- A match's worst case for the bodies a throw starts with (AGENTS.md
+-- "Match"): six batons and ten kubbs lying on the pitch from earlier throws
+-- of the turn, already down and asleep, away from the scenario's throw
+-- except two batons and a kubb just behind the group (the throw may reach
+-- them). bench.run(..., true) adds them.
+local function lying(id, kind, x, y, yaw)
+	local tw_, tx, ty, tz = quat.fromAxisAngle(1, 0, 0, -math.pi / 2)   -- long axis along +y, a face down
+	local zw, zx, zy, zz = quat.fromAxisAngle(0, 0, 1, yaw - math.pi / 2)
+	local qw, qx, qy, qz = quat.mul(zw, zx, zy, zz, tw_, tx, ty, tz)
+	return { id = id, kind = kind, x = x, y = y, qw = qw, qx = qx, qy = qy, qz = qz, toppled = true }
+end
+bench.debris = {
+	lying("baton1", "baton", -0.15, 4.75, 0.4),
+	lying("baton2", "baton", 0.20, 4.85, 1.9),
+	lying("baton3", "baton", 1.40, 5.60, 0.2),
+	lying("baton4", "baton", -1.30, 6.10, 2.8),
+	lying("baton5", "baton", 0.80, 7.30, 1.2),
+	lying("baton6", "baton", -0.60, 7.70, 0.7),
+	lying("d1", "kubb", 0.05, 4.95, 0.1),
+	lying("d2", "kubb", -1.80, 5.20, 1.5),
+	lying("d3", "kubb", 1.90, 5.40, 0.3),
+	lying("d4", "kubb", -1.00, 6.60, 2.2),
+	lying("d5", "kubb", 1.10, 6.80, 0.9),
+	lying("d6", "kubb", -2.00, 7.95, 0.0),
+	lying("d7", "kubb", -1.00, 8.10, 1.6),
+	lying("d8", "kubb", 0.00, 7.85, 0.2),
+	lying("d9", "kubb", 1.00, 8.05, 1.4),
+	lying("d10", "kubb", 2.00, 7.90, 3.0),
+}
+
+function bench.world(withDebris)
+	local pieces = bench.pieces
+	if withDebris then
+		pieces = {}
+		for i, p in ipairs(bench.pieces) do pieces[i] = p end
+		for _, p in ipairs(bench.debris) do pieces[#pieces + 1] = p end
+	end
+	local w = world.new{ surface = "grass", pieces = pieces }
 	local t = bench.throw
 	world.launchBaton(w, t.x, t.lineY, t.swivel, t.loft, t.speed, t.tumble, t.tilt)
 	return w
 end
 
+-- Bodies that were ever awake (the projectile included).
+local function woke(w)
+	local n = 0
+	for i = 1, w.n do if w.bodies[i].everAwake then n = n + 1 end end
+	return n
+end
+
 -- Run the scenario. clock() returns seconds. If `chunk` is given, `yield`
 -- is called every `chunk` steps (the device redraws a progress line there;
--- the time spent in yield is not counted). Returns a result table.
-function bench.run(clock, chunk, yield)
-	local w = bench.world()
+-- the time spent in yield is not counted). withDebris adds bench.debris.
+-- Returns a result table.
+function bench.run(clock, chunk, yield, withDebris)
+	local w = bench.world(withDebris)
 	local steps = math.floor(bench.seconds / world.tune.dt + 0.5)
 	local busy, maxAwake, maxContacts = 0, 0, 0
 	-- the collision phase: steps with two or more bodies awake (timed one by one)
@@ -70,6 +115,8 @@ function bench.run(clock, chunk, yield)
 		maxContacts = maxContacts,
 		toppled = #r.toppled,
 		touched = #r.touched,
+		bodies = w.n,
+		woke = woke(w),
 	}
 end
 
@@ -123,7 +170,7 @@ function bench.line(r, where)
 	return string.format("%s: %d steps (%.1f s simulated) in %.3f s; %.3f ms/step; %.0f steps/s; %.1f ms per simulated s; %.1f steps per 20 ms frame; collision phase %d steps at %.3f ms/step (%.1f per 20 ms frame); awake max %d, contacts max %d; toppled %d",
 		where or "bench", r.steps, r.simSeconds, r.seconds, r.msPerStep, r.stepsPerSecond, r.msPerSimSecond,
 		20 / r.msPerStep, r.hotSteps, r.hotMsPerStep, r.hotMsPerStep > 0 and 20 / r.hotMsPerStep or 0,
-		r.maxAwake, r.maxContacts, r.toppled)
+		r.maxAwake, r.maxContacts, r.toppled) .. string.format("; bodies %d, woke %d", r.bodies, r.woke)
 end
 
 tw.bench = bench
