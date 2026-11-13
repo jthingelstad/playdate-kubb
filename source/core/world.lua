@@ -284,7 +284,7 @@ local REC = {}   -- the records of this step's active contacts, 1 .. nRec (reuse
 local nRec = 0
 
 -- Per body, filled each step: position, bounding radius, awake, speed bound.
-local BX, BY, BZ, BR, AW, SPD = {}, {}, {}, {}, {}, {}
+local BX, BY, BZ, BR, AW, SPD, NXT = {}, {}, {}, {}, {}, {}, {}
 
 -- Implicit gyroscopic step (Bullet's computeGyroscopicImpulseImplicit_Body):
 -- one Newton step of I w' = I w - dt w' x I w' in the body frame. Keeps a
@@ -556,13 +556,23 @@ function world.step(w)
 			SPD[i] = 0
 		end
 	end
+	-- NXT[k]: the first awake body at k or after (nb + 1: none), so a
+	-- sleeping body's pairs jump from one awake partner to the next
+	local nxt = nb + 1
+	for k = nb, 1, -1 do
+		if AW[k] then nxt = k end
+		NXT[k] = nxt
+	end
 	local tmargin = t.margin
 	local wakeLin2, wakeAng2 = t.wakeLin * t.wakeLin, t.wakeAng * t.wakeAng
 	for i = 1, nb do
 		local sa = SPD[i]
 		local ax, ay, az, ar = BX[i], BY[i], BZ[i], BR[i]
-		for j = i + 1, nb do
-			if AW[i] or AW[j] then
+		local j = i + 1
+		while j <= nb do
+			if not AW[i] then j = NXT[j] end
+			if j > nb then break end
+			do
 				local margin = tmargin + (sa + SPD[j]) * dt
 				local dx, dy, dz = ax - BX[j], ay - BY[j], az - BZ[j]
 				local reach = ar + BR[j] + margin
@@ -596,10 +606,14 @@ function world.step(w)
 							AW[s] = true
 							local vx, vy, vz, wx, wy, wz = o.vx, o.vy, o.vz, o.wx, o.wy, o.wz
 							SPD[s] = sqrt(vx * vx + vy * vy + vz * vz) + sqrt(wx * wx + wy * wy + wz * wz) * o.radius
+							for k = s, 1, -1 do
+								if NXT[k] > s then NXT[k] = s else break end
+							end
 						end
 					end
 				end
 			end
+			j = j + 1
 		end
 	end
 	if P then local now = pc(); P.pairs = P.pairs + now - pt; pt = now end
