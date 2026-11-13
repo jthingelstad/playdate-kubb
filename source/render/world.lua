@@ -43,6 +43,8 @@ world.tune = {
 	stakeHeight = 0.30, -- keep equal to tw.world.tune.stakeHeight (the physics post)
 	stakeWidth = 2,   -- px
 	dash = 0.20,      -- m, centerline dash and gap
+	advDash = 0.10,   -- m, the advantage line's dash and gap (2 px wide, so it reads apart
+	                  -- from the 1 px centerline)
 	-- The light pattern outside the sidelines: sparse black dots (pattern
 	-- bits: 1 = white, 0 = black). It covers the ground beside the pitch from
 	-- behind the thrower to the far baseline; beyond the far baseline the
@@ -66,6 +68,10 @@ local BATON_L, BATON_D = 0.30, 0.044
 
 -- Bumped by every world.setPose: part of the frame cache key.
 local poseVersion = 0
+
+-- The advantage line's y (the view frame), or nil for none. Set by the
+-- scene; part of the frame cache key.
+world.advantageY = nil
 
 -- Pieces are drawn from an item list the scene keeps: one item per kubb or
 -- king with a full pose. world.setPose fills the rotation matrix. Item
@@ -212,6 +218,19 @@ local function drawPitch()
 		if x2 > 2.5 then x2 = 2.5 end
 		line(x, 4, 0, x2, 4, 0)
 		x = x + 2 * dash
+	end
+	-- the advantage line (the match, II.B.6): a dotted 2 px line across the pitch
+	local ay = world.advantageY
+	if ay then
+		setLineWidth(2)
+		local ad = t.advDash
+		x = -2.5
+		while x < 2.5 do
+			local x2 = x + ad
+			if x2 > 2.5 then x2 = 2.5 end
+			line(x, ay, 0, x2, ay, 0)
+			x = x + 2 * ad
+		end
 	end
 	setLineWidth(t.stakeWidth)
 	local sh = t.stakeHeight
@@ -466,7 +485,7 @@ local function drawAll(c, items, n, baton)
 end
 
 -- The frame cache: the key of the last frame drawn (camera, items, poses,
--- baton) and an image of the world for it.
+-- baton, advantage line) and an image of the world for it.
 local K = {}
 local KEY = {}
 local cacheImg = nil
@@ -482,8 +501,9 @@ local function sameKey(items, n, baton)
 	else
 		k[19], k[20], k[21], k[22], k[23], k[24] = false, false, false, false, false, false
 	end
+	k[25] = world.advantageY or false
 	local same = true
-	for i = 1, 24 do
+	for i = 1, 25 do
 		local v = k[i]
 		if K[i] ~= v then K[i] = v; same = false end
 	end

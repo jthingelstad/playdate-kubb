@@ -28,6 +28,9 @@ local hud = {}
 hud.tune = {
 	panelX = 4, panelY = 194, panelW = 76, panelH = 42,  -- loft + power panel, bottom left
 	readoutX = 4, readoutY = 3,                            -- debug readout, top left
+	statusGap = 1,                                         -- px between the match status lines
+	cardPad = 10, cardGap = 6, cardRise = 20,              -- hand-off and winner card: padding,
+	                                                       -- line gap, px above screen center
 	gaugeX = 200, gaugeY = 198, gaugeR = 30,               -- throw gauge: arm pivot and arm length
 	gaugeFollowDeg = 70,                                   -- arm angle shown after the release
 	cache = true,                                          -- cache unchanged parts as images
@@ -128,7 +131,8 @@ local mapLayer = newLayer(mm.ox - 3, mm.oy - 3, mm.ox + mm.w + 3, mm.oy + mm.h +
 local mapKey = {}
 
 -- state: playerX, lineY, aimX, aimY (aim preview landing), baton (or nil),
--- landX, landY (or nil), pieces and npieces (render/world items)
+-- landX, landY (or nil), pieces and npieces (render/world items), advY
+-- (the advantage line, or nil)
 function hud.minimap(state)
 	local m = camera.minimap
 	local ox, oy, w, h = m.ox, m.oy, m.w, m.h
@@ -140,8 +144,9 @@ function hud.minimap(state)
 	end
 	local ver = rworld.poseVersion()
 	local K = mapKey
-	local same = K[1] == ver and K[2] == pieces and K[3] == np and K[4] == mask
-	K[1], K[2], K[3], K[4] = ver, pieces, np, mask
+	local adv = state.advY or false
+	local same = K[1] == ver and K[2] == pieces and K[3] == np and K[4] == mask and K[5] == adv
+	K[1], K[2], K[3], K[4], K[5] = ver, pieces, np, mask, adv
 	local dx, dy = begin(mapLayer, same)
 	if dx then
 		gfx.setColor(gfx.kColorWhite)
@@ -151,6 +156,12 @@ function hud.minimap(state)
 		gfx.drawRect(ox - 3 + dx, oy - 3 + dy, w + 7, h + 7)
 		gfx.drawRect(ox + dx, oy + dy, w + 1, h + 1)
 		for x = 0, w, 3 do gfx.drawPixel(ox + x + dx, oy + h / 2 + dy) end
+		-- the advantage line: every other pixel, a row of its own
+		if adv then
+			local _, ay = camera.toMinimap(0, adv)
+			ay = floor(ay + 0.5)
+			for x = 0, w, 2 do gfx.drawPixel(ox + x + dx, ay + dy) end
+		end
 		-- base kubbs sit on the baselines; their dots are drawn just inside so
 		-- they do not merge with the minimap's edge
 		-- toppled pieces are a single pixel
@@ -248,11 +259,80 @@ function hud.readoutText(r)
 	return s
 end
 
-function hud.readout(s)
+-- `y` (optional) moves it down (the match puts its status lines above it).
+function hud.readout(s, y)
 	local t = hud.tune
 	-- box: (x - 2, y - 2), text width + 4 by text height + 3
 	local b = textBox(s, 0, 0, 2, 2, 2, 1)
+	b.img:draw(t.readoutX - 2, (y or t.readoutY) - 2)
+end
+
+-- The match status, top left: whose turn and what is thrown (`label`), and
+-- under it what the last throw did (`result`, or nil). Each line is a text
+-- box cached by its string, so a frame costs two image draws.
+function hud.status(label, result)
+	local t = hud.tune
+	local b = textBox(label, 0, 0, 2, 2, 2, 1)
 	b.img:draw(t.readoutX - 2, t.readoutY - 2)
+	if result then
+		local r = textBox(result, 0, 0, 2, 2, 2, 1)
+		r.img:draw(t.readoutX - 2, t.readoutY - 2 + b.h + t.statusGap)
+	end
+end
+
+-- The y of a line under the status lines (for the readout).
+function hud.belowStatus(lines)
+	local t = hud.tune
+	local _, h = gfx.getTextSize("A")
+	return t.readoutY + lines * (h + 3 + t.statusGap)
+end
+
+-- A card in the middle of the screen over the world: a title line and up to
+-- two more (nil to skip). The whole card is one cached image per set of
+-- strings, so a frame showing it costs one image draw.
+local cards, ncards = {}, 0
+function hud.card(title, line2, line3)
+	-- looked up by the strings themselves (no key string built per frame)
+	local k2, k3 = line2 or "", line3 or ""
+	local c = cards[title] and cards[title][k2] and cards[title][k2][k3]
+	if not c then
+		if ncards >= 8 then cards, ncards = {}, 0 end
+		local lines = { title, line2, line3 }
+		local w, h = 0, 0
+		local sizes = {}
+		for i = 1, 3 do
+			if lines[i] then
+				local lw, lh = gfx.getTextSize(lines[i])
+				sizes[i] = { lw, lh }
+				w = max(w, lw)
+				h = h + lh + (i > 1 and hud.tune.cardGap or 0)
+			end
+		end
+		local pad = hud.tune.cardPad
+		local bw, bh = w + 2 * pad, h + 2 * pad
+		local img = gfx.image.new(bw, bh, CLEAR)
+		gfx.pushContext(img)
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRoundRect(0, 0, bw, bh, 4)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.setLineWidth(2)
+		gfx.drawRoundRect(1, 1, bw - 2, bh - 2, 4)
+		gfx.setLineWidth(1)
+		local y = pad
+		for i = 1, 3 do
+			if lines[i] then
+				gfx.drawText(lines[i], floor((bw - sizes[i][1]) / 2), y)
+				y = y + sizes[i][2] + hud.tune.cardGap
+			end
+		end
+		gfx.popContext()
+		c = { img = img, w = bw, h = bh }
+		cards[title] = cards[title] or {}
+		cards[title][k2] = cards[title][k2] or {}
+		cards[title][k2][k3] = c
+		ncards = ncards + 1
+	end
+	c.img:draw(floor((camera.SCREEN_W - c.w) / 2), floor((camera.SCREEN_H - c.h) / 2) - hud.tune.cardRise)
 end
 
 -- A label centered over x in a box: (lx - 3, ly - 2), text width + 6 by

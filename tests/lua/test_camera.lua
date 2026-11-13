@@ -178,3 +178,22 @@ test("minimap mapping: 9 px per meter, far baseline at the top", function()
 	expect.near(x, m.ox + 22.5, 1e-9); expect.near(y, m.oy + 36, 1e-9)
 	expect.truthy(m.ox + m.w + 3 <= 400, "fits on screen")
 end)
+
+test("match framing: look nearer for near targets, the default for the far baseline", function()
+	local t = camera.tune.aim
+	expect.near(camera.lookDistFor(0, 0, FAR), t.lookDist, 1e-12, "base kubbs")
+	expect.near(camera.lookDistFor(0, 0, {}), t.lookDist, 1e-12, "no targets")
+	-- a field kubb 4.5 m out: look lookBeyond past it
+	expect.near(camera.lookDistFor(0, 0, { { x = 0, y = 4.5 }, { x = 1, y = 7 } }), 4.5 + t.lookBeyond, 1e-12)
+	-- from the advantage line, very close: never nearer than lookMin
+	expect.near(camera.lookDistFor(0, 3, { { x = 0, y = 4 } }), t.lookMin, 1e-12)
+	-- the default call is unchanged; a nearer look keeps the near target on screen
+	local a, b = camera.new(), camera.new()
+	camera.aim(a, 0, 0, 0, FAR)
+	camera.aim(b, 0, 0, 0, FAR, nil, t.lookDist)
+	expect.near(a.ly, b.ly, 1e-12)
+	local near = { { x = 0.5, y = 3 } }
+	camera.aim(b, 0, 0, 0, near, nil, camera.lookDistFor(0, 0, near))
+	local _, sy = camera.project(b, 0.5, 3, 0)
+	expect.truthy(sy and sy > 0 and sy < 240, "near kubb on screen")
+end)
