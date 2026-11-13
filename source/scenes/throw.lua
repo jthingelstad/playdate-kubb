@@ -39,6 +39,8 @@ function throw.new(provider)
 		swivel = 0,              -- radians, + = right
 		loftDeg = flight.tune.loftDefaultDeg,
 		swivelLatched = false,   -- the crank turned while left/right was held
+		arm = nil,               -- where the crank is: forward degrees from the bottom of the turn
+		armed = false,           -- the crank crossed the bottom going back; the wind-up may start
 		loftHeld = 0,
 		swing = swing.new(),
 		flight = flight.new(),
@@ -63,6 +65,9 @@ local function aimInput(s, dt)
 	local left, right = p:held("left"), p:held("right")
 	local up, down = p:held("up"), p:held("down")
 	local delta = p:crank()
+	local arm = swing.armAngle(p:crankPos())
+	local prevArm = s.arm
+	s.arm = arm
 
 	if left or right then
 		-- d-pad left/right + crank swivels; walking stops once the crank turns
@@ -97,12 +102,32 @@ local function aimInput(s, dt)
 	end
 
 	-- the throw: only with the d-pad released
-	if left or right or up or down then return nil end
 	local sw = s.swing
+	if left or right or up or down then
+		s.armed = false
+		return nil
+	end
+	-- the wind-up starts when the crank crosses the bottom of the turn going
+	-- back; until then the crank does nothing
+	if sw.phase == "idle" then
+		if not s.armed then
+			if swing.crossedBack(prevArm, arm) then
+				s.armed = true
+				delta = arm * swing.tune.forwardSign   -- only the part past the bottom
+			else
+				delta = 0
+			end
+		elseif arm >= 0 then
+			s.armed = false
+			sw.pending = 0
+			delta = 0
+		end
+	end
 	local rec = tw.recorder
 	if sw.phase == "idle" and sw.pending == 0 then rec.clear() end
 	if sw.phase ~= "idle" or delta ~= 0 then rec.add(dt, delta) end
 	local ev = swing.update(sw, delta, dt)
+	if ev then s.armed = false end
 	if ev == "letdown" then
 		rec.write("letdown", nil)
 	end
@@ -198,7 +223,8 @@ function throw.draw(s)
 	hud.panel(s.loftDeg, flight.tune.loftMinDeg, flight.tune.loftMaxDeg, cap, power)
 
 	hud.swingGauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
-		swing.tune.fullBackswingDeg, s.mode ~= "aim", s.last and s.last.legal, s.last and s.last.power)
+		swing.tune.fullBackswingDeg, s.mode ~= "aim", s.last and s.last.legal, s.last and s.last.power,
+		s.arm or 0)
 
 	if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout) end
 	if s.mode == "aim" and s.input:docked() then hud.crankPrompt() end

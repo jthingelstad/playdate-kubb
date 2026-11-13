@@ -8,6 +8,8 @@
 --   p:pressed(name)    did it go down this frame
 --   p:crank()          crank change this frame in degrees, raw sign
 --                      (getCrankChange: negative = anti-clockwise)
+--   p:crankPos()       crank position in degrees (getCrankPosition: 0 = straight
+--                      up, growing clockwise; 180 = the bottom of the turn)
 --   p:docked()         is the crank folded away
 --   p:dt()             seconds this frame
 -- Button names: "left", "right", "up", "down", "a", "b".
@@ -39,6 +41,7 @@ function input.device()
 	function p:held(name) return (self.cur & BUTTONS[name]) ~= 0 end
 	function p:pressed(name) return (self.down & BUTTONS[name]) ~= 0 end
 	function p:crank() return self.delta end
+	function p:crankPos() return playdate.getCrankPosition() end
 	function p:docked() return playdate.isCrankDocked() end
 	function p:dt() return self.step end
 	return p
@@ -53,8 +56,10 @@ end
 --   cranks = {d1, d2, ...}  raw crank degrees frame by frame (sets n)
 --   docked = true           the crank is folded away
 -- dt is fixed (1/50 s by default). After the last step: nothing held, no crank.
-function input.scripted(steps, dt)
-	local p = { steps = steps, i = 1, k = 0, fixed = dt or (1 / 50), frame = 0 }
+-- The crank starts at startPos (default 180, the bottom) and its position
+-- follows the scripted changes.
+function input.scripted(steps, dt, startPos)
+	local p = { steps = steps, i = 1, k = 0, fixed = dt or (1 / 50), frame = 0, pos = startPos or 180 }
 	local none = {}
 	local function stepLength(s)
 		if s.cranks then return #s.cranks end
@@ -69,6 +74,7 @@ function input.scripted(steps, dt)
 			s = self.steps[self.i]
 		end
 		self.cur = s or none
+		self.pos = (self.pos + self:crank()) % 360
 	end
 	local function has(list, name)
 		if not list then return false end
@@ -84,6 +90,7 @@ function input.scripted(steps, dt)
 		if s.cranks then return s.cranks[self.k] or 0 end
 		return s.crank or 0
 	end
+	function p:crankPos() return self.pos end
 	function p:docked() return self.cur.docked == true end
 	function p:dt() return self.fixed end
 	function p:finished() return self.steps[self.i] == nil end

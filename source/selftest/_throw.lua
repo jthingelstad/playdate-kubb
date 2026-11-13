@@ -22,7 +22,7 @@ function tw.selftest.throwScenario(def)
 	return {
 		step = function(ctx)
 			if not scene then
-				scene = throw.new(tw.input.scripted(def.script))
+				scene = throw.new(tw.input.scripted(def.script, nil, def.startPos))
 				throw.enter()
 			end
 			local t0 = playdate.getElapsedTime()
