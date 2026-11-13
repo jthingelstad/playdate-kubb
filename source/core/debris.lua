@@ -9,7 +9,8 @@
 --
 -- It also carries the exact body pose (tilt, height, which face is down) of
 -- every lying kubb the engine does keep on the pitch: during the inkast the
--- tossed kubbs lie where they landed until they are raised, and the engine's
+-- tossed kubbs lie where they landed (in bounds or out) until they are raised
+-- or picked up for a rethrow, and the engine's
 -- pose ({x, y, angle}) would lay them flat on a face. An exact pose is used
 -- only while the engine's pose is the one it was recorded with.
 --
@@ -85,15 +86,6 @@ function debris.add(d, id, kind, res, side)
 	end
 	setFrom(e, side, rb)
 	return e
-end
-
--- Drop every piece for which keep(entry) is false.
-function debris.prune(d, keep)
-	local out = {}
-	for _, e in ipairs(d.list) do
-		if keep(e) then out[#out + 1] = e end
-	end
-	d.list = out
 end
 
 -- Move every debris piece to where this throw left it (struck or not: a

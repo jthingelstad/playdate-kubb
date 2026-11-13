@@ -229,7 +229,7 @@ test("debris: tossed kubbs keep their exact rest pose until raised", function()
 	qw, qx, qy, qz = tw.quat.mul(tw_, tx, ty, tz, qw, qx, qy, qz)
 	r.bodies[s.kubb] = { kind = "kubb", x = -0.6, y = 6, z = 0.045, qw = qw, qx = qx, qy = qy, qz = qz, toppled = true }
 	match.resolve(m, r, false)
-	expect.eq(m.text, "kubb in")
+	expect.eq(m.text, "kubb in for now")
 	s = match.setup(m)
 	expect.eq(s.kind, "toss")
 	local p = find(s.pieces, "a1")

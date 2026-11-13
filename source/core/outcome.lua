@@ -134,46 +134,50 @@ function outcome.baton(res, pieces, side, illegal)
 	return o
 end
 
+-- The piece a kubb body rests on: when its center sits clearly above the
+-- ground, the nearest other piece where it ended (nil otherwise).
+local function restingOn(res, pieces, rb, id, standing, z)
+	local t = outcome.tune
+	if (standing and z <= t.onTopStanding) or (not standing and z <= t.onTopLying) then return nil end
+	local best, bd = nil, t.onTopReach
+	for _, p in ipairs(pieces) do
+		local b = res.bodies[p.id]
+		if b and p.id ~= id then
+			local dx, dy = b.x - rb.x, b.y - rb.y
+			local d = sqrt(dx * dx + dy * dy)
+			if d < bd then best, bd = p.id, d end
+		end
+	end
+	return best
+end
+
 -- The kubb-toss outcome for kubb `kubbId` (the projectile body, id kubbId).
 --   rest         its rest pose (world frame); onTop = the id of the piece it
 --                rests on when its center sits clearly above the ground
---   moved        rest poses of every other piece that moved
+--   moved        rest poses of every other piece that moved; a field kubb
+--                left resting on another gets onTop too (the engine lowers
+--                it when the round is judged, II.D.6)
 --   kingToppled
 --   ownHalfHit   pieces in the thrower's own half that anything touched
--- `debris` (optional, core/debris pieces): what else lies on the pitch that
--- the engine does not keep, such as an out kubb waiting to be rethrown. A
--- kubb resting on one of those is not on a piece in play: its support is
--- lifted away, so it counts as lying where it is, with no onTop.
-function outcome.toss(res, pieces, side, kubbId, debris)
-	local t = outcome.tune
+-- Every kubb thrown this turn is one of `pieces` (outcome.pieces), in or
+-- out, so a kubb may rest on any of them.
+function outcome.toss(res, pieces, side, kubbId)
 	local rb = assert(res.bodies[kubbId], "no body " .. tostring(kubbId))
 	local rest, z = worldPose(side, rb)
-	if (rest.standing and z > t.onTopStanding) or (not rest.standing and z > t.onTopLying) then
-		-- the piece under it: the nearest other piece where it ended
-		local best, bd = nil, t.onTopReach
-		for _, p in ipairs(pieces) do
-			local b = res.bodies[p.id]
-			if b then
-				local dx, dy = b.x - rb.x, b.y - rb.y
-				local d = sqrt(dx * dx + dy * dy)
-				if d < bd then best, bd = p.id, d end
+	local on = restingOn(res, pieces, rb, kubbId, rest.standing, z)
+	if on then rest.onTop, rest.standing = on, false end
+	local o = { rest = rest, moved = {}, kingToppled = res.kingToppled and true or false, ownHalfHit = {} }
+	for _, p in ipairs(pieces) do
+		local b = res.bodies[p.id]
+		if b and p.id ~= kubbId and movedFrom(p, b) then
+			local pose, pz = worldPose(side, b)
+			if p.role == "field" then
+				local under = restingOn(res, pieces, b, p.id, pose.standing, pz)
+				if under then pose.onTop, pose.standing = under, false end
 			end
+			o.moved[p.id] = pose
 		end
-		local onDebris = false
-		for _, p in ipairs(debris or {}) do
-			local b = res.bodies[p.id]
-			if b and p.id ~= kubbId then
-				local dx, dy = b.x - rb.x, b.y - rb.y
-				local d = sqrt(dx * dx + dy * dy)
-				if d < bd then best, bd, onDebris = nil, d, true end
-			end
-		end
-		rest.onTop = best
-		if best or onDebris then rest.standing = false end
 	end
-	local o = { rest = rest, moved = movedPoses(res, pieces, side), kingToppled = res.kingToppled and true or false,
-		ownHalfHit = {} }
-	o.moved[kubbId] = nil
 	local info = byId(pieces)
 	for _, id in ipairs(res.touched) do
 		local p = info[id]

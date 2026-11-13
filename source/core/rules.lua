@@ -195,6 +195,8 @@ function Game:_startTurn()
 	self.firstQueue, self.rethrowQueue, self.punishQueue = q, {}, {}
 	self.hand[att] = {}
 	self.firstThrows = 0
+	self.roundThrows = 0          -- kubbs thrown in the round not yet judged
+	self.judgment = nil           -- what the last judgment did (set by _judge)
 	self.lastTosser = nil
 	self.sheet:beginTurn(self.turn, att)
 	-- II.B.2: the opponent left field kubbs standing in the attacker's own
@@ -279,18 +281,28 @@ local function poseFrom(o, fallback)
 	return { x = o.x, y = o.y, standing = o.standing and true or false, angle = o.angle or 0, onTop = o.onTop }
 end
 
--- A kubb that cannot be raised in bounds after this toss: a rethrow if it
--- has been thrown once, a punishment kubb if twice (II.C.5b/c, II.C.6,
--- II.D.11).
-function Game:_out(k, pid)
-	if k.thrown <= 1 then
-		k.where = "out"
-		self.rethrowQueue[#self.rethrowQueue + 1] = k.id
-	else
-		k.where = "punish"
-		self.punishQueue[#self.punishQueue + 1] = k.id
-		self.sheet:ink(pid, "P")
-	end
+-- The kubb throwing is judged at the final position (Jamie, 2026-11-13):
+-- whether a thrown kubb is in or out is not decided when it stops. Every
+-- thrown kubb stays a piece on the pitch at its rest pose (in, out of
+-- bounds, short of the middle line, in the thrower's own half) and later
+-- kubbs may move it. A round is every kubb queued when it starts (first
+-- throws before rethrows, II.C.6); when its last throw has come to rest,
+-- _judge rules on every field kubb of the target half by where it lies
+-- then.
+
+-- Out for now: a fouled kubb (II.C.4b), or one that cannot be raised in
+-- bounds where it lies.
+function Game:_outNow(k)
+	return k.fouled and true or not raising.canRaise(k.pose, self.defender)
+end
+
+-- Where a kubb thrown this turn lies before the round is judged: "in" or
+-- "out" (what the judgment would say if the round ended now, before any
+-- lowering), or nil when it is not on the pitch.
+function Game:liesNow(id)
+	local k = self.kubbs[id]
+	if not k or k.where ~= "pitch" then return nil end
+	return self:_outNow(k) and "out" or "in"
 end
 
 -- Lower a kubb resting on another (II.D.6) and count N.
@@ -300,7 +312,88 @@ function Game:_settle(k, pid)
 		local lp = lower and lower.pose or self.king.pose
 		k.pose = raising.lower(k.pose, lp)
 		self.sheet:ink(pid, "N")
+		return true
 	end
+	return false
+end
+
+-- The judgment at the end of a round, on every field kubb of the target
+-- half as it lies now (II.C.4, II.C.5a/b/c, II.C.6, II.D.6, II.D.11):
+--   * a kubb resting on another is lowered beside it (N), unless the kubb
+--     under it is itself out (it is lifted away: the upper one lies where
+--     it is, no N);
+--   * an established field kubb that cannot be raised in bounds is rescued
+--     (Q): back to the attacker as a kubb not yet thrown this turn;
+--   * a kubb thrown once that cannot be raised in bounds (or that fouled,
+--     II.C.4b) is picked up and rethrown in the next round;
+--   * a kubb thrown twice that is still out is a punishment kubb (P).
+-- Sets self.judgment = { thrown, rethrow, punish, rescue, lowered, lifted }
+-- (lifted: ids of kubbs whose support was picked up).
+function Game:_judge(pid)
+	local def = self.defender
+	local cands = self:onPitch(function(k) return k.kind == "field" and k.half == def end)
+	local isCand = {}
+	for _, k in ipairs(cands) do isCand[k.id] = true end
+	local status, pending = {}, {}
+	for _, k in ipairs(cands) do
+		if k.pose.onTop then pending[#pending + 1] = k
+		else status[k.id] = self:_outNow(k) and "out" or "in" end
+	end
+	local j = { thrown = self.roundThrows, rethrow = 0, punish = 0, rescue = 0, lowered = 0, lifted = {} }
+	-- kubbs resting on another, each once the kubb under it is judged (a
+	-- support whose own support is never judged counts as in)
+	while #pending > 0 do
+		local rest, progress = {}, false
+		for _, k in ipairs(pending) do
+			local sid = k.pose.onTop
+			local sup = "in"
+			if isCand[sid] then sup = status[sid] end
+			if sup == nil then
+				rest[#rest + 1] = k
+			else
+				progress = true
+				if sup == "out" then
+					k.pose.onTop, k.pose.standing = nil, false
+					j.lifted[#j.lifted + 1] = k.id
+				elseif self:_settle(k, pid) then
+					j.lowered = j.lowered + 1
+				end
+				status[k.id] = self:_outNow(k) and "out" or "in"
+			end
+		end
+		if not progress then
+			-- a ring of kubbs on each other (cannot happen in practice)
+			for _, k in ipairs(rest) do
+				if self:_settle(k, pid) then j.lowered = j.lowered + 1 end
+				status[k.id] = self:_outNow(k) and "out" or "in"
+			end
+			rest = {}
+		end
+		pending = rest
+	end
+	for _, k in ipairs(cands) do
+		if status[k.id] == "out" then
+			if k.established then
+				-- II.C.5a, the rescue
+				k.established, k.thrown, k.where = false, 0, "hand"
+				self.firstQueue[#self.firstQueue + 1] = k.id
+				self.sheet:ink(pid, "Q")
+				j.rescue = j.rescue + 1
+			elseif k.thrown <= 1 then
+				k.where = "out"
+				self.rethrowQueue[#self.rethrowQueue + 1] = k.id
+				j.rethrow = j.rethrow + 1
+			else
+				k.where = "punish"
+				self.punishQueue[#self.punishQueue + 1] = k.id
+				self.sheet:ink(pid, "P")
+				j.punish = j.punish + 1
+			end
+		end
+		k.fouled = nil
+	end
+	self.roundThrows = 0
+	self.judgment = j
 end
 
 -- outcome: see AGENTS.md "Kubb-toss outcome".
@@ -312,6 +405,7 @@ function Game:toss(o, player)
 	local k = self.kubbs[self.current]
 	removeFrom(self.firstQueue, k.id)
 	removeFrom(self.rethrowQueue, k.id)
+	self.judgment = nil
 	k.thrown = k.thrown + 1
 	if k.thrown == 1 then
 		self.sheet:ink(pid, "I")
@@ -320,6 +414,7 @@ function Game:toss(o, player)
 		self.sheet:ink(pid, "R")
 	end
 	self.lastTosser = pid
+	self.roundThrows = self.roundThrows + 1
 
 	if o.kingToppled then
 		k.where, k.kind, k.half = "pitch", "field", def
@@ -332,8 +427,9 @@ function Game:toss(o, player)
 	end
 
 	-- Other pieces it moved. Base kubbs are stood back where they were; a
-	-- piece in the thrower's own half makes it II.C.4b; out-of-play kubbs
-	-- (waiting to be rethrown) are ignored.
+	-- piece in the thrower's own half makes it II.C.4b. Kubbs thrown this
+	-- turn are field kubbs of the target half wherever they lie, so moving
+	-- one is never II.C.4b.
 	local ownHit = false
 	for _, id in ipairs(o.ownHalfHit or {}) do
 		local p = self.kubbs[id]
@@ -357,44 +453,27 @@ function Game:toss(o, player)
 		end
 	end
 
-	-- Kubbs it struck rest where the throw left them. Their poses go in before
-	-- anything is lowered, so a kubb resting on one that moved is lowered
-	-- beside where its support ended up, not where it used to be.
+	-- Kubbs it struck lie where the throw left them (II.C.4); nothing is
+	-- judged until the round is over. When the toss is II.C.4b nothing in
+	-- the own half was applied (put back); kubbs it moved in the target half
+	-- still stay where they came to rest.
 	sort(struck, function(a, b) return a.p.id < b.p.id end)
 	for _, s in ipairs(struck) do s.p.pose = s.pose end
 
-	-- The thrown kubb.
+	-- The thrown kubb lies where it stopped, a field kubb of the target half
+	-- (in or out), until the round is judged.
+	k.kind, k.half, k.established = "field", def, false
+	k.pose = poseFrom(o.rest, k.pose)
+	k.where = "pitch"
 	if ownHit then
-		-- II.C.4b: the own-half kubb is put back (nothing was applied) and
-		-- the thrown kubb is out; kubbs it moved in the target half stay
-		-- where they came to rest (only own-half kubbs go back).
-		k.where = "out"
-		self:_out(k, pid)
+		-- II.C.4b at the final position: a kubb that touched a field kubb in
+		-- the thrower's own half is out whatever later kubbs do to it
+		k.fouled = true
+		k.pose.onTop = nil
 		self.sheet:note("a kubb hit a field kubb in the thrower's own half (II.C.4b)")
-	else
-		k.kind, k.half, k.established = "field", def, false
-		k.pose = poseFrom(o.rest, k.pose)
-		k.where = "pitch"
-		self:_settle(k, pid)
-		if not raising.canRaise(k.pose, def) then self:_out(k, pid) end
 	end
 
-	-- Kubbs it struck (II.C.4, II.C.5).
-	for _, s in ipairs(struck) do
-		local p = s.p
-		self:_settle(p, pid)
-		if not raising.canRaise(p.pose, def) then
-			if p.established then
-				-- II.C.5a, the rescue: back to the attacker as a kubb not
-				-- yet thrown this turn.
-				p.established, p.thrown, p.where = false, 0, "hand"
-				self.firstQueue[#self.firstQueue + 1] = p.id
-				self.sheet:ink(pid, "Q")
-			else
-				self:_out(p, pid)
-			end
-		end
-	end
+	if #self.firstQueue == 0 and #self.rethrowQueue == 0 then self:_judge(pid) end
 	self:_next()
 end
 

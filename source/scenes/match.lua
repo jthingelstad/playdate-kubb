@@ -13,7 +13,9 @@
 --            the match resolves it (the result line shows during the rest
 --            hold); then the next throw is set up from the engine's state, so
 --            the pitch shown is exactly the engine's (toppled kubbs leave it,
---            raised kubbs stand, punishment kubbs appear).
+--            thrown kubbs lie where they stopped, in or out, until their round
+--            is judged; out ones are then picked up for the rethrows, raised
+--            kubbs stand, punishment kubbs appear).
 --   over     the winner card; the game file has been written to games/ in the
 --            Data folder (DESIGN 7). A goes back to the title.
 --
