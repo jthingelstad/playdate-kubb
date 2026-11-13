@@ -1,7 +1,7 @@
 -- The throw scene (stage 1): stand at the baseline, aim, wind up and flick
 -- the crank, watch the baton fly, then do it again. Controls: the d-pad
--- walks (left/right along the line, down back from it), A + crank swivels,
--- B + crank sets the loft, the crank alone throws. All input comes from an input provider (input.lua),
+-- walks (left/right along the line, down back from it), B + crank swivels,
+-- A + crank sets the loft, the crank alone throws. All input comes from an input provider (input.lua),
 -- so self-tests drive this scene with scripted crank samples.
 import "CoreLibs/graphics"
 import "core/tw"
@@ -25,9 +25,9 @@ throw.tune = {
 	walkSpeed = 1.2,      -- m/s along the throwing line
 	halfWidth = 2.5,      -- the line is 5 m wide (DESIGN 2)
 	backMax = 3.0,        -- m the player may step back from the throwing line
-	swivelGear = 0.25,    -- degrees of swivel per degree of crank with A held (geared down for fine aim)
+	swivelGear = 0.25,    -- degrees of swivel per degree of crank with B held (geared down for fine aim)
 	doubleTap = 0.35,     -- s between two presses of A or B that count as a double tap
-	loftGear = 0.15,      -- degrees of loft per degree of crank with B held (forward = higher)
+	loftGear = 0.15,      -- degrees of loft per degree of crank with A held (forward = higher)
 	swivelMaxDeg = 35,    -- swivel limit either way
 	restHold = 1.0,       -- s the landed baton stays on screen before the next baton
 	lineY = 0,            -- the throwing line: Team A's baseline
@@ -38,7 +38,7 @@ function throw.new(provider)
 		input = provider,
 		mode = "aim",            -- "aim" | "flight" | "rest"
 		playerX = 0,
-		tapA = 10, tapB = 10,    -- s since A and B were last pressed
+		tapA = 10, tapB = 10,    -- s since the swivel button (B) and the loft button (A) were last pressed
 		playerY = throw.tune.lineY, -- at the throwing line, or up to backMax behind it
 		swivel = 0,              -- radians, + = right
 		loftDeg = flight.tune.loftDefaultDeg,
@@ -82,22 +82,22 @@ local function aimInput(s, dt)
 		s.playerY = max(t.lineY - t.backMax, min(t.lineY, s.playerY + dy * t.walkSpeed * dt))
 	end
 
-	-- double tap A: face straight down the pitch again. Double tap B: loft
+	-- double tap B: face straight down the pitch again. Double tap A: loft
 	-- back to the default.
 	s.tapA, s.tapB = s.tapA + dt, s.tapB + dt
-	if p:pressed("a") then
+	if p:pressed("b") then
 		if s.tapA <= t.doubleTap then s.swivel = 0 end
 		s.tapA = 0
 	end
-	if p:pressed("b") then
+	if p:pressed("a") then
 		if s.tapB <= t.doubleTap then s.loftDeg = flight.tune.loftDefaultDeg end
 		s.tapB = 0
 	end
 
-	-- hold A: the crank swivels the player. Hold B: the crank changes the
+	-- hold B: the crank swivels the player. Hold A: the crank changes the
 	-- loft. Either way the crank does not throw.
 	local sw = s.swing
-	local holdA, holdB = p:held("a"), p:held("b")
+	local holdA, holdB = p:held("b"), p:held("a")   -- holdA = swivel (B button), holdB = loft (A button)
 	if holdA or holdB then
 		local turn = delta * swing.tune.forwardSign
 		if holdA then
