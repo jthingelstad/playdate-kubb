@@ -250,8 +250,8 @@ Every number that is a guess lives in one table per module, with a comment:
   speed and backswing, launch speed and tumble ranges, smoothness and tilt.
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range and step,
   baton size, wobble.
-- `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, swivel
-  gearing and limit, loft key repeat, rest hold.
+- `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
+  back the player may step, swivel and loft gearing, double-tap time, rest hold.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction, patterns, stakes,
   HUD placement, the throw gauge (`hud.swingGauge`: the arm that turns with the crank).
 - `tw.raising.tune` (`source/core/raising.lua`): the search that slides an obstructed
