@@ -162,7 +162,7 @@ function rcards.winner(c, how, saved)
 	if c.thrown and c.thrown > 0 then
 		line { string.format("baton hits %d%%", math.floor(100 * c.hits / c.thrown + 0.5)) }
 	end
-	line { saved and "saved to games" or "not saved" }
+	line { saved and "game saved" or "not saved" }
 	local w = ui.button("A", "rematch", t.left, t.buttonY, true)
 	ui.button("B", "title", t.left + w + t.buttonGap, t.buttonY, true)
 	gfx.popContext()
