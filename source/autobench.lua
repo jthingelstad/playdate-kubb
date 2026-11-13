@@ -294,7 +294,7 @@ local function body()
 	local tw_, th_ = gfx.getTextSize(txt)
 	local timg = gfx.image.new(tw_, th_, gfx.kColorClear)
 	gfx.pushContext(timg); gfx.drawText(txt, 0, 0); gfx.popContext()
-	local pat = render.tune.outsidePattern
+	local pat = render.tune.roughPattern
 	l[#l + 1] = "  primitives (ms): " .. table.concat({
 		each("clear", function() gfx.clear(gfx.kColorWhite) end),
 		each("image 400x240 draw", function() img:draw(0, 0) end),

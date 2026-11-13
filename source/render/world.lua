@@ -1,10 +1,12 @@
 -- Draws the pitch, kubbs, king and baton through a core camera.
--- The pitch is not dithered (Jamie, 2026-11-13; DESIGN 3): white ground,
--- black lines, a dashed centerline and six stakes, a light pattern only
--- outside the sidelines, white above the horizon. Pieces are true-size 3D
--- boxes in any orientation (standing, falling, lying): black outline, faces
--- shaded by how they face the light (lit white, half-lit patterned, away
--- black), and a solid black shadow cast along the light onto the ground.
+-- The pitch is not dithered (Jamie, 2026-11-13; DESIGN 3, "Woodcut"): white
+-- ground, 2 px black lines, a dashed centerline (and advantage line), six
+-- stakes with shadows, a sparse rough outside the sidelines and past the far
+-- baseline, a few grass tufts, white above the horizon. Pieces are true-size
+-- 3D boxes in any orientation (standing, falling, lying): black outline,
+-- faces white, grey (patterned) when lying, black when facing away from the
+-- light, with wood grain and a king's collar and crown up close; and a solid
+-- black shadow cast along the light onto the ground.
 -- The shadow of a lying piece touches its ground edge, so it reads as on
 -- the ground (the contact shadow). Painter's order: shadows first (they lie
 -- on the ground), then pieces far to near by depth along the view axis.
@@ -46,16 +48,24 @@ world.tune = {
 	shadowY = -0.30,  -- so shadows fall right and toward the thrower, beside the piece
 	stakeHeight = 0.30, -- keep equal to tw.world.tune.stakeHeight (the physics post)
 	stakeWidth = 2,   -- px
-	dash = 0.20,      -- m, centerline dash and gap
-	advDash = 0.10,   -- m, the advantage line's dash and gap (2 px wide, so it reads apart
-	                  -- from the 1 px centerline)
-	-- The light pattern outside the sidelines: sparse black dots (pattern
-	-- bits: 1 = white, 0 = black). It covers the ground beside the pitch from
-	-- behind the thrower to the far baseline; beyond the far baseline the
-	-- ground stays white so the far base kubbs stand against white.
-	outsidePattern = { 0x7F, 0xFF, 0xF7, 0xFF, 0x7F, 0xFF, 0xF7, 0xFF },
-	outsideFrom = -20,  -- m (y) where the patterned strips start, behind the thrower
-	outsideTo = 8,      -- m (y) where they end: the far baseline
+	lineWidth = 2,    -- px, the pitch's lines (docs/design "Lines")
+	dash = 0.24,      -- m, the centerline's dash and gap: 6 on 4 off
+	dashGap = 0.16,
+	advDash = 0.10,   -- m, the advantage line's dash and gap: 2 on 2 off
+	-- The rough outside the sidelines and past the far baseline: 2 x 1
+	-- dashes on an 8 px grid (pattern bits: 1 = white, 0 = black), never on
+	-- the pitch. Its phase follows the ground (see drawPitch).
+	roughPattern = { 0xFF, 0x9F, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF, 0xFF },
+	outsideFrom = -20,  -- m (y) where the strips beside the pitch start, behind the thrower
+	roughFar = 200,     -- m (y) how far past the far baseline the rough goes (the horizon)
+	-- Grass tufts: a fixed scatter of `tufts` spots on and around the pitch;
+	-- a tuft is drawn 9 px where the ground is at least 2 tuftSize px per
+	-- meter, 5 px from tuftSize, 3 px from half of it, none farther; at most
+	-- tuftMax a frame (the design allows 24 in the impact camera, "check on
+	-- hardware").
+	tufts = 48,
+	tuftSize = 70,
+	tuftMax = 16,
 	-- Tones (docs/design "Tones"): a face is white unless it faces away from
 	-- the light (n.L at or below awayBelow, L toward the light from
 	-- shadowX/shadowY), then black. With the default light a standing kubb
@@ -231,51 +241,171 @@ local function line(x1, y1, z1, x2, y2, z2)
 	drawLine(CCX + f * ax / ad, CCY - f * ay / ad, CCX + f * bx / bd, CCY - f * by / bd)
 end
 
+-- The rough (docs/design "Tones"): 2 x 1 dashes on an 8 px grid, outside the
+-- sidelines and past the far baseline. A Playdate pattern is anchored to
+-- the screen, so a moving camera would slide the ground under a pattern that
+-- stays put (it swims). The pattern is instead shifted to the pixel phase of
+-- one point on the ground (the far baseline's middle) as projected this
+-- frame, so it travels with the pitch. The 64 shifted patterns are made
+-- once. The same camera gives the same phase, so the cached frame and the
+-- background layer see the pixels a full redraw would.
+local ROUGH = {}
+local function makeRough()
+	local base = world.tune.roughPattern
+	for dy = 0, 7 do
+		for dx = 0, 7 do
+			local p = {}
+			for r = 1, 8 do
+				local b = base[((r - 1 - dy) % 8) + 1]
+				p[r] = ((b >> dx) | (b << (8 - dx))) & 0xFF
+			end
+			ROUGH[dy * 8 + dx + 1] = p
+		end
+	end
+	ROUGH.base = base
+end
+
+-- Grass tufts (docs/design "Pieces": 9, 5 and 3 px): pre-drawn images, and
+-- a fixed scatter of spots on and beside the pitch. Each frame every spot on
+-- screen gets the image for its scale (tuftSize px per metre and up: 5 px;
+-- twice that: 9 px; half: 3 px; smaller: none), at most tuftMax of them.
+local TUFT_IMG = {}
+local TUFT_W, TUFT_H = { 15, 7, 5 }, { 11, 7, 5 }
+local TX, TY = {}, {}
+local function makeTufts()
+	local t = world.tune
+	-- big (9 px, 2 px strokes): five blades from one root
+	for i = 1, 3 do
+		local w, h = TUFT_W[i], TUFT_H[i]
+		local img = gfx.image.new(w, h, gfx.kColorClear)
+		gfx.pushContext(img)
+		gfx.setColor(BLACK)
+		local cx, by = w // 2, h - 1
+		if i == 1 then
+			gfx.setLineWidth(2)
+			gfx.drawLine(cx, by, cx - 4, by - 7)
+			gfx.drawLine(cx, by, cx, by - 9)
+			gfx.drawLine(cx, by, cx + 4, by - 7)
+			gfx.drawLine(cx - 1, by, cx - 6, by - 3)
+			gfx.drawLine(cx + 1, by, cx + 6, by - 3)
+			gfx.setLineWidth(1)
+		elseif i == 2 then
+			gfx.drawLine(cx, by, cx - 2, by - 4)
+			gfx.drawLine(cx, by, cx, by - 5)
+			gfx.drawLine(cx, by, cx + 2, by - 4)
+		else
+			gfx.drawLine(cx, by, cx - 1, by - 2)
+			gfx.drawLine(cx, by, cx, by - 3)
+			gfx.drawLine(cx, by, cx + 1, by - 2)
+		end
+		gfx.popContext()
+		TUFT_IMG[i] = img
+	end
+	-- the spots: a fixed, even scatter (the R2 low-discrepancy sequence; no
+	-- integer arithmetic, which is 32-bit on the device), kept off the lines
+	-- so a tuft never sits on chalk
+	local n, i = 0, 0
+	while n < t.tufts do
+		i = i + 1
+		local u, v = (0.5 + i * 0.7548776662) % 1, (0.5 + i * 0.5698402910) % 1
+		local x, y = -4 + 8 * u, -1.5 + 11.5 * v
+		local ax = x < 0 and -x or x
+		local nearLine = (ax > 2.4 and ax < 2.6 and y > -0.1 and y < 8.1)
+			or ((y > -0.1 and y < 0.1) or (y > 3.9 and y < 4.1) or (y > 7.9 and y < 8.1)) and ax < 2.6
+		if not nearLine then
+			n = n + 1
+			TX[n], TY[n] = x, y
+		end
+	end
+end
+
+local function drawTufts()
+	local t = world.tune
+	local f, cx, cy, near = CF, CCX, CCY, NEAR
+	local cpx, cpy, cpz = CPX, CPY, CPZ
+	local h3, h5, h9 = t.tuftSize * 0.5, t.tuftSize, t.tuftSize * 2
+	local shown, cap = 0, t.tuftMax
+	for i = 1, t.tufts do
+		local dx, dy, dz = TX[i] - cpx, TY[i] - cpy, -cpz
+		local d = dx * CFX + dy * CFY + dz * CFZ
+		if d > near then
+			-- px per meter here, against the sizes: 9 px tufts near, 3 px far
+			local s = f / d
+			local k = (s >= h9) and 1 or ((s >= h5) and 2 or ((s >= h3) and 3 or nil))
+			if k then
+				local sx = cx + s * (dx * CRX + dy * CRY + dz * CRZ)
+				local sy = cy - s * (dx * CUX + dy * CUY + dz * CUZ)
+				if sx > -8 and sx < 408 and sy > 0 and sy < 250 then
+					local w, h = TUFT_W[k], TUFT_H[k]
+					TUFT_IMG[k]:draw(floor(sx) - w // 2, floor(sy) - h + 1)
+					shown = shown + 1
+					if shown >= cap then return end
+				end
+			end
+		end
+	end
+end
+
+-- A dashed ground line from (x0, y) to (x1, y): `on` m drawn, `off` m gap.
+local function dashes(x0, x1, y, on, off)
+	local x = x0
+	while x < x1 do
+		local x2 = x + on
+		if x2 > x1 then x2 = x1 end
+		line(x, y, 0, x2, y, 0)
+		x = x2 + off
+	end
+end
+
 local function drawPitch()
 	local t = world.tune
-	-- outside the sidelines: a light pattern out to a far horizon line
-	setPattern(t.outsidePattern)
-	fillPoly(groundQuad(-60, t.outsideFrom, -2.5, t.outsideTo))
-	fillPoly(groundQuad(2.5, t.outsideFrom, 60, t.outsideTo))
+	if ROUGH.base ~= t.roughPattern then makeRough() end
+	if not TUFT_IMG[1] then makeTufts() end
+	-- the rough's phase: the far baseline's middle, projected
+	local phase = 1
+	do
+		local dx, dy, dz = -CPX, 8 - CPY, -CPZ
+		local d = dx * CFX + dy * CFY + dz * CFZ
+		if d > NEAR then
+			local s = CF / d
+			local sx = floor(CCX + s * (dx * CRX + dy * CRY + dz * CRZ))
+			local sy = floor(CCY - s * (dx * CUX + dy * CUY + dz * CUZ))
+			phase = (sy % 8) * 8 + (sx % 8) + 1
+		end
+	end
+	setPattern(ROUGH[phase])
+	local far = t.roughFar
+	fillPoly(groundQuad(-60, t.outsideFrom, -2.5, 8))
+	fillPoly(groundQuad(2.5, t.outsideFrom, 60, 8))
+	fillPoly(groundQuad(-60, 8, 60, far))
 	lap("outside")
 	setColor(BLACK)
-	setLineWidth(1)
+	drawTufts()
+	lap("tufts")
+	setLineWidth(t.lineWidth)
 	line(-2.5, 0, 0, -2.5, 8, 0)
 	line(2.5, 0, 0, 2.5, 8, 0)
 	line(-2.5, 0, 0, 2.5, 0, 0)
 	line(-2.5, 8, 0, 2.5, 8, 0)
-	local dash = t.dash
-	local x = -2.5
-	while x < 2.5 do
-		local x2 = x + dash
-		if x2 > 2.5 then x2 = 2.5 end
-		line(x, 4, 0, x2, 4, 0)
-		x = x + 2 * dash
-	end
-	-- the advantage line (the match, II.B.6): a dotted 2 px line across the pitch
+	-- the centerline: 6 on 4 off
+	dashes(-2.5, 2.5, 4, t.dash, t.dashGap)
+	-- the advantage line (the match, II.B.6): 2 on 2 off
 	local ay = world.advantageY
-	if ay then
-		setLineWidth(2)
-		local ad = t.advDash
-		x = -2.5
-		while x < 2.5 do
-			local x2 = x + ad
-			if x2 > 2.5 then x2 = 2.5 end
-			line(x, ay, 0, x2, ay, 0)
-			x = x + 2 * ad
-		end
-	end
+	if ay then dashes(-2.5, 2.5, ay, t.advDash, t.advDash) end
+	-- the stakes, each with its shadow along the light
 	setLineWidth(t.stakeWidth)
 	local sh = t.stakeHeight
+	local ox, oy = t.shadowX * sh, t.shadowY * sh
 	for i = 0, 2 do
 		local y = 4 * i
 		line(-2.5, y, 0, -2.5, y, sh)
+		line(-2.5, y, 0, -2.5 + ox, y + oy, 0)
 		line(2.5, y, 0, 2.5, y, sh)
+		line(2.5, y, 0, 2.5 + ox, y + oy, 0)
 	end
 	setLineWidth(1)
 	lap("lines")
 end
-
 -- 2D convex hull (monotone chain) of PX/PY[1..n] into HX/HY; returns the
 -- count. No closures or tables, so no garbage.
 local HX, HY, IDX = {}, {}, {}
