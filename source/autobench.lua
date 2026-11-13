@@ -282,9 +282,10 @@ local function body()
 	local ft = tw.flight.tune
 	l[#l + 1] = "  hud (ms): " .. table.concat({
 		each("minimap", function() hud.minimap(hs) end),
-		each("panel", function() hud.panel(s.loftDeg, ft.loftMinDeg, ft.loftMaxDeg, nil, 0.8) end),
-		each("gauge", function() hud.swingGauge("idle", 0, 0, tw.swing.tune.fullBackswingDeg, false, nil, nil, 0) end),
-		each("gauge thrown", function() hud.swingGauge("idle", 0, 0, tw.swing.tune.fullBackswingDeg, true, true, 0.8, 0) end),
+		each("rail", function() hud.rail("PRACTICE", "baton", 2, 6, "FIELD 2", "BASE 5") end),
+		each("plaque", function() hud.plaque(s.loftDeg, nil) end),
+		each("gauge", function() hud.gauge("idle", 0, 0, tw.swing.tune.fullBackswingDeg, 0) end),
+		each("chip", function() hud.chip(0.8) end),
 		each("readout", function() hud.readout("P 0.80  S 0.90  tilt 3  LEGAL  7.10 m  down 1") end),
 	}, ", ")
 	-- primitives

@@ -308,8 +308,14 @@ function camera.projectSegment(c, x1, y1, z1, x2, y2, z2)
 end
 
 -- The minimap (DESIGN 3): a 45 x 72 px top-down pitch at 9 px per meter with
--- the far baseline (y = 8) at the top. ox, oy is its top-left pixel.
-camera.minimap = { scale = 9, w = 45, h = 72, ox = 349, oy = 4 }
+-- the far baseline (y = 8) at the top. ox, oy is its top-left pixel: the
+-- bottom left of the screen, inside a 2 px frame at 4 162 49 76 (docs/design).
+camera.minimap = { scale = 9, w = 45, h = 72, ox = 6, oy = 164 }
+
+-- The HUD's clear area (docs/design "HUD" 7): under the rail (y rail) the
+-- full width down to y top, then x x0 to x1 down to y bottom (the box
+-- 58 16 188 222). What the camera has to keep in view belongs in it.
+camera.clear = { rail = 14, top = 156, x0 = 58, x1 = 246, bottom = 238 }
 
 function camera.toMinimap(x, y)
 	local m = camera.minimap

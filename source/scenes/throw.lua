@@ -230,7 +230,11 @@ function throw.new(provider)
 		restTime = 0,
 		last = nil,              -- the last throw: power, smoothness, tilt, legal, distance, ...
 		readout = nil,           -- its readout text
-		showReadout = true,
+		showReadout = false,     -- System Menu "Readout"
+		flagText = nil,          -- the result flag after a release (12 characters at most)
+		-- the rail (hud.rail): practice until throw.setRail says otherwise
+		railName = "PRACTICE", railKind = nil, railN = 0, railOf = 0, railR1 = nil, railR2 = nil,
+		railDm = nil, railDist = nil,
 		throws = 0,
 		surface = throw.tune.surface,
 		layout = throw.defaultLayout(),
@@ -302,7 +306,7 @@ function throw.prepare(s, setup)
 	end
 	s.thisDrill = false
 	s.mode = "aim"
-	s.pb, s.result, s.readout, s.last = nil, nil, nil, nil
+	s.pb, s.result, s.readout, s.last, s.flagText = nil, nil, nil, nil, nil
 	s.arm, s.armed = nil, false
 	swing.reset(s.swing)
 	s.swing.backswing = 0
@@ -332,7 +336,7 @@ function throw.setDrill(s, on)
 	s.arm, s.armed = nil, false
 	swing.reset(s.swing)
 	s.swing.backswing = 0
-	s.readout, s.last = nil, nil
+	s.readout, s.last, s.flagText = nil, nil, nil
 	aimCamera(s)
 	return true
 end
@@ -349,7 +353,7 @@ function throw.reset(s)
 	s.swing.backswing = 0
 end
 
-local swingInput, drawMarker
+local swingInput, drawMarker, drawRail
 
 local function aimInput(s, dt)
 	local t = throw.tune
@@ -532,6 +536,8 @@ local function launch(s, r)
 		l.restX, l.restY = nil, nil
 	end
 	s.readout = nil
+	-- the result flag: a helicopter shows from the release, the rest at rest
+	s.flagText = (not l.legal) and "HELICOPTER" or nil
 	s.mode = "flight"
 	s.throws = s.throws + 1
 end
@@ -588,6 +594,14 @@ local function landed(s)
 		if l.drill then l.restX, l.restY = rb.x, rb.y end
 	end
 	s.readout = l.drill and hud.drillReadoutText(l) or hud.readoutText(l)
+	if l.drill and l.restX then
+		l.restCm = floor(100 * sqrt((l.restX - l.markerX) ^ 2 + (l.restY - l.markerY) ^ 2) + 0.5)
+	end
+	-- the result flag (a match puts its own ruling there: throw.setFlag)
+	if not l.legal then s.flagText = "HELICOPTER"
+	elseif l.drill then s.flagText = nil
+	elseif l.down > 0 then s.flagText = l.down .. " DOWN"
+	else s.flagText = "MISS" end
 	if not s.instant then
 		-- the frame-time log: one line per throw, now that it is at rest
 		local info, pb = s.ftInfo, s.pb
@@ -894,25 +908,74 @@ function throw.drawFrame(s)
 		hs.landX, hs.landY = nil, nil
 	end
 	hud.minimap(hs)
-
-	local sw = s.swing
-	local cap = (sw.phase ~= "idle") and swing.powerCap(sw) or nil
-	local power = (s.mode ~= "aim" or sw.phase == "idle") and s.last and s.last.power or nil
-	local band = marker and s.drillSol.band or nil
-	hud.panel(s.loftDeg, flight.tune.loftMinDeg, flight.tune.loftMaxDeg, cap, power, band, drill.tune.bandHalf)
+	drawRail(s)
 
 	-- s.covered: a card is over the pitch (the match's hand-off and winner
-	-- cards), so the gauge and its prompts stay out of the way
+	-- cards), so the plaques stay out of the way
 	if s.covered then return end
-	hud.swingGauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
-		swing.tune.fullBackswingDeg, s.mode ~= "aim", s.last and s.last.legal, s.last and s.last.power,
-		s.arm or 0, band, drill.tune.bandHalf, s.last and s.last.drill and s.last.verdict or nil)
-	if marker and s.mode == "aim" and s.cut ~= drill.CUT_NONE then
-		hud.cutHint(s.cut == drill.CUT_A and "cut: curls right" or "cut: curls left")
+	local half = drill.tune.bandHalf
+	local sw = s.swing
+	local l = s.last
+	if s.mode == "aim" then
+		local cap = (sw.phase ~= "idle") and swing.powerCap(sw) or nil
+		local band = marker and s.drillSol.band or nil
+		hud.plaque(s.loftDeg, cap, band, half)
+		local prompt, inverted = hud.gauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
+			swing.tune.fullBackswingDeg, s.arm or 0, band, half)
+		hud.prompt(prompt, inverted)
+		s.promptText = prompt    -- (self-tests read it)
+		if marker and s.cut ~= drill.CUT_NONE then
+			hud.cutFlag(s.cut == drill.CUT_A and "CUT RIGHT" or "CUT LEFT")
+		end
+		if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout) end
+		if s.input:docked() then hud.crankPrompt() end
+	elseif l then
+		-- after the release: the power chip and the result flag, and once a
+		-- drilled kubb stops, how near the band it was
+		hud.chip(l.power, l.drill and l.band or nil, half)
+		hud.flag(s.flagText)
+		if l.drill and l.restCm and s.mode ~= "flight" then
+			hud.callout(l.verdict, (l.power or 0) - l.band, half, l.restCm)
+		end
+		if s.showReadout and s.readout then hud.readout(s.readout) end
 	end
+end
 
-	if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout, s.readoutY) end
-	if s.mode == "aim" and s.input:docked() then hud.crankPrompt() end
+-- The rail's targets on the right. Practice: the far base kubbs standing,
+-- or how far the drill marker is from the baseline. Strings are made only
+-- when the number changes.
+local BASE, FIELD = {}, {}
+for i = 0, 12 do BASE[i], FIELD[i] = "BASE " .. i, "FIELD " .. i end
+throw.railBase, throw.railField = BASE, FIELD
+drawRail = function(s)
+	local r1, r2 = s.railR1, s.railR2
+	if s.drill then
+		local d = floor((s.markerY - s.lineY) * 10 + 0.5)
+		if d ~= s.railDm then
+			s.railDm = d
+			s.railDist = string.format("%d.%d M", d // 10, d % 10)
+		end
+		r1, r2 = s.railDist, nil
+	elseif s.railName == "PRACTICE" then
+		local n = 0
+		for i = 1, s.nitems do
+			local it = s.items[i]
+			if it.base and not it.toppled then n = n + 1 end
+		end
+		r1, r2 = BASE[n] or BASE[12], nil
+	end
+	hud.rail(s.railName, s.railKind, s.railN, s.railOf, r1, r2)
+end
+
+-- The match's rail: the team's name (capitals), "baton" | "kubb" pips, n of
+-- `of`, and the targets (strings, or nil). Once per throw.
+function throw.setRail(s, name, kind, n, of, r1, r2)
+	s.railName, s.railKind, s.railN, s.railOf, s.railR1, s.railR2 = name, kind, n, of, r1, r2
+end
+
+-- The match's ruling on the throw, for the result flag (hud.short).
+function throw.setFlag(s, text)
+	s.flagText = text
 end
 
 function throw.enter()

@@ -63,6 +63,7 @@ import "selftest/match-whole"
 import "selftest/match-debris"
 import "selftest/drill"
 import "selftest/cards"
+import "selftest/hud-drill"
 import "selftest/drawcalls"
 
 local function launchArgs()
@@ -85,7 +86,7 @@ else
 	local throw, match, title = tw.scenes.throw, tw.scenes.match, tw.scenes.title
 	local device = tw.input.device()
 	local current, kind = nil, nil   -- the scene and which: "title" | "practice" | "match"
-	local showReadout = true
+	local showReadout = false        -- System Menu "Readout": off in normal play
 	local benchRun = nil
 	local pending = nil              -- a scene to open on the next frame (from a menu callback)
 	local open
