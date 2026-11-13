@@ -1,12 +1,14 @@
 -- Scenario "hello": the title screen plus a few black-outlined shapes, one frame.
 import "core/tw"
 import "scenes/title"
+import "input"
 
 local gfx <const> = playdate.graphics
 
 tw.selftest.scenarios.hello = {
 	step = function(ctx)
-		tw.scenes.title.draw()
+		local title = tw.scenes.title
+		title.draw(title.new(tw.input.scripted({})))
 		gfx.setColor(gfx.kColorBlack)
 		gfx.setLineWidth(2)
 		gfx.drawRect(40, 40, 60, 40)          -- box, top left
