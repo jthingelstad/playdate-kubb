@@ -176,7 +176,7 @@ test("drill: drilled kubbs that end short or out are rethrown, then punished", f
 	local b = res.bodies[s.kubb]
 	expect.truthy(b.y < 4, string.format("ends short of the middle line (%.2f)", b.y))
 	match.resolve(m, res, false)
-	expect.eq(m.text, "kubb out: rethrow")
+	expect.eq(m.text, "kubb out: rethrown last")
 	-- clean onto a marker in the far half: in
 	s = match.setup(m)
 	res = drillSetup(s, 0.5, s.lineY + 6)
