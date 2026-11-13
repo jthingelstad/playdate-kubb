@@ -370,6 +370,21 @@ test("toss: a kubb resting on another is lowered beside it when the round is jud
 	expect.truthy(not m.game.kubbs.a2.pose.onTop, "lowered")
 end)
 
+test("toss: a field kubb left resting on the kubb just thrown is lowered beside it", function()
+	local m = toInkast(2)
+	tossTo(m, 0.5, 6)
+	local s = setup(m, "toss")
+	local r = still(s.pieces)
+	local a1 = byId(s).a1
+	-- the thrown kubb slides under a1 and a1 ends flat on top of it
+	place(r, s.kubb, { x = a1.x, y = a1.y + 0.3, standing = false, angle = 0 })
+	place(r, "a1", { x = a1.x + 0.02, y = a1.y + 0.28, standing = false, angle = 0.1 }, 0.105)
+	local o = match.resolve(m, r, false)
+	expect.eq(o.moved.a1.onTop, s.kubb, "its support is the thrown kubb")
+	expect.truthy(m.text:find("on a kubb: lowered", 1, true), m.text)
+	expect.truthy(not m.game.kubbs.a1.pose.onTop, "lowered")
+end)
+
 test("toss: a kubb resting on a kubb that is out when judged lies where it is, not lowered", function()
 	local m = toInkast(2)
 	-- the first kubb stops just short of the middle line: out for now
