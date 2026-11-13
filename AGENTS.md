@@ -545,6 +545,12 @@ own item). Practice is the throw scene exactly as before.
   rest hold; then the next throw is set up from the engine's state plus the turn's debris
   (below): standing pieces are where the engine says (kubbs pushed out are put back, raised
   and punishment kubbs appear).
+- Out kubbs wait on the pitch (Jamie, 2026-11-13): a thrown kubb that is out (to be rethrown,
+  or a punishment kubb) stays where it stopped as a debris entry marked `waiting` while the
+  other kubbs are thrown, so later kubbs can hit it. `match.setup` lifts it when it is the
+  kubb being rethrown and lifts them all when the kubb throwing is over. The engine still
+  judges a kubb in or out when it stops; a later kubb knocking a waiting kubb around does
+  not change that.
 - Debris (`core/debris.lua`, carried by `core/match`): within a turn every thrown baton
   lies where it came to rest and every kubb it toppled that the engine took off the pitch
   lies where it fell. `match.setup` gives them as `s.debris` (core/world pieces in the view

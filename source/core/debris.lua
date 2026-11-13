@@ -87,6 +87,15 @@ function debris.add(d, id, kind, res, side)
 	return e
 end
 
+-- Drop every piece for which keep(entry) is false.
+function debris.prune(d, keep)
+	local out = {}
+	for _, e in ipairs(d.list) do
+		if keep(e) then out[#out + 1] = e end
+	end
+	d.list = out
+end
+
 -- Move every debris piece to where this throw left it (struck or not: a
 -- body that never woke rests where it started).
 function debris.carry(d, res, side)

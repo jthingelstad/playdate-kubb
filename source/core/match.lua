@@ -113,6 +113,13 @@ function match.setup(m)
 	end
 	local side = n.side
 	debris.begin(m.debris, g.turn)
+	-- out kubbs waiting on the pitch: the one about to be rethrown is picked
+	-- up, and all of them once the kubb throwing is over
+	debris.prune(m.debris, function(e)
+		if not e.waiting then return true end
+		local k = g.kubbs[e.id]
+		return n.kind == "toss" and e.id ~= n.kubb and k ~= nil and (k.where == "out" or k.where == "punish")
+	end)
 	local s = { kind = n.kind, side = side, pieces = outcome.pieces(g, side), lineY = 0, forwardY = 0 }
 	debris.applyExact(m.debris, s.pieces, side)
 	s.debris = debris.pieces(m.debris, side)
@@ -250,6 +257,16 @@ function match.carryDebris(m, s, res, turn, batonRec)
 		-- the engine keeps the tossed kubbs (and any it struck): only their
 		-- exact rest poses are carried
 		debris.recordExact(d, g, res, s.side)
+		-- a kubb that is out (to be rethrown, or a punishment kubb) lies where
+		-- it stopped while the other kubbs are thrown (Jamie, 2026-11-13);
+		-- match.setup lifts it when it is rethrown or the inkast is over
+		debris.carry(d, res, s.side)
+		for id, k in pairs(g.kubbs) do
+			if k.where == "out" or k.where == "punish" then
+				local e = debris.add(d, id, "kubb", res, s.side)
+				if e then e.waiting = true end
+			end
+		end
 		return
 	end
 	local putBack = batonRec and batonRec.token == "Z"
