@@ -244,6 +244,14 @@ function world.launchBaton(w, x, lineY, swivel, loftDeg, speed, tumbleRate, tilt
 		world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg))
 end
 
+-- A lobbed kubb (stage 3's simple inkast; drilling and the cut are stage 4):
+-- the same launch as a clean baton, upright in the hand and turning end
+-- over end at tumbleRate, as body `id` (the kubb's own id).
+function world.launchKubb(w, id, x, lineY, swivel, loftDeg, speed, tumbleRate)
+	return world.launch(w, "kubb", id,
+		world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, 0))
+end
+
 -- ---------------------------------------------------------------------------
 -- The solver's contacts
 --

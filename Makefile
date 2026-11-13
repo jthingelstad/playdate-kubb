@@ -38,10 +38,18 @@ test-node:
 GAMES_N    := 500
 GAMES_SEED := 1
 
+#
+# Then PHYS_N matches with real physics (tools/physmatch.lua: core/match
+# driven by core/autothrow, every throw run by core/world, the match scene's
+# path without the screen) into build/physgames, gated the same way.
+PHYS_N := 5
+
 games:
-	@rm -rf build/games
+	@rm -rf build/games build/physgames
 	"$(LUA)" tools/games.lua --n $(GAMES_N) --seed $(GAMES_SEED) --out build/games
 	"$(NODE)" tests/node/notation-gate.mjs build/games
+	"$(LUA)" tools/physmatch.lua --n $(PHYS_N) --seed $(GAMES_SEED) --out build/physgames
+	"$(NODE)" tests/node/notation-gate.mjs build/physgames
 
 # Each scenario is its own Simulator launch, killed after SIM_TIMEOUT seconds.
 # The runner writes its marker in the game's Data folder (the only place Lua
