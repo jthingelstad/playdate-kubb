@@ -15,7 +15,7 @@ SIM_TIMEOUT := 60
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-.PHONY: build test test-lua test-node selftest clean
+.PHONY: build test test-lua test-node games selftest clean
 
 build: $(PDX)
 
@@ -31,6 +31,17 @@ test-lua:
 test-node:
 	"$(NODE)" tests/node/notation-gate.mjs tests/fixtures/games
 	"$(NODE)" tests/node/gate-rejects.mjs
+
+# Headless games: GAMES_N seeded random games through the rules engine
+# (tools/games.lua, no physics) into build/games, then the notation gate over
+# all of them. Same seed, same files.
+GAMES_N    := 500
+GAMES_SEED := 1
+
+games:
+	@rm -rf build/games
+	"$(LUA)" tools/games.lua --n $(GAMES_N) --seed $(GAMES_SEED) --out build/games
+	"$(NODE)" tests/node/notation-gate.mjs build/games
 
 # Each scenario is its own Simulator launch, killed after SIM_TIMEOUT seconds.
 # The runner writes its marker in the game's Data folder (the only place Lua
