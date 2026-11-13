@@ -179,6 +179,9 @@ function throw.update(s)
 		s.restTime = s.restTime + dt
 		if s.restTime >= t.restHold then
 			s.mode = "aim"
+			-- the crank may have moved during the flight: arming needs a fresh
+			-- crossing of the bottom, seen from aim mode
+			s.arm, s.armed = nil, false
 			swing.reset(s.swing)
 			s.swing.backswing = 0
 		end
