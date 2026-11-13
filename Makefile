@@ -1,0 +1,66 @@
+# Kubb: Throwing Wood. Full SDK paths; PLAYDATE_SDK_PATH is not needed.
+
+SDK      := $(HOME)/Developer/PlaydateSDK
+PDC      := $(SDK)/bin/pdc
+SIM      := $(SDK)/bin/Playdate Simulator.app/Contents/MacOS/Playdate Simulator
+SIMDATA  := $(SDK)/Disk/Data/com.thingelstad.throwingwood/selftest
+LUA      := /opt/homebrew/opt/lua@5.4/bin/lua5.4
+NODE     := /opt/homebrew/bin/node
+
+PDX      := build/ThrowingWood.pdx
+OUT      := $(CURDIR)/build/selftest
+SIM_TIMEOUT := 60
+
+SCENARIOS := $(filter-out runner,$(basename $(notdir $(wildcard source/selftest/*.lua))))
+SOURCES   := $(shell find source -type f)
+
+.PHONY: build test test-lua test-node selftest clean
+
+build: $(PDX)
+
+$(PDX): $(SOURCES)
+	@mkdir -p build
+	"$(PDC)" -sdkpath "$(SDK)" -q source $(PDX)
+
+test: test-lua test-node
+
+test-lua:
+	"$(LUA)" tests/lua/run.lua
+
+test-node:
+	"$(NODE)" tests/node/notation-gate.mjs tests/fixtures/games
+	"$(NODE)" tests/node/gate-rejects.mjs
+
+# Each scenario is its own Simulator launch, killed after SIM_TIMEOUT seconds.
+# The runner writes its marker in the game's Data folder (the only place Lua
+# can write a text file); this copies it into build/selftest and fails unless
+# it says DONE and every frame it counted exists at 400x240 and 800x480.
+selftest: build
+	@rm -rf build/selftest
+	@mkdir -p build/selftest
+	@fail=0; for s in $(SCENARIOS); do \
+	  rm -f "$(SIMDATA)/$$s.done"; \
+	  start=$$(date +%s); \
+	  timeout -k 5 $(SIM_TIMEOUT) "$(SIM)" "$(CURDIR)/$(PDX)" selftest=$$s out="$(OUT)" > "$(OUT)/$$s.log" 2>&1; \
+	  rc=$$?; secs=$$(( $$(date +%s) - start )); \
+	  if [ $$rc -eq 124 ] || [ $$rc -eq 137 ]; then echo "selftest $$s: TIMEOUT after $(SIM_TIMEOUT)s (log: build/selftest/$$s.log)"; fail=1; continue; fi; \
+	  if [ ! -f "$(SIMDATA)/$$s.done" ]; then echo "selftest $$s: no marker (Simulator exit $$rc; log: build/selftest/$$s.log)"; fail=1; continue; fi; \
+	  cp "$(SIMDATA)/$$s.done" "$(OUT)/$$s.done"; \
+	  status=$$(cat "$(OUT)/$$s.done"); \
+	  case "$$status" in DONE*) ;; *) echo "selftest $$s: $$status"; fail=1; continue;; esac; \
+	  n=$$(echo "$$status" | sed -n 's/.*frames=\([0-9]*\).*/\1/p'); \
+	  if [ -z "$$n" ] || [ "$$n" -lt 1 ]; then echo "selftest $$s: no frames saved"; fail=1; continue; fi; \
+	  for i in $$(seq -f %02g 1 $$n); do \
+	    for f in "$$s-$$i.png:400x240" "$$s-$$i@2x.png:800x480"; do \
+	      png=$${f%%:*}; want=$${f##*:}; \
+	      if [ ! -f "$(OUT)/$$png" ]; then echo "selftest $$s: missing $$png"; fail=1; continue; fi; \
+	      got=$$(sips -g pixelWidth -g pixelHeight "$(OUT)/$$png" | awk '/pixelWidth/{w=$$2} /pixelHeight/{h=$$2} END{print w "x" h}'); \
+	      if [ "$$got" != "$$want" ]; then echo "selftest $$s: $$png is $$got, want $$want"; fail=1; else echo "  $$png $$got"; fi; \
+	    done; \
+	  done; \
+	  echo "selftest $$s: $$status in $${secs}s"; \
+	done; \
+	exit $$fail
+
+clean:
+	rm -rf build
