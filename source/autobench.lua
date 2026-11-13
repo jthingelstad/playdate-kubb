@@ -101,7 +101,12 @@ end
 -- throw: shown frames, seconds, mean and max frame ms, starved frames and the
 -- longest stall, steps, physics ms, and the shown speed (simulated seconds
 -- over shown seconds; 1 = real time), then the raw log line.
-function auto.matchCase(y)
+-- label names the run; tune ({field = value} for throw.tune, render.world
+-- .tune and playback.paceTune) is applied for the run and then restored.
+-- Besides the log's figures each throw reports the flight frames' dt spread
+-- (sd), the calm frames held, the lowest pace, the frames drawn from the
+-- layer, the cache or from scratch, and the seconds from release to rest.
+function auto.matchCase(y, label, tune)
 	local fl, ft = tw.framelog, tw.frametel
 	local write = fl.write
 	local got = {}
@@ -110,7 +115,14 @@ function auto.matchCase(y)
 		info.time = "autobench"
 		got.line = ft.encode(t, info)
 	end
-	local lines = { "match case (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):" }
+	local lines = { "match case " .. (label or "") .. " (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):" }
+	local saved = {}
+	local tables = { throw.tune, render.tune, tw.playback.paceTune }
+	for k, v in pairs(tune or {}) do
+		for _, T in ipairs(tables) do
+			if T[k] ~= nil then saved[#saved + 1] = { T, k, T[k] }; T[k] = v end
+		end
+	end
 	local ok, err = pcall(function()
 		local s = throw.new(tw.input.device())
 		s.sceneName = "match"
@@ -124,12 +136,25 @@ function auto.matchCase(y)
 			throw.autoLaunch(s, bench.matchThrow(t))
 			got.line = nil
 			local n = 0
+			local C = render.count
+			C.cached, C.layer, C.built, C.full = 0, 0, 0, 0
+			local sum, sum2, nf, minPace, wall, restAt = 0, 0, 0, 1, 0, nil
 			while s.mode ~= "done" and n < 3000 do
+				local flying = s.mode == "flight"
 				throw.update(s)
+				local raw = s.input.raw or 0
+				if n > 0 and not restAt then wall = wall + raw end
+				if flying then
+					nf, sum, sum2 = nf + 1, sum + raw, sum2 + raw * raw
+					if s.pb and s.pb.v < minPace then minPace = s.pb.v end
+				end
+				if s.mode == "rest" and not restAt then restAt = n end
 				throw.draw(s)
 				y()
 				n = n + 1
 			end
+			local held = s.held
+			local counts = string.format("cached %d layer %d (built %d) full %d", C.cached, C.layer, C.built, C.full)
 			local T, I = got.t, got.info
 			if not got.line then
 				lines[#lines + 1] = "  " .. t.name .. ": no log line (" .. s.mode .. ")"
@@ -141,6 +166,10 @@ function auto.matchCase(y)
 				lines[#lines + 1] = string.format("  %-5s %4d frames %5.2f s  mean %5.1f ms  max %5.1f ms  starved %4d  stall %6.0f ms  steps %4d  phys %6.0f ms (%.2f ms/step)  speed %.2f",
 					t.name, frames, secs, secs * 1000 / frames, mx * 1000, T.starved, T.stall * 1000, I.steps,
 					I.phys * 1000, I.phys * 1000 / I.steps, sim / secs)
+				local mean = nf > 0 and sum / nf or 0
+				local sd = nf > 1 and math.sqrt(math.max(0, sum2 / nf - mean * mean)) or 0
+				lines[#lines + 1] = string.format("    release to rest %.2f s; flight frames %d, dt sd %.1f ms; held %d; min pace %.2f; draws: %s",
+					wall, nf, sd * 1000, held, minPace, counts)
 				lines[#lines + 1] = "    " .. got.line
 				tot.frames, tot.secs, tot.starved = tot.frames + frames, tot.secs + secs, tot.starved + T.starved
 				tot.steps, tot.phys, tot.sim = tot.steps + I.steps, tot.phys + I.phys, tot.sim + sim
@@ -154,6 +183,7 @@ function auto.matchCase(y)
 		end
 	end)
 	fl.write = write
+	for i = #saved, 1, -1 do local e = saved[i]; e[1][e[2]] = e[3] end
 	if not ok then lines[#lines + 1] = "  match case error: " .. tostring(err) end
 	return lines
 end
@@ -197,7 +227,15 @@ local function body()
 	y()
 
 	-- the match case
-	out(auto.matchCase(y))
+	out(auto.matchCase(y, "(defaults)"))
+	y()
+	out(auto.matchCase(y, "(framePeriod 50 ms)", { framePeriod = 0.050 }))
+	y()
+	out(auto.matchCase(y, "(framePeriod 33 ms)", { framePeriod = 0.033 }))
+	y()
+	out(auto.matchCase(y, "(no layer)", { layer = false }))
+	y()
+	out(auto.matchCase(y, "(camera holds on the impact: frameRadius 0)", { frameRadius = 0 }))
 	y()
 	-- its physics alone, with the lone flight off and on
 	local lone = tw.world.loneFlight
