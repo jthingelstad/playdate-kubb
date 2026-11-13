@@ -72,3 +72,22 @@ test("replay keeps the recorded sign unless told otherwise", function()
 	local ev2 = trace.replay(t, true)
 	expect.truthy(ev2 ~= "release", "with today's sign that trace is not a release")
 end)
+
+test("a drill line carries its mode, marker, band, landing and rest; a baton line has none", function()
+	local flat = { 0.02, -4.5, 0.021, -3.25, 0.019, 30, 0.02, 31.5, 0.02, 33, 0.02, 30 }
+	for i = 2, #flat, 2 do flat[i] = flat[i] * swing.tune.forwardSign end
+	local _, r = swing.replay(flat)
+	local baton = trace.encode(flat, 6, "release", r, 1)
+	expect.truthy(not baton:find('"mode"') and not baton:find('"marker'), "baton line unchanged")
+	r.mode, r.band, r.verdict, r.cut = "drill", 0.6, "on", -1
+	r.markerX, r.markerY, r.landX, r.landY, r.restX, r.restY, r.throwerX = 0.5, 6, 0.48, 5.9, 0.4, 6.05, 0.5
+	local t = trace.decode(trace.encode(flat, 6, "release", r, 1))
+	expect.eq(t.result.mode, "drill")
+	expect.eq(t.result.verdict, "on")
+	expect.eq(t.result.cut, -1)
+	expect.near(t.result.band, 0.6, 1e-6)
+	expect.near(t.result.markerY, 6, 1e-6)
+	expect.near(t.result.landY, 5.9, 1e-6)
+	expect.near(t.result.restX, 0.4, 1e-6)
+	expect.near(t.result.throwerX, 0.5, 1e-6)
+end)
