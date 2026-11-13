@@ -262,6 +262,18 @@ test("II.D.6 a kubb resting on another is lowered beside it, N counted", functio
 	expect.eq(line(g), "3. jamie:2IN")
 end)
 
+test("II.D.6 a kubb resting on a kubb it moved is lowered beside where that kubb came to rest", function()
+	local g = toTurn3(newGame(), { land(0, 6, 0) })
+	-- the toss pushes a1 a metre and a half and comes to rest on top of it
+	g:toss { rest = { x = 0.02, y = 7.52, standing = false, angle = 0.2, onTop = "a1" },
+		moved = { a1 = lie(0, 7.5, 0) } }
+	expect.near(g.kubbs.a1.pose.y, 7.5, 1e-9)
+	expect.eq(g.kubbs.a2.pose.onTop, nil)
+	expect.eq(tw.rect.overlap(tw.raising.kubbRect(g.kubbs.a2.pose), tw.raising.kubbRect(g.kubbs.a1.pose)), false)
+	local dx, dy = g.kubbs.a2.pose.x - 0.02, g.kubbs.a2.pose.y - 7.52
+	expect.truthy(dx * dx + dy * dy > 1e-6, "it was lowered off the kubb under it")
+end)
+
 test("the inkast is the kubbs knocked down last turn; no inkast token when there are none", function()
 	local g = newGame()
 	batons(g, { topple("b1"), topple("b2") })
