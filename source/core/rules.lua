@@ -357,6 +357,12 @@ function Game:toss(o, player)
 		end
 	end
 
+	-- Kubbs it struck rest where the throw left them. Their poses go in before
+	-- anything is lowered, so a kubb resting on one that moved is lowered
+	-- beside where its support ended up, not where it used to be.
+	sort(struck, function(a, b) return a.p.id < b.p.id end)
+	for _, s in ipairs(struck) do s.p.pose = s.pose end
+
 	-- The thrown kubb.
 	if ownHit then
 		-- II.C.4b: the own-half kubb is put back (nothing was applied) and
@@ -374,10 +380,8 @@ function Game:toss(o, player)
 	end
 
 	-- Kubbs it struck (II.C.4, II.C.5).
-	sort(struck, function(a, b) return a.p.id < b.p.id end)
 	for _, s in ipairs(struck) do
 		local p = s.p
-		p.pose = s.pose
 		self:_settle(p, pid)
 		if not raising.canRaise(p.pose, def) then
 			if p.established then
