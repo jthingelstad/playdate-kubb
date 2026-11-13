@@ -35,11 +35,11 @@ end
 
 -- One throw of setup s with throw a, simulated to rest.
 local function simulate(s, a, surface)
-	local w = world.new { surface = surface, pieces = s.pieces }
+	local w = world.new { surface = surface, pieces = match.worldPieces(s) }
 	if s.projectile == "kubb" then
 		world.launchKubb(w, s.kubb, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate)
 	else
-		world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt)
+		world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt, s.batonId)
 	end
 	world.run(w)
 	return world.result(w)

@@ -25,8 +25,9 @@ import "core/rules"
 import "core/notation"
 import "core/frame"
 import "core/outcome"
+import "core/debris"
 
-local rules, notation, frame, outcome = tw.rules, tw.notation, tw.frame, tw.outcome
+local rules, notation, frame, outcome, debris = tw.rules, tw.notation, tw.frame, tw.outcome, tw.debris
 local fmt = string.format
 
 local match = {}
@@ -51,6 +52,7 @@ function match.new(opts)
 		text = nil,               -- what the last throw (or the automatic steps) did
 		settled = nil,            -- raised and punishment kubbs placed before this throw
 		setup = nil,              -- the current throw (match.setup)
+		debris = debris.new(),    -- batons and downed kubbs lying on the pitch this turn
 	}
 end
 
@@ -93,6 +95,11 @@ end
 --               the king (batons); nil for a toss
 --   n, of       this throw's number and the throws of its kind this turn
 --   label       "Team A  baton 2 of 6", "Team B  kubb 1 of 3"
+--   debris      core/debris pieces: the batons thrown and the kubbs knocked
+--               down earlier this turn, lying where they came to rest (view
+--               frame; physics bodies, not engine pieces)
+--   batonId     the body id of this baton ("baton1" .. "baton6"), so it can
+--               lie on the pitch as debris after it
 -- Returns nil when the game is over.
 function match.setup(m)
 	local g = m.game
@@ -105,7 +112,10 @@ function match.setup(m)
 		return nil
 	end
 	local side = n.side
+	debris.begin(m.debris, g.turn)
 	local s = { kind = n.kind, side = side, pieces = outcome.pieces(g, side), lineY = 0, forwardY = 0 }
+	debris.applyExact(m.debris, s.pieces, side)
+	s.debris = debris.pieces(m.debris, side)
 	if g.advantageY then s.advY = frame.y(side, g.advantageY) end
 	if n.kind == "toss" then
 		s.projectile, s.kubb = "kubb", n.kubb
@@ -118,10 +128,20 @@ function match.setup(m)
 		if n.advantageY and not n.kingShot then s.forwardY = frame.y(side, n.advantageY) end
 		s.targets = n.targets
 		s.n, s.of = n.n, n.of
+		s.batonId = "baton" .. n.n
 		s.label = fmt("%s  %s %d of %d", match.teamName(side), n.kingShot and "king shot, baton" or "baton", n.n, n.of)
 	end
 	m.setup = s
 	return s
+end
+
+-- Every body a throw's physics world starts with: the engine's pieces, then
+-- the debris (a new list; once per throw).
+function match.worldPieces(s)
+	local out = {}
+	for i, p in ipairs(s.pieces) do out[i] = p end
+	for _, p in ipairs(s.debris or {}) do out[#out + 1] = p end
+	return out
 end
 
 -- ---------- what happened, in words ----------
@@ -207,9 +227,41 @@ function match.resolve(m, res, illegal)
 		local b = sheetTurn.batons[nb + 1]
 		m.text = batonText(g, b and b.token or "-", sheetTurn.notes, nn + 1)
 	end
+	match.carryDebris(m, s, res, turn, sheetTurn.batons[nb + 1])
 	countTurn(m)
 	m.setup = nil
 	return o
+end
+
+-- After the engine has ruled on a throw: what stays lying on the pitch for
+-- the next throw of this turn. The thrown baton lies where it came to rest;
+-- every kubb this throw toppled that the engine took off the pitch (into a
+-- hand) lies where it fell; the debris already there moves if it was struck.
+-- A throw the engine puts back (Z: a helicopter, II.B.11) leaves the earlier
+-- debris where it was, as it does the standing pieces; only its baton is
+-- added. The turn over (or the game): nothing is carried.
+function match.carryDebris(m, s, res, turn, batonRec)
+	local g, d = m.game, m.debris
+	if g.phase == "over" or g.turn ~= turn then
+		debris.clear(d)
+		return
+	end
+	if s.kind == "toss" then
+		-- the engine keeps the tossed kubbs (and any it struck): only their
+		-- exact rest poses are carried
+		debris.recordExact(d, g, res, s.side)
+		return
+	end
+	local putBack = batonRec and batonRec.token == "Z"
+	if not putBack then
+		debris.carry(d, res, s.side)
+		for _, id in ipairs(res.toppled or {}) do
+			local k = g.kubbs[id]
+			if k and k.where ~= "pitch" then debris.add(d, id, "kubb", res, s.side) end
+		end
+	end
+	if s.batonId then debris.add(d, s.batonId, "baton", res, s.side) end
+	debris.recordExact(d, g, res, s.side)
 end
 
 -- Resign: the team on turn gives up (DESIGN 7: `G` on its own turn).
@@ -219,6 +271,7 @@ function match.resign(m)
 	local side = g.attacker
 	g:resign(side)
 	m.setup = nil
+	debris.clear(m.debris)
 	m.text = match.teamName(side) .. " resigned: " .. wins(g)
 	return true
 end
