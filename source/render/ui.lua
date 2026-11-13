@@ -16,6 +16,8 @@
 --                         at x, its top at y (15 px tall). white = on black.
 --                         Returns the width.
 --   ui.buttonWidth(word)  the width ui.button will take.
+--   ui.textDots(font, parts, x, y, white, align)
+--                         parts of one line with a middle dot between them.
 --
 -- A text call costs about 0.6 ms on the device: draw these into a cached
 -- image (the title's and the cards' do) and copy that.
@@ -75,6 +77,28 @@ function ui.button(letter, word, x, y, white)
 	ui.text(f, letter, x + r + 1, ty, not white, "center")
 	local w = ui.text(f, word, x + 2 * r + ui.tune.buttonGap, ty, white)
 	return 2 * r + ui.tune.buttonGap + w
+end
+
+-- Parts of one line with a middle dot between them ("TURN 4 · BASE 5 V 4"),
+-- the dot drawn as a 2 x 2 square (Roobert 10 Bold has no ·). Same
+-- arguments as ui.text, parts a list; returns the width.
+function ui.textDots(font, parts, x, y, white, align)
+	local gap = 4
+	local w = 0
+	for i, p in ipairs(parts) do
+		w = w + font:getTextWidth(string.upper(p)) + (i > 1 and (2 * gap + 2) or 0)
+	end
+	if align == "center" then x = x - w // 2 elseif align == "right" then x = x - w end
+	local dotY = y + font:getHeight() // 2 - 1
+	gfx.setColor(white and gfx.kColorWhite or gfx.kColorBlack)
+	for i, p in ipairs(parts) do
+		if i > 1 then
+			gfx.fillRect(x + gap, dotY, 2, 2)
+			x = x + 2 * gap + 2
+		end
+		x = x + ui.text(font, p, x, y, white)
+	end
+	return w
 end
 
 function ui.buttonWidth(word)

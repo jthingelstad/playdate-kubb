@@ -60,6 +60,7 @@ import "selftest/match-toss"
 import "selftest/match-whole"
 import "selftest/match-debris"
 import "selftest/drill"
+import "selftest/cards"
 
 local function launchArgs()
 	local args = {}
