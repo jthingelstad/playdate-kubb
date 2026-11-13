@@ -97,16 +97,34 @@ test("king and centerline kubb sizes through the aim camera", function()
 	expect.truthy(field >= 15 and field <= 20, "centerline kubb " .. field .. " px")
 end)
 
-test("far baseline kubb tops clear the minimap", function()
+-- in the HUD's clear area: under the rail, and above the plaques unless
+-- in the middle column
+local function inClear(x, y)
+	local a = camera.clear
+	if y <= a.rail or y > a.bottom or x < 0 or x > 400 then return false end
+	return y <= a.top or (x >= a.x0 and x <= a.x1)
+end
+
+test("far baseline kubbs stand in the HUD's clear area from every aim pose", function()
 	local c = camera.new()
-	camera.aim(c, 0, 0, 0, FAR)
-	local m = camera.minimap
-	for _, k in ipairs(FAR) do
-		local sx, top = camera.project(c, k.x, k.y, 0.15)
-		if sx >= m.ox - 4 then
-			expect.truthy(top > m.oy + m.h + 3, "kubb x=" .. k.x .. " top row " .. top)
+	for _, p in ipairs(POSES) do
+		camera.aim(c, p[1], 0, p[2], FAR)
+		for _, k in ipairs(FAR) do
+			local sx, top = camera.project(c, k.x, k.y, 0.15)
+			local bx, foot = camera.project(c, k.x, k.y, 0)
+			local what = string.format("player %.1f swivel %.0f kubb x=%d", p[1], math.deg(p[2]), k.x)
+			if sx >= 0 and sx <= 400 then
+				expect.truthy(inClear(sx, top) and inClear(bx, foot), what .. ": top " .. top .. " foot " .. foot)
+			end
 		end
 	end
+end)
+
+test("the minimap's frame sits under the clear area's bottom-left corner", function()
+	local m, a = camera.minimap, camera.clear
+	expect.truthy(m.ox + m.w + 2 < a.x0, "left of the middle column")
+	expect.truthy(m.oy - 2 > a.top, "below the full-width band")
+	expect.truthy(m.oy + m.h + 2 <= 240, "on screen")
 end)
 
 test("impact camera shows a kubb at the landing point about 35 px tall", function()

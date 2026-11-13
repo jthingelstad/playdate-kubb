@@ -97,6 +97,22 @@ local function nextThrow(s)
 	s.resolved = false
 	throw.prepare(s.ts, setup)
 	s.ts.instant = s.opts.instant
+	-- the rail: the team, this throw's pips and what is left to knock down
+	local r1, r2
+	if setup.kingShot then
+		r1 = "KING"
+	elseif setup.kind ~= "toss" then
+		local field, base = 0, 0
+		for _, p in ipairs(setup.pieces) do
+			if not p.toppled and p.half ~= setup.side then
+				if p.role == "field" then field = field + 1 elseif p.role == "base" then base = base + 1 end
+			end
+		end
+		if field > 0 then r1 = throw.railField[field] or ("FIELD " .. field) end
+		r2 = throw.railBase[base] or ("BASE " .. base)
+		if not r1 then r1, r2 = r2, nil end
+	end
+	throw.setRail(s.ts, string.upper(cmatch.teamName(setup.side)), setup.projectile, setup.n, setup.of, r1, r2)
 	if setup.side ~= s.side then
 		-- a new turn: the other team takes the Playdate
 		s.side = setup.side
@@ -128,7 +144,6 @@ function scene.new(provider, opts)
 	}
 	s.m = cmatch.new { start = now(), surface = "Grass" }
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
-	s.ts.readoutY = hud.belowStatus(2)
 	s.ts.sceneName = "match"
 	nextThrow(s)
 	return s
@@ -179,6 +194,7 @@ function scene.update(s)
 		cmatch.resolve(s.m, ts.result, not ts.last.legal)
 		s.resolved = true
 		s.result = s.m.text
+		throw.setFlag(ts, hud.short(s.result))
 		s.throws = s.throws + 1
 	end
 	if ts.mode == "done" then nextThrow(s) end
@@ -200,7 +216,6 @@ function scene.draw(s)
 	end
 	s.card = nil
 	throw.draw(s.ts)
-	if s.setup then hud.status(s.setup.label, s.result) end
 end
 
 function scene.enter()
