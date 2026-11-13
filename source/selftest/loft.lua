@@ -1,27 +1,25 @@
--- Scenario "loft": d-pad down to the lowest loft (frame 1), then up to the
--- highest (frame 2). The HUD dial and the minimap aim line change.
+-- Scenario "loft": hold B and crank back to the lowest loft (frame 1), then
+-- forward to the highest (frame 2). The HUD dial and the minimap aim line
+-- change, and no throw starts.
 import "selftest/_throw"
 
-local script = { { n = 2 } }
-for _ = 1, 6 do
-	script[#script + 1] = { press = { "down" } }
-	script[#script + 1] = { n = 1 }
-end
-local afterDown = 2 + 12
-for _ = 1, 10 do
-	script[#script + 1] = { press = { "up" } }
-	script[#script + 1] = { n = 1 }
-end
-script[#script + 1] = { n = 3 }
-
+local sign = tw.swing.tune.forwardSign
 local lft = tw.flight.tune
+
 tw.selftest.scenarios.loft = tw.selftest.throwScenario {
-	script = script,
+	script = {
+		{ n = 2 },
+		{ n = 40, hold = { "b" }, crank = -6 * sign },
+		{ n = 3 },
+		{ n = 60, hold = { "b" }, crank = 6 * sign },
+		{ n = 3 },
+	},
 	shots = {
-		function(s, f) return f == afterDown end,
-		function(s, f) return f == afterDown + 21 end,
+		function(s, f) return f == 44 end,
+		function(s, f) return f == 107 end,
 	},
 	check = function(s)
 		if s.loftDeg ~= lft.loftMaxDeg then return "loft " .. s.loftDeg end
+		if s.throws ~= 0 or s.swing.phase ~= "idle" then return "the crank threw while B was held" end
 	end,
 }

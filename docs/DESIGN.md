@@ -84,30 +84,31 @@ Before the throw:
 | Input | Does |
 |---|---|
 | D-pad left/right | Walk the player along the throwing line (baseline or advantage line, II.B.2). The camera moves with the player. |
-| Hold d-pad left/right + crank | Swivel the player, so a throw need not be straight on. Walking stops the moment the crank turns; the crank is geared down for fine aim. |
-| D-pad up/down | Loft: low driving throw to high arc. |
+| D-pad down/up | Step back from the throwing line (up to 3 m) and forward again as far as the line. |
+| Hold A + crank | Swivel the player left and right, so a throw need not be straight on. The crank is geared down for fine aim. |
+| Hold B + crank | Loft: crank forward for a higher arc, back for a low driving throw. |
+| Double tap A | Face straight down the pitch again. |
+| Double tap B | Loft back to the default. |
 
-The throw, with the d-pad released:
+The throw, with A and B released (set on hardware, 2026-11-13):
 
 | Input | Does |
 |---|---|
-| Crank back | Wind up. Backswing angle caps the power. |
-| Crank forward flick | The swing. Release happens when the forward swing passes the angle the wind-up started from, or when forward speed falls below half its peak. |
+| Crank back past the bottom of the turn | Wind up. The wind-up starts only when the crank crosses the bottom going back; the backswing angle caps the power. |
+| Crank forward flick | The swing. Release happens when the forward swing passes the bottom again, or when forward speed falls below half its peak. |
 | Slow crank forward | Lets the wind-up down without throwing. |
 | B (hold, on the other side's turn) | Fast-forward their throws. |
 
-Holding the d-pad to swivel walks the player a few centimeters before the crank starts. If
-that is annoying on hardware, add a short delay before walking begins.
+The throw gauge shows the arm turning with the crank, the backswing against a full-power
+mark, and, while idle, the crank's real position and which way to turn.
 
 ### Kubbs (drilling)
 
 Same walk, swivel, loft and crank swing; always from the baseline (II.C.1). Per the glossary a
 drilled kubb spins on its long axis like a football with the nose down. Two more inputs:
 
-- **Cut:** hold A or B *during the flick* to twist the wrist. A (the right button) is a regular
-  cut (lands and cuts left to right), B (the left button) is a goofy cut, neither is a flat
-  drill. Spin amount follows flick speed. The d-pad cannot carry this: d-pad plus crank is the
-  swivel.
+- **Cut:** not settled. The first design held A or B during the flick, but A and B plus the
+  crank are now swivel and loft, so the cut needs another input (to decide in stage 4).
 - **Smoothness:** a clean flick keeps the nose down, so the edge spikes in and the kubb dies. A
   jerky flick wobbles the nose, and the kubb lands flat or tumbles and bounces.
 

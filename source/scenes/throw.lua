@@ -1,6 +1,7 @@
 -- The throw scene (stage 1): stand at the baseline, aim, wind up and flick
--- the crank, watch the baton fly, then do it again. Controls are DESIGN.md
--- section 4 "Batons". All input comes from an input provider (input.lua),
+-- the crank, watch the baton fly, then do it again. Controls: the d-pad
+-- walks (left/right along the line, down back from it), A + crank swivels,
+-- B + crank sets the loft, the crank alone throws. All input comes from an input provider (input.lua),
 -- so self-tests drive this scene with scripted crank samples.
 import "CoreLibs/graphics"
 import "core/tw"
@@ -23,10 +24,11 @@ throw.tune = {
 	refreshRate = 50,     -- fps while aiming and throwing
 	walkSpeed = 1.2,      -- m/s along the throwing line
 	halfWidth = 2.5,      -- the line is 5 m wide (DESIGN 2)
-	swivelGear = 0.25,    -- degrees of swivel per degree of crank (geared down for fine aim)
+	backMax = 3.0,        -- m the player may step back from the throwing line
+	swivelGear = 0.25,    -- degrees of swivel per degree of crank with A held (geared down for fine aim)
+	doubleTap = 0.35,     -- s between two presses of A or B that count as a double tap
+	loftGear = 0.15,      -- degrees of loft per degree of crank with B held (forward = higher)
 	swivelMaxDeg = 35,    -- swivel limit either way
-	loftRepeatDelay = 0.35, -- s before a held d-pad up/down starts repeating
-	loftRepeatEvery = 0.12, -- s between repeats
 	restHold = 1.0,       -- s the landed baton stays on screen before the next baton
 	lineY = 0,            -- the throwing line: Team A's baseline
 }
@@ -36,12 +38,12 @@ function throw.new(provider)
 		input = provider,
 		mode = "aim",            -- "aim" | "flight" | "rest"
 		playerX = 0,
+		tapA = 10, tapB = 10,    -- s since A and B were last pressed
+		playerY = throw.tune.lineY, -- at the throwing line, or up to backMax behind it
 		swivel = 0,              -- radians, + = right
 		loftDeg = flight.tune.loftDefaultDeg,
-		swivelLatched = false,   -- the crank turned while left/right was held
 		arm = nil,               -- where the crank is: forward degrees from the bottom of the turn
 		armed = false,           -- the crank crossed the bottom going back; the wind-up may start
-		loftHeld = 0,
 		swing = swing.new(),
 		flight = flight.new(),
 		aimCam = camera.new(),
@@ -55,7 +57,7 @@ function throw.new(provider)
 		baton = { x = 0, y = 0, z = 0, ax = 0, ay = 0, az = 1 },
 		hudState = { playerX = 0, lineY = 0 },
 	}
-	camera.aim(s.aimCam, s.playerX, throw.tune.lineY, s.swivel, world.targets)
+	camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, world.targets)
 	return s
 end
 
@@ -69,41 +71,43 @@ local function aimInput(s, dt)
 	local prevArm = s.arm
 	s.arm = arm
 
-	if left or right then
-		-- d-pad left/right + crank swivels; walking stops once the crank turns
-		if delta ~= 0 then s.swivelLatched = true end
-		if s.swivelLatched then
-			local d = s.swivel + rad(delta * swing.tune.forwardSign * t.swivelGear)
-			local lim = rad(t.swivelMaxDeg)
-			s.swivel = max(-lim, min(lim, d))
-		else
-			local dir = (right and 1 or 0) - (left and 1 or 0)
-			s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX + dir * t.walkSpeed * dt))
-		end
-	else
-		s.swivelLatched = false
+	-- d-pad: walk. Left/right along the line, down steps back from it, up
+	-- comes forward again as far as the line.
+	local dx = (right and 1 or 0) - (left and 1 or 0)
+	local dy = (up and 1 or 0) - (down and 1 or 0)
+	if dx ~= 0 then
+		s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX + dx * t.walkSpeed * dt))
+	end
+	if dy ~= 0 then
+		s.playerY = max(t.lineY - t.backMax, min(t.lineY, s.playerY + dy * t.walkSpeed * dt))
 	end
 
-	-- loft: one step per press, repeating while held
-	local step = 0
-	if p:pressed("up") then step = 1 elseif p:pressed("down") then step = -1 end
-	if up or down then
-		s.loftHeld = s.loftHeld + dt
-		if step == 0 and s.loftHeld >= t.loftRepeatDelay then
-			step = up and 1 or -1
-			s.loftHeld = s.loftHeld - t.loftRepeatEvery
-		end
-	else
-		s.loftHeld = 0
+	-- double tap A: face straight down the pitch again. Double tap B: loft
+	-- back to the default.
+	s.tapA, s.tapB = s.tapA + dt, s.tapB + dt
+	if p:pressed("a") then
+		if s.tapA <= t.doubleTap then s.swivel = 0 end
+		s.tapA = 0
 	end
-	if step ~= 0 then
-		local ft = flight.tune
-		s.loftDeg = max(ft.loftMinDeg, min(ft.loftMaxDeg, s.loftDeg + step * ft.loftStepDeg))
+	if p:pressed("b") then
+		if s.tapB <= t.doubleTap then s.loftDeg = flight.tune.loftDefaultDeg end
+		s.tapB = 0
 	end
 
-	-- the throw: only with the d-pad released
+	-- hold A: the crank swivels the player. Hold B: the crank changes the
+	-- loft. Either way the crank does not throw.
 	local sw = s.swing
-	if left or right or up or down then
+	local holdA, holdB = p:held("a"), p:held("b")
+	if holdA or holdB then
+		local turn = delta * swing.tune.forwardSign
+		if holdA then
+			local lim = rad(t.swivelMaxDeg)
+			s.swivel = max(-lim, min(lim, s.swivel + rad(turn * t.swivelGear)))
+		else
+			local ft = flight.tune
+			s.loftDeg = max(ft.loftMinDeg, min(ft.loftMaxDeg, s.loftDeg + turn * t.loftGear))
+		end
+		if sw.phase ~= "idle" then swing.reset(sw) end
 		s.armed = false
 		return nil
 	end
@@ -138,7 +142,7 @@ local function launch(s)
 	local r = s.swing.result
 	local t = throw.tune
 	local fl = s.flight
-	flight.launch(fl, s.playerX, t.lineY, s.swivel, s.loftDeg, r.launchSpeed, r.tumbleRate, r.tilt)
+	flight.launch(fl, s.playerX, s.playerY, s.swivel, s.loftDeg, r.launchSpeed, r.tumbleRate, r.tilt)
 	camera.impact(s.impactCam, fl.lx, fl.ly, fl.dx, fl.dy)
 	s.last = s.last or {}
 	local l = s.last
@@ -171,7 +175,7 @@ function throw.update(s)
 	local t = throw.tune
 	if s.mode == "aim" then
 		local ev = aimInput(s, dt)
-		camera.aim(s.aimCam, s.playerX, t.lineY, s.swivel, world.targets)
+		camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, world.targets)
 		if ev == "release" then launch(s) end
 	elseif s.mode == "flight" then
 		if flight.step(s.flight, dt) then landed(s) end
@@ -208,8 +212,8 @@ function throw.draw(s)
 	world.draw(s.viewCam or s.aimCam, b)
 
 	local hs = s.hudState
-	hs.playerX, hs.lineY = s.playerX, throw.tune.lineY
-	hs.aimX, hs.aimY = flight.aimPreview(s.playerX, throw.tune.lineY, s.swivel, s.loftDeg, swing.tune.launchMax)
+	hs.playerX, hs.lineY = s.playerX, s.playerY
+	hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, swing.tune.launchMax)
 	hs.baton = b
 	if s.mode ~= "aim" then
 		hs.landX, hs.landY = fl.lx, fl.ly
