@@ -154,4 +154,12 @@ function body.lying(b, sinTol)
 	return math.abs(b.r33) <= sinTol
 end
 
+-- Would a box fall if whatever it leans on were taken away? True when the
+-- plumb line through its centre lands outside the end face it stands on.
+-- (A kubb goes at about 25 degrees from upright, the king at about 17.)
+function body.wouldFall(b)
+	local up = math.abs(b.r33)
+	return b.hz * math.abs(b.r31) > b.hx * up or b.hz * math.abs(b.r32) > b.hy * up
+end
+
 tw.body = body

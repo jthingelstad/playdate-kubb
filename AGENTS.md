@@ -353,6 +353,12 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   firstContact, firstHit).
 - Toppled means the long axis came within `toppleDeg` of horizontal. There is no tipping
   state machine: tipping, rocking back and falling come out of the contacts.
+- The leaner rule (Jamie, 2026-11-13): a kubb or king that comes to rest propped on another
+  piece is down if it would fall with the prop taken away. `body.wouldFall` is the test: the
+  plumb line through the centre misses the end face it stands on (a kubb past about 25
+  degrees from upright, the king past about 17). `world.step` applies it when a box goes to
+  sleep, never while it is still rocking; `world.result` applies it to anything still moving
+  when the throw ran out of time; `world.add` applies it to a piece placed already leaning.
 - `core/playback`: compute ahead and play back. The scene steps the world within
   `throw.tune.physicsBudget` per frame, poses are recorded once per display frame (per body,
   only from the first frame it moved), and the screen shows them in real time; when the

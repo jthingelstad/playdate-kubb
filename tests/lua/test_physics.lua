@@ -358,3 +358,51 @@ test("a sliding kubb stops against a stake", function()
 	expect.eq(r.stakesTouched[1], "stake4", "touched stake4")
 	expect.truthy(not b.awake, "came to rest")
 end)
+
+-- The leaner rule: a piece propped on another is down if it would fall with
+-- the prop taken away (the plumb line through its centre misses its base).
+test("would-fall: a kubb goes past about 25 degrees, the king past about 17", function()
+	local function leaning(kind, deg, about)
+		local qw, qx, qy, qz
+		if about == "x" then qw, qx, qy, qz = quat.fromAxisAngle(1, 0, 0, math.rad(deg))
+		else qw, qx, qy, qz = quat.fromAxisAngle(0, 1, 0, math.rad(deg)) end
+		local w = world.new{ pieces = { { id = "k", kind = kind, x = 0, y = 0, qw = qw, qx = qx, qy = qy, qz = qz } } }
+		return w.byId.k
+	end
+	for _, about in ipairs { "x", "y" } do
+		expect.truthy(not body.wouldFall(leaning("kubb", 0, about)), "upright kubb")
+		expect.truthy(not body.wouldFall(leaning("kubb", 20, about)), "kubb at 20")
+		expect.truthy(body.wouldFall(leaning("kubb", 30, about)), "kubb at 30")
+		expect.truthy(not body.wouldFall(leaning("kubb", 180, about)), "kubb on its other end")
+		expect.truthy(not body.wouldFall(leaning("kubb", 160, about)), "kubb on its other end at 20")
+		expect.truthy(not body.wouldFall(leaning("king", 12, about)), "king at 12")
+		expect.truthy(body.wouldFall(leaning("king", 22, about)), "king at 22")
+	end
+	-- a piece put on the pitch already leaning that far counts as down
+	expect.truthy(leaning("kubb", 30, "x").toppled, "placed leaner is down")
+	expect.truthy(not leaning("kubb", 20, "x").toppled, "placed at 20 stands")
+end)
+
+test("a kubb that comes to rest leaning on a fallen kubb is down", function()
+	local lw, lx, ly, lz = quat.fromAxisAngle(0, 1, 0, math.pi / 2)
+	local w = world.new{ pieces = {
+		{ id = "k", kind = "kubb", x = 0, y = 0 },
+		{ id = "prop", kind = "kubb", x = 0, y = 0.20, qw = lw, qx = lx, qy = ly, qz = lz },
+	} }
+	local a = w.byId.k
+	world.wake(a)
+	local om = 6
+	a.wx, a.vy, a.vz = -om, om * a.hz, om * a.hy
+	local early
+	while not world.isAtRest(w) do
+		world.step(w)
+		if a.awake and a.toppled then early = true end
+	end
+	local tilt = tiltDeg(a)
+	expect.truthy(tilt > 30 and tilt < 80, "rests propped, at " .. tilt)
+	expect.truthy(not early, "counted down only once it came to rest")
+	expect.truthy(a.toppled, "the leaner is down")
+	local r = world.result(w)
+	expect.eq(#r.toppled, 1, "result lists one")
+	expect.eq(r.toppled[1], "k", "and it is the leaner")
+end)

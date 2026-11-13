@@ -178,7 +178,7 @@ function world.addPiece(w, p)
 	end
 	b.awake = false
 	-- a piece that is already down (from an earlier throw) stays toppled
-	b.toppled = p.toppled or (b.shape == 1 and body.lying(b, sin(rad(world.tune.toppleDeg))))
+	b.toppled = p.toppled or (b.shape == 1 and (body.lying(b, sin(rad(world.tune.toppleDeg))) or body.wouldFall(b)))
 	b.wasToppled = b.toppled
 	return b
 end
@@ -975,6 +975,9 @@ function world.step(w)
 					b.awake = false
 					b.vx, b.vy, b.vz, b.wx, b.wy, b.wz = 0, 0, 0, 0, 0, 0
 					b.dig = 0
+					-- the leaner rule: a piece that comes to rest propped on another is
+					-- down if it would fall with the prop taken away
+					if b.shape == 1 and not b.toppled and body.wouldFall(b) then b.toppled = true end
 				end
 			else
 				b.sleepTime = 0
@@ -1028,6 +1031,8 @@ function world.result(w)
 	}
 	for i = 1, w.n do
 		local b = w.bodies[i]
+		-- a piece still moving when the throw ran out of time gets the leaner rule here
+		if b.shape == 1 and not b.static and not b.toppled and body.wouldFall(b) then b.toppled = true end
 		local out = world.outside(b.x, b.y)
 		r.bodies[b.id] = {
 			kind = b.kind, x = b.x, y = b.y, z = b.z, qw = b.qw, qx = b.qx, qy = b.qy, qz = b.qz,
