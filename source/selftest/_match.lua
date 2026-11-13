@@ -48,15 +48,20 @@ function tw.selftest.matchScenario(def)
 	}
 end
 
--- The pitch shown must be exactly the engine's: every scene item at the
--- pose core/outcome gives for the engine's state (view frame). Returns an
--- error string or nil. Call right after a throw is set up (aim or handoff).
+-- The pitch shown must be exactly the engine's plus this turn's debris:
+-- every scene item at the pose core/outcome gives for the engine's state
+-- (view frame; a lying kubb may be at its exact rest pose nearby), then one
+-- item per debris piece of the setup, down, at its pose. Returns an error
+-- string or nil. Call right after a throw is set up (aim or handoff).
 function tw.selftest.pitchMatchesEngine(ms)
 	local s = ms.setup
 	if not s then return "no throw set up" end
 	local pieces = tw.outcome.pieces(ms.m.game, s.side)
 	local ts = ms.ts
-	if ts.nitems ~= #pieces then return "items " .. ts.nitems .. " vs engine " .. #pieces end
+	local nd = #(s.debris or {})
+	if ts.nitems ~= #pieces + nd then
+		return "items " .. ts.nitems .. " vs engine " .. #pieces .. " + debris " .. nd
+	end
 	for i, p in ipairs(pieces) do
 		local it = ts.items[i]
 		if it.id ~= p.id then return "item " .. i .. " is " .. it.id .. ", engine " .. p.id end
@@ -65,5 +70,23 @@ function tw.selftest.pitchMatchesEngine(ms)
 		end
 		if it.toppled ~= p.toppled then return p.id .. " toppled " .. tostring(it.toppled) end
 	end
+	for i = 1, nd do
+		local d, it = s.debris[i], ts.items[#pieces + i]
+		if it.id ~= d.id or it.kind ~= d.kind then return "debris item " .. i .. " is " .. it.id end
+		if math.abs(it.x - d.x) > 1e-3 or math.abs(it.y - d.y) > 1e-3 or not it.toppled then
+			return string.format("debris %s at (%.3f, %.3f), want (%.3f, %.3f)", d.id, it.x, it.y, d.x, d.y)
+		end
+	end
 	return nil
+end
+
+-- Debris items on the pitch now: kubbs and batons (counts).
+function tw.selftest.debrisShown(ms)
+	local s, ts = ms.setup, ms.ts
+	local kubbs, batons = 0, 0
+	local first = s and (ts.nitems - #(s.debris or {})) or ts.nitems
+	for i = first + 1, ts.nitems do
+		if ts.items[i].baton then batons = batons + 1 else kubbs = kubbs + 1 end
+	end
+	return kubbs, batons
 end

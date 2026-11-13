@@ -77,11 +77,15 @@ world.advantageY = nil
 -- king with a full pose. world.setPose fills the rotation matrix. Item
 -- fields other than the pose are the renderer's caches; change a pose only
 -- through world.setPose.
+-- A "baton" item is a baton lying on the pitch (a match's debris): drawn
+-- like the flying baton, from its pose (ax, ay, az = its long axis).
 function world.item(id, kind)
 	local k = tw.body.kinds[kind]
+	local baton = (kind == "baton")
 	return {
-		id = id, kind = kind, king = (kind == "king"),
-		hx = k.hx, hy = k.hy, hz = k.hz,
+		id = id, kind = kind, king = (kind == "king"), baton = baton,
+		hx = k.hx or k.r, hy = k.hy or k.r, hz = k.hz or k.length / 2,
+		ax = 0, ay = 0, az = 1,
 		x = 0, y = 0, z = k.hz, qw = 1, qx = 0, qy = 0, qz = 0,
 		r11 = 1, r12 = 0, r13 = 0, r21 = 0, r22 = 1, r23 = 0, r31 = 0, r32 = 0, r33 = 1,
 		toppled = false,
@@ -92,6 +96,7 @@ end
 function world.setPose(it, x, y, z, qw, qx, qy, qz)
 	it.x, it.y, it.z, it.qw, it.qx, it.qy, it.qz = x, y, z, qw, qx, qy, qz
 	it.r11, it.r12, it.r13, it.r21, it.r22, it.r23, it.r31, it.r32, it.r33 = toMatrix(qw, qx, qy, qz)
+	if it.baton then it.ax, it.ay, it.az = it.r13, it.r23, it.r33 end
 	it.stale = true
 	poseVersion = poseVersion + 1
 end
@@ -447,7 +452,10 @@ local function drawAll(c, items, n, baton)
 	lap("clear")
 	drawPitch()
 	setColor(BLACK)
-	for i = 1, n do boxShadow(items[i]) end
+	for i = 1, n do
+		local p = items[i]
+		if p.baton then batonShadow(c, p) else boxShadow(p) end
+	end
 	if baton then batonShadow(c, baton) end
 	lap("shadows")
 	-- far to near
@@ -475,7 +483,11 @@ local function drawAll(c, items, n, baton)
 	for i = 1, m do
 		local k = order[i]
 		if depth[i] > near then
-			if k == 0 then drawBaton(c, baton) else drawBox(items[k]) end
+			if k == 0 then drawBaton(c, baton)
+			else
+				local p = items[k]
+				if p.baton then drawBaton(c, p) else drawBox(p) end
+			end
 		end
 	end
 	setColor(BLACK)
@@ -510,7 +522,8 @@ local function sameKey(items, n, baton)
 	return same
 end
 
--- Draw everything. `items` holds n box items (world.item); `baton` is nil
+-- Draw everything. `items` holds n items (world.item: boxes, and batons
+-- lying on the pitch); `baton` is nil
 -- or {x, y, z, ax, ay, az} (center and unit axis).
 function world.draw(c, items, n, baton)
 	RP = world.prof
@@ -521,7 +534,8 @@ function world.draw(c, items, n, baton)
 	updateLight()
 	for i = 1, n do
 		local p = items[i]
-		if p.stale ~= false or p.gen ~= generation then prepare(p) end
+		-- a lying baton is drawn from its pose alone (nothing to prepare)
+		if (p.stale ~= false or p.gen ~= generation) and not p.baton then prepare(p) end
 	end
 	lap("prepare")
 	local cache = world.tune.cache

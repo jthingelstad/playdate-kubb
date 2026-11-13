@@ -61,7 +61,8 @@ throw.tune = {
 -- all optional; the practice pitch sets none of them and behaves as before:
 --   s.lineY, s.forwardY  the baseline and how far forward the thrower may
 --                        walk (the advantage line); both default to tune.lineY
---   s.projectile         "baton" (default) or "kubb", with s.projectileId
+--   s.projectile         "baton" (default) or "kubb", with s.projectileId (the
+--                        kubb's id, or the baton's body id: "baton" by default)
 --   s.auto = false       after the rest hold, stop in mode "done" (the match
 --                        resolves the throw and sets the next one up) instead of
 --                        aiming again
@@ -116,20 +117,30 @@ local function restZ(it, qw, qx, qy, qz)
 	local _, _, _, _, _, _, r31, r32, r33 = tw.quat.toMatrix(qw, qx, qy, qz)
 	return abs(r31) * it.hx + abs(r32) * it.hy + abs(r33) * it.hz
 end
-function throw.setPieces(s, pieces)
+-- `debris` (optional, core/debris pieces) follows the pieces: batons and
+-- kubbs lying where earlier throws of the turn left them, each with its full
+-- pose and height. A piece with z (an exact rest pose) keeps it.
+local function setItem(s, i, p)
 	local items = s.items
-	for i, p in ipairs(pieces) do
-		local it = items[i]
-		if not it or it.id ~= p.id or it.kind ~= p.kind then
-			it = render.item(p.id, p.kind)
-			items[i] = it
-		end
-		render.setPose(it, p.x, p.y, restZ(it, p.qw, p.qx, p.qy, p.qz), p.qw, p.qx, p.qy, p.qz)
-		it.toppled = p.toppled
-		it.base = nil
+	local it = items[i]
+	if not it or it.id ~= p.id or it.kind ~= p.kind then
+		it = render.item(p.id, p.kind)
+		items[i] = it
 	end
-	for i = #pieces + 1, #items do items[i] = nil end
-	s.nitems = #pieces
+	render.setPose(it, p.x, p.y, p.z or restZ(it, p.qw, p.qx, p.qy, p.qz), p.qw, p.qx, p.qy, p.qz)
+	it.toppled = p.toppled
+	it.base = nil
+end
+function throw.setPieces(s, pieces, debris)
+	local items = s.items
+	local n = #pieces
+	for i, p in ipairs(pieces) do setItem(s, i, p) end
+	if debris then
+		for i, p in ipairs(debris) do setItem(s, n + i, p) end
+		n = n + #debris
+	end
+	for i = n + 1, #items do items[i] = nil end
+	s.nitems = n
 	s.projItem = nil
 end
 
@@ -214,12 +225,12 @@ function throw.new(provider)
 end
 
 -- The match: set the next throw up. `setup` is a core/match setup (view
--- frame): its pieces, projectile, lines and targets. The thrower starts in
+-- frame): its pieces and debris, projectile, lines and targets. The thrower starts in
 -- the middle of the baseline facing straight down the pitch.
 function throw.prepare(s, setup)
-	throw.setPieces(s, setup.pieces)
+	throw.setPieces(s, setup.pieces, setup.debris)
 	s.lineY, s.forwardY, s.advY = setup.lineY, setup.forwardY or setup.lineY, setup.advY
-	s.projectile, s.projectileId = setup.projectile, setup.kubb
+	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
 	s.targetIds = setup.targets
 	s.auto = false
 	s.playerX, s.playerY, s.swivel = 0, setup.lineY, 0
@@ -354,7 +365,8 @@ local function launch(s, r)
 		end
 		s.items[s.nitems + 1] = it
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, s.swivel, s.loftDeg, r.launchSpeed, tumble, tilt)
+		b = phys.launchBaton(w, s.playerX, s.playerY, s.swivel, s.loftDeg, r.launchSpeed, tumble, tilt,
+			s.projectileId)
 	end
 	s.batonIndex = b.index
 	s.pb = playback.new(w, 1 / t.refreshRate)

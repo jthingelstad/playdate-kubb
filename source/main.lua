@@ -52,6 +52,7 @@ import "selftest/bench"
 import "selftest/match-opening"
 import "selftest/match-toss"
 import "selftest/match-whole"
+import "selftest/match-debris"
 
 local function launchArgs()
 	local args = {}
