@@ -92,6 +92,20 @@ world.tune = {
 	kingDiamondH = 0.07,
 	kingDetailFrom = 30, -- px tall: the ring and the diamond from here (the
 	                     -- far king keeps the crown points and the collar)
+	-- Speed lines (docs/design "Motion"): three 2 px lines behind a baton in
+	-- the air, along its screen motion over the last speedTrail s. None when
+	-- that motion is under speedMinPx. The middle line is speedLen of it
+	-- long (between speedShort and speedLong px), the outer ones shorter and
+	-- set back; they start speedGap px behind the baton's back end and stand
+	-- speedSpread px apart.
+	speedTrail = 0.06,
+	speedMinPx = 4,
+	speedLen = 0.8,
+	speedShort = 8,
+	speedLong = 26,
+	speedGap = 4,
+	speedSpread = 6,
+	speedWidth = 2,
 	cache = true,     -- reuse the last frame's world image when nothing changed
 	layer = true,     -- keep the pieces that hold still in a background image while the camera does
 }
@@ -1151,6 +1165,44 @@ function world.draw(c, items, n, baton)
 	lastVersion = poseVersion
 	world.count.full = world.count.full + 1
 	drawAll(c, items, n, baton)
+end
+
+-- Speed lines behind a flying baton (see the tune): the baton's centre now
+-- (x1, y1, z1) with long axis (ax, ay, az), and where it was speedTrail s ago
+-- (x0, y0, z0). Drawn over the world, so they are never in its caches.
+-- Returns the number of lines drawn. No tables are made.
+local SPEED_K <const> = { 0.7, 1, 0.5 }   -- each line's length, of the middle one's
+local SPEED_B <const> = { 5, 0, 10 }      -- and how far it is set back, px
+function world.speedLines(c, x0, y0, z0, x1, y1, z1, ax, ay, az)
+	local t = world.tune
+	local bx, by = project(c, x1, y1, z1)
+	if not bx then return 0 end
+	local px, py = project(c, x0, y0, z0)
+	if not px then return 0 end
+	local dx, dy = bx - px, by - py
+	local L = sqrt(dx * dx + dy * dy)
+	if L < t.speedMinPx then return 0 end
+	local ux, uy = dx / L, dy / L
+	-- the baton's reach back along its motion: its half length, projected
+	local hl = BATON_L / 2
+	local reach = 0
+	local ex, ey = project(c, x1 + ax * hl, y1 + ay * hl, z1 + az * hl)
+	if ex then
+		reach = (ex - bx) * ux + (ey - by) * uy
+		if reach < 0 then reach = -reach end
+	end
+	local len = L * t.speedLen
+	if len < t.speedShort then len = t.speedShort elseif len > t.speedLong then len = t.speedLong end
+	local nx, ny = -uy, ux
+	setColor(BLACK)
+	setLineWidth(t.speedWidth)
+	for i = 1, 3 do
+		local o, back, l = (i - 2) * t.speedSpread, reach + t.speedGap + SPEED_B[i], len * SPEED_K[i]
+		local sx, sy = bx - ux * back + nx * o, by - uy * back + ny * o
+		drawLine(floor(sx + 0.5), floor(sy + 0.5), floor(sx - ux * l + 0.5), floor(sy - uy * l + 0.5))
+	end
+	setLineWidth(1)
+	return 3
 end
 
 tw.render.world = world

@@ -886,6 +886,17 @@ function throw.drawFrame(s)
 	render.advantageY = s.advY
 	local cam = s.viewCam or s.aimCam
 	render.draw(cam, s.items, n, b)
+	-- speed lines while the baton is in the air (to its first touch)
+	local pb = s.pb
+	if b and s.mode == "flight" and pb then
+		local fc, t = pb.w.firstContact, s.showTime
+		if t > 0 and not (fc and t >= fc.t) then
+			local t0 = t - render.tune.speedTrail
+			if t0 < 0 then t0 = 0 end
+			local x0, y0, z0 = playback.poseAt(pb, s.batonIndex, t0)
+			render.speedLines(cam, x0, y0, z0, b.x, b.y, b.z, b.ax, b.ay, b.az)
+		end
+	end
 	local marker = s.drill and (s.mode == "aim" or s.thisDrill)
 	if marker then drawMarker(s, cam) end
 
