@@ -61,6 +61,8 @@ world.tune = {
 	litAbove = 0.2,
 	darkAbove = -0.35,
 	batonMinPx = 2,
+	kingCrown = 0.2,  -- the crown's points are the top fifth of the king
+	kingBand = 0.62,  -- the groove around the king, as a fraction of the way up
 	cache = true,     -- reuse the last frame's world image when nothing changed
 }
 
@@ -386,6 +388,81 @@ local function batonShadow(c, b)
 	setLineWidth(1)
 end
 
+-- The king is the same box to the physics, but it is drawn carved: a crown
+-- of four corner points (a V cut into the top of each side, down to a floor
+-- inside) and a groove around the body below it. The crown's points lie on
+-- the box's vertical edges, at world.tune.kingCrown and kingBand of the way
+-- up. On entry SX/SY[1..8] hold the projected corners; 9..12 become the
+-- floor corners and 13..16 the groove, above bottom corners 1..4.
+local function shadeOn(shade)
+	if shade == 1 then setColor(WHITE)
+	elseif shade == 2 then setPattern(world.tune.darkPattern)
+	else setColor(BLACK) end
+end
+
+local function drawKing(p, FN)
+	local WX, WY, WZ = p.WX, p.WY, p.WZ
+	local t = world.tune
+	local f, cx, cy, near = CF, CCX, CCY, NEAR
+	local cpx, cpy, cpz = CPX, CPY, CPZ
+	for row = 1, 2 do
+		local u = (row == 1) and (1 - t.kingCrown) or t.kingBand
+		for k = 1, 4 do
+			local wx = WX[k] + (WX[k + 4] - WX[k]) * u
+			local wy = WY[k] + (WY[k + 4] - WY[k]) * u
+			local wz = WZ[k] + (WZ[k + 4] - WZ[k]) * u
+			local dx, dy, dz = wx - cpx, wy - cpy, wz - cpz
+			local d = dx * CFX + dy * CFY + dz * CFZ
+			if d < near then return end
+			local s = f / d
+			SX[4 + 4 * row + k] = cx + s * (dx * CRX + dy * CRY + dz * CRZ)
+			SY[4 + 4 * row + k] = cy - s * (dx * CUX + dy * CUY + dz * CUZ)
+		end
+	end
+	-- 1. the sides facing away: their inner walls show through the cuts
+	-- 2. the floor of the crown and the underside, when the camera sees them
+	-- 3. the sides facing the camera, each with its cut and its groove
+	for pass = 1, 3 do
+		for fi = 1, 6 do
+			local o = 7 * fi - 7
+			local nx, ny, nz = FN[o + 1], FN[o + 2], FN[o + 3]
+			local front = (cpx - FN[o + 4]) * nx + (cpy - FN[o + 5]) * ny + (cpz - FN[o + 6]) * nz > 0
+			local F = FACES[fi]
+			local a, b, cc, d = F[1], F[2], F[3], F[4]
+			if fi <= 4 then
+				if (pass == 1 and not front) or (pass == 3 and front) then
+					local mx, my = (SX[8 + a] + SX[8 + b]) / 2, (SY[8 + a] + SY[8 + b]) / 2
+					shadeOn(front and FN[o + 7] or 3)
+					-- the body up to the floor, then the two points: a concave
+					-- polygon is not safe to fill in one piece
+					fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[8 + b], SY[8 + b], SX[8 + a], SY[8 + a])
+					fillPolygon(SX[8 + a], SY[8 + a], mx, my, SX[d], SY[d])
+					fillPolygon(SX[8 + b], SY[8 + b], SX[cc], SY[cc], mx, my)
+					setColor(BLACK)
+					if front then
+						drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], mx, my, SX[d], SY[d])
+						if FN[o + 7] ~= 3 then
+							drawLine(SX[12 + a], SY[12 + a], SX[12 + b], SY[12 + b])
+						end
+					end
+				end
+			elseif pass == 2 and front then
+				if fi == 5 then
+					shadeOn(FN[o + 7])
+					fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+					setColor(BLACK)
+					drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+				else
+					-- the floor: the top face's corners, lowered
+					shadeOn(FN[o + 7])
+					fillPolygon(SX[4 + a], SY[4 + a], SX[4 + b], SY[4 + b], SX[4 + cc], SY[4 + cc], SX[4 + d], SY[4 + d])
+					setColor(BLACK)
+				end
+			end
+		end
+	end
+end
+
 -- Draw one box (line width 1 and colour black on entry and exit).
 local function drawBox(p)
 	local WX, WY, WZ = p.WX, p.WY, p.WZ
@@ -409,6 +486,7 @@ local function drawBox(p)
 	if x1 < -2 or x0 > 402 or y1 < -2 or y0 > 242 then return end
 	local FN = p.FN
 	local cpx, cpy, cpz = CPX, CPY, CPZ
+	if p.king then return drawKing(p, FN) end
 	for fi = 1, 6 do
 		local o = 7 * fi - 7
 		local nx, ny, nz = FN[o + 1], FN[o + 2], FN[o + 3]
