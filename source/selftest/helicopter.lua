@@ -11,7 +11,7 @@ st.scenarios.helicopter = st.throwScenario {
 		{ n = 2 },
 		st.windup(120, 30),
 		{ n = 5 },
-		st.flick { 30, 10, 30, 10, 30, 10 },
+		st.flick { 40, 2, 40, 2, 40, 2 },
 		{ n = 200 },
 	},
 	shots = {
