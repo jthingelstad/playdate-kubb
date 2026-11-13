@@ -449,7 +449,7 @@ local function launch(s, r)
 	if kubb then tumble, tilt = tumble * t.tossTumble, 0 end
 	-- a drilled kubb (not the computer's: it lobs): the launch the drill
 	-- solution and the swing make (core/drill)
-	local drilling = kubb and s.drill and not s.scripted
+	local drilling = kubb and s.drill and (not s.scripted or s.autoDrill)
 	local L
 	if drilling then
 		local sol = s.drillSol
@@ -738,7 +738,9 @@ end
 -- A scripted throw (self-tests, and stage 5's computer can grow from it):
 -- `a` is a core/autothrow throw {x, y, swivel, loftDeg, speed, tumbleRate,
 -- tilt, legal}. The player is put where it says and the throw launched as if
--- the crank had made it. Only in aim mode.
+-- the crank had made it. Only in aim mode. With a.drill = {markerX, markerY}
+-- and s.drill on (the autobench's match case), the kubb is drilled at that
+-- marker instead: a clean swing at the band's center, no cut.
 function throw.autoLaunch(s, a)
 	assert(s.mode == "aim", "autoLaunch while " .. s.mode)
 	s.playerX, s.playerY, s.swivel, s.loftDeg = a.x, a.y, a.swivel, a.loftDeg
@@ -748,6 +750,13 @@ function throw.autoLaunch(s, a)
 	r.launchSpeed, r.tumbleRate, r.tilt, r.legal = a.speed, a.tumbleRate, a.tilt or 0, a.legal ~= false
 	r.power = (a.speed - swing.tune.launchMin) / (swing.tune.launchMax - swing.tune.launchMin)
 	r.smoothness = 1
+	s.autoDrill = (a.drill ~= nil) and s.drill
+	if s.autoDrill then
+		s.markerX, s.markerY = a.drill.markerX, s.lineY + a.drill.markerY
+		solveDrill(s)
+		s.cut = drill.CUT_NONE
+		r.power, r.how = s.drillSol.band, nil
+	end
 	-- a.tumbleRate is the projectile's own (a kubb's too): undo the toss factor
 	if s.projectile == "kubb" then r.tumbleRate = a.tumbleRate / throw.tune.tossTumble end
 	launch(s, r)

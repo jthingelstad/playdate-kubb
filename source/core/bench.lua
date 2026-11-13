@@ -6,6 +6,7 @@
 import "core/tw"
 import "core/world"
 import "core/quat"
+import "core/autothrow"
 
 local world, quat = tw.world, tw.quat
 
@@ -53,6 +54,64 @@ bench.debris = {
 	lying("d9", "kubb", 1.00, 8.05, 1.4),
 	lying("d10", "kubb", 2.00, 7.90, 3.0),
 }
+
+-- The match case (the device autobench's "match" lines): a turn in progress
+-- as the owner plays it, in the view frame. Base kubbs and the king, two
+-- standing field kubbs, and the turn's debris (three lying batons, three
+-- downed kubbs). bench.matchSetup(projectile) gives a core/match-style setup
+-- for scenes/throw (throw.prepare); bench.matchThrows are the throws played
+-- in it, each from that same setup: a baton that hits a field kubb, a baton
+-- that misses and rolls on through the debris, and a drilled kubb. They are
+-- fixed launches (no scatter): the same throws on every run.
+local function standing(id, kind, x, y, yaw)
+	local qw, qx, qy, qz = quat.fromAxisAngle(0, 0, 1, yaw or 0)
+	return { id = id, kind = kind, x = x, y = y, qw = qw, qx = qx, qy = qy, qz = qz, toppled = false }
+end
+function bench.matchSetup(projectile)
+	local pieces = {}
+	for i, x in ipairs { -2, -1, 0, 1, 2 } do pieces[i] = standing("b" .. i, "kubb", x, 8, 0) end
+	pieces[#pieces + 1] = standing("f1", "kubb", 0.8, 5.0, 0.2)
+	pieces[#pieces + 1] = standing("f2", "kubb", -0.9, 5.6, -0.3)
+	pieces[#pieces + 1] = standing("king", "king", 0, 4, 0)
+	local debris = {
+		lying("baton1", "baton", 0.35, 5.95, 0.4),
+		lying("baton2", "baton", -1.6, 6.9, 1.9),
+		lying("baton3", "baton", 1.5, 7.0, 0.2),
+		lying("d1", "kubb", 1.1, 5.35, 0.3),
+		lying("d2", "kubb", -0.2, 7.3, 1.2),
+		lying("d3", "kubb", 1.8, 6.2, 2.2),
+	}
+	for _, p in ipairs(debris) do
+		-- resting on the ground: the half side of the lying box or the baton's radius
+		p.z = (p.kind == "baton") and 0.022 or 0.035
+	end
+	local kubb = projectile == "kubb"
+	return {
+		kind = kubb and "toss" or "baton", side = "A", projectile = projectile or "baton",
+		kubb = kubb and "f3" or nil, batonId = (not kubb) and "baton4" or nil,
+		pieces = pieces, debris = debris, lineY = 0, forwardY = 0,
+		targets = { "f1", "f2" }, label = "bench",
+	}
+end
+-- core/autothrow-style throws ({x, y, swivel, loftDeg, speed, tumbleRate,
+-- tilt, legal}; a drill has drill = {markerX, markerY}: thrown at the band's
+-- center, clean). `aim` = {tx, ty}: where the launch is aimed (the speed that
+-- lands the center there at this loft); filled in by bench.matchThrow.
+bench.matchThrows = {
+	{ name = "hit", projectile = "baton", x = 0.8, aim = { 0.8, 4.85 }, loftDeg = 30, tumbleRate = 5.5 },
+	{ name = "miss", projectile = "baton", x = -1.0, aim = { -1.25, 6.2 }, loftDeg = 30, tumbleRate = 5.5 },
+	{ name = "drill", projectile = "kubb", drill = { markerX = 0.3, markerY = 6.4 } },
+}
+function bench.matchThrow(t)
+	local a = { x = t.x or 0, y = 0, swivel = 0, loftDeg = t.loftDeg or 30, speed = 0,
+		tumbleRate = t.tumbleRate or 0, tilt = 0, legal = true, drill = t.drill }
+	if t.aim then
+		local dx, dy = t.aim[1] - a.x, t.aim[2] - a.y
+		a.swivel = math.atan(dx, dy)
+		a.speed = tw.autothrow.speedFor(math.sqrt(dx * dx + dy * dy), a.loftDeg)
+	end
+	return a
+end
 
 function bench.world(withDebris)
 	local pieces = bench.pieces
