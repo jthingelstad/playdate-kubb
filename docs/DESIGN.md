@@ -298,6 +298,11 @@ design sessions):
   baseline; a baton at rest on plain white ground reads as floating; when swivelled, far
   kubbs can pass under the minimap.
 
+**Hit effects** (Jamie, 2026-11-13, for stage 7): a comic-book burst ("POW", "BAM") at the
+point where a baton strikes a kubb, designed together with the hit sound. The physics
+already records the time and place of the first hit, and the slow motion gives it time to
+be read.
+
 **Stage 3 match as built** (the bare two-player game; AGENTS.md "Match"):
 
 - It is pass and play on one Playdate (stage 5's mode, without names): teams "Team A" and
