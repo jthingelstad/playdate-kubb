@@ -56,23 +56,40 @@ local SY = { -1, -1, 1, 1, -1, -1, 1, 1 }
 local SZ = { -1, -1, -1, -1, 1, 1, 1, 1 }
 collide.SX, collide.SY, collide.SZ = SX, SY, SZ
 
+-- The functions below run for every pair and corner of every step, so they
+-- write out add, pointBox, the extents and math.abs instead of calling them
+-- (on the device a Lua call costs about 9 us, a C call about 4 us; see
+-- AGENTS.md, "Physics"). The arithmetic is the same, term for term.
+
 -- Box b against the ground plane z = 0: each corner below `margin`.
 function collide.groundBox(b, margin)
 	local hx, hy, hz = b.hx, b.hy, b.hz
-	local ax, ay, az = b.r11 * hx, b.r21 * hx, b.r31 * hx
-	local bx, by, bz = b.r12 * hy, b.r22 * hy, b.r32 * hy
-	local cx, cy, cz = b.r13 * hz, b.r23 * hz, b.r33 * hz
+	local r31, r32, r33 = b.r31, b.r32, b.r33
+	local az, bz, cz = r31 * hx, r32 * hy, r33 * hz
 	-- quick reject: the lowest corner is above the margin
-	if b.z - (abs(az) + abs(bz) + abs(cz)) >= margin then return end
-	local x0, y0, z0 = b.x, b.y, b.z
+	local z0 = b.z
+	local aaz, abz, acz = az, bz, cz
+	if aaz < 0 then aaz = -aaz end
+	if abz < 0 then abz = -abz end
+	if acz < 0 then acz = -acz end
+	if z0 - (aaz + abz + acz) >= margin then return end
+	local ax, ay = b.r11 * hx, b.r21 * hx
+	local bx, by = b.r12 * hy, b.r22 * hy
+	local cx, cy = b.r13 * hz, b.r23 * hz
+	local x0, y0 = b.x, b.y
+	local i = C.n
 	for k = 1, 8 do
 		local sx, sy, sz = SX[k], SY[k], SZ[k]
 		local pz = z0 + sx * az + sy * bz + sz * cz
 		if pz < margin then
-			add(b, false, x0 + sx * ax + sy * bx + sz * cx, y0 + sx * ay + sy * by + sz * cy, pz,
-				0, 0, 1, pz, k)
+			i = i + 1
+			cA[i], cB[i], cSlot[i] = b, false, k
+			cPx[i], cPy[i], cPz[i] = x0 + sx * ax + sy * bx + sz * cx, y0 + sx * ay + sy * by + sz * cy, pz
+			cNx[i], cNy[i], cNz[i] = 0, 0, 1
+			cSep[i] = pz
 		end
 	end
+	C.n = i
 end
 
 -- Capsule b against the ground: its two end spheres.
@@ -87,6 +104,7 @@ end
 -- Closest point of box B to the world point p. Returns the distance from
 -- the box surface (negative inside: minus the depth to the nearest face),
 -- the world unit normal pointing out of the box toward p, and the box point.
+-- (Written out again in cornersInto and sphereBox.)
 local function pointBox(B, px, py, pz)
 	local dx, dy, dz = px - B.x, py - B.y, pz - B.z
 	local r11, r12, r13, r21, r22, r23, r31, r32, r33 =
@@ -130,6 +148,7 @@ local function extent(b, lx, ly, lz)
 		+ b.hy * abs(b.r12 * lx + b.r22 * ly + b.r32 * lz)
 		+ b.hz * abs(b.r13 * lx + b.r23 * ly + b.r33 * lz)
 end
+collide.extent = extent
 
 -- The pair's reference normal: of the six face axes of A and B, the one
 -- along which they overlap least (separating-axis test), pointing from B
@@ -140,23 +159,42 @@ end
 local refX, refY, refZ
 local REF_COS = math.cos(math.rad(25)) -- a corner's own normal further off than this uses the reference
 -- Returns the least overlap (negative = the gap along that axis).
-local AX = { "r11", "r12", "r13" }
-local AY = { "r21", "r22", "r23" }
-local AZ = { "r31", "r32", "r33" }
 local function referenceAxis(A, B)
 	local dx, dy, dz = A.x - B.x, A.y - B.y, A.z - B.z
+	local a11, a12, a13, a21, a22, a23, a31, a32, a33 =
+		A.r11, A.r12, A.r13, A.r21, A.r22, A.r23, A.r31, A.r32, A.r33
+	local b11, b12, b13, b21, b22, b23, b31, b32, b33 =
+		B.r11, B.r12, B.r13, B.r21, B.r22, B.r23, B.r31, B.r32, B.r33
+	local ahx, ahy, ahz, bhx, bhy, bhz = A.hx, A.hy, A.hz, B.hx, B.hy, B.hz
 	local best = math.huge
-	for pass = 1, 2 do
-		local b = (pass == 1) and A or B
-		for k = 1, 3 do
-			local lx, ly, lz = b[AX[k]], b[AY[k]], b[AZ[k]]
-			local d = dx * lx + dy * ly + dz * lz
-			local o = extent(A, lx, ly, lz) + extent(B, lx, ly, lz) - abs(d)
-			if o < best then
-				best = o
-				if d < 0 then lx, ly, lz = -lx, -ly, -lz end
-				refX, refY, refZ = lx, ly, lz
-			end
+	for k = 1, 6 do
+		local lx, ly, lz
+		if k == 1 then lx, ly, lz = a11, a21, a31
+		elseif k == 2 then lx, ly, lz = a12, a22, a32
+		elseif k == 3 then lx, ly, lz = a13, a23, a33
+		elseif k == 4 then lx, ly, lz = b11, b21, b31
+		elseif k == 5 then lx, ly, lz = b12, b22, b32
+		else lx, ly, lz = b13, b23, b33 end
+		local d = dx * lx + dy * ly + dz * lz
+		local e1 = a11 * lx + a21 * ly + a31 * lz
+		local e2 = a12 * lx + a22 * ly + a32 * lz
+		local e3 = a13 * lx + a23 * ly + a33 * lz
+		if e1 < 0 then e1 = -e1 end
+		if e2 < 0 then e2 = -e2 end
+		if e3 < 0 then e3 = -e3 end
+		local f1 = b11 * lx + b21 * ly + b31 * lz
+		local f2 = b12 * lx + b22 * ly + b32 * lz
+		local f3 = b13 * lx + b23 * ly + b33 * lz
+		if f1 < 0 then f1 = -f1 end
+		if f2 < 0 then f2 = -f2 end
+		if f3 < 0 then f3 = -f3 end
+		local ad = d
+		if ad < 0 then ad = -ad end
+		local o = (ahx * e1 + ahy * e2 + ahz * e3) + (bhx * f1 + bhy * f2 + bhz * f3) - ad
+		if o < best then
+			best = o
+			if d < 0 then lx, ly, lz = -lx, -ly, -lz end
+			refX, refY, refZ = lx, ly, lz
 		end
 	end
 	return best
@@ -169,34 +207,91 @@ local function cornersInto(A, B, margin, sx_, sy_, sz_)
 	local ax, ay, az = A.r11 * hx, A.r21 * hx, A.r31 * hx
 	local bx, by, bz = A.r12 * hy, A.r22 * hy, A.r32 * hy
 	local cx, cy, cz = A.r13 * hz, A.r23 * hz, A.r33 * hz
+	local Ax, Ay, Az = A.x, A.y, A.z
+	local Bx, By, Bz = B.x, B.y, B.z
 	-- skip corners clearly outside B's bounding sphere plus margin
 	local reach = B.radius + margin
 	local reach2 = reach * reach
+	local r11, r12, r13, r21, r22, r23, r31, r32, r33
+	local Bhx, Bhy, Bhz
+	local plane
+	local i = C.n
 	for k = 1, 8 do
 		local sx, sy, sz = SX[k], SY[k], SZ[k]
-		local px = A.x + sx * ax + sy * bx + sz * cx
-		local py = A.y + sx * ay + sy * by + sz * cy
-		local pz = A.z + sx * az + sy * bz + sz * cz
-		local ddx, ddy, ddz = px - B.x, py - B.y, pz - B.z
+		local px = Ax + sx * ax + sy * bx + sz * cx
+		local py = Ay + sx * ay + sy * by + sz * cy
+		local pz = Az + sx * az + sy * bz + sz * cz
+		local ddx, ddy, ddz = px - Bx, py - By, pz - Bz
 		if ddx * ddx + ddy * ddy + ddz * ddz < reach2 then
-			local d, nx, ny, nz = pointBox(B, px, py, pz)
-			if d >= margin then
-				-- no contact: a far corner can still lie on the reference
-				-- plane (the back foot of a box leaning on another)
-				d = margin
-			elseif d <= 0 or nx * sx_ + ny * sy_ + nz * sz_ < REF_COS then
-				-- inside, or near an edge of B: use the reference normal and
-				-- the distance to B's face plane along it (never more than
-				-- the true distance, so still a close contact)
-				local plane = B.x * sx_ + B.y * sy_ + B.z * sz_ + extent(B, sx_, sy_, sz_)
-				local dp = px * sx_ + py * sy_ + pz * sz_ - plane
-				if d <= 0 and dp > 0 then dp = 0 end
-				d = dp
-				nx, ny, nz = sx_, sy_, sz_
+			if not r11 then
+				r11, r12, r13, r21, r22, r23, r31, r32, r33 =
+					B.r11, B.r12, B.r13, B.r21, B.r22, B.r23, B.r31, B.r32, B.r33
+				Bhx, Bhy, Bhz = B.hx, B.hy, B.hz
 			end
-			if d < margin then add(A, B, px, py, pz, nx, ny, nz, d, 0) end
+			-- pointBox(B, p), written out
+			local lx = r11 * ddx + r21 * ddy + r31 * ddz
+			local ly = r12 * ddx + r22 * ddy + r32 * ddz
+			local lz = r13 * ddx + r23 * ddy + r33 * ddz
+			local qx = lx > Bhx and Bhx or (lx < -Bhx and -Bhx or lx)
+			local qy = ly > Bhy and Bhy or (ly < -Bhy and -Bhy or ly)
+			local qz = lz > Bhz and Bhz or (lz < -Bhz and -Bhz or lz)
+			local ex, ey, ez = lx - qx, ly - qy, lz - qz
+			local d2 = ex * ex + ey * ey + ez * ez
+			local lnx, lny, lnz, d
+			if d2 > 1e-14 then
+				d = sqrt(d2)
+				lnx, lny, lnz = ex / d, ey / d, ez / d
+			else
+				-- inside: the face of least penetration
+				local alx, aly, alz = lx, ly, lz
+				if alx < 0 then alx = -alx end
+				if aly < 0 then aly = -aly end
+				if alz < 0 then alz = -alz end
+				local px_, py_, pz_ = Bhx - alx, Bhy - aly, Bhz - alz
+				if px_ <= py_ and px_ <= pz_ then
+					lnx, lny, lnz, d = (lx >= 0) and 1 or -1, 0, 0, -px_
+				elseif py_ <= pz_ then
+					lnx, lny, lnz, d = 0, (ly >= 0) and 1 or -1, 0, -py_
+				else
+					lnx, lny, lnz, d = 0, 0, (lz >= 0) and 1 or -1, -pz_
+				end
+			end
+			-- (a corner at margin or further adds nothing; a far corner can
+			-- still lie on the reference plane, the back foot of a box leaning
+			-- on another, but its distance is then margin too)
+			if d < margin then
+				local nx = r11 * lnx + r12 * lny + r13 * lnz
+				local ny = r21 * lnx + r22 * lny + r23 * lnz
+				local nz = r31 * lnx + r32 * lny + r33 * lnz
+				if d <= 0 or nx * sx_ + ny * sy_ + nz * sz_ < REF_COS then
+					-- inside, or near an edge of B: use the reference normal and
+					-- the distance to B's face plane along it (never more than
+					-- the true distance, so still a close contact)
+					if not plane then
+						local e1 = r11 * sx_ + r21 * sy_ + r31 * sz_
+						local e2 = r12 * sx_ + r22 * sy_ + r32 * sz_
+						local e3 = r13 * sx_ + r23 * sy_ + r33 * sz_
+						if e1 < 0 then e1 = -e1 end
+						if e2 < 0 then e2 = -e2 end
+						if e3 < 0 then e3 = -e3 end
+						plane = Bx * sx_ + By * sy_ + Bz * sz_ + (Bhx * e1 + Bhy * e2 + Bhz * e3)
+					end
+					local dp = px * sx_ + py * sy_ + pz * sz_ - plane
+					if d <= 0 and dp > 0 then dp = 0 end
+					d = dp
+					nx, ny, nz = sx_, sy_, sz_
+				end
+				if d < margin then
+					i = i + 1
+					cA[i], cB[i], cSlot[i] = A, B, 0
+					cPx[i], cPy[i], cPz[i] = px, py, pz
+					cNx[i], cNy[i], cNz[i] = nx, ny, nz
+					cSep[i] = d
+				end
+			end
 		end
 	end
+	C.n = i
 end
 
 function collide.boxBox(A, B, margin)
@@ -209,12 +304,51 @@ function collide.boxBox(A, B, margin)
 	cornersInto(B, A, margin, -nx, -ny, -nz)
 end
 
--- Sphere (center c, radius r) belonging to capsule A against box B.
+-- Sphere (center c, radius r) belonging to capsule A against box B
+-- (pointBox written out).
 local function sphereBox(A, B, cx, cy, cz, r, margin)
-	local d, nx, ny, nz = pointBox(B, cx, cy, cz)
+	local Bx, By, Bz = B.x, B.y, B.z
+	local dx, dy, dz = cx - Bx, cy - By, cz - Bz
+	local r11, r12, r13, r21, r22, r23, r31, r32, r33 =
+		B.r11, B.r12, B.r13, B.r21, B.r22, B.r23, B.r31, B.r32, B.r33
+	local lx = r11 * dx + r21 * dy + r31 * dz
+	local ly = r12 * dx + r22 * dy + r32 * dz
+	local lz = r13 * dx + r23 * dy + r33 * dz
+	local hx, hy, hz = B.hx, B.hy, B.hz
+	local qx = lx > hx and hx or (lx < -hx and -hx or lx)
+	local qy = ly > hy and hy or (ly < -hy and -hy or ly)
+	local qz = lz > hz and hz or (lz < -hz and -hz or lz)
+	local ex, ey, ez = lx - qx, ly - qy, lz - qz
+	local d2 = ex * ex + ey * ey + ez * ez
+	local lnx, lny, lnz, d
+	if d2 > 1e-14 then
+		d = sqrt(d2)
+		lnx, lny, lnz = ex / d, ey / d, ez / d
+	else
+		local alx, aly, alz = lx, ly, lz
+		if alx < 0 then alx = -alx end
+		if aly < 0 then aly = -aly end
+		if alz < 0 then alz = -alz end
+		local px_, py_, pz_ = hx - alx, hy - aly, hz - alz
+		if px_ <= py_ and px_ <= pz_ then
+			lnx, lny, lnz, d = (lx >= 0) and 1 or -1, 0, 0, -px_
+		elseif py_ <= pz_ then
+			lnx, lny, lnz, d = 0, (ly >= 0) and 1 or -1, 0, -py_
+		else
+			lnx, lny, lnz, d = 0, 0, (lz >= 0) and 1 or -1, -pz_
+		end
+	end
 	local sep = d - r
 	if sep < margin then
-		add(A, B, cx - nx * r, cy - ny * r, cz - nz * r, nx, ny, nz, sep, 0)
+		local nx = r11 * lnx + r12 * lny + r13 * lnz
+		local ny = r21 * lnx + r22 * lny + r23 * lnz
+		local nz = r31 * lnx + r32 * lny + r33 * lnz
+		local i = C.n + 1
+		C.n = i
+		cA[i], cB[i], cSlot[i] = A, B, 0
+		cPx[i], cPy[i], cPz[i] = cx - nx * r, cy - ny * r, cz - nz * r
+		cNx[i], cNy[i], cNz[i] = nx, ny, nz
+		cSep[i] = sep
 		return true
 	end
 	return false
@@ -250,7 +384,8 @@ function collide.capsuleBox(A, B, margin)
 		local qz = sz > hz and hz or (sz < -hz and -hz or sz)
 		local nt = ((qx - p1x) * ux + (qy - p1y) * uy + (qz - p1z) * uz) / uu
 		if nt < 0 then nt = 0 elseif nt > 1 then nt = 1 end
-		if abs(nt - t) < 1e-4 then t = nt break end
+		local dt_ = nt - t
+		if dt_ < 1e-4 and dt_ > -1e-4 then t = nt break end
 		t = nt
 	end
 	local found = false
