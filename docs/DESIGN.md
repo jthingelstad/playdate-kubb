@@ -10,7 +10,8 @@ the 2017 Planet Kubb glossary, and Inside Playdate for SDK 3.1.2.
 
 ## 1. What it is
 
-- Bundle `com.thingelstad.throwingwood`, Lua, SDK 3.1.2. A plain Kubb game; no Thingy.
+- Title "Kubb: Throwing Wood", repo `~/Projects/playdate-kubb`, bundle
+  `com.thingelstad.throwingwood`, Lua, SDK 3.1.2. A plain Kubb game; no Thingy.
 - Modes: Practice (drills), Versus Computer, Pass and Play.
 - The crank is the throwing arm. Outcomes come from a physics simulation at real dimensions,
   not from dice.
@@ -238,14 +239,16 @@ tools/             camera mockups, AI-vs-AI game generator, crank trace tools
 
 - `core/` uses Playdate's `import`; the desktop test runner supplies an `import` shim, so the
   same files run in both places unchanged.
-- **Desktop Lua:** only luajit is installed, and it is Lua 5.1 with extensions. Proposal:
+- **Desktop Lua:** luajit is Lua 5.1 with extensions, so the tests use
   `lua@5.4` from Homebrew, installed 2026-11-13 at `/opt/homebrew/opt/lua@5.4/bin/lua5.4`
   (keg-only). Homebrew's plain `lua` is 5.5, which is not what the Playdate runs.
 - **Headless games:** the AI plays itself on the desktop through the same physics and rules,
   producing hundreds of games for the notation gate and for tuning hit rates.
 - **Simulator self-test:** `Playdate Simulator <pdx> selftest=<scenario> out=<dir>` (read from
   `playdate.argv`). A scenario scripts crank samples and button presses, saves frames with
-  `playdate.simulator.writeToFile`, and quits with `playdate.simulator.exit()`. Frames are
+  `playdate.simulator.writeToFile`, and quits with `playdate.simulator.exit()`. Lua `print`
+  does not reach the Simulator's stdout and Lua can only write text inside the Data folder, so
+  the result marker goes there and the Makefile collects it (details in `AGENTS.md`). Frames are
   saved at 1x for the subagents' own checks and at 2x for anything Jamie looks at.
 - `make build`, `make test`, `make selftest`, `make games` with full SDK paths; no
   `PLAYDATE_SDK_PATH` needed.
