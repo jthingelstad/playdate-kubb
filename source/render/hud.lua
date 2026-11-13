@@ -255,12 +255,22 @@ end
 local cutPlate
 function hud.cutFlag(s)
 	local t = hud.tune.cutFlag
-	cutPlate = cutPlate or newPlate(t.x, t.y, t.w + hud.tune.shadow, t.h + hud.tune.shadow)
-	if plateBegin(cutPlate, s) then
-		flagIn(0, 0, t.w, t.h, s, false)
-		plateEnd(cutPlate)
+	local sh = hud.tune.shadow
+	local P = cutPlate
+	if not P or P.k1 ~= s or not hud.tune.cache then
+		-- a word wider than the plaque widens the flag to the left
+		local w = max(t.w, hud.labelFont():getTextWidth(s) + 10)
+		if not P or P.w ~= w + sh then
+			P = newPlate(t.x, t.y, w + sh, t.h + sh)
+			cutPlate = P
+		end
+		P.x = t.x + t.w - w
 	end
-	cutPlate.img:draw(t.x, t.y)
+	if plateBegin(P, s) then
+		flagIn(0, 0, P.w - sh, t.h, s, false)
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
 end
 
 -- ---------- the minimap ----------
