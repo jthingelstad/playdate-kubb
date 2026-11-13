@@ -4,3 +4,4 @@ description=A Kubb game for the Playdate.
 bundleID=com.thingelstad.throwingwood
 version=0.0.1
 buildNumber=1
+imagePath=launcher

@@ -179,7 +179,8 @@ WINNER = '''
 
 # B tipping 0 to 16 degrees over four frames
 HIGHLIGHT_ANGLES = [0, 16 / 3, 32 / 3, 16]
-ANIMATION_TXT = "-- the last B tipping over, then held tipped\nframes = 1x8, 2, 3, 4x30\n"
+# the B stands, tips over in three frames, then holds tipped (SDK: card-highlighted/animation.txt)
+ANIMATION_TXT = "frames = 1x8, 2, 3, 4x30\n"
 
 
 def images():
