@@ -1,0 +1,55 @@
+-- Throwing Wood Display, cap height 16 px: a 1-bit rendering of Londrina Solid Black
+-- (Copyright 2011 The Londrina Solid Authors, https://github.com/marcelommp/Londrina-Typeface,
+-- with Reserved Font Name "Londrina Solid"). SIL Open Font License 1.1: see OFL.txt.
+-- Made by tools/art/build.py; do not edit by hand.
+tracking=1
+
+A		10
+B		11
+C		11
+D		11
+E		11
+F		11
+G		11
+H		11
+I		6
+J		10
+K		10
+L		10
+M		12
+N		11
+O		11
+P		11
+Q		11
+R		12
+S		11
+T		10
+U		11
+V		10
+W		12
+X		10
+Y		10
+Z		11
+0		12
+1		8
+2		11
+3		11
+4		11
+5		11
+6		11
+7		11
+8		11
+9		12
+!		5
+.		4
+·		4
+%		14
+°		7
++		10
+-		12
+:		5
+,		4
+/		9
+'		4
+?		10
+space		5
