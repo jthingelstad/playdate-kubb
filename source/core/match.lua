@@ -113,13 +113,6 @@ function match.setup(m)
 	end
 	local side = n.side
 	debris.begin(m.debris, g.turn)
-	-- out kubbs waiting on the pitch: the one about to be rethrown is picked
-	-- up, and all of them once the kubb throwing is over
-	debris.prune(m.debris, function(e)
-		if not e.waiting then return true end
-		local k = g.kubbs[e.id]
-		return n.kind == "toss" and e.id ~= n.kubb and k ~= nil and (k.where == "out" or k.where == "punish")
-	end)
 	local s = { kind = n.kind, side = side, pieces = outcome.pieces(g, side), lineY = 0, forwardY = 0 }
 	debris.applyExact(m.debris, s.pieces, side)
 	s.debris = debris.pieces(m.debris, side)
@@ -195,6 +188,9 @@ end
 -- built from m.setup.pieces with the projectile launched (a kubb toss's
 -- projectile body has the kubb's id); `illegal` is true for a helicopter
 -- baton. Sets m.text and returns the outcome record given to the engine.
+-- The kubb throwing is judged at the final position (core/rules): after a
+-- toss that is not the last of its round m.text says only where the kubb
+-- lies for now; after the last one it says what the judgment did.
 function match.resolve(m, res, illegal)
 	local g, s = m.game, m.setup
 	assert(s, "no throw set up")
@@ -211,18 +207,31 @@ function match.resolve(m, res, illegal)
 			return c
 		end
 		before.Q, before.N = inkCount("Q"), inkCount("N")
-		o = outcome.toss(res, s.pieces, s.side, s.kubb, s.debris)
+		o = outcome.toss(res, s.pieces, s.side, s.kubb)
 		g:toss(o)
 		m.tossed = m.tossed + 1
-		local k = g.kubbs[s.kubb]
 		local parts = {}
+		local fouled = hasNote(sheetTurn.notes, nn + 1, "II.C.4b")
+		local j = g.judgment
 		if g.phase == "over" then
 			parts[1] = "king down: " .. wins(g)
+		elseif not j then
+			-- more kubbs to throw in this round: only where it lies now
+			if fouled then parts[1] = "own half hit: kubb out"
+			elseif g:liesNow(s.kubb) == "out" then parts[1] = "kubb out for now"
+			else parts[1] = "kubb in for now" end
 		else
-			if k.where == "pitch" then parts[1] = "kubb in"
-			elseif k.where == "punish" then parts[1] = "out twice: punishment kubb"
-			else parts[1] = "kubb out: rethrown last" end
-			if hasNote(sheetTurn.notes, nn + 1, "II.C.4b") then parts[1] = "own half hit: kubb out" end
+			-- the last throw of the round: the judgment
+			if fouled then parts[1] = "own half hit" end
+			if j.rethrow == 0 and j.punish == 0 and j.rescue == 0 and not fouled then
+				parts[#parts + 1] = j.thrown == 1 and "kubb in" or "all in"
+			end
+			if j.rethrow > 0 then
+				parts[#parts + 1] = j.rethrow == 1 and "kubb out: rethrown" or (j.rethrow .. " out: rethrown")
+			end
+			if j.punish > 0 then
+				parts[#parts + 1] = j.punish == 1 and "out twice: punishment kubb" or (j.punish .. " punishment kubbs")
+			end
 			if inkCount("N") > before.N then parts[#parts + 1] = "on a kubb: lowered" end
 			local q = inkCount("Q") - before.Q
 			if q > 0 then parts[#parts + 1] = plural(q, "rescue", "rescues") end
@@ -254,19 +263,12 @@ function match.carryDebris(m, s, res, turn, batonRec)
 		return
 	end
 	if s.kind == "toss" then
-		-- the engine keeps the tossed kubbs (and any it struck): only their
-		-- exact rest poses are carried
+		-- the engine keeps every thrown kubb on the pitch until its round is
+		-- judged (out ones too), and any it struck: only their exact rest
+		-- poses are carried. A kubb whose support was picked up at the
+		-- judgment lies flat where it is, not floating at its old height.
 		debris.recordExact(d, g, res, s.side)
-		-- a kubb that is out (to be rethrown, or a punishment kubb) lies where
-		-- it stopped while the other kubbs are thrown (Jamie, 2026-11-13);
-		-- match.setup lifts it when it is rethrown or the inkast is over
-		debris.carry(d, res, s.side)
-		for id, k in pairs(g.kubbs) do
-			if k.where == "out" or k.where == "punish" then
-				local e = debris.add(d, id, "kubb", res, s.side)
-				if e then e.waiting = true end
-			end
-		end
+		for _, id in ipairs(g.judgment and g.judgment.lifted or {}) do d.exact[id] = nil end
 		return
 	end
 	local putBack = batonRec and batonRec.token == "Z"

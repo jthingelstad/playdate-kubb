@@ -247,6 +247,161 @@ test("II.C.6 out kubbs are rethrown after all first throws; out twice is a punis
 	expect.eq(line(g), "3. jamie:2IRP")
 end)
 
+-- ---------- judged at the final position (Jamie, 2026-11-13) ----------
+
+-- Turn 1 A misses twice; turn 2 B topples a1..an (n <= 4); turn 3 A tosses.
+local function toInkastOf(g, n)
+	misses(g, 2)
+	local list = {}
+	for i = 1, 4 do list[i] = i <= n and topple("a" .. i) or MISS end
+	batons(g, list)
+	expect.eq(g.turn, 3)
+	return g
+end
+
+test("final position: nothing is judged before the last first throw has come to rest", function()
+	local g = toInkastOf(newGame(), 3)
+	g:toss(land(0, 3.7, 0))                    -- a1 short of the middle line
+	expect.eq(g.phase, "toss")
+	expect.eq(g.kubbs.a1.where, "pitch", "still a piece of the pitch")
+	expect.eq(g.kubbs.a1.half, "B")
+	expect.eq(g:liesNow("a1"), "out")
+	expect.eq(#g.rethrowQueue, 0); expect.eq(g.judgment, nil)
+	g:toss { rest = { x = 0.5, y = 6, standing = false, angle = 0, onTop = "a1" } }   -- a2 on a1, not lowered yet
+	expect.eq(g.kubbs.a2.pose.onTop, "a1")
+	expect.eq(g:need().left, 1); expect.eq(g:need().kubb, "a3")
+	expect.eq(line(g), "3. jamie:2I")
+	g:toss(land(-1, 6, "stand"))
+	expect.truthy(g.judgment, "judged after the last first throw")
+	expect.eq(g.kubbs.a1.where, "out")
+	expect.eq(g.kubbs.a2.pose.onTop, nil, "a2's support was picked up: it lies where it is")
+	expect.eq(line(g), "3. jamie:3I")
+end)
+
+test("final position: an out kubb knocked in by a later kubb is not rethrown", function()
+	local g = toInkastOf(newGame(), 2)
+	g:toss(land(0, 3.7, 0))                                         -- a1 out for now
+	g:toss(land(0.2, 3.5, 0, { moved = { a1 = lie(0, 5, 0.4) } }))  -- a2 short, knocks a1 in
+	expect.eq(g.kubbs.a1.where, "pitch")
+	expect.eq(g.kubbs.a2.where, "out")
+	expect.eq(g:need().kubb, "a2"); expect.truthy(g:need().rethrow)
+	g:toss(land(1, 6, "stand"))
+	g:raiseAll()
+	expect.eq(g.phase, "batons")
+	expect.eq(line(g), "3. jamie:2IR")
+end)
+
+test("final position: an in kubb knocked out by a later first throw is rethrown", function()
+	local g = toInkastOf(newGame(), 2)
+	g:toss(land(0, 7.6, "stand"))                                     -- a1 in
+	g:toss(land(0.1, 7.3, 0, { moved = { a1 = lie(0, 8.6, 0) } }))  -- a2 knocks it over the baseline
+	local n = g:need()
+	expect.eq(n.kubb, "a1"); expect.truthy(n.rethrow)
+	expect.eq(g.kubbs.a1.where, "out")
+	g:toss(land(-1, 6, "stand"))
+	g:raiseAll()
+	expect.eq(line(g), "3. jamie:2IR")
+end)
+
+test("final position: a rethrown kubb knocked in by a later rethrow is not a punishment kubb", function()
+	local g = toInkastOf(newGame(), 2)
+	g:toss(land(0, 8.4, 0)); g:toss(land(1, 8.4, 0))               -- both out
+	expect.eq(#g.rethrowQueue, 2)
+	g:toss(land(0, 8.3, 0))                                         -- a1 rethrown, out for now
+	expect.eq(g.kubbs.a1.where, "pitch"); expect.eq(#g.punishQueue, 0)
+	g:toss(land(0.5, 7, 0, { moved = { a1 = lie(0, 7.8, 0) } }))   -- a2 rethrown, knocks a1 in
+	g:raiseAll()
+	expect.eq(#g.punishQueue, 0)
+	expect.eq(g.phase, "batons")
+	expect.eq(line(g), "3. jamie:2I2R")
+end)
+
+test("final position: thrown twice and still out at the end is a punishment kubb", function()
+	local g = toInkastOf(newGame(), 2)
+	g:toss(land(0, 8.4, 0)); g:toss(land(1, 8.4, 0))
+	g:toss(land(0, 8.5, 0)); g:toss(land(2.8, 6, math.pi / 2))
+	expect.eq(g:need().kind, "punish")
+	expect.eq(#g.punishQueue, 2)
+	g:autoPunishment(); g:autoPunishment()
+	expect.eq(g.phase, "batons")
+	expect.eq(line(g), "3. jamie:2I2R2P")
+end)
+
+test("final position: a kubb out once that a rethrow knocks out is rethrown in a further round (II.C.5b)", function()
+	local g = toInkastOf(newGame(), 2)
+	g:toss(land(0, 7.8, "stand")); g:toss(land(1, 8.4, 0))         -- a1 in, a2 out
+	g:toss(land(0.1, 7.6, 0, { moved = { a1 = lie(0, 8.5, 0) } })) -- a2 rethrown in, knocks a1 out
+	local n = g:need()
+	expect.eq(n.kubb, "a1"); expect.truthy(n.rethrow)
+	g:toss(land(-1, 6, "stand"))
+	g:raiseAll()
+	expect.eq(line(g), "3. jamie:2I2R")
+end)
+
+test("final position: an established field kubb knocked out and back in is not rescued", function()
+	local g = fieldOfTwo(newGame())
+	misses(g, 6)
+	batons(g, { topple("a3"), topple("a4"), MISS, MISS, MISS, MISS })
+	expect.eq(g.turn, 5)
+	expect.truthy(g.kubbs.a1.established)
+	g:toss(land(0, 6.3, 0, { moved = { a1 = lie(0, 8.6, 0) } }))   -- a1 knocked out
+	expect.eq(g.kubbs.a1.where, "pitch")
+	g:toss(land(0.2, 7.9, 0, { moved = { a1 = lie(0.3, 7.2, 0) } })) -- and back in
+	expect.eq(g.kubbs.a1.where, "pitch")
+	g:raiseAll()
+	expect.eq(line(g), "5. jamie:2I")
+end)
+
+test("final position: a kubb on another is lowered (N) only where it lies at the end", function()
+	-- on a1 at the end: lowered, N
+	local g = toInkastOf(newGame(), 3)
+	g:toss(land(0, 6, 0))
+	g:toss { rest = { x = 0.02, y = 6.04, standing = false, angle = 0.2, onTop = "a1" } }
+	expect.eq(line(g), "3. jamie:2I", "no N yet")
+	g:toss(land(-1, 7, "stand"))
+	expect.eq(g.kubbs.a2.pose.onTop, nil)
+	expect.eq(tw.rect.overlap(tw.raising.kubbRect(g.kubbs.a2.pose), tw.raising.kubbRect(g.kubbs.a1.pose)), false)
+	expect.eq(line(g), "3. jamie:3IN")
+	-- knocked off a1 by the last kubb: no N
+	g = toInkastOf(newGame(), 3)
+	g:toss(land(0, 6, 0))
+	g:toss { rest = { x = 0.02, y = 6.04, standing = false, angle = 0.2, onTop = "a1" } }
+	g:toss(land(0.3, 6.1, 0, { moved = { a2 = lie(1.2, 6.5, 1) } }))
+	expect.eq(g.kubbs.a2.pose.onTop, nil)
+	expect.near(g.kubbs.a2.pose.x, 1.2, 1e-12)
+	expect.eq(line(g), "3. jamie:3I")
+end)
+
+test("final position II.C.4b: a kubb that touched the thrower's own half is out wherever it lies at the end", function()
+	local g = toInkastOf(newGame(), 2)
+	-- a1 lands in bounds but touched a piece of A's own half (its base kubb a5)
+	g:toss(land(0, 6, 0, { ownHalfHit = { "a5" } }))
+	expect.eq(g.kubbs.a1.where, "pitch"); expect.truthy(g.kubbs.a1.fouled)
+	expect.eq(g:liesNow("a1"), "out")
+	g:toss(land(1, 6, "stand"))
+	expect.eq(g.kubbs.a1.where, "out", "out though it lies in bounds")
+	expect.eq(g.kubbs.a1.fouled, nil)
+	expect.eq(line(g), "3. jamie:2I # a kubb hit a field kubb in the thrower's own half (II.C.4b)")
+end)
+
+test("final position: a rescued kubb and the rethrows make the next round", function()
+	local g = fieldOfTwo(newGame())
+	misses(g, 6)
+	batons(g, { topple("a3"), topple("a4"), MISS, MISS, MISS, MISS })
+	g:toss(land(0, 6.3, 0, { moved = { a1 = lie(0, 8.6, 0) } }))   -- a3 knocks a1 out
+	g:toss(land(2.9, 6, 0))                                         -- a4 out over the side
+	expect.eq(line(g), "5. jamie:2IQ")
+	local n = g:need()
+	expect.eq(n.kubb, "a1"); expect.eq(n.rethrow, false, "the rescued kubb first")
+	expect.eq(n.left, 2)
+	g:toss(land(-1, 7, "stand"))
+	n = g:need()
+	expect.eq(n.kubb, "a4"); expect.truthy(n.rethrow)
+	g:toss(land(1, 7, "stand"))
+	g:raiseAll()
+	expect.eq(line(g), "5. jamie:3IRQ")
+end)
+
 test("II.D.2 a thrown kubb standing on an end in bounds is already raised and not moved", function()
 	local g = toTurn3(newGame(), { land(0.3, 6.2, "stand"), land(-0.4, 5, "stand") })
 	expect.eq(g.phase, "batons", "nothing to raise")

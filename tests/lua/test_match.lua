@@ -84,8 +84,9 @@ local function toFieldKubbs()
 	end
 	expect.eq(m.game.turn, 3)
 	tossTo(m, -0.8, 6)
-	expect.eq(m.text, "kubb in")
+	expect.eq(m.text, "kubb in for now")
 	tossTo(m, 0.8, 6.2)
+	expect.eq(m.text, "all in")
 	return m
 end
 
@@ -274,39 +275,54 @@ end)
 
 -- ---------- toss outcomes ----------
 
-test("toss: in, out (rethrow) and out twice", function()
+-- Turn 1 A misses twice; turn 2 B topples the first `n` of A's base kubbs
+-- (n <= 4) and misses the rest; the next throw is A's first toss of turn 3.
+local function toInkast(n)
 	local m = match.new {}
 	miss(m); miss(m)
 	for i = 1, 4 do
 		local s = setup(m, "baton")
 		local r = still(s.pieces)
-		if i <= 2 then topple(r, "a" .. i) end
+		if i <= n then topple(r, "a" .. i) end
 		match.resolve(m, r, false)
 	end
+	return m
+end
+
+local function pieceOf(s, id)
+	for _, p in ipairs(s.pieces) do if p.id == id then return p end end
+	return nil
+end
+
+test("toss: in, out (rethrow) and out twice, judged when the round is over", function()
+	local m = toInkast(2)
 	local s = setup(m, "toss")
 	expect.eq(s.label, "Team A  kubb 1 of 2")
 	local r = still(s.pieces)
 	local first = s.kubb
 	place(r, s.kubb, { x = 0.3, y = 9.0, standing = false, angle = 0 }) -- past B's baseline
 	match.resolve(m, r, false)
-	expect.eq(m.text, "kubb out: rethrown last")
-	-- every first throw comes before the rethrows (II.C.5)
+	expect.eq(m.text, "kubb out for now")
+	expect.eq(m.game.kubbs[first].where, "pitch", "not judged yet")
+	-- every first throw comes before the rethrows (II.C.6)
 	s = setup(m, "toss")
 	expect.truthy(not s.rethrow)
-	-- the out kubb lies where it stopped while the other kubb is thrown
-	expect.eq(#s.debris, 1, "the out kubb is on the pitch")
-	expect.eq(s.debris[1].id, first)
-	expect.near(s.debris[1].x, 0.3, 1e-9); expect.near(s.debris[1].y, 9.0, 1e-9)
-	expect.eq(s.label, "Team A  kubb 2 of 3")
+	-- the out kubb is one of the engine's pieces, lying where it stopped
+	expect.eq(#s.debris, 0, "no debris during the inkast")
+	local p = pieceOf(s, first)
+	expect.truthy(p, "the out kubb is on the pitch")
+	expect.near(p.x, 0.3, 1e-9); expect.near(p.y, 9.0, 1e-9)
+	expect.truthy(p.toppled)
+	expect.eq(s.label, "Team A  kubb 2 of 2")
 	r = still(s.pieces)
 	place(r, s.kubb, { x = 1.0, y = 6.0, standing = false, angle = 0 })
 	match.resolve(m, r, false)
-	expect.eq(m.text, "kubb in")
+	expect.eq(m.text, "kubb out: rethrown")
 	s = setup(m, "toss")
 	expect.truthy(s.rethrow)
 	expect.eq(s.label, "Team A  rethrow 3 of 3")
 	expect.eq(s.kubb, first)
-	expect.eq(#s.debris, 0, "picked up for the rethrow")
+	expect.eq(pieceOf(s, first), nil, "picked up for the rethrow")
 	r = still(s.pieces)
 	place(r, s.kubb, { x = 3.0, y = 6.0, standing = false, angle = 0 }) -- out over the side
 	match.resolve(m, r, false)
@@ -315,18 +331,31 @@ test("toss: in, out (rethrow) and out twice", function()
 	local b = setup(m, "baton")
 	expect.eq(m.settled and m.settled.punished, 1)
 	expect.eq(b.side, "A")
-	expect.eq(#b.debris, 0, "nothing waits once the kubbs are thrown")
+	expect.eq(#b.debris, 0, "no debris once the kubbs are thrown")
 end)
 
-test("toss: a kubb resting on another is lowered beside it", function()
-	local m = match.new {}
-	miss(m); miss(m)
-	for i = 1, 4 do
-		local s = setup(m, "baton")
-		local r = still(s.pieces)
-		if i <= 2 then topple(r, "a" .. i) end
-		match.resolve(m, r, false)
-	end
+test("toss: an out kubb knocked in by a later kubb is not rethrown", function()
+	local m = toInkast(2)
+	local s = setup(m, "toss")
+	local first = s.kubb
+	local r = still(s.pieces)
+	place(r, first, { x = 0.5, y = 3.7, standing = false, angle = 0 })   -- short of the middle line
+	match.resolve(m, r, false)
+	expect.eq(m.text, "kubb out for now")
+	s = setup(m, "toss")
+	r = still(s.pieces)
+	place(r, s.kubb, { x = 0.6, y = 3.5, standing = false, angle = 0 })
+	place(r, first, { x = 0.5, y = 4.6, standing = false, angle = 0.3 }) -- knocked over the line
+	match.resolve(m, r, false)
+	expect.eq(m.text, "kubb out: rethrown")
+	expect.eq(m.game.kubbs[first].where, "pitch")
+	expect.eq(m.game.kubbs[s.kubb].where, "out", "the second, short, is the one rethrown")
+	s = setup(m, "toss")
+	expect.truthy(s.rethrow); expect.eq(s.label, "Team A  rethrow 3 of 3")
+end)
+
+test("toss: a kubb resting on another is lowered beside it when the round is judged", function()
+	local m = toInkast(2)
 	tossTo(m, 0.5, 6)
 	local s = setup(m, "toss")
 	local r = still(s.pieces)
@@ -341,34 +370,28 @@ test("toss: a kubb resting on another is lowered beside it", function()
 	expect.truthy(not m.game.kubbs.a2.pose.onTop, "lowered")
 end)
 
-test("toss: a kubb resting on an out kubb that waits on the pitch lies where it is, not lowered", function()
-	local m = match.new {}
-	miss(m); miss(m)
-	for i = 1, 4 do
-		local s = setup(m, "baton")
-		local r = still(s.pieces)
-		if i <= 2 then topple(r, "a" .. i) end
-		match.resolve(m, r, false)
-	end
-	-- the first kubb stops just short of the middle line: out, and it waits
+test("toss: a kubb resting on a kubb that is out when judged lies where it is, not lowered", function()
+	local m = toInkast(2)
+	-- the first kubb stops just short of the middle line: out for now
 	local s = setup(m, "toss")
 	local first = s.kubb
 	local r = still(s.pieces)
 	place(r, first, { x = 0.5, y = 3.8, standing = false, angle = 0 })
 	match.resolve(m, r, false)
-	expect.eq(m.game.kubbs[first].where, "out")
-	-- the second comes to rest on top of it, its center in bounds
+	-- the second comes to rest on top of it, along the pitch, a footprint over the line
 	s = setup(m, "toss")
-	expect.eq(s.debris[1].id, first)
-	r = still(s.pieces)
-	r.bodies[first] = { kind = "kubb", x = 0.5, y = 3.8, z = 0.035, qw = 1, qx = 0, qy = 0, qz = 0, toppled = true }
-	place(r, s.kubb, { x = 0.52, y = 3.95, standing = false, angle = 0 }, 0.105)
 	local second = s.kubb
+	r = still(s.pieces)
+	place(r, second, { x = 0.52, y = 3.95, standing = false, angle = pi / 2 }, 0.105)
 	local o = match.resolve(m, r, false)
-	expect.eq(o.rest.onTop, nil, "an out kubb is not a support in play")
-	expect.eq(o.rest.standing, false)
-	expect.truthy(not m.text:find("lowered", 1, true), m.text)
-	expect.near(m.game.kubbs[second].pose.y, 3.95, 1e-9)
+	expect.eq(o.rest.onTop, first, "it rests on the out kubb, a piece of the pitch")
+	expect.eq(m.text, "kubb out: rethrown")
+	expect.eq(m.game.kubbs[first].where, "out")
+	local k = m.game.kubbs[second]
+	expect.eq(k.where, "pitch")
+	expect.eq(k.pose.onTop, nil)
+	expect.near(k.pose.y, 3.95, 1e-9)
+	expect.eq(m.debris.exact[second], nil, "shown flat where it is, not at its old height")
 end)
 
 test("toss: Team B tosses in its own view and the kubb lands in A's half", function()

@@ -26,6 +26,15 @@ local function checkInvariants(g, seen)
 		if k.where ~= "hand" and inHand ~= 0 then error(id .. " queued but " .. k.where) end
 		if (k.where == "out") ~= (inRe == 1) or inRe > 1 then error(id .. " rethrow queue mismatch") end
 		if (k.where == "punish") ~= (inPun == 1) or inPun > 1 then error(id .. " punish queue mismatch") end
+		-- judged at the final position: only kubbs on the pitch wait to be
+		-- judged, and once the kubb throwing is over nothing does
+		if k.fouled and k.where ~= "pitch" then error(id .. " fouled but " .. k.where) end
+		if g.phase == "batons" and g.batonIndex == 0 and k.where == "pitch" then
+			if k.fouled or k.pose.onTop then error(id .. " not judged after the inkast") end
+			if k.kind == "field" and k.half == g.defender and not tw.raising.canRaise(k.pose, g.defender) then
+				error(id .. " out but still on the pitch after the inkast")
+			end
+		end
 	end
 	if seen.winner and g.winner ~= seen.winner then error("winner changed") end
 	if g.winner then seen.winner = g.winner end
