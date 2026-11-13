@@ -154,6 +154,7 @@ function scene.update(s)
 end
 
 function scene.draw(s)
+	s.ts.covered = (s.phase ~= "play")
 	if s.phase == "over" then
 		throw.draw(s.ts)
 		hud.card(s.winTitle, s.winHow, "press A")

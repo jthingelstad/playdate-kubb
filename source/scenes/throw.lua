@@ -582,6 +582,9 @@ function throw.draw(s)
 	local power = (s.mode ~= "aim" or sw.phase == "idle") and s.last and s.last.power or nil
 	hud.panel(s.loftDeg, flight.tune.loftMinDeg, flight.tune.loftMaxDeg, cap, power)
 
+	-- s.covered: a card is over the pitch (the match's hand-off and winner
+	-- cards), so the gauge and its prompts stay out of the way
+	if s.covered then return end
 	hud.swingGauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
 		swing.tune.fullBackswingDeg, s.mode ~= "aim", s.last and s.last.legal, s.last and s.last.power,
 		s.arm or 0)

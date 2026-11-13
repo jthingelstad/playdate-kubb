@@ -37,8 +37,8 @@ function match.new(opts)
 	opts = opts or {}
 	local g = rules.new {
 		teams = {
-			A = { name = "Team A", players = { { name = "Player A" } } },
-			B = { name = "Team B", players = { { name = "Player B" } } },
+			A = { name = "Team A", players = { { name = "Player A", id = "a" } } },
+			B = { name = "Team B", players = { { name = "Player B", id = "b" } } },
 		},
 		surface = opts.surface or "Grass", opening = opts.opening or "2-4-6", first = opts.first or "A",
 	}
