@@ -677,7 +677,10 @@ local function flightUpdate(s, dt)
 		budget = (tail and t.tailPeriod or t.framePeriod) - (s.clock() - s.frameStart) - s.drawEst - s.postEst
 		if budget < t.minBudget then budget = t.minBudget end
 	end
-	playback.advance(pb, budget, s.clock, t.ahead)
+	-- (no look-ahead cap in the tail: the picture is held, so the cap would
+	-- never move and a calm body that cannot sleep would stop the physics
+	-- short of rest for good)
+	playback.advance(pb, budget, s.clock, (not tail) and t.ahead or nil)
 	-- real time on screen, slow motion around the first hit (the physics is
 	-- ahead, so the hit is known before it is shown), and slower still when
 	-- the physics cannot keep up (playback.pace: a steady ease, so the
