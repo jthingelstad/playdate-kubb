@@ -303,8 +303,11 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
   back the player may step, swivel and loft gearing, double-tap time, rest hold, practice
   surface, physics time budget per frame and how far ahead it may record, impact-camera
-  slew and baton framing radius, the tossed kubb's tumble (`tossTumble`) and the instant
-  rest hold.
+  slew and baton framing radius, the tossed kubb's tumble (`tossTumble`), the instant
+  rest hold, and for drilling the drilled kubbs kept on the practice pitch (`drillKeep`)
+  and the marker ring (`markerRadius`, `markerSegments`).
+- `tw.drill.tune` (`source/core/drill.lua`): every drilling mapping (AGENTS.md
+  "Drilling"). `tw.camera.tune.drill`: the fixed drill aim camera.
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
   turned, and how high a tossed kubb must rest to be on another.
 - `tw.autothrow.tune` (`source/core/autothrow.lua`): the scripted thrower's loft, aim and
@@ -447,7 +450,68 @@ render items of `render/world`, carries every piece's pose). System Menu "Pitch"
 "reset" stands everything back up (`throw.reset`); it also happens by itself after the
 throw that leaves every far base kubb down. The System Menu holds three custom items at
 most (Readout, Record, Pitch), so Pitch is an options item that acts when the menu closes
-and then reads "play" again; its "title" goes back to the title screen.
+and then reads "play" again; its "title" goes back to the title screen. Its "drill" turns
+the pitch to drilling kubbs (next section) and "batons" back; chosen mid-throw, the switch
+waits until the scene aims again. "reset" also clears the drilled kubbs.
+
+## Drilling
+
+DESIGN.md section 4 "Kubbs (drilling)". The pure part is `source/core/drill.lua`
+(`tw.drill`); the body is `world.launchDrill` next to `world.launchKubb`; the scene part is
+the throw scene with `s.drill` on.
+
+- **Where it shows up.** The match's kubb throws (`throw.prepare` turns `s.drill` on for a
+  `projectile == "kubb"` setup; the marker stays where that team left it). The computer
+  thrower (`throw.autoLaunch`, `s.scripted`) still lobs with `launchKubb`, as do
+  `core/autothrow` and `tools/physmatch.lua`. The practice pitch drills after "Pitch: drill"
+  (`throw.setDrill`): each drilled kubb gets its own id (`d1`, `d2`, ...) and becomes a piece
+  of the pitch at rest (`keepDrilled`, the newest `drillKeep`), so later throws hit it; the
+  auto stand-up after all far base kubbs are down is skipped while drilling.
+- **Aim.** The d-pad moves `s.markerX, s.markerY` (view frame), clamped by
+  `drill.clampMarker`, faster the longer it is held. `drill.solve` puts the thrower on the
+  baseline straight behind it (x clamped to `throwerXMax`) and solves the clean launch: loft by
+  distance, the speed that lands the kubb's edge `slideAllow` short of the marker
+  (`flight.tune.handHeight` down to `landZ`), the band center (power) for that distance and
+  the flight time. A or B held sets `s.cut` (`drill.CUT_A` = 1 curls right, `CUT_B` = -1
+  curls left), read every frame up to the release; in drill mode A and B never swivel or
+  loft and do not stop a wind-up. The aim camera is `camera.drillAim` (fixed, so the world
+  frame cache holds); the marker ring, cross and dotted line are drawn over it each frame
+  in `throw.draw` (`drawMarker`), and the minimap's aim line goes to the marker.
+- **Swing to launch** (`drill.launch`): the power error against the band is shrunk by
+  `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower` per unit
+  (never under `speedMinFrac`). Smoothness under `cleanAbove` gives a nose-over wobble of up
+  to `wobbleRate` rad/s (its sign follows the swing's `how`). Tilt pushes the swivel by
+  `tiltPushDeg` per degree (right when the swing `passed`, left when it `slowed`). The cut is
+  `cutSpin` rad/s about the long axis.
+- **The body** (`world.drillLaunchState`): long axis along the horizontal line of flight, the
+  nose `noseDownDeg` below the horizontal, spinning at the cut rate; the release roll is
+  solved backwards from the flight time so it lands rolled `rollLandDeg` onto a long edge
+  (without that the cut's direction flipped with the landing phase). `b.digGain`
+  (`body.digGain`, 1 for every other body) multiplies the ground's dig on its new ground
+  contacts: with 1 a clean low drill skids 1 to 4 m; `digGain = 3` makes it die near where
+  it lands. Nothing else in the solver changed; the bench is the same within noise.
+- **Measured on grass** (desktop, `tests/lua/test_drill.lua` asserts the bounds): a clean
+  in-band drill first lands about 0.07 m from the marker and rests 0.10 m off on average
+  (0.27 m worst over 15 markers, near to far); the band's edges rest within about 0.3 m
+  (0.47 m worst far out); 0.2 under the band lands 1.0 to 2.3 m short, 0.15 over lands 0.65
+  to 1.65 m long. The cut moves the rest point 5 to 17 cm (10 cm mean), the same both ways.
+  A clean drill slides 0.13 m after landing on average (0.35 m worst); a jerky one
+  (smoothness 0.35) 2.1 m (0.1 to 5 m). On sand: cut 7 cm mean, slides 0.05 and 0.8 m.
+- **HUD.** `hud.panel` brackets the band beside the power meter; `hud.swingGauge` draws the
+  band on the rim (a wider disc) and says "wind back to the band", "in the band: flick!" or
+  "past the band: ease off" while winding; the thrown label is `SHORT`, `ON` or `LONG` and the
+  power. `hud.cutHint` says "cut: curls right/left" while A or B is held.
+  `hud.drillReadoutText`: `P <power>/<band> <verdict>  S <smoothness>  cut R|L|-  off
+  <land>/<rest> m` (distances from the marker).
+- **Telemetry.** A drill's `traces.jsonl` line is a baton line plus `"mode":"drill"`, `band`,
+  `verdict`, `cut`, `markerX/Y`, `landX/Y` (first contact), `restX/Y` and `throwerX`, in
+  meters with y from the thrower's baseline (`core/trace.lua` header); `launchSpeed` is the
+  drill's own. `frames.jsonl` writes `"proj":"drill"`.
+- **Rules.** A drilled kubb's rest goes through `core/outcome.toss` and `core/match` like a
+  lobbed one: short of the middle line or out is a rethrow, out twice a punishment kubb
+  (tested in `test_drill.lua` with real physics).
+- **Self-test** `drill`: the practice pitch, marker moved, A held, a wind-up to the band and
+  a clean flick; its marker note gives power, band and the landing and rest distances.
 
 ## Match
 
@@ -541,7 +605,7 @@ playback table; nothing is allocated per frame. `traces.jsonl` is separate and u
  "starved":3,"stall":44.0,"awake":6,"contacts":27,"bodies":28,"steps":712,"phys":512.3}
 ```
 
-- `scene` `practice` | `match`; `proj` `baton` | `kubb`.
+- `scene` `practice` | `match`; `proj` `baton` | `kubb` (lobbed) | `drill`.
 - `pre`, `slow`, `post`: the flight's shown frames before the slow motion, in it
   (`playback.speed` below 1, the ease back included) and after it, each `[frames, real
   seconds, mean frame dt ms, max frame dt ms]`. Frame dt is the device's measured frame time
@@ -567,4 +631,5 @@ The format is documented at the top of `source/core/trace.lua` (samples are
 plus the result). `lua5.4 tools/replay_traces.lua <file>` replays each line through the
 current `core/swing.lua` and prints recorded vs replayed results; `--current-sign`
 replays with today's `forwardSign` instead of the recorded one. The test fixture is
-`tests/fixtures/traces/sample.jsonl`.
+`tests/fixtures/traces/sample.jsonl`. Drill lines add the fields in "Drilling" above;
+`replay_traces` reads them like any other line (the swing is the same).

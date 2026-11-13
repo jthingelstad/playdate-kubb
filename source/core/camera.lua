@@ -32,6 +32,15 @@ camera.tune = {
 		lookBeyond = 1.5,    -- m past the nearest live target the match camera looks (lookDistFor)
 		lookMin = 3.0,       -- m; lookDistFor never looks nearer than this
 	},
+	drill = {              -- the drill aim (a kubb aimed with a ground marker): fixed, higher and
+	                       -- looking down on the whole target half, so the frame cache holds
+	                       -- while the marker moves
+		back = 2.5,          -- m behind the baseline
+		height = 5.5,        -- m above the ground (the baton camera is at 3.4)
+		lookDist = 6.4,      -- m out from the baseline to the ground point it looks at
+		f = 500,             -- px: the half from 3.5 m to 8.6 m out and 3 m either side fits,
+		cy = 72,             -- with the middle line clear above the throw gauge
+	},
 	impact = {
 		dist = 2.75,         -- m, horizontal, from the predicted landing point (DESIGN 3: 2.5 to 3)
 		height = 0.9,        -- m (DESIGN 3: low, about 0.9)
@@ -150,6 +159,16 @@ function camera.aim(c, playerX, lineY, swivel, targets, stepBack, lookDist)
 	end
 	local fMax = t.fMax * (1 + (stepBack or 0) / t.stepBackRef)
 	c.f = min(fMax, max(t.fMin, need))
+	return c
+end
+
+-- The drill aim camera: straight down the pitch from behind the middle of
+-- the baseline at lineY, high, looking down on the far half. It does not
+-- follow the marker or the thrower.
+function camera.drillAim(c, lineY)
+	local t = camera.tune.drill
+	camera.lookAt(c, 0, lineY - t.back, t.height, 0, lineY + t.lookDist, 0)
+	c.cx, c.cy, c.f = camera.SCREEN_W / 2, t.cy, t.f
 	return c
 end
 
