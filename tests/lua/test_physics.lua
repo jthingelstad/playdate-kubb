@@ -312,3 +312,49 @@ test("the bench scenario hits the group", function()
 	expect.eq(r.steps, 720, "3 s at 240 Hz")
 	expect.truthy(r.maxAwake >= 4, "awake bodies " .. r.maxAwake)
 end)
+
+test("a baton landing at 8 m/s kicks on 0.5 to 2.5 m on grass, much less on sand", function()
+	-- Jamie on hardware: the baton should not die on landing on a lawn
+	local function kick(surface)
+		local w, b = batonThrow(surface, 0, 8)
+		return b.y - w.firstContact.y
+	end
+	local g, s = kick("grass"), kick("sand")
+	expect.truthy(g >= 0.5 and g <= 2.5, string.format("grass kick %.2f m", g))
+	expect.truthy(s < 0.5 * g, string.format("sand kick %.2f m vs grass %.2f", s, g))
+end)
+
+test("a baton thrown at a corner stake deflects off it", function()
+	-- along the right sideline at the far corner stake (2.5, 8)
+	local function land(stakes)
+		local w = world.new{ stakes = stakes }
+		local b = world.launchBaton(w, 2.5, 0, 0, 35, 8.5, 7, 0)
+		world.run(w)
+		return b, world.result(w), w
+	end
+	local free = land(false)
+	local b, r, w = land(true)
+	expect.truthy(w.firstHit and w.firstHit.with == "stake6", "hit the corner stake first")
+	expect.eq(r.stakesTouched[1], "stake6", "result names the stake")
+	expect.truthy(b.y < free.y - 1, string.format("stopped short: %.2f vs %.2f without the stake", b.y, free.y))
+	local s = w.byId.stake6
+	expect.eq(s.x, 2.5, "the stake did not move")
+	expect.eq(s.y, 8, "the stake did not move")
+end)
+
+test("a sliding kubb stops against a stake", function()
+	local function slide(stakes)
+		local w = world.new{ stakes = stakes }
+		-- lying across the pitch line, sliding up the sideline at 3 m/s
+		local qw, qx, qy, qz = quat.fromAxisAngle(0, 1, 0, math.pi / 2)
+		local b = world.launch(w, "kubb", "k", 2.5, 3.5, 0.035, qw, qx, qy, qz, 0, 3, 0, 0, 0, 0)
+		world.run(w)
+		return b, world.result(w)
+	end
+	local free = slide(false)
+	local b, r = slide(true)
+	expect.truthy(free.y > 4.1, "without the stake it slides past 4: " .. free.y)
+	expect.truthy(b.y < 4 - 0.03, "stopped before the centerline stake: " .. b.y)
+	expect.eq(r.stakesTouched[1], "stake4", "touched stake4")
+	expect.truthy(not b.awake, "came to rest")
+end)
