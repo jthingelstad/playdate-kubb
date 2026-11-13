@@ -2,8 +2,8 @@
 --
 -- Launch arguments (Simulator only), read from playdate.argv:
 --   selftest=<scenario> out=<absolute dir>   run a self-test scenario and quit
--- Without them the game opens the title: "Match" (two teams pass and play,
--- scenes/match) or "Practice pitch" (scenes/throw: endless practice from the
+-- Without them the game opens the title: "PASS + PLAY" (two teams pass and
+-- play, scenes/match) or "PRACTICE" (scenes/throw: endless practice from the
 -- baseline).
 --
 -- System Menu (at most three items; the third is the scene's own):
@@ -36,6 +36,7 @@ import "benchscreen"
 import "autobench"
 import "selftest/runner"
 import "selftest/hello"
+import "selftest/title"
 import "selftest/aim-center"
 import "selftest/aim-walk-swivel"
 import "selftest/loft"
