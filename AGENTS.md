@@ -369,7 +369,10 @@ and copying a full-screen image about 0.7 ms. So:
   normals and shades). Change a pose only through `render.world.setPose`: it marks the item
   stale and bumps `render.world.poseVersion()`, which is what invalidates the caches. After
   changing `render.world.tune` or anything else the caches cannot see, call
-  `render.world.invalidate()`.
+  `render.world.invalidate()`: it drops the frame image and every item's prepared shadow
+  and shading.
+- The device autobench turns the crank recorder off while it runs and restores it after,
+  so its scripted throws never reach `traces.jsonl`.
 - `render/hud` draws each part (minimap, loft and power panel, gauge dial) as a layer: to
   the screen while its inputs change, into an image (on the 8 px grid, through
   `gfx.setDrawOffset`) once a frame repeats the last frame's inputs, then copied until an

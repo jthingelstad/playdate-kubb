@@ -258,9 +258,22 @@ local function body()
 	out { "autobench done", "" }
 end
 
+-- The bench's scripted throws are not real swings: the crank recorder is
+-- off while it runs and put back afterwards (auto.update), error or not.
 function auto.start()
 	playdate.file.delete(auto.flag)
-	return { co = coroutine.create(body) }
+	local rec = tw.recorder
+	local a = { co = coroutine.create(body), recOn = rec.on }
+	rec.on = false
+	rec.clear()
+	return a
+end
+
+local function finish(a)
+	local rec = tw.recorder
+	rec.clear()
+	rec.on = a.recOn
+	return true
 end
 
 -- One frame. Returns true when finished.
@@ -268,9 +281,9 @@ function auto.update(a)
 	local ok, err = coroutine.resume(a.co)
 	if not ok then
 		out { "autobench error: " .. tostring(err) }
-		return true
+		return finish(a)
 	end
-	if coroutine.status(a.co) == "dead" then return true end
+	if coroutine.status(a.co) == "dead" then return finish(a) end
 	return false
 end
 
