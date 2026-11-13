@@ -33,7 +33,9 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   same files. It prints a count of the rare events it produced (rescues, punishment kubbs,
   early kings, helicopters and so on).
 - `make bench`: the physics benchmark on the desktop (`tools/bench.lua`, three runs of
-  `core/bench`, prints each and the best). See "Physics" for the device side.
+  `core/bench`, prints each and the best). `lua5.4 tools/bench.lua [runs] [--profile]
+  [--micro]` adds the per-phase profile of `world.step` and the micro benchmarks of
+  `core/microbench`. See "Measuring on the device" for the device side.
 - `make clean`.
 
 Tools are called by full path: SDK at `~/Developer/PlaydateSDK` (no `PLAYDATE_SDK_PATH`),
@@ -276,7 +278,9 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds).
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction (also the light that
   shades the faces), face-shade thresholds, patterns, stakes, HUD placement, the throw
-  gauge (`hud.swingGauge`: the arm that turns with the crank).
+  gauge (`hud.swingGauge`: the arm that turns with the crank), and `cache` in each (the
+  image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
+  the same pixels).
 - `tw.raising.tune` (`source/core/raising.lua`): the search that slides an obstructed
   footprint clear, and the punishment candidate grid. Stake radius and other piece sizes are
   in `tw.pitch`.
@@ -317,6 +321,64 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   30 draws of the throw scene, shows ms per step, steps per 20 ms frame (overall and in
   the collision phase), total time and draw ms per frame, and appends one line to
   `bench.txt` in the Data folder. Real time needs 4.8 steps per 20 ms frame.
+- Speed. The device is about 500 times slower than a Mac on this code, and not evenly:
+  a Lua function call costs about 9 us there, a C call (`math.sqrt`) about 4 us, a new
+  table about 54 us and a closure about 35 us, and reading fields from many different
+  tables in turn costs several times reading one table (cache misses). So the hot paths of
+  `core/world` and `core/collide` are written out in full: no helper calls per pair,
+  contact or solver pass, comparisons instead of `math.abs/min/max`, one record table per
+  solver contact read with `<const>` indices, ground contacts and contacts with a sleeping
+  or static body specialized, and the pair loop jumps over runs of sleeping bodies. The
+  arithmetic is term for term the plain version's, so results did not change: a change to
+  these files should keep a dump of every body after a fixed scenario bit-identical on the
+  desktop, or say why not.
+- `world.prof`: set it to `world.newProf(clock)` and `world.step` adds the seconds of each
+  phase (`world.PHASES`) into it; nil costs one test per phase.
+- Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
+  tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
+  would save about 8% of a collision step but changes the feel, so it was not applied.
+
+## Measuring on the device
+
+The autobench measures a build on the Playdate with nobody pressing anything:
+
+1. Build and install `build/ThrowingWood.pdx` (data disk mode, copy to `/Games`).
+2. Create an empty file named `autobench` in the game's Data folder
+   (`/Data/com.thingelstad.throwingwood/`), eject, and launch the game
+   (`pdutil <port> run /Games/ThrowingWood.pdx`).
+3. At launch the game deletes the flag, runs `source/autobench.lua` (about two minutes)
+   and appends to `bench.txt` in the Data folder: the micro benchmarks, the `core/bench`
+   physics line (also with the collector stopped) and its per-phase profile, the draw
+   timings of the throw scene by frame type (aim with the camera still, swivelling,
+   walking, then a full throw split into wind-up, flight, impact and rest, with
+   `render/world` and HUD part timings), a few drawing primitives, memory and
+   `playdate.getStats`. The last line is `autobench done`; then the game carries on.
+4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
+   touch `traces.jsonl` (crank recordings).
+
+## Drawing speed
+
+On the device a graphics call costs 20 to 50 us (a small `fillPolygon` 41 us,
+`drawPolygon` 50 us, `drawLine` 46 us, `setPattern` 33 us), `drawText` about 0.6 ms
+and copying a full-screen image about 0.7 ms. So:
+
+- `render/world` keeps the last frame as an image and copies it when a frame shows
+  exactly what the last one did. The key is the camera, the item list and its length,
+  the pose version and the baton.
+- Each item keeps what depends only on its pose (world corners, the shadow outline, face
+  normals and shades). Change a pose only through `render.world.setPose`: it marks the item
+  stale and bumps `render.world.poseVersion()`, which is what invalidates the caches. After
+  changing `render.world.tune` or anything else the caches cannot see, call
+  `render.world.invalidate()`.
+- `render/hud` draws each part (minimap, loft and power panel, gauge dial) as a layer: to
+  the screen while its inputs change, into an image (on the 8 px grid, through
+  `gfx.setDrawOffset`) once a frame repeats the last frame's inputs, then copied until an
+  input changes. The minimap layer keys on the pose version; the aim line, player, landing
+  mark and baton dot are drawn on top every frame. Text boxes and text are cached as images
+  by their string (at most 32 each).
+- A new part of the HUD that depends on something must put it in its layer's key, or the
+  layer will show a stale image. `make selftest` frames compared pixel for pixel before
+  and after (`cache = false` against `true`) catch this.
 
 ## Throw scene practice
 
