@@ -92,6 +92,72 @@ local function hitScript()
 	}
 end
 
+-- The match case: core/bench's match setup (a turn in progress: field kubbs,
+-- the turn's debris) and its throws (a baton that hits, one that misses and
+-- rolls on, a drilled kubb), each played through the throw scene as in a
+-- match, on the device's own clock (input.device: nobody presses anything).
+-- Each throw's figures are the frame-time log's (frames.jsonl), captured
+-- here instead of written; frames.jsonl is not touched. One summary line per
+-- throw: shown frames, seconds, mean and max frame ms, starved frames and the
+-- longest stall, steps, physics ms, and the shown speed (simulated seconds
+-- over shown seconds; 1 = real time), then the raw log line.
+function auto.matchCase(y)
+	local fl, ft = tw.framelog, tw.frametel
+	local write = fl.write
+	local got = {}
+	fl.write = function(t, info)
+		got.t, got.info = t, info
+		info.time = "autobench"
+		got.line = ft.encode(t, info)
+	end
+	local lines = { "match case (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):" }
+	local ok, err = pcall(function()
+		local s = throw.new(tw.input.device())
+		s.sceneName = "match"
+		throw.enter()
+		local tot = { frames = 0, secs = 0, starved = 0, steps = 0, phys = 0, sim = 0, max = 0 }
+		for _, t in ipairs(bench.matchThrows) do
+			collectgarbage("collect")
+			throw.prepare(s, bench.matchSetup(t.projectile))
+			for _ = 1, 3 do throw.draw(s); y() end
+			s.input:advance()
+			throw.autoLaunch(s, bench.matchThrow(t))
+			got.line = nil
+			local n = 0
+			while s.mode ~= "done" and n < 3000 do
+				throw.update(s)
+				throw.draw(s)
+				y()
+				n = n + 1
+			end
+			local T, I = got.t, got.info
+			if not got.line then
+				lines[#lines + 1] = "  " .. t.name .. ": no log line (" .. s.mode .. ")"
+			else
+				local frames = T.n1 + T.n2 + T.n3
+				local secs = T.s1 + T.s2 + T.s3
+				local mx = math.max(T.m1, T.m2, T.m3)
+				local sim = I.steps * tw.world.tune.dt
+				lines[#lines + 1] = string.format("  %-5s %4d frames %5.2f s  mean %5.1f ms  max %5.1f ms  starved %4d  stall %6.0f ms  steps %4d  phys %6.0f ms (%.2f ms/step)  speed %.2f",
+					t.name, frames, secs, secs * 1000 / frames, mx * 1000, T.starved, T.stall * 1000, I.steps,
+					I.phys * 1000, I.phys * 1000 / I.steps, sim / secs)
+				lines[#lines + 1] = "    " .. got.line
+				tot.frames, tot.secs, tot.starved = tot.frames + frames, tot.secs + secs, tot.starved + T.starved
+				tot.steps, tot.phys, tot.sim = tot.steps + I.steps, tot.phys + I.phys, tot.sim + sim
+				if mx > tot.max then tot.max = mx end
+			end
+		end
+		if tot.frames > 0 then
+			lines[#lines + 1] = string.format("  all   %4d frames %5.2f s  mean %5.1f ms  max %5.1f ms  starved %4d  steps %4d  phys %6.0f ms (%.2f ms/step)  speed %.2f",
+				tot.frames, tot.secs, tot.secs * 1000 / tot.frames, tot.max * 1000, tot.starved, tot.steps,
+				tot.phys * 1000, tot.phys * 1000 / tot.steps, tot.sim / tot.secs)
+		end
+	end)
+	fl.write = write
+	if not ok then lines[#lines + 1] = "  match case error: " .. tostring(err) end
+	return lines
+end
+
 local function body()
 	local y = coroutine.yield
 	local t = playdate.getTime()
@@ -128,6 +194,10 @@ local function body()
 	-- the same throw with a full turn's debris lying on the pitch (asleep)
 	local rd = bench.run(clock, 24, function() y() end, true)
 	out { bench.line(rd, "device with debris") }
+	y()
+
+	-- the match case
+	out(auto.matchCase(y))
 	y()
 
 	-- per-phase profile
