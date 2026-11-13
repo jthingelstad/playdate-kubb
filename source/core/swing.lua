@@ -39,8 +39,11 @@ swing.tune = {
 	launchMax = 9.2,        -- m/s at power 1 (a mid-loft throw lands about 8.9 m out)
 	tumbleMin = 4.5,        -- rad/s at power 0
 	tumbleMax = 7.0,        -- rad/s at power 1: about 1.2 turns over 8 m at mid loft
-	roughFull = 1.0,        -- roughness (mean second difference of speed / mean speed) that gives
-	                        -- smoothness 0; a steady or steadily accelerating flick is near 0
+	roughFull = 3.0,        -- roughness (mean second difference of speed / mean speed) that gives
+	                        -- smoothness 0. Hardware traces (2026-11-13): a flick is only 4 to 7
+	                        -- frames at about 41 ms each and honest flicks measure up to 0.67
+	                        -- from sampling jitter alone, so only a clearly stuttered swing
+	                        -- (roughness over 1.0) is a helicopter
 	tiltMaxDeg = 90,        -- tilt of the rotation plane at smoothness 0 (a full helicopter)
 	legalTiltDeg = 30,      -- tilt at or under this is a legal end-over-end throw
 	maxSamples = 512,       -- swing samples kept (about 10 s at 50 fps); later ones are dropped

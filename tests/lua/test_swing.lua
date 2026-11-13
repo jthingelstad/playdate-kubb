@@ -66,15 +66,19 @@ test("weak flick: low power, still legal", function()
 	expect.truthy(r.launchSpeed < 6, "launch " .. r.launchSpeed)
 end)
 
-test("jerky flick: same mean speed, alternating fast and slow frames, is a helicopter", function()
-	local ev, r = run(flick { 30, 10, 30, 10, 30, 10 })
+test("stuttered flick: fast and near-stopped frames alternate, is a helicopter", function()
+	local ev, r = run(flick { 40, 2, 40, 2, 40, 2 })
 	expect.eq(ev, "release")
 	expect.truthy(r.tilt > 30, "tilt " .. r.tilt)
 	expect.eq(r.legal, false)
-	-- a milder jerk still fails
-	ev, r = run(flick { 25, 15, 25, 15, 25, 15 })
+end)
+
+test("uneven but honest flick is legal (hardware sampling jitter)", function()
+	-- speeds from a recorded hardware flick at 41 ms frames: 391, 1454, 775, 798, 1244 deg/s
+	local ev, r = swing.replay(trace {
+		windup(120, 12), { d = 0 }, { d = 16 }, { d = 60 }, { d = 32 }, { d = 33 }, { d = 51 } })
 	expect.eq(ev, "release")
-	expect.truthy(r.tilt > 30 and not r.legal, "mild jerk tilt " .. r.tilt)
+	expect.truthy(r.legal, "tilt " .. r.tilt)
 end)
 
 test("slow forward return lets the wind-up down: no throw", function()
