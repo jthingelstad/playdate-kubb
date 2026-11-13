@@ -26,7 +26,8 @@ rcards.tune = {
 	nameTop = 43,               -- the name's cap top (display 32)
 	ruleY = 90, ruleW = 240,    -- the 3 px rule under the name
 	tookY = 104,                -- "TEAM A JUST TOOK" and its pips
-	tookPip = { w = 12, h = 6, step = 16 },
+	tookPip = { w = 12, h = 6, step = 16, minStep = 7 },
+	tookRight = 282,            -- the row stops here, clear of the map
 	throwY = 128,               -- "YOU THROW"
 	kubbLineY = 150,            -- the kubb pips and "3 KUBBS IN"
 	batonLineY = 174,           -- the baton pips and "THEN 6 BATONS"
@@ -95,17 +96,26 @@ function rcards.handoff(c)
 			ui.text(label, c.fromName .. " took none", t.left, t.tookY, true)
 		else
 			local x = t.left + ui.text(label, c.fromName .. " just took", t.left, t.tookY, true) + 10
-			local pip = t.tookPip
-			gfx.setLineWidth(1)
-			for _ = 1, n do
-				white()
-				gfx.drawRect(x, t.tookY + 3, pip.w, pip.h)
-				x = x + pip.step
-			end
 			local parts = {}
 			if c.took.field > 0 then parts[#parts + 1] = c.took.field .. " field" end
 			if c.took.base > 0 then parts[#parts + 1] = c.took.base .. " base" end
-			ui.text(label, table.concat(parts, ", "), x + 4, t.tookY, true)
+			local count = table.concat(parts, ", ")
+			-- The row must end before the map. Many kubbs: close the pips up;
+			-- too many even for that: the count alone says it.
+			local pip = t.tookPip
+			local room = t.tookRight - x - 4 - label:getTextWidth(string.upper(count))
+			local step = math.min(pip.step, room // n)
+			if step >= pip.minStep then
+				local w = pip.w - (pip.step - step)
+				gfx.setLineWidth(1)
+				white()
+				for _ = 1, n do
+					gfx.drawRect(x, t.tookY + 3, w, pip.h)
+					x = x + step
+				end
+				x = x + 4
+			end
+			ui.text(label, count, x, t.tookY, true)
 		end
 	else
 		ui.text(label, "the first turn", t.left, t.tookY, true)
