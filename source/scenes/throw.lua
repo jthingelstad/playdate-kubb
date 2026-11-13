@@ -60,9 +60,18 @@ throw.tune = {
 	restHold = 1.0,       -- s the landed baton stays on screen before the next baton
 	lineY = 0,            -- the throwing line: Team A's baseline
 	surface = "grass",    -- the practice pitch (tw.world.surfaces)
-	physicsBudget = 0.012,-- s of each frame the physics may use (guess: leaves ~8 ms of a
-	                      -- 20 ms frame to draw; the device draws slower than that today)
-	ahead = 25,           -- frames the physics may record ahead of the screen
+	-- The flight's pacing (AGENTS.md "Playback"). In flight the display runs
+	-- unlocked (flightRate 0: the next frame starts when this one is done)
+	-- and each frame gives the physics what is left of framePeriod after the
+	-- frame's own work (update, draw and the display, each estimated from
+	-- the frames before). So frames come at a steady framePeriod instead of
+	-- whatever multiple of 20 ms the work happened to round up to.
+	flightRate = 0,       -- refresh rate in flight (0: unlocked)
+	framePeriod = 0.040,  -- s per flight frame (25 fps): the physics gets the rest of it
+	tailPeriod = 0.100,   -- s per frame while the picture holds still for the calm tail
+	minBudget = 0.003,    -- s the physics always gets in a flight frame
+	physicsBudget = 0.012,-- s per frame when the frame clock is not the device's (scripted input)
+	ahead = 50,           -- frames the physics may record ahead of the screen (1 s)
 	focusSpeed = 4,       -- m/s the impact camera's aim point slews toward the first hit
 	frameRadius = 1.5,    -- m from the impact point within which the camera keeps the baton in frame
 	tossTumble = 0.5,     -- a lobbed kubb turns end over end at this fraction of the swing's
@@ -234,6 +243,10 @@ function throw.new(provider)
 		focusX = 0, focusY = 0, side = 1, -- the impact camera's aim point and side
 		result = nil,            -- core/world result of the last throw
 		clock = playdate.getElapsedTime,
+		frameStart = 0,          -- clock() when this frame's update began
+		drawEst = 0.018,         -- s the world and HUD take to draw (estimated per frame)
+		postEst = 0.002,         -- s from the end of the draw to the next frame (the display)
+		held = 0,                -- flight frames the picture held still for the calm tail
 		baton = { x = 0, y = 0, z = 0, ax = 0, ay = 0, az = 1 },
 		hudState = { playerX = 0, lineY = 0 },
 		lineY = throw.tune.lineY, forwardY = throw.tune.lineY,
@@ -496,8 +509,11 @@ local function launch(s, r)
 	end
 	s.batonIndex = b.index
 	s.pb = playback.new(w, 1 / t.refreshRate)
+	s.pb.v = 1
 	frametel.reset(s.ft)
 	s.showTime = 0
+	s.held = 0
+	if playdate and not s.instant then playdate.display.setRefreshRate(t.flightRate) end
 	s.result = nil
 	s.focusX, s.focusY = fl.lx, fl.ly
 	s.side = (fl.lx > 0) and 1 or -1
@@ -520,21 +536,23 @@ local function launch(s, r)
 	s.throws = s.throws + 1
 end
 
--- Show recorded frame f: move the items that ever moved and the baton.
-local function showFrame(s, f)
+-- Show the throw at time t (s from the release, between recorded frames):
+-- move the items that ever moved and the baton.
+local function showAt(s, t)
 	local pb = s.pb
+	local f = t / pb.frameDt
 	for i = 1, s.nitems do
 		local bi = s.bodyIndex[i]
 		local rec = pb.rec[bi]
-		if rec.start >= 0 and f >= rec.start then
-			render.setPose(s.items[i], playback.pose(pb, bi, f))
+		if rec.start >= 0 and f > rec.start - 1 then
+			render.setPose(s.items[i], playback.poseAt(pb, bi, t))
 		end
 	end
-	local x, y, z, qw, qx, qy, qz = playback.pose(pb, s.batonIndex, f)
+	local x, y, z, qw, qx, qy, qz = playback.poseAt(pb, s.batonIndex, t)
 	if s.projectile == "kubb" then render.setPose(s.projItem, x, y, z, qw, qx, qy, qz) end
 	local fl, bt = s.flight, s.baton
 	fl.x, fl.y, fl.z = x, y, z
-	fl.t = f * pb.frameDt
+	fl.t = t
 	bt.x, bt.y, bt.z = x, y, z
 	-- the baton's long axis: column 3 of the rotation matrix
 	bt.ax = 2 * (qx * qz + qw * qy)
@@ -597,6 +615,7 @@ local function landed(s)
 	end
 	s.mode = "rest"
 	s.restTime = 0
+	if playdate and not s.instant then playdate.display.setRefreshRate(throw.tune.refreshRate) end
 end
 
 -- Practice: the drilled kubb at rest becomes a piece of the pitch, and the
@@ -644,26 +663,44 @@ local function flightUpdate(s, dt)
 		playback.finish(pb)
 		pb.frame = pb.frames
 		s.showTime = pb.frames * pb.frameDt
-		showFrame(s, pb.frames)
+		showAt(s, s.showTime)
 		landed(s)
 		return
 	end
-	playback.advance(pb, t.physicsBudget, s.clock, t.ahead)
-	-- real time on screen, slow motion around the first hit (the physics is
-	-- ahead, so the hit is known before it is shown), and never past what is
-	-- recorded (then it waits)
-	local hitAt = pb.w.firstHit and pb.w.firstHit.t or nil
-	local speed = playback.speed(s.showTime, hitAt)
-	local want, have = s.showTime + dt * speed, pb.frames * pb.frameDt
-	-- starved: the picture had to wait for the physics this frame
-	frametel.frame(s.ft, s.input.raw or dt, speed, want > have and not pb.done)
-	s.showTime = min(want, have)
-	-- the nearest frame (floor would stop one short of the last on 32-bit floats)
-	local f = min(pb.frames, floor(s.showTime / pb.frameDt + 0.5))
-	if f ~= pb.frame or f == 0 then
-		pb.frame = f
-		showFrame(s, f)
+	-- the calm tail (core/playback.calm): nothing visibly moves any more, so
+	-- the picture holds and the physics gets nearly the whole frame
+	local tail = pb.calmFrom and s.showTime >= pb.calmFrom * pb.frameDt
+	-- the physics gets what is left of the frame: the period, less the time
+	-- this update has taken so far and the draw and the display to come
+	local budget = t.physicsBudget
+	if s.input.raw then
+		budget = (tail and t.tailPeriod or t.framePeriod) - (s.clock() - s.frameStart) - s.drawEst - s.postEst
+		if budget < t.minBudget then budget = t.minBudget end
 	end
+	playback.advance(pb, budget, s.clock, t.ahead)
+	-- real time on screen, slow motion around the first hit (the physics is
+	-- ahead, so the hit is known before it is shown), and slower still when
+	-- the physics cannot keep up (playback.pace: a steady ease, so the
+	-- picture never has to stop and wait), never past what is recorded
+	local hitAt = pb.w.firstHit and pb.w.firstHit.t or nil
+	local slow = playback.speed(s.showTime, hitAt)
+	local pace = playback.pace(pb, s.showTime, dt)
+	local speed = min(slow, pace)
+	local have = pb.frames * pb.frameDt
+	local want = s.showTime + dt * speed
+	-- starved: the picture had to wait for the physics this frame
+	local starved = want > have and not pb.done and not tail
+	frametel.frame(s.ft, s.input.raw or dt, slow, starved)
+	local shown = s.showTime
+	if tail then
+		-- hold until the throw is at rest, then show its last frame (what
+		-- moves in the calm moves by a few millimetres)
+		if pb.done then s.showTime = have else s.held = s.held + 1 end
+	else
+		s.showTime = min(want, have)
+	end
+	pb.frame = min(pb.frames, floor(s.showTime / pb.frameDt + 0.5))
+	if s.showTime ~= shown or pb.frames == 0 then showAt(s, s.showTime) end
 	-- the impact camera slews to the first body hit once the physics knows it
 	local w, fl = pb.w, s.flight
 	local tx, ty = fl.lx, fl.ly
@@ -672,15 +709,27 @@ local function flightUpdate(s, dt)
 	local dx, dy = tx - s.focusX, ty - s.focusY
 	local d, step = sqrt(dx * dx + dy * dy), t.focusSpeed * dt
 	if d > step then dx, dy = dx * step / d, dy * step / d end
-	s.focusX, s.focusY = s.focusX + dx, s.focusY + dy
+	-- (held still in the calm tail, so the held picture is one cached image)
+	if not tail then s.focusX, s.focusY = s.focusX + dx, s.focusY + dy end
 	camera.impact(s.impactCam, s.focusX, s.focusY, fl.dx, fl.dy, s.side)
-	if pb.done and pb.frame >= pb.frames then landed(s) end
+	if pb.done and s.showTime >= have then landed(s) end
 end
 
 function throw.update(s)
 	local p = s.input
 	p:advance()
 	local dt = p:dt()
+	-- the frame clock: when this frame started, and how long the last one's
+	-- draw and display took (fast up, slow down: the budget errs short)
+	s.frameStart = s.clock()
+	if p.raw and s.drawEnd then
+		local post = p.raw - s.drawEnd
+		if post < 0 then post = 0 end
+		s.postEst = (post > s.postEst) and post or s.postEst + (post - s.postEst) * 0.25
+		local d = s.drawEnd - s.drawStart
+		s.drawEst = (d > s.drawEst) and d or s.drawEst + (d - s.drawEst) * 0.25
+	end
+	s.drawEnd = nil
 	local t = throw.tune
 	if s.mode == "aim" then
 		local ev = aimInput(s, dt)
@@ -688,7 +737,7 @@ function throw.update(s)
 		if ev == "release" then
 			s.scripted = false
 			launch(s, s.swing.result)
-			showFrame(s, 0)
+			showAt(s, 0)
 		end
 	elseif s.mode == "flight" then
 		flightUpdate(s, dt)
@@ -760,7 +809,7 @@ function throw.autoLaunch(s, a)
 	-- a.tumbleRate is the projectile's own (a kubb's too): undo the toss factor
 	if s.projectile == "kubb" then r.tumbleRate = a.tumbleRate / throw.tune.tossTumble end
 	launch(s, r)
-	showFrame(s, 0)
+	showAt(s, 0)
 end
 
 -- The drill marker on the ground: a ring with a cross in it, and a dotted
@@ -805,6 +854,13 @@ drawMarker = function(s, c)
 end
 
 function throw.draw(s)
+	s.drawStart = s.clock() - (s.frameStart or 0)
+	local ok = throw.drawFrame(s)
+	s.drawEnd = s.clock() - (s.frameStart or 0)
+	return ok
+end
+
+function throw.drawFrame(s)
 	local b = nil
 	local n = s.nitems
 	if s.mode ~= "aim" then
