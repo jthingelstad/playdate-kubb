@@ -25,6 +25,8 @@
 import "CoreLibs/graphics"
 
 import "core/tw"
+-- first, so it can count the graphics calls of every module (selftest=drawcalls only)
+import "selftest/_drawcount"
 import "core/vec"
 import "input"
 import "recorder"
@@ -61,6 +63,7 @@ import "selftest/match-whole"
 import "selftest/match-debris"
 import "selftest/drill"
 import "selftest/cards"
+import "selftest/drawcalls"
 
 local function launchArgs()
 	local args = {}
