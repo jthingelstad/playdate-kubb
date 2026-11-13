@@ -17,7 +17,11 @@
 --   shadow outline on the ground, face normals and shading), recomputed
 --   only after world.setPose;
 -- - projection is written out with the camera in locals, pieces wholly off
---   screen are skipped and colour changes that change nothing are skipped.
+--   screen are skipped and colour changes that change nothing are skipped;
+-- - while the camera holds still and only some pieces move (a throw after
+--   it lands), the still pieces are drawn once into a background image and
+--   each frame is that image plus the moving pieces (and any still piece
+--   that overlaps them, so the depth order holds).
 -- The pixels are the same as drawing everything from scratch.
 import "CoreLibs/graphics"
 import "core/tw"
@@ -67,6 +71,7 @@ world.tune = {
 	kingNeck = 0.66,  -- the top of the neck, under the head's shoulder
 	kingInset = 0.3,  -- how far the neck is cut in
 	cache = true,     -- reuse the last frame's world image when nothing changed
+	layer = true,     -- keep the pieces that hold still in a background image while the camera does
 }
 
 local BATON_L, BATON_D = 0.30, 0.044
@@ -99,11 +104,15 @@ function world.item(id, kind)
 end
 
 function world.setPose(it, x, y, z, qw, qx, qy, qz)
+	-- the same pose again changes nothing (and keeps the caches)
+	if it.pv and x == it.x and y == it.y and z == it.z and qw == it.qw and qx == it.qx and qy == it.qy
+		and qz == it.qz then return end
 	it.x, it.y, it.z, it.qw, it.qx, it.qy, it.qz = x, y, z, qw, qx, qy, qz
 	it.r11, it.r12, it.r13, it.r21, it.r22, it.r23, it.r31, it.r32, it.r33 = toMatrix(qw, qx, qy, qz)
 	if it.baton then it.ax, it.ay, it.az = it.r13, it.r23, it.r33 end
 	it.stale = true
 	poseVersion = poseVersion + 1
+	it.pv = poseVersion
 end
 
 -- The pose version: changes whenever any item's pose does (the HUD's
@@ -114,9 +123,11 @@ function world.poseVersion() return poseVersion end
 -- (after changing world.tune, say). Items compare their own generation with
 -- this one, so no item list is needed here.
 local cacheReady = false
+local layerReady = false
 local generation = 0
 function world.invalidate()
 	cacheReady = false
+	layerReady = false
 	generation = generation + 1
 	poseVersion = poseVersion + 1
 end
@@ -638,6 +649,7 @@ end
 -- baton, advantage line) and an image of the world for it.
 local K = {}
 local KEY = {}
+local K2 = {}   -- the previous frame's camera (the layer is made once it holds)
 local cacheImg = nil
 
 -- Fill the key for this frame; true when it equals the last frame's.
@@ -660,6 +672,222 @@ local function sameKey(items, n, baton)
 	return same
 end
 
+-- The layer: a background image of the pitch and the pieces that held still
+-- when it was made (in[i] true), for one camera (LK, the camera part of the
+-- frame key) and item list. Valid while the camera and the list are the same
+-- and none of those pieces has moved since (pose version bgVersion). Each
+-- background piece keeps its screen box (piece and shadow) for the overlap
+-- test.
+local LK = {}
+local bgImg = nil
+local bgVersion, bgItems, bgN, bgAdv = -1, nil, 0, nil
+local inBg = {}
+local BX0, BY0, BX1, BY1 = {}, {}, {}, {}
+local group = {}
+local lastVersion = 0   -- poseVersion when the previous frame was drawn
+
+-- Self-tests set world.verify = {} to check every layered frame against a
+-- full redraw: frames (layered frames seen) and bad (pixels that differed).
+world.verify = nil
+
+-- Frames drawn each way since the scene last cleared it (the autobench and
+-- the self-tests read it): cached (a copy of the last frame), layer (built
+-- or drawn from the layer), full (from scratch).
+world.count = { cached = 0, layer = 0, built = 0, full = 0 }
+
+-- The screen box of item p (or the flying baton when p is nil and b given)
+-- with its shadow, padded for line widths; false when it is partly behind
+-- the camera (then it overlaps everything).
+local function box(c, p, b)
+	local x0, y0, x1, y1 = 1e9, 1e9, -1e9, -1e9
+	if b or p.baton then
+		local q = b or p
+		local t = world.tune
+		local ax, ay, az, bx, by, bz = batonEnds(q)
+		local r = BATON_D / 2
+		local z1, z2 = max(0, az) + r, max(0, bz) + r
+		for k = 1, 4 do
+			local px, py, pz
+			if k == 1 then px, py, pz = ax, ay, az
+			elseif k == 2 then px, py, pz = bx, by, bz
+			elseif k == 3 then px, py, pz = ax + t.shadowX * z1, ay + t.shadowY * z1, 0
+			else px, py, pz = bx + t.shadowX * z2, by + t.shadowY * z2, 0 end
+			local sx, sy = project(c, px, py, pz)
+			if not sx then return false end
+			if sx < x0 then x0 = sx end
+			if sx > x1 then x1 = sx end
+			if sy < y0 then y0 = sy end
+			if sy > y1 then y1 = sy end
+		end
+		local _, _, dep = project(c, q.x, q.y, q.z)
+		local w = (dep and max(world.tune.batonMinPx, floor(BATON_D * c.f / dep + 0.5)) or 2) + 2
+		local pad = w / 2 + 2
+		return x0 - pad, y0 - pad, x1 + pad, y1 + pad
+	end
+	local WX, WY, WZ = p.WX, p.WY, p.WZ
+	local f, cx, cy, near = CF, CCX, CCY, NEAR
+	for k = 1, 8 do
+		local dx, dy, dz = WX[k] - CPX, WY[k] - CPY, WZ[k] - CPZ
+		local d = dx * CFX + dy * CFY + dz * CFZ
+		if d < near then return false end
+		local sc = f / d
+		local sx = cx + sc * (dx * CRX + dy * CRY + dz * CRZ)
+		local sy = cy - sc * (dx * CUX + dy * CUY + dz * CUZ)
+		if sx < x0 then x0 = sx end
+		if sx > x1 then x1 = sx end
+		if sy < y0 then y0 = sy end
+		if sy > y1 then y1 = sy end
+	end
+	local m = projectGround(p.hn, p.HX, p.HY)
+	for k = 1, m do
+		local sx, sy = poly[2 * k - 1], poly[2 * k]
+		if sx < x0 then x0 = sx end
+		if sx > x1 then x1 = sx end
+		if sy < y0 then y0 = sy end
+		if sy > y1 then y1 = sy end
+	end
+	if m < 3 and p.hn >= 3 then return false end
+	return x0 - 2, y0 - 2, x1 + 2, y1 + 2
+end
+
+-- Draw items in the list (and the flying baton when withBaton): shadows,
+-- then the pieces far to near, exactly as drawAll orders them.
+local function drawSome(c, items, n, baton, list, nl, withBaton)
+	setColor(BLACK)
+	for j = 1, nl do
+		local p = items[list[j]]
+		if p.baton then batonShadow(c, p) else boxShadow(p) end
+	end
+	if withBaton then batonShadow(c, baton) end
+	local m = 0
+	for j = 1, nl do
+		local p = items[list[j]]
+		m = m + 1
+		order[m], depth[m] = list[j], (p.x - CPX) * CFX + (p.y - CPY) * CFY + (p.z - CPZ) * CFZ
+	end
+	if withBaton then
+		m = m + 1
+		order[m], depth[m] = 0, (baton.x - CPX) * CFX + (baton.y - CPY) * CFY + (baton.z - CPZ) * CFZ
+	end
+	-- drawAll sorts every item with the flying baton last; a stable sort of
+	-- a subset in the same order keeps the same relative order
+	for i = 2, m do
+		local v, dv, j = order[i], depth[i], i - 1
+		while j >= 1 and depth[j] < dv do
+			order[j + 1], depth[j + 1] = order[j], depth[j]
+			j = j - 1
+		end
+		order[j + 1], depth[j + 1] = v, dv
+	end
+	for i = 1, m do
+		local k = order[i]
+		if depth[i] > NEAR then
+			if k == 0 then drawBaton(c, baton)
+			else
+				local p = items[k]
+				if p.baton then drawBaton(c, p) else drawBox(p) end
+			end
+		end
+	end
+	setColor(BLACK)
+	setLineWidth(1)
+	gfx.setLineCapStyle(gfx.kLineCapStyleButt)
+end
+
+-- Is the layer usable for this frame (same camera, same list, no
+-- background piece moved)?
+local function layerValid(items, n)
+	if not layerReady or items ~= bgItems or n ~= bgN or (world.advantageY or false) ~= bgAdv then return false end
+	local k = KEY
+	for i = 1, 15 do if LK[i] ~= k[i] then return false end end
+	for i = 1, n do
+		if inBg[i] and (items[i].pv or 0) > bgVersion then return false end
+	end
+	return true
+end
+
+-- Make the layer: everything that did not move since the previous frame.
+local function buildLayer(c, items, n)
+	if not bgImg then bgImg = gfx.image.new(400, 240, WHITE) end
+	local list, nl = group, 0
+	for i = 1, n do
+		local still = (items[i].pv or 0) <= lastVersion
+		inBg[i] = still
+		if still then nl = nl + 1; list[nl] = i end
+	end
+	gfx.pushContext(bgImg)
+	gfx.clear(WHITE)
+	drawPitch()
+	drawSome(c, items, n, nil, list, nl, false)
+	gfx.popContext()
+	for i = 1, n do
+		if inBg[i] then
+			local x0, y0, x1, y1 = box(c, items[i])
+			if x0 then
+				BX0[i], BY0[i], BX1[i], BY1[i] = x0, y0, x1, y1
+			else
+				BX0[i], BY0[i], BX1[i], BY1[i] = -1e9, -1e9, 1e9, 1e9
+			end
+		end
+	end
+	for i = 1, 15 do LK[i] = KEY[i] end
+	bgItems, bgN, bgAdv, bgVersion = items, n, world.advantageY or false, poseVersion
+	layerReady = true
+end
+
+-- The frame from the layer: the background, then the moving pieces and the
+-- background pieces that overlap them (and so on, until nothing more
+-- overlaps), redrawn in depth order on top.
+local GX0, GY0, GX1, GY1, GIN = {}, {}, {}, {}, {}
+local function drawLayered(c, items, n, baton)
+	bgImg:draw(0, 0)
+	local ng = 0
+	local list, nl = group, 0
+	for i = 1, n do
+		GIN[i] = false
+		if not inBg[i] then
+			GIN[i] = true
+			nl = nl + 1; list[nl] = i
+			local x0, y0, x1, y1 = box(c, items[i])
+			if not x0 then x0, y0, x1, y1 = -1e9, -1e9, 1e9, 1e9 end
+			ng = ng + 1
+			GX0[ng], GY0[ng], GX1[ng], GY1[ng] = x0, y0, x1, y1
+		end
+	end
+	if baton then
+		local x0, y0, x1, y1 = box(c, nil, baton)
+		if not x0 then x0, y0, x1, y1 = -1e9, -1e9, 1e9, 1e9 end
+		ng = ng + 1
+		GX0[ng], GY0[ng], GX1[ng], GY1[ng] = x0, y0, x1, y1
+	end
+	local grew = true
+	while grew do
+		grew = false
+		for i = 1, n do
+			if not GIN[i] then
+				local a0, b0, a1, b1 = BX0[i], BY0[i], BX1[i], BY1[i]
+				for g = 1, ng do
+					if a0 <= GX1[g] and a1 >= GX0[g] and b0 <= GY1[g] and b1 >= GY0[g] then
+						GIN[i] = true
+						nl = nl + 1; list[nl] = i
+						ng = ng + 1
+						GX0[ng], GY0[ng], GX1[ng], GY1[ng] = a0, b0, a1, b1
+						grew = true
+						break
+					end
+				end
+			end
+		end
+	end
+	-- in item order, as drawAll draws them
+	for i = 2, nl do
+		local v, j = list[i], i - 1
+		while j >= 1 and list[j] > v do list[j + 1] = list[j]; j = j - 1 end
+		list[j + 1] = v
+	end
+	drawSome(c, items, n, baton, list, nl, baton ~= nil)
+end
+
 -- Draw everything. `items` holds n items (world.item: boxes, and batons
 -- lying on the pitch); `baton` is nil
 -- or {x, y, z, ax, ay, az} (center and unit axis).
@@ -680,6 +908,7 @@ function world.draw(c, items, n, baton)
 	local same = sameKey(items, n, baton)
 	if cache and same and cacheReady then
 		cacheImg:draw(0, 0)
+		world.count.cached = world.count.cached + 1
 		lap("cached")
 		return
 	end
@@ -696,6 +925,41 @@ function world.draw(c, items, n, baton)
 		return
 	end
 	cacheReady = false
+	-- the layer, once the camera has held still for a frame
+	if world.tune.layer and cache then
+		local camSame = true
+		for i = 1, 15 do if K2[i] ~= KEY[i] then camSame = false end; K2[i] = KEY[i] end
+		local valid = layerValid(items, n)
+		if valid or (camSame and items == K2.items and n == K2.n) then
+			local C = world.count
+			if not valid then buildLayer(c, items, n); C.built = C.built + 1 end
+			C.layer = C.layer + 1
+			local V = world.verify
+			if V then
+				-- self-test: the layered frame must equal a full redraw
+				V.a = V.a or gfx.image.new(400, 240, WHITE)
+				V.b = V.b or gfx.image.new(400, 240, WHITE)
+				gfx.pushContext(V.a); drawLayered(c, items, n, baton); gfx.popContext()
+				gfx.pushContext(V.b); drawAll(c, items, n, baton); gfx.popContext()
+				local bad = 0
+				for y = 0, 239 do
+					for x = 0, 399 do
+						if V.a:sample(x, y) ~= V.b:sample(x, y) then bad = bad + 1 end
+					end
+				end
+				V.frames, V.bad = (V.frames or 0) + 1, (V.bad or 0) + bad
+				if bad > 0 and not V.shot then V.shot = true; V.a:draw(0, 0) else V.b:draw(0, 0) end
+			else
+				drawLayered(c, items, n, baton)
+			end
+			lastVersion = poseVersion
+			lap("layer")
+			return
+		end
+		K2.items, K2.n = items, n
+	end
+	lastVersion = poseVersion
+	world.count.full = world.count.full + 1
 	drawAll(c, items, n, baton)
 end
 
