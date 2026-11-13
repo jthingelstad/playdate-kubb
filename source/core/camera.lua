@@ -27,6 +27,8 @@ camera.tune = {
 		minTargetPx = 12.5,  -- farthest live target (a standing 0.15 m kubb) at least this tall
 		fMin = 880,          -- px; the long lens of DESIGN 3 (about 26 degrees wide) ...
 		fMax = 1000,         -- ... to about 23 degrees wide
+		stepBackRef = 11,    -- m from the camera to the far baseline with the player on the line;
+		                     -- the lens limit grows by stepBack / this when the player steps back
 	},
 	impact = {
 		dist = 2.75,         -- m, horizontal, from the predicted landing point (DESIGN 3: 2.5 to 3)
@@ -121,7 +123,10 @@ end
 -- (playerX, lineY), looking along the swivel. `targets` is an array of
 -- {x=, y=} live targets (standing kubbs): the focal length is the smallest in
 -- [fMin, fMax] that shows the farthest of them at least minTargetPx tall.
-function camera.aim(c, playerX, lineY, swivel, targets)
+-- `stepBack` (m, optional) is how far behind the throwing line the player
+-- stands: the lens limit grows in proportion, so stepping back does not
+-- shrink the targets below minTargetPx.
+function camera.aim(c, playerX, lineY, swivel, targets, stepBack)
 	local t = camera.tune.aim
 	local dx, dy = camera.aimDir(swivel)
 	camera.lookAt(c,
@@ -137,7 +142,8 @@ function camera.aim(c, playerX, lineY, swivel, targets)
 			if px > 0 then need = max(need, t.minTargetPx / px) end
 		end
 	end
-	c.f = min(t.fMax, max(t.fMin, need))
+	local fMax = t.fMax * (1 + (stepBack or 0) / t.stepBackRef)
+	c.f = min(fMax, max(t.fMin, need))
 	return c
 end
 

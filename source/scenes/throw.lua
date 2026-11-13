@@ -57,7 +57,7 @@ function throw.new(provider)
 		baton = { x = 0, y = 0, z = 0, ax = 0, ay = 0, az = 1 },
 		hudState = { playerX = 0, lineY = 0 },
 	}
-	camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, world.targets)
+	camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, world.targets, throw.tune.lineY - s.playerY)
 	return s
 end
 
@@ -175,7 +175,7 @@ function throw.update(s)
 	local t = throw.tune
 	if s.mode == "aim" then
 		local ev = aimInput(s, dt)
-		camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, world.targets)
+		camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, world.targets, throw.tune.lineY - s.playerY)
 		if ev == "release" then launch(s) end
 	elseif s.mode == "flight" then
 		if flight.step(s.flight, dt) then landed(s) end
