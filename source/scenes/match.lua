@@ -51,6 +51,12 @@ local function writeFile(s)
 	local text, name = cmatch.file(s.m, now(), scene.version)
 	playdate.file.mkdir("games")
 	local path = "games/" .. name
+	-- two matches that start in the same minute share a name: keep both
+	local n = 1
+	while playdate.file.exists(path) do
+		n = n + 1
+		path = "games/" .. name:gsub("%.txt$", "") .. "-" .. n .. ".txt"
+	end
 	local f, err = playdate.file.open(path, playdate.file.kFileWrite)
 	if not f then return nil, err end
 	f:write(text)
@@ -110,10 +116,14 @@ function scene.new(provider, opts)
 	return s
 end
 
--- System Menu "Match: resign": the team on turn resigns once nothing is in
--- the air.
+-- System Menu "Match: resign": the team holding the Playdate resigns once
+-- nothing is in the air. If that throw was its last and the turn has passed
+-- by then, the request is dropped: a team resigns only on its own turn.
 function scene.resign(s)
-	if s.phase ~= "over" then s.resignWanted = true end
+	if s.phase ~= "over" and s.setup then
+		s.resignWanted = true
+		s.resignSide = s.setup.side
+	end
 end
 
 function scene.update(s)
@@ -123,8 +133,11 @@ function scene.update(s)
 		if not s.resolved and ts.mode == "done" then
 			cmatch.resolve(s.m, ts.result, not ts.last.legal)
 		end
-		cmatch.resign(s.m)
-		return over(s)
+		if cmatch.over(s.m) then return over(s) end
+		if s.m.game.attacker == s.resignSide then
+			cmatch.resign(s.m)
+			return over(s)
+		end
 	end
 	if s.phase == "handoff" then
 		s.input:advance()

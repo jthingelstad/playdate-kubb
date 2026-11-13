@@ -464,7 +464,8 @@ own item). Practice is the throw scene exactly as before.
   (`camera.lookDistFor`, never nearer than `lookMin`); base kubbs on the far baseline give
   the practice framing.
 - System Menu "Match": resign (the team on turn gives up, `G`; it waits until nothing is in
-  the air) or title (leave: the match is dropped and no file is written). Pass and play
+  the air, and is dropped if that throw ended the team's turn) or title (leave: the match is dropped and no file is written). A game file whose name is taken
+  gets `-2`, `-3`, ... before `.txt`. Pass and play
   has one Playdate, so the team on turn is whoever holds it.
 - Per frame the match adds two cached text-box draws (status) and, from the throw scene,
   a dozen-entry target scan for the camera. Once per throw (not per frame) it builds the
