@@ -18,9 +18,9 @@
 -- is aimed with a landing marker instead. The d-pad moves the marker over
 -- the far half, the thrower stands on the baseline straight behind it, A or
 -- B held at the release cuts the kubb, and the crank swing is judged against
--- the power band the marker's distance needs. The aim camera is then a fixed
--- high view of the far half (camera.drillAim), so moving the marker does not
--- redraw the scenery. The match's kubb throws drill; the practice pitch
+-- the power band the marker's distance needs. The aim camera is then a
+-- high view of the far half (camera.drillAim) that steps sideways with the
+-- thrower. The match's kubb throws drill; the practice pitch
 -- drills when "Pitch: drill" is chosen, and the drilled kubbs stay where they
 -- end until "Pitch: reset".
 import "CoreLibs/graphics"
@@ -190,7 +190,7 @@ end
 -- The aim camera for this frame.
 local function aimCamera(s)
 	if s.drill then
-		camera.drillAim(s.aimCam, s.lineY)
+		camera.drillAim(s.aimCam, s.lineY, s.playerX)
 		return
 	end
 	local tg = s.targets

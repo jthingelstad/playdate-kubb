@@ -436,12 +436,19 @@ function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power, 
 		-- an arc on the rim with a tick at each end
 		if band then
 			local lo, hi = max(0, band - half) * fullDeg, min(1, band + half) * fullDeg
-			gfx.setLineWidth(4)
+			-- a grey wedge from the hub to the rim, so the target reads at a glance
+			local a0, a1, a2 = rad(-lo), rad(-(lo + hi) / 2), rad(-hi)
+			local R = r + 9
+			gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer2x2)
+			gfx.fillPolygon(cx, cy, cx + R * sin(a0), cy + R * cos(a0), cx + R * sin(a1), cy + R * cos(a1),
+				cx + R * sin(a2), cy + R * cos(a2))
+			gfx.setColor(gfx.kColorBlack)
+			gfx.setLineWidth(5)
 			gfx.drawArc(cx, cy, r + 9, 180 + lo, 180 + hi)
-			gfx.setLineWidth(2)
+			gfx.setLineWidth(3)
 			for _, d in ipairs { lo, hi } do
 				local ba = rad(-d)
-				gfx.drawLine(cx + (r + 4) * sin(ba), cy + (r + 4) * cos(ba), cx + (r + 11) * sin(ba), cy + (r + 11) * cos(ba))
+				gfx.drawLine(cx + (r - 6) * sin(ba), cy + (r - 6) * cos(ba), cx + (r + 11) * sin(ba), cy + (r + 11) * cos(ba))
 			end
 			gfx.setLineWidth(1)
 		end
