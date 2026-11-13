@@ -13,6 +13,16 @@
 -- (they keep their rest poses); throw.reset stands everything back up (the
 -- System Menu "Pitch: reset"), and it happens by itself after the throw that
 -- leaves every far base kubb down.
+--
+-- Drilling (core/drill, DESIGN "Kubbs (drilling)"): with s.drill on, a kubb
+-- is aimed with a landing marker instead. The d-pad moves the marker over
+-- the far half, the thrower stands on the baseline straight behind it, A or
+-- B held at the release cuts the kubb, and the crank swing is judged against
+-- the power band the marker's distance needs. The aim camera is then a fixed
+-- high view of the far half (camera.drillAim), so moving the marker does not
+-- redraw the scenery. The match's kubb throws drill; the practice pitch
+-- drills when "Pitch: drill" is chosen, and the drilled kubbs stay where they
+-- end until "Pitch: reset".
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/camera"
@@ -27,10 +37,11 @@ import "render/hud"
 import "recorder"
 import "framelog"
 import "core/frametel"
+import "core/drill"
 
 local gfx <const> = playdate.graphics
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
-local phys, playback, frametel = tw.world, tw.playback, tw.frametel
+local phys, playback, frametel, drill = tw.world, tw.playback, tw.frametel, tw.drill
 local render, hud = tw.render.world, tw.render.hud
 local max, min, rad, abs, sqrt, floor = math.max, math.min, math.rad, math.abs, math.sqrt, math.floor
 
@@ -57,6 +68,9 @@ throw.tune = {
 	tossTumble = 0.5,     -- a lobbed kubb turns end over end at this fraction of the swing's
 	                      -- tumble rate (guess: it is heavier and thrown softer than a baton)
 	instantHold = 0.1,    -- s the rest hold lasts in instant mode (self-tests)
+	drillKeep = 10,       -- drilled kubbs kept on the practice pitch; the oldest goes past this
+	markerRadius = 0.2,   -- m: the drill marker's ring on the ground
+	markerSegments = 12,  -- straight pieces the ring is drawn with
 }
 
 -- The match (scenes/match) uses the same scene with these per-scene fields,
@@ -74,6 +88,8 @@ throw.tune = {
 --   s.advY               the advantage line to draw (pitch and minimap)
 --   s.instant            show a throw's last frame at once (self-tests)
 --   s.scripted           launched by throw.autoLaunch, not the crank: no trace written
+--   s.drill              aim kubbs with the drill marker (set by throw.prepare for a
+--                        kubb throw; throw.setDrill on the practice pitch)
 
 -- The practice layout: five base kubbs on each baseline and the king.
 -- `base` marks the far base kubbs (all down = stand everything back up).
@@ -173,6 +189,10 @@ end
 
 -- The aim camera for this frame.
 local function aimCamera(s)
+	if s.drill then
+		camera.drillAim(s.aimCam, s.lineY)
+		return
+	end
 	local tg = s.targets
 	local look = nil
 	if s.targetIds then look = camera.lookDistFor(s.playerX, s.playerY, tg, #tg) end
@@ -222,11 +242,28 @@ function throw.new(provider)
 		sceneName = "practice",  -- or "match": the frame-time log's scene
 		ft = frametel.new(),     -- this throw's frame times (core/frametel), reset per throw
 		ftInfo = {},             -- the rest of its log line, filled once at rest
+		drill = false,           -- aim kubbs with the drill marker
+		thisDrill = false,       -- the throw in the air (or at rest) was drilled
+		markerX = 0, markerY = 0, markerHeld = 0, markerSide = nil,
+		cut = 0,                 -- drill.CUT_NONE / CUT_A / CUT_B, from A or B held
+		drillSol = {},           -- core/drill solution for the marker (reused)
+		drillLaunch = {},        -- core/drill launch of the last drill (reused)
+		drillSeq = 0,            -- practice: drilled kubbs thrown (their ids)
 	}
 	throw.standUp(s)
 	updateTargets(s)
 	aimCamera(s)
 	return s
+end
+
+-- The drill solution for the marker; the thrower stands where it says.
+local function solveDrill(s)
+	local sol = drill.solve(s.markerX, s.markerY, s.lineY, s.drillSol)
+	s.playerX, s.playerY, s.swivel, s.loftDeg = sol.x, s.lineY, sol.swivel, sol.loft
+end
+
+local function markerHome(s)
+	s.markerX, s.markerY = 0, s.lineY + drill.tune.markerStartY
 end
 
 -- The match: set the next throw up. `setup` is a core/match setup (view
@@ -240,6 +277,17 @@ function throw.prepare(s, setup)
 	s.auto = false
 	s.playerX, s.playerY, s.swivel = 0, setup.lineY, 0
 	s.loftDeg = flight.tune.loftDefaultDeg
+	-- a kubb is drilled; the marker stays where the team left it last throw
+	local drilling = setup.projectile == "kubb"
+	if drilling then
+		if not (s.drill and s.markerSide == setup.side) then markerHome(s) end
+		s.markerSide = setup.side
+		s.drill = true
+		solveDrill(s)
+	else
+		s.drill = false
+	end
+	s.thisDrill = false
 	s.mode = "aim"
 	s.pb, s.result, s.readout, s.last = nil, nil, nil, nil
 	s.arm, s.armed = nil, false
@@ -250,9 +298,36 @@ function throw.prepare(s, setup)
 	s.viewCam = s.aimCam
 end
 
+-- Practice: drill kubbs at the far half (on) or throw batons (off). Back to
+-- aiming; drilled kubbs already on the pitch stay until a reset.
+function throw.setDrill(s, on)
+	if s.mode ~= "aim" then
+		-- a throw is in the air: switch once it is back to aiming
+		s.pendingDrill = on and true or false
+		return false
+	end
+	s.pendingDrill = nil
+	s.drill = on and true or false
+	s.projectile = on and "kubb" or "baton"
+	s.projectileId = nil
+	if on then
+		markerHome(s)
+		solveDrill(s)
+	else
+		s.playerX, s.playerY, s.swivel, s.loftDeg = 0, s.lineY, 0, flight.tune.loftDefaultDeg
+	end
+	s.arm, s.armed = nil, false
+	swing.reset(s.swing)
+	s.swing.backswing = 0
+	s.readout, s.last = nil, nil
+	aimCamera(s)
+	return true
+end
+
 -- Back to aiming with everything standing (System Menu "Pitch: reset").
 function throw.reset(s)
 	throw.standUp(s)
+	s.projItem, s.thisDrill = nil, false
 	updateTargets(s)
 	s.mode = "aim"
 	s.pb = nil
@@ -260,6 +335,8 @@ function throw.reset(s)
 	swing.reset(s.swing)
 	s.swing.backswing = 0
 end
+
+local swingInput, drawMarker
 
 local function aimInput(s, dt)
 	local t = throw.tune
@@ -271,11 +348,28 @@ local function aimInput(s, dt)
 	local prevArm = s.arm
 	s.arm = arm
 
+	local dx = (right and 1 or 0) - (left and 1 or 0)
+	local dy = (up and 1 or 0) - (down and 1 or 0)
+	local sw = s.swing
+	if s.drill then
+		-- d-pad: the marker, across and along, faster the longer it is held
+		if dx ~= 0 or dy ~= 0 then
+			local dtn = drill.tune
+			s.markerHeld = s.markerHeld + dt
+			local v = min(dtn.markerSpeedMax, dtn.markerSpeed + dtn.markerAccel * s.markerHeld)
+			local mx, my = drill.clampMarker(s.markerX + dx * v * dt, s.markerY - s.lineY + dy * v * dt)
+			s.markerX, s.markerY = mx, s.lineY + my
+			solveDrill(s)
+		else
+			s.markerHeld = 0
+		end
+		-- A or B held: the cut, read again every frame up to the release
+		s.cut = p:held("a") and drill.CUT_A or (p:held("b") and drill.CUT_B or drill.CUT_NONE)
+		return swingInput(s, sw, delta, arm, prevArm, dt)
+	end
 	-- d-pad: walk. Left/right along the line, down steps back from it, up
 	-- comes forward again as far as the line (in a match, as far as the
 	-- advantage line when the engine allows it: s.forwardY).
-	local dx = (right and 1 or 0) - (left and 1 or 0)
-	local dy = (up and 1 or 0) - (down and 1 or 0)
 	if dx ~= 0 then
 		s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX + dx * t.walkSpeed * dt))
 	end
@@ -297,7 +391,6 @@ local function aimInput(s, dt)
 
 	-- hold B: the crank swivels the player. Hold A: the crank changes the
 	-- loft. Either way the crank does not throw.
-	local sw = s.swing
 	local holdA, holdB = p:held("b"), p:held("a")   -- holdA = swivel (B button), holdB = loft (A button)
 	if holdA or holdB then
 		local turn = delta * swing.tune.forwardSign
@@ -312,6 +405,12 @@ local function aimInput(s, dt)
 		s.armed = false
 		return nil
 	end
+	return swingInput(s, sw, delta, arm, prevArm, dt)
+end
+
+-- The crank throws: arming at the bottom of the turn, the wind-up and the
+-- flick (core/swing), with the trace recorder fed alongside.
+swingInput = function(s, sw, delta, arm, prevArm, dt)
 	-- the wind-up starts when the crank crosses the bottom of the turn going
 	-- back; until then the crank does nothing
 	if sw.phase == "idle" then
@@ -345,11 +444,28 @@ local function launch(s, r)
 	local t = throw.tune
 	local fl = s.flight
 	local kubb = s.projectile == "kubb"
-	local tumble, tilt = r.tumbleRate, r.tilt
+	local tumble, tilt, speed = r.tumbleRate, r.tilt, r.launchSpeed
 	-- a lobbed kubb: slower end over end, never sideways (no helicopter)
 	if kubb then tumble, tilt = tumble * t.tossTumble, 0 end
+	-- a drilled kubb (not the computer's: it lobs): the launch the drill
+	-- solution and the swing make (core/drill)
+	local drilling = kubb and s.drill and not s.scripted
+	local L
+	if drilling then
+		local sol = s.drillSol
+		L = drill.launch(sol, r, s.cut, s.drillLaunch)
+		s.playerX, s.playerY, s.swivel, s.loftDeg = sol.x, s.lineY, L.swivel, L.loft
+		speed, tumble = L.speed, 0
+		if not s.projectileId then
+			-- practice: each drilled kubb is a piece of its own
+			s.drillSeq = s.drillSeq + 1
+			s.drillId = "d" .. s.drillSeq
+		end
+	end
+	s.thisDrill = drilling
+	local id = s.projectileId or (drilling and s.drillId) or nil
 	-- the stage 1 prediction: landing point and flight time for the cameras
-	flight.launch(fl, s.playerX, s.playerY, s.swivel, s.loftDeg, r.launchSpeed, tumble, tilt)
+	flight.launch(fl, s.playerX, s.playerY, s.swivel, s.loftDeg, speed, tumble, tilt)
 	-- the physics world: every piece where it lies now, then the baton
 	local pieces = {}
 	for i = 1, s.nitems do
@@ -361,11 +477,16 @@ local function launch(s, r)
 	for i = 1, s.nitems do s.bodyIndex[i] = w.byId[s.items[i].id].index end
 	local b
 	if kubb then
-		b = phys.launchKubb(w, s.projectileId, s.playerX, s.playerY, s.swivel, s.loftDeg, r.launchSpeed, tumble)
+		if drilling then
+			b = phys.launchDrill(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
+				L.spin, L.wobble, L.digGain)
+		else
+			b = phys.launchKubb(w, id, s.playerX, s.playerY, s.swivel, s.loftDeg, speed, tumble)
+		end
 		-- the thrown kubb is drawn as one more item after the pitch's
 		local it = s.projItem
-		if not it or it.id ~= s.projectileId then
-			it = render.item(s.projectileId, "kubb")
+		if not it or it.id ~= id then
+			it = render.item(id, "kubb")
 			s.projItem = it
 		end
 		s.items[s.nitems + 1] = it
@@ -384,8 +505,16 @@ local function launch(s, r)
 	s.last = s.last or {}
 	local l = s.last
 	l.power, l.smoothness, l.tilt, l.legal = r.power, r.smoothness, tilt, kubb or r.legal
-	l.launchSpeed, l.tumbleRate, l.loft = r.launchSpeed, tumble, s.loftDeg
+	l.launchSpeed, l.tumbleRate, l.loft = speed, tumble, s.loftDeg
 	l.distance, l.down, l.hit = nil, nil, nil
+	l.drill = drilling
+	if drilling then
+		local sol = s.drillSol
+		l.markerX, l.markerY, l.band = s.markerX, s.markerY, sol.band
+		l.verdict = drill.judge(r.power or 0, sol.band)
+		l.cut, l.jerk = s.cut, L.jerk
+		l.restX, l.restY = nil, nil
+	end
 	s.readout = nil
 	s.mode = "flight"
 	s.throws = s.throws + 1
@@ -435,14 +564,16 @@ local function landed(s)
 		it.toppled = rb.toppled
 	end
 	if s.projectile == "kubb" then
-		local rb = res.bodies[s.projectileId]
+		local rb = res.bodies[s.projItem.id]
 		render.setPose(s.projItem, rb.x, rb.y, rb.z, rb.qw, rb.qx, rb.qy, rb.qz)
+		s.projItem.toppled = rb.toppled
+		if l.drill then l.restX, l.restY = rb.x, rb.y end
 	end
-	s.readout = hud.readoutText(l)
+	s.readout = l.drill and hud.drillReadoutText(l) or hud.readoutText(l)
 	if not s.instant then
 		-- the frame-time log: one line per throw, now that it is at rest
 		local info, pb = s.ftInfo, s.pb
-		info.scene, info.proj = s.sceneName, s.projectile
+		info.scene, info.proj = s.sceneName, l.drill and "drill" or s.projectile
 		info.awake, info.contacts, info.bodies = pb.awakeMax, pb.contactsMax, w.n
 		info.steps, info.phys = pb.steps, pb.busy
 		tw.framelog.write(s.ft, info)
@@ -450,11 +581,46 @@ local function landed(s)
 	if not s.scripted then
 		local r = s.swing.result
 		r.loft, r.distance = s.loftDeg, l.distance
+		if l.drill then
+			-- drill fields (core/trace): lengths from the thrower's baseline
+			local y0 = s.lineY
+			r.mode, r.band, r.verdict, r.cut = "drill", l.band, l.verdict, l.cut
+			r.markerX, r.markerY = l.markerX, l.markerY - y0
+			r.landX, r.landY = l.landX, l.landY - y0
+			r.restX, r.restY = l.restX, l.restY - y0
+			r.throwerX, r.launchSpeed = s.playerX, l.launchSpeed
+		end
 		tw.recorder.write("release", r)
 		r.loft, r.distance = nil, nil
+		r.mode, r.band, r.verdict, r.cut, r.markerX, r.markerY = nil, nil, nil, nil, nil, nil
+		r.landX, r.landY, r.restX, r.restY, r.throwerX = nil, nil, nil, nil, nil
 	end
 	s.mode = "rest"
 	s.restTime = 0
+end
+
+-- Practice: the drilled kubb at rest becomes a piece of the pitch, and the
+-- oldest drilled kubb goes once there are more than tune.drillKeep.
+local function keepDrilled(s)
+	local it = s.projItem
+	s.projItem = nil
+	if not it then return end
+	it.drilled = true
+	s.nitems = s.nitems + 1
+	s.items[s.nitems] = it
+	local n = 0
+	for i = 1, s.nitems do
+		if s.items[i].drilled then n = n + 1 end
+	end
+	if n > throw.tune.drillKeep then
+		for i = 1, s.nitems do
+			if s.items[i].drilled then
+				table.remove(s.items, i)
+				s.nitems = s.nitems - 1
+				break
+			end
+		end
+	end
 end
 
 -- Are all the far base kubbs down?
@@ -539,7 +705,13 @@ function throw.update(s)
 			s.pb = nil
 			swing.reset(s.swing)
 			s.swing.backswing = 0
-			if baseDown(s) then throw.standUp(s) end
+			if s.thisDrill then
+				keepDrilled(s)
+			elseif baseDown(s) then
+				throw.standUp(s)
+			end
+			s.thisDrill = false
+			if s.pendingDrill ~= nil then throw.setDrill(s, s.pendingDrill) end
 			updateTargets(s)
 		end
 	end
@@ -582,6 +754,47 @@ function throw.autoLaunch(s, a)
 	showFrame(s, 0)
 end
 
+-- The drill marker on the ground: a ring with a cross in it, and a dotted
+-- line to it from the thrower's spot on the baseline. Drawn over the world
+-- image each frame (a few lines), so moving it leaves the cached scenery be.
+local ringX, ringY = {}, {}
+drawMarker = function(s, c)
+	local t = throw.tune
+	local mx, my = s.markerX, s.markerY
+	local x0, y0, x1, y1 = camera.projectSegment(c, s.drillSol.x, s.lineY, 0, mx, my, 0)
+	if x0 then
+		gfx.setLineWidth(2)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer2x2)
+		gfx.drawLine(x0, y0, x1, y1)
+	end
+	local n, R = t.markerSegments, t.markerRadius
+	local ok = true
+	for i = 1, n do
+		local a = 2 * math.pi * i / n
+		local sx, sy = camera.project(c, mx + R * math.cos(a), my + R * math.sin(a), 0)
+		if not sx then ok = false break end
+		ringX[i], ringY[i] = sx, sy
+	end
+	if not ok then return end
+	-- white under black, so it reads on the grass pattern and on a kubb
+	for pass = 1, 2 do
+		gfx.setColor(pass == 1 and gfx.kColorWhite or gfx.kColorBlack)
+		gfx.setLineWidth(pass == 1 and 4 or 2)
+		local px, py = ringX[n], ringY[n]
+		for i = 1, n do
+			gfx.drawLine(px, py, ringX[i], ringY[i])
+			px, py = ringX[i], ringY[i]
+		end
+		local cx, cy = camera.project(c, mx, my, 0)
+		local w = (ringX[n] - ringX[n // 2]) * 0.3
+		gfx.drawLine(cx - w, cy, cx + w, cy)
+		gfx.drawLine(cx, cy - w * 0.6, cx, cy + w * 0.6)
+	end
+	gfx.setLineWidth(1)
+	gfx.setColor(gfx.kColorBlack)
+end
+
 function throw.draw(s)
 	local b = nil
 	local n = s.nitems
@@ -589,11 +802,18 @@ function throw.draw(s)
 		if s.projectile == "kubb" then n = n + 1 else b = s.baton end
 	end
 	render.advantageY = s.advY
-	render.draw(s.viewCam or s.aimCam, s.items, n, b)
+	local cam = s.viewCam or s.aimCam
+	render.draw(cam, s.items, n, b)
+	local marker = s.drill and (s.mode == "aim" or s.thisDrill)
+	if marker then drawMarker(s, cam) end
 
 	local hs = s.hudState
 	hs.playerX, hs.lineY = s.playerX, s.playerY
-	hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, swing.tune.launchMax)
+	if marker then
+		hs.aimX, hs.aimY = s.markerX, s.markerY
+	else
+		hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, swing.tune.launchMax)
+	end
 	hs.baton = (s.mode ~= "aim") and s.baton or nil
 	hs.pieces, hs.npieces = s.items, s.nitems
 	hs.advY = s.advY
@@ -610,14 +830,18 @@ function throw.draw(s)
 	local sw = s.swing
 	local cap = (sw.phase ~= "idle") and swing.powerCap(sw) or nil
 	local power = (s.mode ~= "aim" or sw.phase == "idle") and s.last and s.last.power or nil
-	hud.panel(s.loftDeg, flight.tune.loftMinDeg, flight.tune.loftMaxDeg, cap, power)
+	local band = marker and s.drillSol.band or nil
+	hud.panel(s.loftDeg, flight.tune.loftMinDeg, flight.tune.loftMaxDeg, cap, power, band, drill.tune.bandHalf)
 
 	-- s.covered: a card is over the pitch (the match's hand-off and winner
 	-- cards), so the gauge and its prompts stay out of the way
 	if s.covered then return end
 	hud.swingGauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
 		swing.tune.fullBackswingDeg, s.mode ~= "aim", s.last and s.last.legal, s.last and s.last.power,
-		s.arm or 0)
+		s.arm or 0, band, drill.tune.bandHalf, s.last and s.last.drill and s.last.verdict or nil)
+	if marker and s.mode == "aim" and s.cut ~= drill.CUT_NONE then
+		hud.cutHint(s.cut == drill.CUT_A and "cut: curls right" or "cut: curls left")
+	end
 
 	if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout, s.readoutY) end
 	if s.mode == "aim" and s.input:docked() then hud.crankPrompt() end

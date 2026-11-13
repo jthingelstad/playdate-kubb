@@ -104,17 +104,37 @@ mark, and, while idle, the crank's real position and which way to turn.
 
 ### Kubbs (drilling)
 
-Same walk, swivel, loft and crank swing; always from the baseline (II.C.1). Per the glossary a
-drilled kubb spins on its long axis like a football with the nose down. Two more inputs:
+Always from the baseline (II.C.1). Per the glossary a drilled kubb spins on its long axis like
+a football with the nose down. The kubb is aimed differently from the baton:
 
-- **Cut:** not settled. The first design held A or B during the flick, but A and B plus the
-  crank are now swivel and loft, so the cut needs another input (to decide in stage 4).
-- **Smoothness:** a clean flick keeps the nose down, so the edge spikes in and the kubb dies. A
-  jerky flick wobbles the nose, and the kubb lands flat or tumbles and bounces.
+- **Aim is a landing marker on the ground.** The d-pad moves it over the far half (left/right
+  across, up/down along), clamped to an area a little past the legal half (3 m either side,
+  3.5 to 8.6 m out), so "the hard way" stays possible. The thrower stands on the baseline
+  straight behind the marker (clamped inside the stakes); there is no walk step. The aim
+  camera is a fixed, higher view looking down on the whole target half, so moving the marker
+  does not redraw the scenery. The marker is a ring with a cross and a dotted line from the
+  thrower. Earlier kubbs of the turn stay where they landed.
+- **The throw is the crank swing, judged against a target.** The game solves the launch that
+  lands a clean drill on the marker: a low loft chosen by distance (26 degrees near, 30
+  far) and the speed that carries it there. The gauge and the power meter show the **band**:
+  the power that distance needs (a farther marker needs more). Winding back to the band and
+  flicking hard puts the power in it. Inside the band a power error barely moves the kubb;
+  outside it the kubb goes short or long. Smoothness decides the landing: a clean flick keeps
+  the nose down and the kubb dies near the marker; a jerky one wobbles it nose over tail and it
+  runs on. The swing's tilt pushes the line a little sideways.
+- **Cut:** A or B held at the release (neither: straight). A cut is spin about the long axis,
+  and the ground turns it into a curve after landing: A curls right, B curls left. On grass
+  it is modest, about 5 to 17 cm (10 cm on average); on sand less. The release roll is
+  solved so the kubb always lands on a long edge, which keeps the curve the same way every
+  time.
+
+Every mapping is a tunable in `tw.drill.tune` (`source/core/drill.lua`). The computer
+thrower still lobs its kubbs (stage 3). Stage 4 as built is described in AGENTS.md
+"Drilling".
 
 "The hard way" (land out of bounds and cut back in), nudges and clacks are not special moves;
-they fall out of the physics. How much a kubb cuts depends on the surface (section 5): a lot
-on grass, hardly at all on sand. The Minnesota slide is the same throw on ice, built last.
+they fall out of the physics. How much a kubb cuts depends on the surface (section 5): more on
+grass, less on sand. The Minnesota slide is the same throw on ice, built last.
 
 ## 5. Physics
 
@@ -311,6 +331,8 @@ be read.
   made from the bottom of the screen. The title offers Match and Practice pitch.
 - Kubbs are lobbed, not drilled: the baton's swing, a kubb body turning end over end at
   half the swing's tumble, no cut. The follow and impact cameras are the baton's.
+  (Superseded for the players' own kubbs by the drilling prototype: section 4 "Kubbs
+  (drilling)"; the computer thrower still lobs.)
 - Raising and punishment placement are automatic (the engine's policies); there is no
   raising view yet.
 - The aim camera frames the live targets (field kubbs, else base kubbs, else the king) and,

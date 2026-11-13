@@ -13,7 +13,9 @@
 --              Data folder (replay with tools/replay_traces.lua). On by
 --              default while the throw is being tuned; self-tests leave it off.
 --   "Pitch"    practice only: play (nothing) / reset (stand every piece back
---              up) / bench (the physics benchmark of core/bench plus the
+--              up and clear the drilled kubbs) / drill (aim kubbs at the far
+--              half with a landing marker; they stay where they end) / batons
+--              (back to throwing batons) / bench (the physics benchmark of core/bench plus the
 --              scene's draw time; shows the figures and appends a line to
 --              bench.txt) / title (back to the title)
 --   "Match"    match only: play (nothing) / resign (the team on turn gives
@@ -55,6 +57,7 @@ import "selftest/match-opening"
 import "selftest/match-toss"
 import "selftest/match-whole"
 import "selftest/match-debris"
+import "selftest/drill"
 
 local function launchArgs()
 	local args = {}
@@ -107,9 +110,11 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			item = menu:addOptionsMenuItem("Pitch", { "play", "reset", "bench", "title" }, "play", function(v)
+			item = menu:addOptionsMenuItem("Pitch", { "play", "reset", "drill", "batons", "bench", "title" }, "play", function(v)
 				if v == "reset" then
 					throw.reset(current)
+				elseif v == "drill" or v == "batons" then
+					throw.setDrill(current, v == "drill")
 				elseif v == "bench" then
 					local scene = current
 					benchRun = tw.benchscreen.start(function() throw.draw(scene) end)

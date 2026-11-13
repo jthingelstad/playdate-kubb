@@ -209,10 +209,14 @@ local panelKey = {}
 --   loftDeg, loftMin, loftMax
 --   cap: power cap from the current backswing (0..1) while winding, or nil
 --   power: the last throw's power (0..1), or nil
-function hud.panel(loftDeg, loftMin, loftMax, cap, power)
+--   band, half: a drill's target band (center and half width, power units),
+--   bracketed beside the meter, or nil
+function hud.panel(loftDeg, loftMin, loftMax, cap, power, band, half)
 	local K = panelKey
+	band = band or false
 	local same = K[1] == loftDeg and K[2] == loftMin and K[3] == loftMax and K[4] == cap and K[5] == power
-	K[1], K[2], K[3], K[4], K[5] = loftDeg, loftMin, loftMax, cap, power
+		and K[6] == band and K[7] == half
+	K[1], K[2], K[3], K[4], K[5], K[6], K[7] = loftDeg, loftMin, loftMax, cap, power, band, half
 	local ox, oy = begin(panelLayer, same)
 	if not ox then return end
 	local t = hud.tune
@@ -231,7 +235,7 @@ function hud.panel(loftDeg, loftMin, loftMax, cap, power)
 	gfx.setLineWidth(2)
 	gfx.drawLine(cx, cy, cx + (r + 2) * cos(a), cy - (r + 2) * sin(a))
 	gfx.setLineWidth(1)
-	textImage(tostring(floor(loftDeg + 0.5))):draw(x + 38, y + 4)
+	textImage(tostring(floor(loftDeg + 0.5))):draw(x + 36, y + 4)
 	-- meter: a vertical bar on the right; the cap (backswing) as a pattern,
 	-- the thrown power solid
 	local mx, my, mw, mh = x + w - 13, y + 5, 8, h - 10
@@ -246,12 +250,41 @@ function hud.panel(loftDeg, loftMin, loftMax, cap, power)
 		local ph = floor((mh - 2) * min(1, power) + 0.5)
 		gfx.fillRect(mx + 1, my + mh - 1 - ph, mw - 2, ph)
 	end
+	if band then
+		-- the band: a bracket on the meter's left, from band - half to band + half
+		local lo = my + mh - 1 - floor((mh - 2) * max(0, band - half) + 0.5)
+		local hi = my + mh - 1 - floor((mh - 2) * min(1, band + half) + 0.5)
+		gfx.setLineWidth(2)
+		gfx.drawLine(mx - 4, hi, mx - 4, lo)
+		gfx.drawLine(mx - 4, hi, mx - 1, hi)
+		gfx.drawLine(mx - 4, lo, mx - 1, lo)
+		gfx.setLineWidth(1)
+	end
 	finish(panelLayer)
 end
 
 -- The debug readout text for a throw: power, smoothness, tilt,
 -- LEGAL/HELICOPTER, distance. Built once per throw, not per frame.
 -- r.down (kubbs toppled by the throw) is added when the physics gave it.
+-- The readout for a drill: power against the band and the verdict,
+-- smoothness, the cut, and how far from the marker it first landed / came
+-- to rest.
+function hud.drillReadoutText(r)
+	local function off(x, y)
+		if not x then return 0 end
+		return math.sqrt((x - r.markerX) ^ 2 + (y - r.markerY) ^ 2)
+	end
+	local cut = (r.cut or 0) > 0 and "R" or ((r.cut or 0) < 0 and "L" or "-")
+	return string.format("P %.2f/%.2f %s  S %.2f  cut %s  off %.2f/%.2f m",
+		r.power, r.band, string.upper(r.verdict or ""), r.smoothness, cut, off(r.landX, r.landY), off(r.restX, r.restY))
+end
+
+-- The cut being held while aiming a drill, bottom right.
+function hud.cutHint(s)
+	local b = textBox(s, 0, 0, 3, 2, 3, 1)
+	b.img:draw(camera.SCREEN_W - b.w - 12, camera.SCREEN_H - b.h - 8)
+end
+
 function hud.readoutText(r)
 	local s = string.format("P %.2f  S %.2f  tilt %d  %s  %.2f m",
 		r.power, r.smoothness, floor(r.tilt + 0.5), r.legal and "LEGAL" or "HELICOPTER", r.distance or 0)
@@ -344,7 +377,7 @@ local function label(s, cx, top)
 end
 
 local gt = hud.tune
-local gaugeLayer = newLayer(gt.gaugeX - 40, gt.gaugeY - 40, gt.gaugeX + 40, 239)
+local gaugeLayer = newLayer(gt.gaugeX - 46, gt.gaugeY - 46, gt.gaugeX + 46, 239)
 local gaugeKey = {}
 local thrownTop = function(h) return camera.SCREEN_H - h - 4 end
 local gaugeTop = function(h) return gt.gaugeY - gt.gaugeR - 12 - h end
@@ -362,13 +395,17 @@ local gaugeTop = function(h) return gt.gaugeY - gt.gaugeR - 12 - h end
 -- The arm hangs straight down at rest, winds back to the left and swings
 -- forward to the right. A thick arc grows with the backswing up to the
 -- full-power tick. The label under it says what to do next.
-function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power, crank)
+--   band, half: a drill's target band (power units: the backswing that caps
+--   power there), drawn on the rim; verdict: "short" | "on" | "long" for a
+--   thrown drill. All three nil for a baton.
+function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power, crank, band, half, verdict)
 	local t = hud.tune
 	local cx, cy, r = t.gaugeX, t.gaugeY, t.gaugeR
 	if thrown then
 		-- the baton is away: only a small result label at the bottom, so the
 		-- gauge does not cover the flight and the impact
-		label((legal and "*THROWN* " or "*HELICOPTER* ") .. floor((power or 0) * 100 + 0.5) .. "%", cx, thrownTop)
+		local head = verdict and ("*" .. string.upper(verdict) .. "* ") or (legal and "*THROWN* " or "*HELICOPTER* ")
+		label(head .. floor((power or 0) * 100 + 0.5) .. "%", cx, thrownTop)
 		return
 	end
 	local idle = (phase == "idle") and not thrown
@@ -377,21 +414,37 @@ function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power, 
 	local K = gaugeKey
 	local ang = idle and 0 or angle
 	local cr = idle and crank or false
+	band = band or false
 	local same = K[1] == phase and K[2] == ang and K[3] == backswing and K[4] == fullDeg and K[5] == cr
-	K[1], K[2], K[3], K[4], K[5] = phase, ang, backswing, fullDeg, cr
+		and K[6] == band and K[7] == half
+	K[1], K[2], K[3], K[4], K[5], K[6], K[7] = phase, ang, backswing, fullDeg, cr, band, half
 	local ox, oy = begin(gaugeLayer, same)
 	if ox then
 		local cx, cy = cx + ox, cy + oy
+		local disc = band and r + 13 or r + 7   -- wider for a drill: the band sits outside the rim
 		gfx.setColor(gfx.kColorWhite)
-		gfx.fillCircleAtPoint(cx, cy, r + 7)
+		gfx.fillCircleAtPoint(cx, cy, disc)
 		gfx.setColor(gfx.kColorBlack)
 		gfx.setLineWidth(1)
-		gfx.drawCircleAtPoint(cx, cy, r + 7)
+		gfx.drawCircleAtPoint(cx, cy, disc)
 		-- ticks: the start (straight down) and the full-power backswing
 		gfx.drawLine(cx, cy + r + 1, cx, cy + r + 6)
 		local fa = rad(-fullDeg)
 		gfx.setLineWidth(3)
 		gfx.drawLine(cx + (r - 1) * sin(fa), cy + (r - 1) * cos(fa), cx + (r + 6) * sin(fa), cy + (r + 6) * cos(fa))
+		-- a drill's band: the stretch of backswing that caps power inside it,
+		-- an arc on the rim with a tick at each end
+		if band then
+			local lo, hi = max(0, band - half) * fullDeg, min(1, band + half) * fullDeg
+			gfx.setLineWidth(4)
+			gfx.drawArc(cx, cy, r + 9, 180 + lo, 180 + hi)
+			gfx.setLineWidth(2)
+			for _, d in ipairs { lo, hi } do
+				local ba = rad(-d)
+				gfx.drawLine(cx + (r + 4) * sin(ba), cy + (r + 4) * cos(ba), cx + (r + 11) * sin(ba), cy + (r + 11) * cos(ba))
+			end
+			gfx.setLineWidth(1)
+		end
 		-- the backswing so far (drawArc: 0 = up, clockwise; straight down = 180)
 		if backswing > 1 then
 			gfx.setLineWidth(5)
@@ -435,6 +488,11 @@ function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power, 
 	local s
 	if phase == "swinging" then
 		s = nil
+	elseif phase == "winding" and band then
+		local p = backswing / fullDeg
+		if p < band - half then s = "*wind back to the band*"
+		elseif p <= band + half then s = "*in the band: flick!*"
+		else s = "*past the band: ease off*" end
 	elseif phase == "winding" then
 		s = (backswing >= fullDeg) and "*FULL: flick forward!*" or "*flick forward to throw*"
 	else

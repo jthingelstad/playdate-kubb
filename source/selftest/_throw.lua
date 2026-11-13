@@ -5,7 +5,8 @@
 --   script  input.scripted steps (crank degrees are raw, as getCrankChange)
 --   shots   array of predicates fn(scene, frame) -> true when the frame
 --           should be captured; each fires once, in order
---   check   optional fn(scene) -> nil or an error string, run at the end
+--   check   optional fn(scene) -> nil or an error string, run at the end; a
+--           second return value is appended to the marker's note
 --   setup   optional fn(scene), run once after the scene is made (a layout,
 --           a surface)
 -- The scenario ends when every shot is taken (or fails after maxFrames).
@@ -41,8 +42,9 @@ function tw.selftest.throwScenario(def)
 			end
 			if shot > #def.shots then
 				if def.check then
-					local err = def.check(scene)
+					local err, extra = def.check(scene)
 					if err then error(err) end
+					if extra then ctx.note = ctx.note .. " " .. extra end
 				end
 				return true
 			end
