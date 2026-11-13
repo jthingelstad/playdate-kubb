@@ -26,7 +26,7 @@ local function dot(x, y, size)
 end
 
 -- state: playerX, lineY, aimX, aimY (aim preview landing), baton (or nil),
--- landX, landY (or nil)
+-- landX, landY (or nil), pieces and npieces (render/world items)
 function hud.minimap(state)
 	local m = camera.minimap
 	local ox, oy, w, h = m.ox, m.oy, m.w, m.h
@@ -39,12 +39,13 @@ function hud.minimap(state)
 	for x = 0, w, 3 do gfx.drawPixel(ox + x, oy + h / 2) end
 	-- base kubbs sit on the baselines; their dots are drawn just inside so
 	-- they do not merge with the minimap's edge
-	local pieces = tw.render.world.pieces
-	for i = 1, #pieces do
+	-- toppled pieces are a single pixel
+	local pieces = state.pieces
+	for i = 1, (state.npieces or 0) do
 		local p = pieces[i]
 		local y = p.y
 		if y >= 8 then y = 7.8 elseif y <= 0 then y = 0.2 end
-		dot(p.x, y, p.king and 3 or 2)
+		dot(p.x, y, p.toppled and 1 or (p.king and 3 or 2))
 	end
 	-- aim line from the player to the full-power landing point
 	local px, py = camera.toMinimap(state.playerX, state.lineY)
@@ -112,9 +113,12 @@ end
 
 -- The debug readout text for a throw: power, smoothness, tilt,
 -- LEGAL/HELICOPTER, distance. Built once per throw, not per frame.
+-- r.down (kubbs toppled by the throw) is added when the physics gave it.
 function hud.readoutText(r)
-	return string.format("P %.2f  S %.2f  tilt %d  %s  %.2f m",
+	local s = string.format("P %.2f  S %.2f  tilt %d  %s  %.2f m",
 		r.power, r.smoothness, floor(r.tilt + 0.5), r.legal and "LEGAL" or "HELICOPTER", r.distance or 0)
+	if r.down then s = s .. string.format("  down %d", r.down) end
+	return s
 end
 
 function hud.readout(s)

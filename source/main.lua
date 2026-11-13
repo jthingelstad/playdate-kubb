@@ -11,6 +11,9 @@
 --   "Record"   append each swing's crank samples to traces.jsonl in the
 --              Data folder (replay with tools/replay_traces.lua). On by
 --              default while the throw is being tuned; self-tests leave it off.
+--   "Pitch"    play (nothing) / reset (stand every piece back up) / bench
+--              (the physics benchmark of core/bench plus the scene's draw
+--              time; shows the figures and appends a line to bench.txt)
 
 import "CoreLibs/graphics"
 
@@ -20,6 +23,7 @@ import "input"
 import "recorder"
 import "scenes/title"
 import "scenes/throw"
+import "benchscreen"
 import "selftest/runner"
 import "selftest/hello"
 import "selftest/aim-center"
@@ -31,6 +35,13 @@ import "selftest/helicopter"
 import "selftest/gauge"
 import "selftest/gauge-ghost"
 import "selftest/rearm"
+import "selftest/hit"
+import "selftest/miss"
+import "selftest/field"
+import "selftest/skid"
+import "selftest/skid-sand"
+import "selftest/autoreset"
+import "selftest/bench"
 
 local function launchArgs()
 	local args = {}
@@ -63,7 +74,24 @@ else
 		tw.recorder.clear()
 	end)
 
+	-- The third (and last: the System Menu takes three) item: an options
+	-- item whose choice acts when the menu closes, then reads "play" again.
+	local benchRun = nil
+	local pitchItem
+	pitchItem = menu:addOptionsMenuItem("Pitch", { "play", "reset", "bench" }, "play", function(v)
+		if v == "reset" then
+			throw.reset(scene)
+		elseif v == "bench" then
+			benchRun = tw.benchscreen.start(function() throw.draw(scene) end)
+		end
+		pitchItem:setValue("play")
+	end)
+
 	function playdate.update()
+		if benchRun then
+			if tw.benchscreen.update(benchRun) then benchRun = nil end
+			return
+		end
 		throw.update(scene)
 		throw.draw(scene)
 	end

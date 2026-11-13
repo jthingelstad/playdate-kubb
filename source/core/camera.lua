@@ -36,7 +36,8 @@ camera.tune = {
 		yaw = 0.42,          -- rad the camera sits off the line of flight, toward the pitch center
 		lookUp = 0.08,       -- m above the landing point it looks at
 		f = 700,             -- px; a standing kubb at the landing point is about 35 px tall
-		cy = 132,
+		cy = 104,            -- px row of the look point: high enough that a kubb there stands clear
+		                     -- of the throw gauge and its label (stage 2: the hit happens there)
 	},
 	follow = {
 		marginX = 30,        -- px kept between the baton's center and the screen edge while following
@@ -149,10 +150,13 @@ end
 
 -- The impact camera (DESIGN 3): low and close to the predicted landing point
 -- (lx, ly), set back along the line of flight (dirX, dirY, unit horizontal)
--- and turned off it by tune.impact.yaw toward the pitch center.
-function camera.impact(c, lx, ly, dirX, dirY)
+-- and turned off it by tune.impact.yaw toward the pitch center. `side`
+-- (1 or -1) fixes which way it turns; by default it is chosen from lx, so a
+-- caller that moves the point during a throw passes the side it started with
+-- (otherwise the camera jumps across when the point crosses x = 0).
+function camera.impact(c, lx, ly, dirX, dirY, side)
 	local t = camera.tune.impact
-	local side = (lx > 0) and 1 or -1           -- swing the camera toward x = 0
+	side = side or ((lx > 0) and 1 or -1)       -- swing the camera toward x = 0
 	local a = t.yaw * side
 	local ca, sa = cos(a), sin(a)
 	-- rotate the backwards direction (-dir) by a about z
