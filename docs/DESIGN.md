@@ -339,7 +339,7 @@ be read.
 - It is pass and play on one Playdate (stage 5's mode, without names): teams "Team A" and
   "Team B" with one player each, a hand-off card before each team's turn, and Team B
   throwing from the far baseline with the whole pitch turned 180 degrees, so every throw is
-  made from the bottom of the screen. The title offers Match and Practice pitch.
+  made from the bottom of the screen. The title offers PASS + PLAY and PRACTICE.
 - Kubbs are lobbed, not drilled: the baton's swing, a kubb body turning end over end at
   half the swing's tumble, no cut. The follow and impact cameras are the baton's.
   (Superseded for the players' own kubbs by the drilling prototype: section 4 "Kubbs
@@ -359,6 +359,22 @@ be read.
   topple it, which counts for that throw). Tossed kubbs lie where they landed until they
   are raised. The hand-off clears it all and the pitch is the engine's again. The rules
   engine stays the judge: a kubb already down adds nothing when it is hit again.
+
+**Woodcut as built** (type, title, cards and launcher from `docs/design/`; AGENTS.md
+"Woodcut type, title, cards and launcher"):
+
+- The display face is Throwing Wood Display, a 1-bit cut of Londrina Solid Black (SIL OFL
+  1.1, renamed because "Londrina Solid" is a Reserved Font Name) at cap 16 and 32; labels are
+  Roobert 10 Bold from the system, in capitals.
+- The title shows only what works today: PASS + PLAY and PRACTICE (no VS PLAYDATE, no GAMES,
+  no rules line). The menu is set in the display face at 16 px.
+- The hand-off card says who takes the Playdate, what the other team took last turn ("THE
+  FIRST TURN" on turn 1, "TOOK NONE" for a turn with no kubbs), the kubbs and batons to throw,
+  and a small map of the pitch with the turn and base count. The winner card gives how it was
+  won, turns and minutes, the winner's baton hit rate and whether the game file was saved;
+  A is a rematch, B the title. Names are set at 32 px, smaller than the boards.
+- The launcher card, its highlight (the last B tipping over), the king icon and the launch
+  image are in `source/launcher/`.
 
 Stages 2 and 3 do not depend on each other (rules talks to physics only through "what did
 this throw topple and where did things come to rest"), so they run in parallel in separate
