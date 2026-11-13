@@ -1,0 +1,10 @@
+[Event "Throwing Wood"]
+[Team A "Jamie"]
+[Team A Players "Jamie (j)"]
+[Team B "Playdate"]
+[Team B Players "Club (c)"]
+[First "Team A"]
+[Win "Team A"]
+
+1. j:B j:F-
+2. c:I c:- c:- c:- c:-
