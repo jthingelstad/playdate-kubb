@@ -550,7 +550,8 @@ own item). Practice is the throw scene exactly as before.
   other kubbs are thrown, so later kubbs can hit it. `match.setup` lifts it when it is the
   kubb being rethrown and lifts them all when the kubb throwing is over. The engine still
   judges a kubb in or out when it stops; a later kubb knocking a waiting kubb around does
-  not change that.
+  not change that. A kubb that comes to rest on a waiting kubb is not on a piece in play
+  (`outcome.toss` takes the debris): it lies where it is, with no `N`.
 - Debris (`core/debris.lua`, carried by `core/match`): within a turn every thrown baton
   lies where it came to rest and every kubb it toppled that the engine took off the pitch
   lies where it fell. `match.setup` gives them as `s.debris` (core/world pieces in the view

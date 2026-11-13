@@ -211,7 +211,7 @@ function match.resolve(m, res, illegal)
 			return c
 		end
 		before.Q, before.N = inkCount("Q"), inkCount("N")
-		o = outcome.toss(res, s.pieces, s.side, s.kubb)
+		o = outcome.toss(res, s.pieces, s.side, s.kubb, s.debris)
 		g:toss(o)
 		m.tossed = m.tossed + 1
 		local k = g.kubbs[s.kubb]

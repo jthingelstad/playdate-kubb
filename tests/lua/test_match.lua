@@ -341,6 +341,36 @@ test("toss: a kubb resting on another is lowered beside it", function()
 	expect.truthy(not m.game.kubbs.a2.pose.onTop, "lowered")
 end)
 
+test("toss: a kubb resting on an out kubb that waits on the pitch lies where it is, not lowered", function()
+	local m = match.new {}
+	miss(m); miss(m)
+	for i = 1, 4 do
+		local s = setup(m, "baton")
+		local r = still(s.pieces)
+		if i <= 2 then topple(r, "a" .. i) end
+		match.resolve(m, r, false)
+	end
+	-- the first kubb stops just short of the middle line: out, and it waits
+	local s = setup(m, "toss")
+	local first = s.kubb
+	local r = still(s.pieces)
+	place(r, first, { x = 0.5, y = 3.8, standing = false, angle = 0 })
+	match.resolve(m, r, false)
+	expect.eq(m.game.kubbs[first].where, "out")
+	-- the second comes to rest on top of it, its center in bounds
+	s = setup(m, "toss")
+	expect.eq(s.debris[1].id, first)
+	r = still(s.pieces)
+	r.bodies[first] = { kind = "kubb", x = 0.5, y = 3.8, z = 0.035, qw = 1, qx = 0, qy = 0, qz = 0, toppled = true }
+	place(r, s.kubb, { x = 0.52, y = 3.95, standing = false, angle = 0 }, 0.105)
+	local second = s.kubb
+	local o = match.resolve(m, r, false)
+	expect.eq(o.rest.onTop, nil, "an out kubb is not a support in play")
+	expect.eq(o.rest.standing, false)
+	expect.truthy(not m.text:find("lowered", 1, true), m.text)
+	expect.near(m.game.kubbs[second].pose.y, 3.95, 1e-9)
+end)
+
 test("toss: Team B tosses in its own view and the kubb lands in A's half", function()
 	local m = match.new {}
 	-- A topples b1 on turn 1
