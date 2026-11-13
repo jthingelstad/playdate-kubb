@@ -35,14 +35,16 @@ test("fixture traces replay to the results they recorded", function()
 end)
 
 test("encode then decode round-trips samples and result", function()
+	local sign = swing.tune.forwardSign
 	local flat = { 0.02, -4.5, 0.021, -3.25, 0.019, 30, 0.02, 31.5, 0.02, 33, 0.02, 30 }
+	for i = 2, #flat, 2 do flat[i] = flat[i] * sign end
 	local ev, r = swing.replay(flat)
 	expect.eq(ev, "release")
-	local line = trace.encode(flat, 6, ev, r, 1, "2026-11-13 10:00:00")
+	local line = trace.encode(flat, 6, ev, r, sign, "2026-11-13 10:00:00")
 	expect.truthy(not line:find("\n"), "one line")
 	local t = trace.decode(line)
 	expect.eq(#t.samples, 6)
-	expect.near(t.samples[2][2], -3.25, 1e-9)
+	expect.near(t.samples[2][2], -3.25 * sign, 1e-9)
 	expect.eq(t.result.legal, r.legal)
 	expect.near(t.result.power, r.power, 1e-5)
 	local ev2, r2 = trace.replay(t)
@@ -59,10 +61,14 @@ end)
 
 test("replay keeps the recorded sign unless told otherwise", function()
 	local t = trace.decode(lines(FIXTURE)[1])
-	t.sign = -1
-	for _, p in ipairs(t.samples) do p[2] = -p[2] end
+	-- make the trace one recorded with the opposite of today's crank sign
+	local other = -swing.tune.forwardSign
+	if t.sign ~= other then
+		t.sign = other
+		for _, p in ipairs(t.samples) do p[2] = -p[2] end
+	end
 	local ev = trace.replay(t)
-	expect.eq(ev, "release", "mirrored samples with sign -1 replay as recorded")
+	expect.eq(ev, "release", "a trace with the other sign replays as recorded")
 	local ev2 = trace.replay(t, true)
-	expect.truthy(ev2 ~= "release", "with today's sign the mirrored throw is not a release")
+	expect.truthy(ev2 ~= "release", "with today's sign that trace is not a release")
 end)

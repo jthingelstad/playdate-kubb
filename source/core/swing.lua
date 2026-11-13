@@ -15,13 +15,10 @@
 -- Angles inside are "forward degrees": the raw crank change times
 -- tune.forwardSign, so forward is positive and the wind-up is negative.
 --
--- Crank sign. Inside Playdate: getCrankChange is negative anti-clockwise, and
--- getCrankPosition grows clockwise "when looking at the right edge of an
--- upright device", starting from straight up. Looking at that right edge, the
--- back of the device (the side facing the pitch) is on the viewer's right, so
--- clockwise moves the top of the crank away from the player, toward the
--- pitch. That is the forward swing: forwardSign = 1. If it feels backwards on
--- hardware, set forwardSign = -1 and nothing else changes.
+-- Crank sign. getCrankChange is negative anti-clockwise. Tried on hardware
+-- (2026-11-13): with forwardSign = 1 the wind-up and the throw felt swapped,
+-- so the forward swing is the anti-clockwise direction: forwardSign = -1.
+-- It is the one constant to flip; nothing else changes.
 import "core/tw"
 
 local abs, min, max = math.abs, math.min, math.max
@@ -29,7 +26,7 @@ local abs, min, max = math.abs, math.min, math.max
 local swing = {}
 
 swing.tune = {
-	forwardSign = 1,        -- +1: clockwise (positive getCrankChange) is the forward swing
+	forwardSign = -1,       -- -1: anti-clockwise (negative getCrankChange) is the forward swing
 	windStartDeg = 6,       -- back motion from idle needed before it counts as a wind-up
 	backswingMaxDeg = 180,  -- the backswing stops growing here; more back motion is ignored
 	fullBackswingDeg = 120, -- backswing that allows full power; less caps power at backswing / this
