@@ -136,7 +136,7 @@ end
 
 -- The piece a kubb body rests on: when its center sits clearly above the
 -- ground, the nearest other piece where it ended (nil otherwise).
-local function restingOn(res, pieces, rb, id, standing, z)
+local function restingOn(res, pieces, rb, id, standing, z, extraId)
 	local t = outcome.tune
 	if (standing and z <= t.onTopStanding) or (not standing and z <= t.onTopLying) then return nil end
 	local best, bd = nil, t.onTopReach
@@ -147,6 +147,12 @@ local function restingOn(res, pieces, rb, id, standing, z)
 			local d = sqrt(dx * dx + dy * dy)
 			if d < bd then best, bd = p.id, d end
 		end
+	end
+	-- the thrown kubb is not one of `pieces` (it is the projectile body)
+	local b = extraId and extraId ~= id and res.bodies[extraId]
+	if b then
+		local dx, dy = b.x - rb.x, b.y - rb.y
+		if sqrt(dx * dx + dy * dy) < bd then best = extraId end
 	end
 	return best
 end
@@ -172,7 +178,7 @@ function outcome.toss(res, pieces, side, kubbId)
 		if b and p.id ~= kubbId and movedFrom(p, b) then
 			local pose, pz = worldPose(side, b)
 			if p.role == "field" then
-				local under = restingOn(res, pieces, b, p.id, pose.standing, pz)
+				local under = restingOn(res, pieces, b, p.id, pose.standing, pz, kubbId)
 				if under then pose.onTop, pose.standing = under, false end
 			end
 			o.moved[p.id] = pose
