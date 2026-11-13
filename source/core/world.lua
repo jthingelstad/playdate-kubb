@@ -32,6 +32,7 @@ import "core/quat"
 import "core/body"
 import "core/collide"
 import "core/flight"
+import "core/pitch"
 
 local quat, body, collide = tw.quat, tw.body, tw.collide
 local sqrt, abs, min, max, sin, cos, rad, exp = math.sqrt, math.abs, math.min, math.max, math.sin, math.cos, math.rad, math.exp
@@ -66,6 +67,7 @@ world.tune = {
 	outMargin = 0.04,      -- m beyond a pitch line before a center counts as out (base kubbs
 	                       -- stand centered on the baselines)
 	maxTime = 12,          -- s; a throw is called at rest after this long regardless
+	stakeHeight = 0.30,    -- m above the ground; stakes are fixed posts of radius pitch.stakeRadius
 }
 
 -- Ground surfaces: one parameter set each (DESIGN 5). All guesses, to be
@@ -82,9 +84,9 @@ world.tune = {
 --   roll        m; rolling resistance lever for the round baton at all times
 world.surfaces = {
 	grass = {
-		name = "grass", mu = 0.55, e = 0.15,
-		dig = 0.6, digSpeed = 0.3, digRamp = 1.5, digLever = 0.006, digTime = 0.15,
-		roll = 0.004,
+		name = "grass", mu = 0.7, e = 0.15,
+		dig = 1.0, digSpeed = 0.3, digRamp = 1.5, digLever = 0.006, digTime = 0.15,
+		roll = 0.01,
 	},
 	sand = {
 		name = "sand", mu = 0.9, e = 0.03,
@@ -113,8 +115,23 @@ function world.new(opts)
 		contacts = 0,         -- contacts in the last step (for the bench)
 		awakeCount = 0,       -- awake bodies in the last step
 	}
+	if opts.stakes ~= false then world.addStakes(w) end
 	for _, p in ipairs(opts.pieces or {}) do world.addPiece(w, p) end
 	return w
+end
+
+-- The six pitch stakes (core/pitch) as static posts, ids stake1 .. stake6.
+-- They never move or wake; anything touching one marks it touched.
+function world.addStakes(w)
+	local h, r = world.tune.stakeHeight, tw.pitch.stakeRadius
+	for i, s in ipairs(tw.pitch.stakes) do
+		local b = world.addBody(w, "stake", "stake" .. i)
+		b.r = r
+		b.hl = h / 2 - r
+		b.radius = h / 2
+		body.setPose(b, s.x, s.y, h / 2, 1, 0, 0, 0)
+		b.awake = false
+	end
 end
 
 function world.addBody(w, kind, id)
@@ -155,7 +172,7 @@ function world.addPiece(w, p)
 end
 
 local function wake(b)
-	if not b.awake then
+	if not b.awake and not b.static then
 		b.awake = true
 		b.everAwake = true
 		b.sleepTime = 0
@@ -488,9 +505,9 @@ function world.step(w)
 					pair(w, a, b, margin)
 					if C.n > before then
 						-- wake a sleeper that an awake, moving body touches
-						if not a.awake and moving(b, t.wakeLin, t.wakeAng) then
+						if not a.awake and not a.static and moving(b, t.wakeLin, t.wakeAng) then
 							wake(a); a.vz = a.vz - t.g * dt; a.groundImpulse = 0
-						elseif not b.awake and moving(a, t.wakeLin, t.wakeAng) then
+						elseif not b.awake and not b.static and moving(a, t.wakeLin, t.wakeAng) then
 							wake(b); b.vz = b.vz - t.g * dt; b.groundImpulse = 0
 						end
 					end
@@ -749,6 +766,7 @@ end
 -- The outcome of the throw:
 --   time, steps           simulated time and steps
 --   touched               ids of bodies something touched (the projectile included)
+--   stakesTouched         ids of stakes something touched (stake1 .. stake6, core/pitch order)
 --   toppled               ids of kubbs and kings that toppled in this throw
 --   kingToppled           true if a king toppled
 --   outNotToppled         ids of kubbs that ended outside the pitch without toppling
@@ -758,6 +776,7 @@ function world.result(w)
 	local r = {
 		time = w.time, steps = w.steps,
 		touched = {}, toppled = {}, outNotToppled = {}, kingToppled = false,
+		stakesTouched = {},
 		bodies = {},
 		firstContact = w.firstContact, firstHit = w.firstHit,
 	}
@@ -768,7 +787,10 @@ function world.result(w)
 			kind = b.kind, x = b.x, y = b.y, z = b.z, qw = b.qw, qx = b.qx, qy = b.qy, qz = b.qz,
 			toppled = b.toppled, touched = b.touched, out = out, leftPitch = b.leftPitch,
 		}
-		if b.touched then r.touched[#r.touched + 1] = b.id end
+		if b.touched then
+			if b.static then r.stakesTouched[#r.stakesTouched + 1] = b.id
+			else r.touched[#r.touched + 1] = b.id end
+		end
 		if b.shape == 1 and b.toppled and not b.wasToppled and b ~= w.projectile then
 			r.toppled[#r.toppled + 1] = b.id
 			if b.kind == "king" then r.kingToppled = true end
@@ -780,10 +802,13 @@ function world.result(w)
 	return r
 end
 
--- Total energy (kinetic + potential) of all bodies, J.
+-- Total energy (kinetic + potential) of all moving bodies, J.
 function world.energy(w)
 	local e = 0
-	for i = 1, w.n do e = e + body.energy(w.bodies[i], world.tune.g) end
+	for i = 1, w.n do
+		local b = w.bodies[i]
+		if not b.static then e = e + body.energy(b, world.tune.g) end
+	end
 	return e
 end
 

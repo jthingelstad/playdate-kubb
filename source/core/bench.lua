@@ -37,16 +37,22 @@ function bench.run(clock, chunk, yield)
 	local w = bench.world()
 	local steps = math.floor(bench.seconds / world.tune.dt + 0.5)
 	local busy, maxAwake, maxContacts = 0, 0, 0
+	-- the collision phase: steps with two or more bodies awake (timed one by one)
+	local hotSteps, hotTime = 0, 0
 	local done = 0
 	while done < steps do
 		local n = chunk and math.min(chunk, steps - done) or (steps - done)
 		local t0 = clock()
+		local ts = t0
 		for _ = 1, n do
 			world.step(w)
+			local te = clock()
+			if w.awakeCount >= 2 then hotSteps, hotTime = hotSteps + 1, hotTime + (te - ts) end
+			ts = te
 			if w.awakeCount > maxAwake then maxAwake = w.awakeCount end
 			if w.contacts > maxContacts then maxContacts = w.contacts end
 		end
-		busy = busy + (clock() - t0)
+		busy = busy + (ts - t0)
 		done = done + n
 		if yield then yield(done, steps) end
 	end
@@ -58,6 +64,8 @@ function bench.run(clock, chunk, yield)
 		msPerStep = busy * 1000 / steps,
 		stepsPerSecond = steps / busy,
 		msPerSimSecond = busy * 1000 / (steps * world.tune.dt),
+		hotSteps = hotSteps,
+		hotMsPerStep = hotSteps > 0 and hotTime * 1000 / hotSteps or 0,
 		maxAwake = maxAwake,
 		maxContacts = maxContacts,
 		toppled = #r.toppled,
@@ -67,9 +75,10 @@ end
 
 -- One line of text for the result (the device appends it to bench.txt).
 function bench.line(r, where)
-	return string.format("%s: %d steps (%.1f s simulated) in %.3f s; %.3f ms/step; %.0f steps/s; %.1f ms per simulated s; %.1f steps per 20 ms frame; awake max %d, contacts max %d; toppled %d",
+	return string.format("%s: %d steps (%.1f s simulated) in %.3f s; %.3f ms/step; %.0f steps/s; %.1f ms per simulated s; %.1f steps per 20 ms frame; collision phase %d steps at %.3f ms/step (%.1f per 20 ms frame); awake max %d, contacts max %d; toppled %d",
 		where or "bench", r.steps, r.simSeconds, r.seconds, r.msPerStep, r.stepsPerSecond, r.msPerSimSecond,
-		20 / r.msPerStep, r.maxAwake, r.maxContacts, r.toppled)
+		20 / r.msPerStep, r.hotSteps, r.hotMsPerStep, r.hotMsPerStep > 0 and 20 / r.hotMsPerStep or 0,
+		r.maxAwake, r.maxContacts, r.toppled)
 end
 
 tw.bench = bench

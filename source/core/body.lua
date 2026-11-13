@@ -28,6 +28,9 @@ body.kinds = {
 	-- 30 cm long overall, 4.4 cm diameter: a segment of half length
 	-- 0.15 - 0.022 plus a 0.022 m radius
 	baton = { shape = 2, hl = 0.128, r = 0.022, length = 0.30, mass = 0.25 },
+	-- a pitch stake: a fixed vertical post (static: it never moves). Radius
+	-- from core/pitch; world.addStakes sets its height from world.tune.
+	stake = { shape = 2, hl = 0.135, r = 0.015, length = 0.30, mass = 1, static = true },
 }
 
 -- Principal moments of inertia (kg m^2) about the local axes.
@@ -72,6 +75,11 @@ function body.new(kind, id)
 		dig = 0,             -- extra rolling-resistance lever from digging in (m), decays
 		index = 0,
 	}
+	if k.static then
+		-- infinite mass: no impulse moves it
+		b.static = true
+		b.im, b.iIx, b.iIy, b.iIz = 0, 0, 0, 0
+	end
 	for i = 1, 8 do b.gStamp[i], b.gN[i], b.gT1[i], b.gT2[i], b.gDig[i] = -1, 0, 0, 0, 0 end
 	body.updateDerived(b)
 	return b
