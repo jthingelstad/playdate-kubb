@@ -112,6 +112,7 @@ function scene.new(provider, opts)
 	s.m = cmatch.new { start = now(), surface = "Grass" }
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	s.ts.readoutY = hud.belowStatus(2)
+	s.ts.sceneName = "match"
 	nextThrow(s)
 	return s
 end
