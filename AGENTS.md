@@ -27,6 +27,11 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   `tests/node/gate-rejects.mjs`, which checks every game in `tests/fixtures/bad/` is refused).
 - `make selftest`: builds, then runs every scenario in `source/selftest/` in the Simulator.
   Frames land in `build/selftest/`. Each run takes about 2 seconds.
+- `make games`: plays `GAMES_N` (500) seeded random games through the rules engine with
+  `tools/games.lua` (no physics; `GAMES_SEED`, default 1), writes them to `build/games/`, then
+  runs the notation gate over all of them. Every game must pass with zero warnings. Same seed,
+  same files. It prints a count of the rare events it produced (rescues, punishment kubbs,
+  early kings, helicopters and so on).
 - `make clean`.
 
 Tools are called by full path: SDK at `~/Developer/PlaydateSDK` (no `PLAYDATE_SDK_PATH`),
@@ -67,6 +72,132 @@ outcomes with tolerances, never bit-exact.
 The gate loads `site/assets/notation-parser.js` and `site/assets/kubb.js` from
 `~/Projects/pk-kubb-score` (or `$PK_KUBB_SCORE`). Never write there, never run `npm install`
 there, never copy its files here.
+
+## Rules engine
+
+`source/core/rules.lua` (`tw.rules`) is Rules V4.0 as a pure state machine. It knows nothing
+about physics: it asks for the next action and takes resolved throws (the outcome records
+below) and the defender's choices. Helpers: `core/pitch.lua` (dimensions, halves, stakes,
+`advantageMeters`), `core/rect.lua` (oriented rectangles), `core/raising.lua` (II.D raising
+and II.D.11 punishment geometry), `core/notation.lua` (score sheet and game file).
+
+```lua
+local g = tw.rules.new{ teams = { A = { name = "Jamie", players = { { name = "Jamie" } } },
+                                  B = { name = "Playdate", players = { { name = "Club" } } } },
+                        surface = "Grass", opening = "2-4-6" --[[ or "six" ]], first = "A",
+                        raisePolicy = "apart" }
+local n = g:need()
+```
+
+- Pieces: kubbs have permanent ids `a1`..`a5` (Team A's base kubbs at x = -2..2, y = 0) and
+  `b1`..`b5` (y = 8); the king is `king`. `g.kubbs[id]` = `{ id, kind = "base"|"field",
+  half = "A"|"B", where = "pitch"|"hand"|"out"|"punish", pose, thrown, established }`.
+  `half` is the half a field kubb belongs to (where it was thrown), not recomputed from y.
+  `g.king.pose`. `g:census()` counts kubbs by `where` (always 10).
+- State: `g.turn`, `g.attacker`, `g.defender`, `g.phase` (`toss`, `rethrow`, `raise`,
+  `punish`, `batons`, `over`), `g.batonsLeft`, `g.advantageY`, `g.winner`, `g.how`,
+  `g.sheet` (the notation score sheet).
+- `g:need()` returns one of:
+  - `{ kind = "toss", side, kubb, rethrow, throwY, half, left }`: the attacker throws kubb
+    `kubb` from its baseline `throwY` into `half`. First throws come before rethrows (II.C.6).
+  - `{ kind = "raise", side, kubb, pose, decision }`: the defender raises a lying kubb.
+    `decision = { mode, choices, ends }` from `tw.raising.options`; mode is `choice` (both
+    footprints clear and in bounds), `forced` (one), `displaced` (none clear: touching the
+    obstruction, II.D.5; the defender may still pick the end when both qualify).
+  - `{ kind = "punish", side, kubb, half }`: the defender places a punishment kubb.
+  - `{ kind = "baton", side, n, of, left, kingShot, throwY, advantageY, targets }`: `throwY`
+    is the advantage line when there is one and this is not a king shot, else the baseline.
+    `targets` are the standing field kubbs, else the base kubbs, else `{ "king" }`.
+  - `{ kind = "over", winner, how }`.
+- Actions: `g:toss(outcome, player)`, `g:raise(choiceIndex | nil, policy)` (nil = automatic),
+  `g:raiseAll(policy)`, `g:placePunishment(pose)` (returns false and a reason when invalid),
+  `g:autoPunishment(policy)`, `g:throwBaton(outcome, player)`, `g:resign(side, player)` (only
+  on the resigning team's own turn). `player` is an id or name; it defaults to the team's
+  first player. Calling an action out of phase raises an error.
+- Raising policies (`tw.raising.policies`): `apart` (default: the end farthest from other
+  kubbs), `together`, `first`, or any `function(decision, ctx) -> index`. The punishment
+  policy is a `function(candidates, ctx) -> pose`; the default puts it deep in the half and
+  away from other kubbs.
+
+### Poses
+
+`{ x, y, standing, angle, onTop }` in world meters. `standing` = upright on an end; `angle`
+is the long axis direction for a lying kubb (radians from +x) and the yaw of the square for a
+standing one; `onTop` is the id of a kubb it rests on. A lying kubb raised on an end stands on
+a 7 x 7 footprint centered 11 cm out along its axis (it pivots on that end's bottom edge).
+
+### Baton outcome
+
+What physics must report for one baton, after everything is at rest:
+
+| Field | Meaning |
+|---|---|
+| `illegal` | true for an illegal throw (helicopter, II.B.1) |
+| `toppled` | ids of every piece whose long axis came within a few degrees of horizontal at any point (II.B.10: one that ends standing on an end is still toppled). May include `"king"`. |
+| `kingToppled` | true if the king was toppled (same as `"king"` in `toppled`) |
+| `moved` | `{ [id] = pose }`: rest pose of every piece that moved, toppled or not (the king too) |
+| `ownHalfHit` | ids of field kubbs in the thrower's own half that the baton touched, even if they did not move (II.B.11) |
+
+The engine also treats any toppled or moved field kubb in the attacker's half as II.B.11.
+What it does with them: illegal or II.B.11 throws put everything back and write `Z`; a king
+toppled before every kubb is down loses (`E`, also after an illegal throw); toppled field
+kubbs go to the defender's hand; a toppled base kubb with a field kubb still standing after
+the throw is raised where it was (II.B.4a); a piece moved without toppling stays at its rest
+pose unless its center left the pitch (II.B.7: put back).
+
+### Kubb-toss outcome
+
+| Field | Meaning |
+|---|---|
+| `rest` | rest pose of the thrown kubb: lying (with `angle`), standing on an end, or `onTop = id` when it rests on another kubb |
+| `moved` | `{ [id] = pose }`: rest pose of every other piece it moved (field kubbs, base kubbs, the king) |
+| `kingToppled` | true if it toppled the king (the throwing team loses) |
+| `ownHalfHit` | optional ids of pieces in the thrower's own half it touched (II.C.4b) |
+
+In bounds is the center of the standing kubb against the defender's half (lines are in). A
+lying kubb is in if either footprint is. Struck field kubbs stay where they come to rest and
+are raised there (II.C.4); one that cannot be raised in bounds is rescued if it was
+established (II.C.5a, `Q`), rethrown if thrown once, a punishment kubb if thrown twice. Base
+kubbs a toss moves are stood back where they were. A kubb resting on another is lowered
+beside it (II.D.6, `N`).
+
+## Notation conventions
+
+`core/notation.lua` keeps the score sheet as the engine runs and renders the game file
+(DESIGN.md section 7). `tw.notation.render(game, { start, finish, version, mode })` gives the
+text; times are `{ year, month, day, hour, min }` tables passed in (no `os.time` in core);
+`tw.notation.filename(start, teamA, teamB)` gives `YYYY-MM-DD-HHMM-<a>-v-<b>.txt`.
+
+- Player ids: lowercased name, spaces and hyphens to `_`, everything else but letters
+  dropped; a taken id gets `_b`, `_c`, ... Names in headers lose quotes and brackets; player
+  names also lose commas and parentheses (kubb.js splits on them).
+- Inkast token per player, in order of first toss: `I` = every first throw this turn
+  (rescued kubbs included, so I = kubbs knocked last turn + Q), `R` = every rethrow made,
+  `P` = punishment kubbs (also in R), `Q` = rescues, `N` = kubbs that came to rest on another
+  (capped at 5, the grammar's limit), `E` = king toppled by a thrown kubb. `Y` is never
+  written. No inkast token when there was nothing to throw.
+- When the game ends before the inkast is done (king toppled by a kubb, or a resign), the
+  token still counts every kubb that was due, so kubb.js's inkast check holds.
+- `nA` follows the inkast: whole meters from the attacker's own baseline to the advantage
+  line, rounded down, 0 to 4.
+- Batons: `-`, `F`/`nF`, `B`/`nB`, `FB`, `K`, `=`, `Z`, `E` or `nFE`/`BE`, `G`, then `X`
+  for each baton left once the game is over (after `K`, `E`, `G` or an inkast `E`).
+- Notes (`# a; b`) say what the tokens cannot: `bN toppled a base kubb early; raised
+  (II.B.4a)`, `bN hit a field kubb in the thrower's own half; all put back (II.B.11)`,
+  `bN pushed a kubb out without toppling; put back (II.B.7)`, `a kubb hit a field kubb in the
+  thrower's own half (II.C.4b)`, `bN toppled the king early`, `king toppled by a thrown
+  kubb`, `resigned during the inkast`. `bN` is the turn's Nth baton.
+- `[Rules "U.S. Championship 4.0, 2-4-6"]` or `"..., six from the start"`.
+
+## Headless games
+
+`tools/thrower.lua` is a random thrower with no physics: hit or miss by distance and skill,
+neighbours toppled or pushed, inkast landing spots with scatter, and rare events on purpose
+(rescues, punishment kubbs, kubbs on top of others, helicopters, own-half hits, early base
+kubbs and kings, resigns). Its rates are `thrower.tune`. `thrower.playGame(seed, check)`
+plays one game; `tests/lua/test_games.lua` plays 50 and checks invariants after every
+action; `tools/games.lua` writes N games. `tests/fixtures/games/` holds ten generated games
+plus the two hand-written ones; `make test` gates them.
 
 ## Simulator self-tests
 
@@ -120,6 +251,9 @@ Every number that is a guess lives in one table per module, with a comment:
   gearing and limit, loft key repeat, rest hold.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction, patterns, stakes,
   HUD placement, the throw gauge (`hud.swingGauge`: the arm that turns with the crank).
+- `tw.raising.tune` (`source/core/raising.lua`): the search that slides an obstructed
+  footprint clear, and the punishment candidate grid. Stake radius and other piece sizes are
+  in `tw.pitch`.
 
 ## Crank traces
 
