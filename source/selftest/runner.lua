@@ -3,7 +3,8 @@
 -- A scenario is a table with step(ctx), called once per frame from
 -- playdate.update until it returns true. ctx.frame counts from 1, and
 -- ctx:capture() saves the working frame as <out>/<name>-NN.png (1x) and
--- <name>-NN@2x.png (2x). When the scenario ends the runner prints
+-- <name>-NN@2x.png (2x). A scenario may set ctx.note (one line, e.g. timings)
+-- to have it appended to the DONE marker. When the scenario ends the runner prints
 -- writes "DONE <name> frames=<n>" (or "FAIL <name>: <why>") to the marker
 -- Data/com.thingelstad.throwingwood/selftest/<name>.done and quits the
 -- Simulator. The Makefile checks the marker and copies it into out.
@@ -17,7 +18,7 @@ tw.selftest = selftest
 local ctx = nil
 
 local function finish(ok, why)
-	local status = ok and ("DONE " .. ctx.name .. " frames=" .. ctx.shots)
+	local status = ok and ("DONE " .. ctx.name .. " frames=" .. ctx.shots .. (ctx.note and (" " .. ctx.note) or ""))
 		or ("FAIL " .. ctx.name .. ": " .. tostring(why))
 	print("SELFTEST " .. status)
 	-- The marker. playdate.file only writes inside the game's Data folder
