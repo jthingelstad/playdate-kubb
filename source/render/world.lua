@@ -2,15 +2,21 @@
 -- The pitch is not dithered (Jamie, 2026-11-13; DESIGN 3): white ground,
 -- black lines, a dashed centerline and six stakes, a light pattern only
 -- outside the sidelines, white above the horizon. Pieces are true-size 3D
--- boxes: black outline, white top, one dark side face, solid black shadow.
--- Painter's order: shadows first (they lie on the ground), then pieces far
--- to near by depth along the view axis.
+-- boxes in any orientation (standing, falling, lying): black outline, faces
+-- shaded by how they face the light (lit white, half-lit patterned, away
+-- black), and a solid black shadow cast along the light onto the ground.
+-- The shadow of a lying piece touches its ground edge, so it reads as on
+-- the ground (the contact shadow). Painter's order: shadows first (they lie
+-- on the ground), then pieces far to near by depth along the view axis.
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/camera"
+import "core/quat"
+import "core/body"
 
 local gfx <const> = playdate.graphics
 local camera = tw.camera
+local toMatrix = tw.quat.toMatrix
 local project, projectPoly, projectSegment = camera.project, camera.projectPoly, camera.projectSegment
 local unpack, floor, max, min, sqrt = table.unpack, math.floor, math.max, math.min, math.sqrt
 
@@ -20,7 +26,7 @@ local world = {}
 world.tune = {
 	shadowX = 0.55,   -- ground shadow offset per meter of height: light from the far left,
 	shadowY = -0.30,  -- so shadows fall right and toward the thrower, beside the piece
-	stakeHeight = 0.30,
+	stakeHeight = 0.30, -- keep equal to tw.world.tune.stakeHeight (the physics post)
 	stakeWidth = 2,   -- px
 	dash = 0.20,      -- m, centerline dash and gap
 	-- The light pattern outside the sidelines: sparse black dots (pattern
@@ -30,33 +36,42 @@ world.tune = {
 	outsidePattern = { 0x7F, 0xFF, 0xF7, 0xFF, 0x7F, 0xFF, 0xF7, 0xFF },
 	outsideFrom = -20,  -- m (y) where the patterned strips start, behind the thrower
 	outsideTo = 8,      -- m (y) where they end: the far baseline
-	-- The dark side face of a piece (the face toward the thrower, in shade).
+	-- A half-lit face of a piece (a standing kubb's face toward the thrower).
 	darkPattern = { 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55 },
+	-- Face shading by n.L (L toward the light, from shadowX/shadowY): above
+	-- litAbove white, above darkAbove the dark pattern, else black. With the
+	-- default light a standing kubb shows a white top, white -x and +y faces,
+	-- a patterned -y face and a black +x face, as in stage 1.
+	litAbove = 0.2,
+	darkAbove = -0.35,
 	batonMinPx = 2,
 }
 
-local KUBB_W, KUBB_H, KING_W, KING_H = 0.07, 0.15, 0.09, 0.30
 local BATON_L, BATON_D = 0.30, 0.044
 
--- The pieces standing in stage 1: 5 base kubbs on each baseline and the king.
-world.pieces = {}
-for _, y in ipairs { 0, 8 } do
-	for x = -2, 2 do
-		world.pieces[#world.pieces + 1] = { x = x, y = y, w = KUBB_W, h = KUBB_H }
-	end
+-- Pieces are drawn from an item list the scene keeps: one item per kubb or
+-- king with a full pose. world.setPose fills the rotation matrix.
+function world.item(id, kind)
+	local k = tw.body.kinds[kind]
+	return {
+		id = id, kind = kind, king = (kind == "king"),
+		hx = k.hx, hy = k.hy, hz = k.hz,
+		x = 0, y = 0, z = k.hz, qw = 1, qx = 0, qy = 0, qz = 0,
+		r11 = 1, r12 = 0, r13 = 0, r21 = 0, r22 = 1, r23 = 0, r31 = 0, r32 = 0, r33 = 1,
+		toppled = false,
+	}
 end
-world.pieces[#world.pieces + 1] = { x = 0, y = 4, w = KING_W, h = KING_H, king = true }
 
--- Live targets for the aim camera's framing rule: the far base kubbs.
-world.targets = {}
-for _, p in ipairs(world.pieces) do
-	if p.y == 8 then world.targets[#world.targets + 1] = p end
+function world.setPose(it, x, y, z, qw, qx, qy, qz)
+	it.x, it.y, it.z, it.qw, it.qx, it.qy, it.qz = x, y, z, qw, qx, qy, qz
+	it.r11, it.r12, it.r13, it.r21, it.r22, it.r23, it.r31, it.r32, it.r33 = toMatrix(qw, qx, qy, qz)
 end
 
 -- scratch, reused every frame
 local poly = {}
 local PX, PY, PZ = {}, {}, {}
 local SX, SY = {}, {}
+local WX, WY, WZ = {}, {}, {}
 local order, depth = {}, {}
 
 local function fillPoly(n)
@@ -133,22 +148,33 @@ local function hull(n)
 	return k
 end
 
-local SIGN = { -1, 1 }
-local function boxShadow(c, p)
-	local t = world.tune
-	local hw = p.w / 2
-	local ox, oy = t.shadowX * p.h, t.shadowY * p.h
-	local i = 0
-	for a = 1, 2 do
-		for b = 1, 2 do
-			local x, y = p.x + SIGN[a] * hw, p.y + SIGN[b] * hw
-			i = i + 1
-			PX[i], PY[i] = x, y
-			i = i + 1
-			PX[i], PY[i] = x + ox, y + oy
+-- The 8 corners of a box item in world space into WX/WY/WZ. Corner
+-- k = 1 + (sx > 0) + 2 (sy > 0) + 4 (sz > 0) for local signs sx, sy, sz.
+local function corners(p)
+	local ex1, ey1, ez1 = p.r11 * p.hx, p.r21 * p.hx, p.r31 * p.hx
+	local ex2, ey2, ez2 = p.r12 * p.hy, p.r22 * p.hy, p.r32 * p.hy
+	local ex3, ey3, ez3 = p.r13 * p.hz, p.r23 * p.hz, p.r33 * p.hz
+	local k = 0
+	for c3 = -1, 1, 2 do
+		for c2 = -1, 1, 2 do
+			for c1 = -1, 1, 2 do
+				k = k + 1
+				WX[k] = p.x + c1 * ex1 + c2 * ex2 + c3 * ex3
+				WY[k] = p.y + c1 * ey1 + c2 * ey2 + c3 * ey3
+				WZ[k] = p.z + c1 * ez1 + c2 * ez2 + c3 * ez3
+			end
 		end
 	end
-	local n = hull(i)
+end
+
+local function boxShadow(c, p)
+	local t = world.tune
+	corners(p)
+	for i = 1, 8 do
+		local z = max(0, WZ[i])
+		PX[i], PY[i] = WX[i] + t.shadowX * z, WY[i] + t.shadowY * z
+	end
+	local n = hull(8)
 	for j = 1, n do PX[j], PY[j] = HX[j], HY[j] end
 	fillPoly(projectPoly(c, n, PX, PY, nil, poly))
 end
@@ -176,39 +202,57 @@ local function batonShadow(c, b)
 	gfx.drawLine(a, bb, cc, d)
 end
 
--- Corner k of a box: bottom 1-4, top 5-8, counter-clockwise from (-,-).
-local CX = { -1, 1, 1, -1 }
-local CY = { -1, -1, 1, 1 }
+-- The six faces: four corner indices in order around the face, and the
+-- local axis (1 x, 2 y, 3 z) and sign of the outward normal.
+local FACES = {
+	{ 1, 3, 7, 5, 1, -1 }, { 2, 4, 8, 6, 1, 1 },
+	{ 1, 2, 6, 5, 2, -1 }, { 3, 4, 8, 7, 2, 1 },
+	{ 1, 2, 4, 3, 3, -1 }, { 5, 6, 8, 7, 3, 1 },
+}
 
-local function face(a, b, cc, d, fill)
-	if fill == "dark" then
-		gfx.setPattern(world.tune.darkPattern)
-	else
-		gfx.setColor(fill == "black" and gfx.kColorBlack or gfx.kColorWhite)
-	end
-	gfx.fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
-	gfx.setColor(gfx.kColorBlack)
-	gfx.drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+local LX, LY, LZ = 0, 0, 1
+local function updateLight()
+	local t = world.tune
+	local lx, ly, lz = -t.shadowX, -t.shadowY, 1
+	local n = sqrt(lx * lx + ly * ly + lz * lz)
+	LX, LY, LZ = lx / n, ly / n, lz / n
 end
 
 local function drawBox(c, p)
-	local hw = p.w / 2
-	for k = 1, 4 do
-		local x, y = p.x + CX[k] * hw, p.y + CY[k] * hw
-		local sx, sy = project(c, x, y, 0)
+	corners(p)
+	for k = 1, 8 do
+		local sx, sy = project(c, WX[k], WY[k], WZ[k])
 		if not sx then return end
 		SX[k], SY[k] = sx, sy
-		sx, sy = project(c, x, y, p.h)
-		if not sx then return end
-		SX[k + 4], SY[k + 4] = sx, sy
 	end
+	local t = world.tune
 	gfx.setLineWidth(1)
-	-- side faces facing the camera: -y (front, in shade), +x (in shade), -x, +y
-	if c.py < p.y - hw then face(1, 2, 6, 5, "dark") end
-	if c.px > p.x + hw then face(2, 3, 7, 6, "black") end
-	if c.px < p.x - hw then face(4, 1, 5, 8, "white") end
-	if c.py > p.y + hw then face(3, 4, 8, 7, "white") end
-	if c.pz > p.h then face(5, 6, 7, 8, "white") end
+	local cpx, cpy, cpz = c.px, c.py, c.pz
+	for f = 1, 6 do
+		local F = FACES[f]
+		local axis, sgn = F[5], F[6]
+		local nx, ny, nz, h
+		if axis == 1 then nx, ny, nz, h = p.r11, p.r21, p.r31, p.hx
+		elseif axis == 2 then nx, ny, nz, h = p.r12, p.r22, p.r32, p.hy
+		else nx, ny, nz, h = p.r13, p.r23, p.r33, p.hz end
+		nx, ny, nz = nx * sgn, ny * sgn, nz * sgn
+		-- visible when the camera is in front of the face's plane
+		local fx, fy, fz = p.x + nx * h, p.y + ny * h, p.z + nz * h
+		if (cpx - fx) * nx + (cpy - fy) * ny + (cpz - fz) * nz > 0 then
+			local a, b, cc, d = F[1], F[2], F[3], F[4]
+			local lit = nx * LX + ny * LY + nz * LZ
+			if lit > t.litAbove then
+				gfx.setColor(gfx.kColorWhite)
+			elseif lit > t.darkAbove then
+				gfx.setPattern(t.darkPattern)
+			else
+				gfx.setColor(gfx.kColorBlack)
+			end
+			gfx.fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+			gfx.setColor(gfx.kColorBlack)
+			gfx.drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+		end
+	end
 end
 
 local function drawBaton(c, b)
@@ -229,27 +273,28 @@ local function drawBaton(c, b)
 	gfx.setLineWidth(1)
 end
 
--- Draw everything. `baton` is nil or {x, y, z, ax, ay, az} (center and unit axis).
-function world.draw(c, baton)
+-- Draw everything. `items` holds n box items (world.item); `baton` is nil
+-- or {x, y, z, ax, ay, az} (center and unit axis).
+function world.draw(c, items, n, baton)
 	gfx.clear(gfx.kColorWhite)
 	drawPitch(c)
-	local pieces = world.pieces
+	updateLight()
 	gfx.setColor(gfx.kColorBlack)
-	for i = 1, #pieces do boxShadow(c, pieces[i]) end
+	for i = 1, n do boxShadow(c, items[i]) end
 	if baton then batonShadow(c, baton) end
 	-- far to near
-	local n = #pieces
+	local m = n
 	for i = 1, n do
-		local p = pieces[i]
-		local _, _, d = camera.toView(c, p.x, p.y, 0)
+		local p = items[i]
+		local _, _, d = camera.toView(c, p.x, p.y, p.z)
 		order[i], depth[i] = i, d
 	end
 	if baton then
-		n = n + 1
+		m = m + 1
 		local _, _, d = camera.toView(c, baton.x, baton.y, baton.z)
-		order[n], depth[n] = 0, d
+		order[m], depth[m] = 0, d
 	end
-	for i = 2, n do
+	for i = 2, m do
 		local v, dv, j = order[i], depth[i], i - 1
 		while j >= 1 and depth[j] < dv do
 			order[j + 1], depth[j + 1] = order[j], depth[j]
@@ -257,10 +302,10 @@ function world.draw(c, baton)
 		end
 		order[j + 1], depth[j + 1] = v, dv
 	end
-	for i = 1, n do
+	for i = 1, m do
 		local k = order[i]
 		if depth[i] > camera.tune.near then
-			if k == 0 then drawBaton(c, baton) else drawBox(c, pieces[k]) end
+			if k == 0 then drawBaton(c, baton) else drawBox(c, items[k]) end
 		end
 	end
 	gfx.setColor(gfx.kColorBlack)
