@@ -1,7 +1,9 @@
 -- The physics benchmark on the desktop (make bench). The same scenario as
 -- the System Menu "Bench" item on the device: source/core/bench.lua.
 --
---   lua5.4 tools/bench.lua [runs]
+--   lua5.4 tools/bench.lua [runs] [--profile] [--micro]
+-- --profile adds the per-phase breakdown of world.step, --micro the micro
+-- benchmarks of core/microbench (the device autobench runs both).
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -12,9 +14,15 @@ function import(name)
 	return assert(loadfile(sourceDir .. "/" .. name .. ".lua"))()
 end
 import "core/bench"
+import "core/microbench"
 local bench = tw.bench
 
-local runs = tonumber(arg[1]) or 3
+local runs, profile, micro = 3, false, false
+for _, a in ipairs(arg) do
+	if a == "--profile" then profile = true
+	elseif a == "--micro" then micro = true
+	elseif tonumber(a) then runs = tonumber(a) end
+end
 local best
 for i = 1, runs do
 	local r = bench.run(os.clock)
@@ -23,3 +31,9 @@ for i = 1, runs do
 end
 print(string.format("best: %.0f steps/s, %.1f ms per simulated second (%.3f ms/step)",
 	best.stepsPerSecond, best.msPerSimSecond, best.msPerStep))
+if profile then
+	for _, l in ipairs(bench.profile(os.clock)) do print(l) end
+end
+if micro then
+	for _, l in ipairs(tw.microbench.lines(tw.microbench.run(os.clock, 2000000))) do print(l) end
+end
