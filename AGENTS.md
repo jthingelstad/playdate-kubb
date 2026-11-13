@@ -370,10 +370,13 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
   lying tossed kubb must stay to the one recorded at rest for that exact pose to be used.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction (also the light that
-  shades the faces), face-shade thresholds, patterns, stakes, the king's carving
-  (`kingCrown`, `kingWaist`, `kingNeck`, `kingInset`: drawing only, the physics king stays a plain box; the `king`
-  scenario shows it), HUD placement, the throw
-  gauge (`hud.swingGauge`: the arm that turns with the crank), and `cache` in each (the
+  shades the faces), the tones (`awayBelow`, `lyingBelow`, `greyPattern`), outline and
+  grain sizes, the ground (`lineWidth`, `dash`/`dashGap`, `advDash`, `roughPattern`,
+  `outsideFrom`, `roughFar`, the tufts), stakes, the baton's bands, the king's drawing
+  (`kingCrown`, `kingCollar`, `kingCollarTop`, `kingRing`, `kingDiamond`, `kingDetailFrom`:
+  drawing only, the physics king stays a plain box; the `king` scenario shows it), the
+  speed lines (`speed*`), HUD fonts (`labelFont`, `displayFont`) and every HUD box
+  (`rail`, `prompt`, `gauge`, `plaque`, `chip`, `flag`, `callout`, ...), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
   speed").
@@ -543,15 +546,27 @@ and copying a full-screen image about 0.7 ms. So:
 - The device autobench turns the crank recorder and the frame-time log off while it runs
   and restores them after, so its scripted throws never reach `traces.jsonl` or
   `frames.jsonl`.
-- `render/hud` draws each part (minimap, loft and power panel, gauge dial) as a layer: to
-  the screen while its inputs change, into an image (on the 8 px grid, through
-  `gfx.setDrawOffset`) once a frame repeats the last frame's inputs, then copied until an
-  input changes. The minimap layer keys on the pose version and the advantage line; the aim
-  line, player, landing mark and baton dot are drawn on top every frame. Text boxes and text
-  are cached as images by their string (at most 32 each); the match's status lines are two
-  such boxes. The title (one image per highlighted choice) and the match's hand-off and
-  winner cards (`render/cards`, built once per card and kept in `s.card`) are each one
-  cached 400 x 240 image, copied every frame: no text is drawn while they wait.
+- `render/hud` draws the minimap and the gauge disc as layers: to the screen while their
+  inputs change, into an image (on the 8 px grid, through `gfx.setDrawOffset`) once a
+  frame repeats the last frame's inputs, then copied until an input changes. The minimap
+  layer keys on the pose version and the advantage line; the aim line, player, landing mark
+  and baton dot are drawn on top every frame. The other parts (rail, prompt, loft plaque,
+  cut flag, power chip, result flag, callout, readout) are plates: one image each, redrawn
+  only when their own key changes, so a frame that changes nothing costs one image draw per
+  part. The plaque's power fill is the one thing drawn per frame (one `fillRect`), so
+  winding never redraws text. The title (one image per highlighted choice) and the
+  match's hand-off and winner cards (`render/cards`, built once per card and kept in
+  `s.card`) are each one cached 400 x 240 image, copied every frame: no text is drawn
+  while they wait.
+- The ground (`render/world`): the rough is a `setPattern` fill whose 8 x 8 phase follows
+  the projected middle of the far baseline (64 shifted patterns made once), so it travels
+  with the pitch rather than sliding under a screen-fixed pattern; tufts are three
+  pre-drawn images (at most `tuftMax` a frame); all of it is inside the frame cache and the
+  layer. The speed lines are drawn after `render.world.draw` (three lines, outside the
+  caches).
+- The `drawcalls` self-test counts graphics calls per frame by kind (aim, flight, impact,
+  rest). Before the Woodcut look: 45/126/99/16 mean; after: 41/150/110/17. Keep flight and
+  impact within about 30 of those.
 - A new part of the HUD that depends on something must put it in its layer's key, or the
   layer will show a stale image. `make selftest` frames compared pixel for pixel before
   and after (`cache = false` against `true`) catch this.
@@ -611,10 +626,12 @@ the throw scene with `s.drill` on.
   to 1.65 m long. The cut moves the rest point 5 to 17 cm (10 cm mean), the same both ways.
   A clean drill slides 0.13 m after landing on average (0.35 m worst); a jerky one
   (smoothness 0.35) 2.1 m (0.1 to 5 m). On sand: cut 7 cm mean, slides 0.05 and 0.8 m.
-- **HUD.** `hud.panel` brackets the band beside the power meter; `hud.swingGauge` draws the
-  band on the rim (a wider disc) and says "wind back to the band", "in the band: flick!" or
-  "past the band: ease off" while winding; the thrown label is `SHORT`, `ON` or `LONG` and the
-  power. `hud.cutHint` says "cut: curls right/left" while A or B is held.
+- **HUD.** `hud.plaque` marks the band beside the power fill; `hud.gauge` draws the band
+  as a wedge on the disc and its prompt says `WIND TO BAND`, `FLICK!` (inverted) or
+  `EASE OFF` while winding; the cut flag says `CUT RIGHT` or `CUT LEFT` while A or B is
+  held. After the throw `hud.callout` gives the verdict (`SHORT`, `ON`, `LONG`) in a black
+  block and a ruler from SHORT to LONG with the rest point's distance from the marker (cm
+  under 1 m). The `hud-drill` scenario shows the band prompts and a long callout.
   `hud.drillReadoutText`: `P <power>/<band> <verdict>  S <smoothness>  cut R|L|-  off
   <land>/<rest> m` (distances from the marker).
 - **Telemetry.** A drill's `traces.jsonl` line is a baton line plus `"mode":"drill"`, `band`,
@@ -731,8 +748,8 @@ own item). Practice is the throw scene exactly as before.
   kubb is a real body (`world.launchKubb`) turning at `throw.tune.tossTumble` of the
   swing's tumble with no tilt (no helicopter), drawn as one more box item.
 - Advantage line: the d-pad walks up past the baseline as far as `forwardY` (the engine's
-  advantage line; king shots are from the baseline). It is drawn on the pitch (dotted, 2 px)
-  and on the minimap.
+  advantage line; king shots are from the baseline). It is drawn on the pitch (2 px, dashed
+  2 on 2 off; the centerline is 6 on 4 off) and on the minimap.
 - Camera: the aim camera frames the setup's `targets` (standing field kubbs, else base
   kubbs, else the king) and looks `camera.tune.aim.lookBeyond` past the nearest of them
   (`camera.lookDistFor`, never nearer than `lookMin`); base kubbs on the far baseline give
@@ -741,8 +758,10 @@ own item). Practice is the throw scene exactly as before.
   the air, and is dropped if that throw ended the team's turn) or title (leave: the match is dropped and no file is written). A game file whose name is taken
   gets `-2`, `-3`, ... before `.txt`. Pass and play
   has one Playdate, so the team on turn is whoever holds it.
-- Per frame the match adds two cached text-box draws (status) and, from the throw scene,
-  a dozen-entry target scan for the camera. Once per throw (not per frame) it builds the
+- The match tells the throw scene what the HUD shows: the rail (`throw.setRail`: team,
+  projectile, number of it, and the field and base kubbs still to topple, or KING) and,
+  after a throw is resolved, the result flag (`throw.setFlag`, `hud.short` of the
+  result). Per frame it adds, from the throw scene, a dozen-entry target scan for the camera. Once per throw (not per frame) it builds the
   engine's pieces and outcome tables and rebuilds the items: expect one longer frame on the
   device when a throw is resolved and the next set up.
 

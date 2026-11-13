@@ -50,13 +50,24 @@ behind the thrower: 3 m behind the throwing line, 3.4 m up, long lens (focal len
 - From an advantage line the camera moves forward with the throwing line and keeps the same
   framing rule (farthest live target at least 12 px tall).
 - The pitch is not dithered (Jamie, 2026-11-13: it makes things hard to see). White ground,
-  black lines and stakes; a light pattern only outside the sidelines. Kubbs read by a black
-  outline, a dark side face and a solid black shadow. The mockups predate this and still
-  show a dithered pitch.
+  2 px black lines, stakes with shadows, a sparse rough outside the sidelines and past the
+  far baseline, and a few grass tufts for depth. Kubbs read by a black outline, a black
+  face away from the light and a solid black shadow; a piece lying down is grey. The look
+  is "Woodcut" (`docs/design/README.md` and its boards). The mockups here predate it and
+  still show a dithered pitch.
 - The raised viewpoint shows each kubb's top face and a hard black ground shadow, which is what
   makes a white box readable on a white pitch in 1 bit.
 
-**Minimap.** A 45 x 72 px top-down pitch in the top right corner at 9 px per meter: every kubb
+**HUD** (the Woodcut layout, `docs/design/README.md`). The pitch keeps a clear area in the
+middle of the screen; the HUD sits around it: a black rail along the top (team, projectile
+and number of it, targets left), the minimap at the bottom left, the loft plaque (angle and
+power fill) and the crank gauge disc at the bottom right with a prompt above the disc
+(`WIND BACK`, an inverted `FLICK!`, `WIND TO BAND`, `EASE OFF`, `CRANK DOWN`). After the
+release the plaque gives way to the power chip and a result flag (`3 DOWN`, `MISS`,
+`HELICOPTER`); a drill's result is a callout with its verdict and a ruler from short to
+long. The debug readout is off unless "Readout" is on.
+
+**Minimap.** A 45 x 72 px top-down pitch in the bottom left corner at 9 px per meter: every kubb
 as a 2 px dot, the king as 3 px, the aim line, the advantage line. It is the only view of the
 whole pitch and it is always on during aiming.
 
@@ -99,8 +110,9 @@ The throw, with A and B released (A and B swapped after play testing; set on har
 | Slow crank forward | Lets the wind-up down without throwing. |
 | B (hold, on the other side's turn) | Fast-forward their throws. |
 
-The throw gauge shows the arm turning with the crank, the backswing against a full-power
-mark, and, while idle, the crank's real position and which way to turn.
+The throw gauge (a disc) shows the arm turning with the crank, the backswing against a
+full-power mark, and, while idle, the crank's real position and which way to turn; its
+prompt names the next move.
 
 ### Kubbs (drilling)
 
@@ -348,7 +360,8 @@ be read.
   raising view yet.
 - The aim camera frames the live targets (field kubbs, else base kubbs, else the king) and,
   for near field kubbs, looks nearer than 7.5 m (1.5 m past the nearest, at least 3 m).
-- The advantage line is a dotted 2 px line on the pitch and a dotted row on the minimap.
+- The advantage line is a 2 px line on the pitch, dashed 2 on 2 off (Woodcut), and a dotted
+  row on the minimap.
   The d-pad walks up to it; king shots are from the baseline.
 - The System Menu's third item is per scene: "Pitch" on the practice pitch, "Match" in a
   match (resign, or leave to the title without a game file). A resign is the team on turn.
