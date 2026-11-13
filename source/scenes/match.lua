@@ -4,9 +4,11 @@
 -- physics, the same as on the practice pitch.
 --
 -- Phases:
---   handoff  a card "Team B" / "press A": the Playdate goes to the other team.
---            Shown before a team's first throw of each turn (and the match's
---            first throw).
+--   handoff  the hand-off card (render/cards, from core/cards): pass the
+--            Playdate to Team B, what Team A's batons took last turn, what
+--            Team B throws now, the pitch as it stands; A: ready. Shown
+--            before a team's first throw of each turn (and the match's first
+--            throw).
 --   play     the throw scene, set up for this throw (throw.prepare): Team B
 --            sees the pitch turned 180 degrees (core/frame), so every throw is
 --            made from the bottom of the screen. When the throw comes to rest
@@ -16,8 +18,13 @@
 --            thrown kubbs lie where they stopped, in or out, until their round
 --            is judged; out ones are then picked up for the rethrows, raised
 --            kubbs stand, punishment kubbs appear).
---   over     the winner card; the game file has been written to games/ in the
---            Data folder (DESIGN 7). A goes back to the title.
+--   over     the winner card: who won and how, turns, minutes, the winner's
+--            baton hit rate, whether the game file was written to games/ in
+--            the Data folder (DESIGN 7). A: a new match (rematch), B: the
+--            title.
+--
+-- The cards are full screen and drawn once into an image (render/cards);
+-- while one shows, the pitch is not drawn.
 --
 -- System Menu "Match": resign (the team on turn gives up: G on its own turn;
 -- it waits until no throw is in the air) or title (leave: the match is
@@ -32,10 +39,13 @@ import "core/match"
 import "core/autothrow"
 import "scenes/throw"
 import "render/hud"
+import "core/cards"
+import "render/cards"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
 local throw, hud = tw.scenes.throw, tw.render.hud
+local cards, rcards = tw.cards, tw.render.cards
 
 tw.scenes = tw.scenes or {}
 local scene = {}
@@ -49,8 +59,8 @@ local function now()
 end
 
 -- Write the game file; returns its path in the Data folder, or nil and why.
-local function writeFile(s)
-	local text, name = cmatch.file(s.m, now(), scene.version)
+local function writeFile(s, finish)
+	local text, name = cmatch.file(s.m, finish, scene.version)
 	playdate.file.mkdir("games")
 	local path = "games/" .. name
 	-- two matches that start in the same minute share a name: keep both
@@ -70,9 +80,11 @@ local function over(s)
 	s.phase = "over"
 	s.setup = nil
 	s.ts.readout = nil
-	s.winTitle = cmatch.teamName(s.m.game.winner) .. " wins"
+	local finish = now()
+	s.file, s.fileError = writeFile(s, finish)
+	s.win = cards.winner(s.m, finish)
 	s.winHow = cmatch.howText(s.m)
-	s.file, s.fileError = writeFile(s)
+	s.card = nil
 end
 
 -- Set the next throw up (or end the match).
@@ -89,8 +101,11 @@ local function nextThrow(s)
 		-- a new turn: the other team takes the Playdate
 		s.side = setup.side
 		s.result = nil
-		s.handoffTitle = cmatch.teamName(setup.side)
 		s.phase = s.opts.skipHandoff and "play" or "handoff"
+		if s.phase == "handoff" then
+			s.handoff = cards.handoff(m, setup)
+			s.card = nil
+		end
 	else
 		s.phase = "play"
 	end
@@ -108,7 +123,7 @@ function scene.new(provider, opts)
 		resolved = false,        -- the current throw has been given to the engine
 		result = nil,            -- what the last throw did (the HUD's second line)
 		resignWanted = false,
-		exit = nil,              -- "title" when the scene is done
+		exit = nil,              -- "title" or "match" (a rematch) when the scene is done
 		throws = 0,
 	}
 	s.m = cmatch.new { start = now(), surface = "Grass" }
@@ -149,7 +164,7 @@ function scene.update(s)
 	end
 	if s.phase == "over" then
 		s.input:advance()
-		if s.input:pressed("a") then s.exit = "title" end
+		if s.input:pressed("a") then s.exit = "match" elseif s.input:pressed("b") then s.exit = "title" end
 		return
 	end
 	if ts.mode == "aim" and s.rng then
@@ -171,14 +186,21 @@ end
 
 function scene.draw(s)
 	s.ts.covered = (s.phase ~= "play")
-	if s.phase == "over" then
-		throw.draw(s.ts)
-		hud.card(s.winTitle, s.winHow, "press A")
+	if s.phase == "over" or s.phase == "handoff" then
+		-- a full-screen card, built once
+		if not s.card then
+			if s.phase == "over" then
+				s.card = rcards.winner(s.win, s.winHow, s.file ~= nil)
+			else
+				s.card = rcards.handoff(s.handoff)
+			end
+		end
+		s.card:draw(0, 0)
 		return
 	end
+	s.card = nil
 	throw.draw(s.ts)
 	if s.setup then hud.status(s.setup.label, s.result) end
-	if s.phase == "handoff" then hud.card(s.handoffTitle, "your turn: press A") end
 end
 
 function scene.enter()
