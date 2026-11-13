@@ -140,7 +140,11 @@ end
 --   moved        rest poses of every other piece that moved
 --   kingToppled
 --   ownHalfHit   pieces in the thrower's own half that anything touched
-function outcome.toss(res, pieces, side, kubbId)
+-- `debris` (optional, core/debris pieces): what else lies on the pitch that
+-- the engine does not keep, such as an out kubb waiting to be rethrown. A
+-- kubb resting on one of those is not on a piece in play: its support is
+-- lifted away, so it counts as lying where it is, with no onTop.
+function outcome.toss(res, pieces, side, kubbId, debris)
 	local t = outcome.tune
 	local rb = assert(res.bodies[kubbId], "no body " .. tostring(kubbId))
 	local rest, z = worldPose(side, rb)
@@ -155,8 +159,17 @@ function outcome.toss(res, pieces, side, kubbId)
 				if d < bd then best, bd = p.id, d end
 			end
 		end
+		local onDebris = false
+		for _, p in ipairs(debris or {}) do
+			local b = res.bodies[p.id]
+			if b and p.id ~= kubbId then
+				local dx, dy = b.x - rb.x, b.y - rb.y
+				local d = sqrt(dx * dx + dy * dy)
+				if d < bd then best, bd, onDebris = nil, d, true end
+			end
+		end
 		rest.onTop = best
-		if best then rest.standing = false end
+		if best or onDebris then rest.standing = false end
 	end
 	local o = { rest = rest, moved = movedPoses(res, pieces, side), kingToppled = res.kingToppled and true or false,
 		ownHalfHit = {} }
