@@ -1,0 +1,39 @@
+[Event "Throwing Wood"]
+[Location "Playdate"]
+[Start "2026-11-21 16:27"]
+[End "2026-11-21 17:18"]
+[Duration "51m"]
+[Surface "Grass"]
+[Team A "Jamie"]
+[Team A Players "Jamie (jamie)"]
+[Team B "Long Lob"]
+[Team B Players "Ray (ray), Kit (kit)"]
+[First "Team B"]
+[Win "Team B"]
+[Scored by "Throwing Wood 0.0.1"]
+[Mode "Pass and Play"]
+[Rules "U.S. Championship 4.0, six from the start"]
+
+1. ray:- kit:B ray:- kit:- ray:- kit:B
+2. jamie:2I jamie:- jamie:F jamie:- jamie:- jamie:- jamie:F
+3. kit:I ray:I ray:- kit:- ray:F kit:- ray:F kit:-
+4. jamie:2I jamie:- jamie:F jamie:F jamie:B jamie:- jamie:-
+5. ray:2I kit:I ray:- kit:F ray:- kit:F ray:F kit:B
+6. jamie:4I jamie:F jamie:- jamie:- jamie:F jamie:F jamie:F
+7. kit:2I ray:2I ray:- kit:- ray:- kit:- ray:- kit:F
+8. jamie:I 3A jamie:F jamie:- jamie:B jamie:B jamie:- jamie:-
+9. ray:2I kit:I ray:- kit:F ray:- kit:- ray:- kit:F
+10. jamie:2I 3A jamie:F jamie:F jamie:B jamie:- jamie:- jamie:B
+11. kit:2I ray:2IN ray:F kit:- ray:2F kit:F ray:- kit:-
+12. jamie:4I 3A jamie:- jamie:- jamie:F jamie:F jamie:- jamie:Z
+13. kit:I ray:2IQ 2A ray:F kit:- ray:F kit:F ray:F kit:F
+14. jamie:6I2RPQ 1A jamie:- jamie:F jamie:F jamie:F jamie:F jamie:-
+15. kit:3I ray:2IRQ 3A ray:- kit:F ray:F kit:- ray:F kit:-
+16. jamie:3I 1A jamie:F jamie:- jamie:- jamie:- jamie:- jamie:-
+17. ray:I 3A ray:- kit:- ray:F kit:- ray:F kit:F
+18. jamie:3I jamie:- jamie:- jamie:- jamie:Z jamie:2F jamie:F
+19. ray:2I kit:I 3A ray:F kit:- ray:F kit:- ray:F kit:B
+20. jamie:4IN jamie:- jamie:- jamie:F jamie:- jamie:2F jamie:-
+21. ray:2I kit:I 3A ray:F kit:- ray:F kit:- ray:F kit:-
+22. jamie:3IN jamie:- jamie:F jamie:- jamie:- jamie:F jamie:-
+23. kit:I ray:I 3A ray:- kit:F ray:F kit:- ray:B kit:K

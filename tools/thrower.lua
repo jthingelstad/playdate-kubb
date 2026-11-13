@@ -36,6 +36,8 @@ thrower.tune = {
 	standOnEnd = 0.06,         -- a tossed kubb lands standing on an end
 	onTop = 0.5,               -- landing within 12 cm of a kubb: it rests on top
 	rescueTry = 0.12,          -- with established kubbs in the target half, aim at one
+	chaseOut = 0.25,           -- with a kubb of this turn lying out near the half, aim at it
+	                           -- (kubbs are judged where they lie once the round is over)
 	shortTry = 0.03,           -- aim short, into the thrower's own half
 	tossKing = 0.25,           -- landing within 15 cm of the king topples it
 	resignBaton = 0.0012,      -- per baton, a team behind on kubbs resigns
@@ -103,8 +105,20 @@ function Thrower:toss(g, need)
 	for _, k in ipairs(g:fieldKubbs(def)) do
 		if k.established then established[#established + 1] = k end
 	end
-	local rescue = false
-	if #established > 0 and r.chance(tune.rescueTry) then
+	-- kubbs thrown this turn that lie out for now, near enough to knock in
+	local outNear = {}
+	for _, k in ipairs(g:fieldKubbs(def)) do
+		if k.thrown > 0 and g:liesNow(k.id) == "out" and not k.fouled and abs(k.pose.x) < 3
+			and pitch.fromBaseline(def, k.pose.y) > -0.8 and pitch.fromBaseline(def, k.pose.y) < 4.8 then
+			outNear[#outNear + 1] = k
+		end
+	end
+	local rescue, chase = false, false
+	if #outNear > 0 and r.chance(tune.chaseOut) then
+		local k = r.pick(outNear)
+		aim = { x = k.pose.x, y = k.pose.y }
+		chase = true
+	elseif #established > 0 and r.chance(tune.rescueTry) then
 		local k = r.pick(established)
 		aim = { x = k.pose.x, y = k.pose.y }
 		rescue = true
@@ -114,7 +128,7 @@ function Thrower:toss(g, need)
 		aim = { x = r.uniform(-2.1, 2.1), y = 4 + dirY * r.uniform(0.3, 3.2) }
 	end
 	local land = { x = aim.x + r.normal(tune.tossScatter[1]), y = aim.y + r.normal(tune.tossScatter[2]) }
-	if rescue then land.x, land.y = aim.x + r.normal(0.1), aim.y + r.normal(0.1) end
+	if rescue or chase then land.x, land.y = aim.x + r.normal(0.1), aim.y + r.normal(0.1) end
 	local o = { moved = {} }
 	-- The king.
 	if dist(land, g.king.pose) < 0.15 and r.chance(tune.tossKing) then
@@ -140,7 +154,14 @@ function Thrower:toss(g, need)
 		if len < 1e-6 then dx, dy, len = 1, 0, 1 end
 		local push = rescue and r.uniform(0.6, 2.5) or r.uniform(0.05, 0.6)
 		local mx, my = dx / len, dy / len
-		if rescue then
+		if chase then
+			-- toward the middle of the target half
+			local cx, cy = 0, pitch.baseline[def] - dirY * 2
+			local ex, ey = cx - k.pose.x, cy - k.pose.y
+			local el = sqrt(ex * ex + ey * ey)
+			if el > 1e-6 then mx, my = ex / el, ey / el end
+			push = r.uniform(0.2, 1.5)
+		elseif rescue then
 			-- toward the nearest sideline or the baseline
 			local toSide = 2.5 - abs(k.pose.x)
 			local toBase = pitch.fromBaseline(def, k.pose.y)
@@ -148,6 +169,11 @@ function Thrower:toss(g, need)
 		end
 		o.moved[k.id] = { x = k.pose.x + mx * push, y = k.pose.y + my * push,
 			standing = not r.chance(0.6), angle = r.uniform(0, 2 * pi) }
+		-- a kubb of this turn knocked across a line before the round is judged
+		if k.thrown > 0 and k.half == def and not k.fouled then
+			local was, now = raising.canRaise(k.pose, def), raising.canRaise(o.moved[k.id], def)
+			if not was and now then self:count("knockedIn") elseif was and not now then self:count("knockedOut") end
+		end
 		self:count(k.half == att and "tossOwnHalf" or (k.kind == "base" and "tossBase" or "tossStruck"))
 	end
 	o.rest = rest
