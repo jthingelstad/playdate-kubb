@@ -29,6 +29,7 @@ import "selftest/windup"
 import "selftest/flight"
 import "selftest/helicopter"
 import "selftest/gauge"
+import "selftest/gauge-ghost"
 
 local function launchArgs()
 	local args = {}

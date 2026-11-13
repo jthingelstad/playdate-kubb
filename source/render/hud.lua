@@ -134,10 +134,13 @@ end
 --   angle: forward degrees from the start of the wind-up (negative = wound back)
 --   backswing: degrees wound back; fullDeg: the backswing that allows full power
 --   thrown: the baton is in the air or just landed; legal, power: that throw
+--   crank: where the crank really is, forward degrees from the bottom. While
+--   idle it is drawn as a dimmed ghost on the rim: the wind-up only starts
+--   when the crank crosses the bottom going back, and an arrow shows the way.
 -- The arm hangs straight down at rest, winds back to the left and swings
 -- forward to the right. A thick arc grows with the backswing up to the
 -- full-power tick. The label under it says what to do next.
-function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power)
+function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power, crank)
 	local t = hud.tune
 	local cx, cy, r = t.gaugeX, t.gaugeY, t.gaugeR
 	gfx.setColor(gfx.kColorWhite)
@@ -155,8 +158,32 @@ function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power)
 		gfx.setLineWidth(5)
 		gfx.drawArc(cx, cy, r + 3, 180, 180 + min(backswing, 180))
 	end
+	local idle = (phase == "idle") and not thrown
+	local behind = idle and crank < -3   -- the crank sits on the wind-up side: bring it down first
+	if idle then
+		-- the crank's real position: a dimmed dot on the rim and a dotted spoke
+		local ca = rad(crank)
+		local gx, gy = cx + (r + 1) * sin(ca), cy + (r + 1) * cos(ca)
+		for i = 6, r - 4, 4 do gfx.drawPixel(cx + i * sin(ca), cy + i * cos(ca)) end
+		gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer2x2)
+		gfx.fillCircleAtPoint(gx, gy, 5)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.drawCircleAtPoint(gx, gy, 5)
+		if not behind then
+			-- the arrow: turn back (to the left of the bottom) to wind up
+			local a0, a1 = 14, 52
+			gfx.setLineWidth(2)
+			gfx.drawArc(cx, cy, r - 6, 180 + a0, 180 + a1)
+			local ea = rad(-a1)
+			local ex, ey = cx + (r - 6) * sin(ea), cy + (r - 6) * cos(ea)
+			local ta = rad(-a1 + 16)
+			gfx.drawLine(ex, ey, cx + (r - 11) * sin(ta), cy + (r - 11) * cos(ta))
+			gfx.drawLine(ex, ey, cx + (r - 1) * sin(ta), cy + (r - 1) * cos(ta))
+			gfx.setLineWidth(1)
+		end
+	end
 	-- the arm, and the baton in the hand until it is thrown
-	local a = rad(thrown and t.gaugeFollowDeg or angle)
+	local a = rad(thrown and t.gaugeFollowDeg or (idle and 0 or angle))
 	local sx, sy = sin(a), cos(a)
 	gfx.setLineWidth(2)
 	gfx.drawLine(cx, cy, cx + (r - 8) * sx, cy + (r - 8) * sy)
@@ -174,7 +201,7 @@ function hud.swingGauge(phase, angle, backswing, fullDeg, thrown, legal, power)
 	elseif phase == "winding" then
 		label = (backswing >= fullDeg) and "*FULL: flick forward!*" or "*flick forward to throw*"
 	else
-		label = "*crank back to wind up*"
+		label = behind and "*bring the crank to the bottom*" or "*crank back past the bottom*"
 	end
 	if label then
 		local w, h = gfx.getTextSize(label)

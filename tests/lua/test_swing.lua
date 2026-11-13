@@ -118,3 +118,20 @@ test("a little crank jitter while idle does not start a wind-up", function()
 	for i = 1, #t, 2 do swing.update(s, t[i + 1], t[i]) end
 	expect.eq(s.phase, "idle")
 end)
+
+test("the arm angle is measured from the bottom of the turn", function()
+	local f = swing.tune.forwardSign
+	expect.near(swing.armAngle(180), 0, 1e-9)
+	expect.near(swing.armAngle(180 - 30 * f), -30, 1e-9, "30 degrees back")
+	expect.near(swing.armAngle(180 + 45 * f), 45, 1e-9, "45 degrees forward")
+	expect.near(math.abs(swing.armAngle(0)), 180, 1e-9, "straight up")
+end)
+
+test("the throw arms only when the crank crosses the bottom going back", function()
+	expect.truthy(swing.crossedBack(5, -4))
+	expect.truthy(swing.crossedBack(0, -10))
+	expect.truthy(not swing.crossedBack(-20, -40), "already behind the bottom")
+	expect.truthy(not swing.crossedBack(170, -170), "across the top of the turn")
+	expect.truthy(not swing.crossedBack(nil, -10), "first frame")
+	expect.truthy(not swing.crossedBack(-5, 5), "going forward")
+end)

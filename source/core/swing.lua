@@ -4,6 +4,9 @@
 -- (as playdate.getCrankChange returns it) and the frame time in seconds.
 --
 --   idle      -> crank back past windStartDeg      -> winding
+--                (the throw scene only feeds the crank while idle once it
+--                has crossed the bottom of the turn going back: armAngle,
+--                crossedBack)
 --   winding   -> more back: the backswing grows (capped at backswingMaxDeg)
 --             -> slow forward: lets the wind-up down; back at the start
 --                angle = "letdown", no throw
@@ -65,6 +68,22 @@ end
 
 function swing.reset(s)
 	s.phase, s.angle, s.pending, s.backswing, s.peak, s.n, s.lastSpeed = "idle", 0, 0, 0, 0, 0, 0
+end
+
+-- Where the crank is, as the throwing arm: forward degrees from the bottom of
+-- the turn, in (-180, 180]. `pos` is getCrankPosition (0 = straight up,
+-- growing clockwise). Negative = on the wind-up side.
+function swing.armAngle(pos)
+	local a = ((pos - 180) * swing.tune.forwardSign) % 360
+	if a > 180 then a = a - 360 end
+	return a
+end
+
+-- The throw starts at the bottom of the turn: true when the arm went from
+-- `prev` (at or ahead of the bottom) to `a` (behind it) in one frame. The
+-- 90 degree limit keeps the jump across the top of the turn from counting.
+function swing.crossedBack(prev, a)
+	return prev ~= nil and prev >= 0 and a < 0 and (prev - a) < 90
 end
 
 -- Power cap from the current (or swing-start) backswing, 0..1.

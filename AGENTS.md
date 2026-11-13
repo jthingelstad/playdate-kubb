@@ -231,10 +231,13 @@ plus the two hand-written ones; `make test` gates them.
 Scenes never read `playdate.buttonIsPressed`/`getCrankChange` directly; they read an input
 provider (`source/input.lua`, `tw.input`): `p:advance()` once per frame, then
 `p:held(name)`, `p:pressed(name)` (names `left right up down a b`), `p:crank()` (raw
-degrees this frame, `getCrankChange` sign: negative = anti-clockwise), `p:docked()`,
+degrees this frame, `getCrankChange` sign: negative = anti-clockwise), `p:crankPos()`
+(`getCrankPosition`: 0 = up, 180 = the bottom of the turn), `p:docked()`,
 `p:dt()`. `input.device()` wraps the hardware (dt measured, capped at 0.1 s);
 `input.scripted(steps, dt)` plays a step list (`n`, `hold`, `press`, `crank`, `cranks`,
-`docked`) at a fixed 1/50 s.
+`docked`) at a fixed 1/50 s, with the crank starting at the bottom (or `startPos`).
+The wind-up starts only when the crank crosses the bottom of the turn going back
+(`swing.armAngle`, `swing.crossedBack`); the throw scene feeds the swing nothing before that.
 
 ## Tunables
 
