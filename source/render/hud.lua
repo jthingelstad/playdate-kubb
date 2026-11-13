@@ -6,8 +6,10 @@
 -- straight to the screen while its inputs change from frame to frame, and
 -- once a frame repeats the last frame's inputs, drawn into an image that is
 -- then copied until an input changes. Text boxes are cached as images by
--- their string. Each part draws at an offset (ox, oy) so the same code fills
--- the screen or the layer image; the pixels are the same either way.
+-- their string. A layer image is filled through gfx.setDrawOffset, so the
+-- same code in screen coordinates fills the screen or the image, and layers
+-- sit on the 8 px grid so patterns keep their phase: the pixels are the same
+-- either way.
 import "CoreLibs/graphics"
 import "CoreLibs/ui"
 import "core/tw"
