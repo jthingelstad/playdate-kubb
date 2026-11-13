@@ -344,7 +344,9 @@ Every number that is a guess lives in one table per module, with a comment:
   baton size, wobble.
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
   back the player may step, swivel and loft gearing, double-tap time, rest hold, practice
-  surface, physics time budget per frame and how far ahead it may record, impact-camera
+  surface, the flight's pacing (`flightRate`, `framePeriod`, `tailPeriod`, `minBudget`;
+  `physicsBudget` only for scripted input; see "Playback") and how far ahead the physics
+  may record, impact-camera
   slew and baton framing radius, the tossed kubb's tumble (`tossTumble`), the instant
   rest hold, and for drilling the drilled kubbs kept on the practice pitch (`drillKeep`)
   and the marker ring (`markerRadius`, `markerSegments`).
@@ -369,7 +371,10 @@ Every number that is a guess lives in one table per module, with a comment:
   scenario shows it), HUD placement, the throw
   gauge (`hud.swingGauge`: the arm that turns with the crank), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
-  the same pixels).
+  the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
+  speed").
+- `tw.playback.paceTune`, `tw.playback.calm`, `tw.playback.slow` (`source/core/playback.lua`):
+  the pace of the picture, the calm tail and the slow motion ("Playback", "Slow motion").
 - `tw.raising.tune` (`source/core/raising.lua`): the search that slides an obstructed
   footprint clear, and the punishment candidate grid. Stake radius and other piece sizes are
   in `tw.pitch`.
@@ -404,10 +409,9 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   degrees from upright, the king past about 17). `world.step` applies it when a box goes to
   sleep, never while it is still rocking; `world.result` applies it to anything still moving
   when the throw ran out of time; `world.add` applies it to a piece placed already leaning.
-- `core/playback`: compute ahead and play back. The scene steps the world within
-  `throw.tune.physicsBudget` per frame, poses are recorded once per display frame (per body,
-  only from the first frame it moved), and the screen shows them in real time; when the
-  physics falls behind, the screen waits (playback slows) rather than skipping.
+- `core/playback`: compute ahead and play back. Poses are recorded every 1/50 s of
+  simulated time (per body, only from the first frame it moved); the screen shows any time
+  between two records (`playback.poseAt` interpolates) at the pace of "Playback" below.
 - The pure core rule applies: no `playdate.*` in these files; the clock is passed in
   (`os.clock` on the desktop, `playdate.getElapsedTime` on the device).
 - Tests: `tests/lua/test_quat.lua`, `tests/lua/test_physics.lua` (rest and sleep, energy,
@@ -429,11 +433,53 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   arithmetic is term for term the plain version's, so results did not change: a change to
   these files should keep a dump of every body after a fixed scenario bit-identical on the
   desktop, or say why not.
+- Lone flight (`world.loneFlight`, on): when exactly one body is awake and it cannot reach
+  the ground or any other body within this step (its height above the ground, and above the
+  top of every other body, beats its speed plus a step of gravity and its spin, with a
+  millimetre to spare), `world.step` runs only that body's share of the full step: the
+  same arithmetic in the same order, no pair or ground search. The baton in the air is most
+  of a throw's steps (561 of the match case's 1107 on the desktop); those steps cost a fifth
+  of a full step there (0.0016 against 0.0078 ms). `tests/lua/test_loneflight.lua` checks
+  every body every 10 steps of the match case's throws is identical with it off and on, and
+  a dump of every body after every step of the default bench and 12 games was identical.
+  `w.loneStep == w.steps` marks a lone step for the benches.
 - `world.prof`: set it to `world.newProf(clock)` and `world.step` adds the seconds of each
   phase (`world.PHASES`) into it; nil costs one test per phase.
 - Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
   tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
   would save about 8% of a collision step but changes the feel, so it was not applied.
+
+## Playback
+
+What a throw looks like on the device is set by three costs per frame: the physics (on
+the device a step with nothing in contact costs about 1.9 ms, a step with kubbs in contact
+about 29, and the three match-case throws averaged 4.6 to 7.2 ms a step; real time needs 4.8
+steps per 20 ms), the draw (about 18 ms in flight, 11 after the hit) and the rest of the
+update (device run of 2026-11-13). The device cannot compute a
+throw in real time, so the picture always plays slower than real time; the goal is that it
+does so steadily. `source/scenes/throw.lua` and `source/core/playback.lua`:
+
+- In flight the display is unlocked (`flightRate` 0) and every frame takes `framePeriod`
+  (0.040 s): the physics gets what is left after the update's own work, the draw and the
+  display (each measured from the frames before, `drawEst` and `postEst`), at least
+  `minBudget`. Locked at 50 Hz, a frame that ran past 20 ms waited for the next 20 ms tick,
+  so frames came at 40 or 60 ms by chance.
+- `playback.advance` stops before a step that would run more than half a step past its
+  budget (judged by the last step's time), not after.
+- The pace (`playback.pace`, `paceTune`): the picture plays at real time while 0.4 s
+  (`horizon`) or more is computed ahead of it, slower in proportion below that (never under
+  `floor`), changing by at most `rise` per second up and `fall` down. So the picture slows
+  smoothly to the rate the physics makes frames, instead of running to the end of what is
+  computed and stopping. `playback.speed` (the slow motion) is applied on top: the slower of
+  the two wins.
+- The calm tail (`playback.calm`): once every awake body moves slower than 0.05 m/s and
+  0.5 rad/s, nothing visibly moves and the throw only waits for the sleep timer. The scene
+  holds the picture and the camera's aim there, gives the physics `tailPeriod` per frame,
+  and when the world is at rest it jumps to the end. Starved frames in the tail are not
+  counted.
+- Self-tests and the desktop use scripted input, which has no device clock: they get
+  `physicsBudget` per frame, as before.
+
 
 ## Measuring on the device
 
@@ -450,7 +496,14 @@ The autobench measures a build on the Playdate with nobody pressing anything:
    timings of the throw scene by frame type (aim with the camera still, swivelling,
    walking, then a full throw split into wind-up, flight, impact and rest, with
    `render/world` and HUD part timings), a few drawing primitives, memory and
-   `playdate.getStats`. The last line is `autobench done`; then the game carries on.
+   `playdate.getStats`, then the match case: three scripted match throws (a hit, a miss and
+   a drill) played through the throw scene exactly as in a match, each with its
+   `frames.jsonl` line, release to rest in seconds, mean and spread of the frame time,
+   frames held in the calm tail, the lowest pace and how frames were drawn (cached, from the
+   layer, layer built, full). The match case runs with the defaults and with variants
+   (`auto.matchCase(y, label, tune)` overrides `throw.tune`, `render.world.tune` and
+   `paceTune` and restores them), then `bench.matchPhysics` with lone flight off and on.
+   The last line is `autobench done`; then the game carries on.
 4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
    touch `traces.jsonl` (crank recordings).
 
@@ -471,6 +524,15 @@ and copying a full-screen image about 0.7 ms. So:
   changing `render.world.tune` or anything else the caches cannot see, call
   `render.world.invalidate()`: it drops the frame image and every item's prepared shadow
   and shading.
+- The layer (`tune.layer`): while the camera holds (it holds after the impact camera has
+  settled, and in the calm tail) and some pieces move, the pitch and the pieces that did not
+  move in the previous frame are drawn once into a background image; each frame is that
+  image, then the moving pieces (and the baton) and any still piece whose screen box
+  overlaps them, closed over overlaps, redrawn in the same depth order as a full draw. It
+  is dropped when the camera, the item list or a background piece changes. `setPose` with an
+  unchanged pose changes nothing. The `layer` self-test draws every layered frame of the hit
+  throw a second time from scratch (`render.world.verify`) and needs at least 50 of them
+  with no pixel different (112, 0 on the Simulator).
 - The device autobench turns the crank recorder and the frame-time log off while it runs
   and restores them after, so its scripted throws never reach `traces.jsonl` or
   `frames.jsonl`.
@@ -665,14 +727,16 @@ playback table; nothing is allocated per frame. `traces.jsonl` is separate and u
   seconds, mean frame dt ms, max frame dt ms]`. Frame dt is the device's measured frame time
   without the input's 0.1 s cap (`p.raw`). A throw that hits nothing is all `pre`.
 - `starved`: shown frames whose show time was clamped because the physics had not computed
-  that far (playback waited); `stall`: the longest run of them, ms of real time.
+  that far (playback waited; frames in the calm tail are not counted); `stall`: the longest
+  run of them, ms of real time. Lines written before 2026-11-13 count the tail too.
 - `awake`, `contacts`: the most bodies awake and contacts in any physics step; `bodies`:
   bodies in the world (six stakes included); `steps`: physics steps; `phys`: ms the physics
   took (`playback` busy time). About 200 to 250 bytes a line.
 
-Slow frames inside `slow` with `starved` 0 are the slow motion doing its job; a mean dt above
-20 ms means dropped frames (the draw or the physics budget overran); `starved` means the
-physics could not keep up. The `flight` self-test reads its line back.
+Slow frames inside `slow` with `starved` 0 are the slow motion doing its job. In flight a
+frame takes `throw.tune.framePeriod` (40 ms) by design; a mean dt well above that means the
+draw or the physics overran its share, and `starved` means the pace could not keep the
+picture behind the physics. The `flight` self-test reads its line back.
 
 ## Crank traces
 
