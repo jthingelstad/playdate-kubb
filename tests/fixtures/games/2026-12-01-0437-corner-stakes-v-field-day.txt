@@ -1,0 +1,19 @@
+[Event "Throwing Wood"]
+[Location "Playdate"]
+[Start "2026-12-01 04:37"]
+[End "2026-12-01 04:48"]
+[Duration "11m"]
+[Surface "Grass"]
+[Team A "Corner Stakes"]
+[Team A Players "Jo (jo), Pat (pat)"]
+[Team B "Field Day"]
+[Team B Players "Ann-Marie O'Neil (ann_marie_oneil), Robin (robin)"]
+[First "Team A"]
+[Win "Team B"]
+[Scored by "Throwing Wood 0.0.1"]
+[Mode "Pass and Play"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+
+1. jo:- pat:-
+2. ann_marie_oneil:B robin:- ann_marie_oneil:Z robin:-
+3. jo:I jo:FE X X X X X # b1 toppled the king early

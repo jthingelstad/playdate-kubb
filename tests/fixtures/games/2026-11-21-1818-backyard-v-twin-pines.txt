@@ -1,0 +1,40 @@
+[Event "Throwing Wood"]
+[Location "Playdate"]
+[Start "2026-11-21 18:18"]
+[End "2026-11-21 19:11"]
+[Duration "53m"]
+[Surface "Sand"]
+[Team A "Backyard"]
+[Team A Players "Backyard (backyard)"]
+[Team B "Twin Pines"]
+[Team B Players "Dana (dana), Dana (dana_b)"]
+[First "Team B"]
+[Win "Team A"]
+[Scored by "Throwing Wood 0.0.1"]
+[Mode "Pass and Play"]
+[Rules "U.S. Championship 4.0, six from the start"]
+
+1. dana:Z dana_b:- dana:- dana_b:- dana:B dana_b:-
+2. backyard:I backyard:F backyard:B backyard:- backyard:B backyard:- backyard:B # b1 pushed a kubb out without toppling; put back (II.B.7)
+3. dana_b:2I dana:2I dana:F dana_b:F dana:- dana_b:F dana:F dana_b:-
+4. backyard:4I backyard:- backyard:F backyard:- backyard:- backyard:F backyard:F
+5. dana:2I dana_b:I 1A dana:- dana_b:F dana:F dana_b:- dana:- dana_b:-
+6. backyard:2IR 0A backyard:F backyard:F backyard:- backyard:F backyard:- backyard:-
+7. dana:2I dana_b:I dana:- dana_b:F dana:F dana_b:F dana:F dana_b:-
+8. backyard:4I backyard:F backyard:- backyard:F backyard:F backyard:F backyard:-
+9. dana_b:2I dana:2I dana:2F dana_b:F dana:F dana_b:- dana:- dana_b:-
+10. backyard:4I backyard:F backyard:F backyard:F backyard:F backyard:- backyard:-
+11. dana_b:2I dana:2I dana:- dana_b:- dana:F dana_b:- dana:F dana_b:F
+12. backyard:3I 1A backyard:F backyard:- backyard:- backyard:- backyard:- backyard:- # b1 pushed a kubb out without toppling; put back (II.B.7)
+13. dana:I 0A dana:- dana_b:F dana:- dana_b:F dana:B dana_b:B
+14. backyard:4I backyard:- backyard:F backyard:F backyard:F backyard:- backyard:F
+15. dana_b:2I dana:2I 1A dana:F dana_b:- dana:F dana_b:- dana:Z dana_b:F # b5 hit a field kubb in the thrower's own half; all put back (II.B.11)
+16. backyard:3I 2A backyard:F backyard:F backyard:- backyard:F backyard:F backyard:F
+17. dana:4IQ dana_b:2I dana:- dana_b:F dana:Z dana_b:F dana:F dana_b:F # b6 pushed a kubb out without toppling; put back (II.B.7)
+18. backyard:4IR 3A backyard:F backyard:F backyard:F backyard:F backyard:B backyard:Z # b6 hit a field kubb in the thrower's own half; all put back (II.B.11)
+19. dana:3IN dana_b:2I dana:F dana_b:F dana:F dana_b:- dana:- dana_b:-
+20. backyard:3I 3A backyard:F backyard:- backyard:F backyard:F backyard:B backyard:=
+21. dana_b:3I dana:IR dana:F dana_b:F dana:F dana_b:F dana:- dana_b:F
+22. backyard:5I 2A backyard:- backyard:F backyard:F backyard:F backyard:F backyard:F
+23. dana:3IR dana_b:2IN dana:- dana_b:- dana:- dana_b:- dana:F dana_b:F
+24. backyard:2I 2A backyard:F backyard:F backyard:K X X X
