@@ -32,6 +32,8 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   runs the notation gate over all of them. Every game must pass with zero warnings. Same seed,
   same files. It prints a count of the rare events it produced (rescues, punishment kubbs,
   early kings, helicopters and so on).
+- `make bench`: the physics benchmark on the desktop (`tools/bench.lua`, three runs of
+  `core/bench`, prints each and the best). See "Physics" for the device side.
 - `make clean`.
 
 Tools are called by full path: SDK at `~/Developer/PlaydateSDK` (no `PLAYDATE_SDK_PATH`),
@@ -225,6 +227,18 @@ plus the two hand-written ones; `make test` gates them.
   return true, `check(scene)` returns an error string or nil. `tw.selftest.windup(deg, n)`
   and `tw.selftest.flick{deg, ...}` build crank steps in forward degrees and apply the
   crank sign for you. Every scenario must also be imported from `main.lua`.
+  `setup(scene)` runs once after the scene is made (`throw.setLayout`, `scene.surface`).
+  For physics frames use `tw.selftest.sinceHit(s)` / `sinceContact(s)` (seconds on screen
+  relative to the baton's first hit or touch, nil until the physics has found it),
+  `restShot(n)` (n frames into the rest; the rest hold is 50 frames) and `item(s, id)`.
+  A scenario that runs out of frames reports the scene's mode, playback frame and awake
+  bodies in its `FAIL` line.
+- Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
+  group of field kubbs), `skid` and `skid-sand` (the kick after landing on each surface),
+  `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
+  are the Mac's, not the device's). They set loft and position in `setup`, not through the
+  controls. Strong throws use loft 30 or less: at full speed and 35 degrees the baton
+  lands past the far baseline.
 
 ## Input provider
 
@@ -251,12 +265,67 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range and step,
   baton size, wobble.
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
-  back the player may step, swivel and loft gearing, double-tap time, rest hold.
-- `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction, patterns, stakes,
-  HUD placement, the throw gauge (`hud.swingGauge`: the arm that turns with the crank).
+  back the player may step, swivel and loft gearing, double-tap time, rest hold, practice
+  surface, physics time budget per frame and how far ahead it may record, impact-camera
+  slew and baton framing radius.
+- `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
+  margin, bounce threshold and passes, wood-on-wood friction and bounce, sleep and wake
+  thresholds, topple angle, out margin, maximum throw time, stake height.
+  `tw.world.surfaces`: one parameter set per ground (grass, sand; ice is a marked
+  placeholder): friction, bounce, dig, rolling resistance.
+- `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds).
+- `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction (also the light that
+  shades the faces), face-shade thresholds, patterns, stakes, HUD placement, the throw
+  gauge (`hud.swingGauge`: the arm that turns with the crank).
 - `tw.raising.tune` (`source/core/raising.lua`): the search that slides an obstructed
   footprint clear, and the punishment candidate grid. Stake radius and other piece sizes are
   in `tw.pitch`.
+
+## Physics
+
+DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `world`,
+`playback`, `bench`.
+
+- Units are meters, kilograms, seconds, radians. World axes: x across the pitch, y from
+  Team A's baseline (y = 0) to Team B's (y = 8), z up; the ground is z = 0.
+- A body is one flat table of numbers (`core/body.lua`): position, velocity, quaternion,
+  world angular velocity, its rotation matrix `r11..r33` (column 3 is the local z axis, the
+  long axis of every piece) and world inverse inertia. Kinds: `kubb` and `king` (boxes),
+  `baton` (capsule, solid-cylinder inertia), `stake` (a static capsule post: infinite
+  mass, never wakes or moves). Sizes are DESIGN 2, not tunables.
+- `world.new{ surface, pieces, stakes }` adds the six stakes (`stake1..6`, `core/pitch`
+  order, unless `stakes = false`) and then the pieces (`{id, kind, x, y, yaw}` standing, or
+  a full pose `qw..qz`, `z`, `toppled` for a piece already down). `world.launchBaton(w, x,
+  lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg)` takes the stage 1 swing outputs
+  (tilt is a real tilted spin axis); `world.launch` throws any body, a kubb included.
+  `world.step` advances one fixed step (1/240 s), `world.run`, `world.isAtRest`,
+  `world.result` (touched, stakesTouched, toppled, kingToppled, outNotToppled, rest poses,
+  firstContact, firstHit).
+- Toppled means the long axis came within `toppleDeg` of horizontal. There is no tipping
+  state machine: tipping, rocking back and falling come out of the contacts.
+- `core/playback`: compute ahead and play back. The scene steps the world within
+  `throw.tune.physicsBudget` per frame, poses are recorded once per display frame (per body,
+  only from the first frame it moved), and the screen shows them in real time; when the
+  physics falls behind, the screen waits (playback slows) rather than skipping.
+- The pure core rule applies: no `playdate.*` in these files; the clock is passed in
+  (`os.clock` on the desktop, `playdate.getElapsedTime` on the device).
+- Tests: `tests/lua/test_quat.lua`, `tests/lua/test_physics.lua` (rest and sleep, energy,
+  tipping thresholds against the analytic values, dominoes, baton hits and misses,
+  surfaces, stakes, determinism, playback). Outcomes are tested with tolerances.
+- Benchmark: `make bench` on the desktop; on the device the System Menu "Pitch" item, set to
+  "bench", runs the identical `core/bench` scenario a chunk of steps per frame, then times
+  30 draws of the throw scene, shows ms per step, steps per 20 ms frame (overall and in
+  the collision phase), total time and draw ms per frame, and appends one line to
+  `bench.txt` in the Data folder. Real time needs 4.8 steps per 20 ms frame.
+
+## Throw scene practice
+
+Toppled kubbs stay down between throws at their rest poses (the scene's item list, the
+render items of `render/world`, carries every piece's pose). System Menu "Pitch" set to
+"reset" stands everything back up (`throw.reset`); it also happens by itself after the
+throw that leaves every far base kubb down. The System Menu holds three custom items at
+most (Readout, Record, Pitch), so Pitch is an options item that acts when the menu closes
+and then reads "play" again.
 
 ## Crank traces
 
