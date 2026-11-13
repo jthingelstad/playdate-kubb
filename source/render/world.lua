@@ -56,20 +56,32 @@ world.tune = {
 	outsidePattern = { 0x7F, 0xFF, 0xF7, 0xFF, 0x7F, 0xFF, 0xF7, 0xFF },
 	outsideFrom = -20,  -- m (y) where the patterned strips start, behind the thrower
 	outsideTo = 8,      -- m (y) where they end: the far baseline
-	-- A half-lit face of a piece (a standing kubb's face toward the thrower).
-	darkPattern = { 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55 },
-	-- Face shading by n.L (L toward the light, from shadowX/shadowY): above
-	-- litAbove white, above darkAbove the dark pattern, else black. With the
-	-- default light a standing kubb shows a white top, white -x and +y faces,
-	-- a patterned -y face and a black +x face, as in stage 1.
-	litAbove = 0.2,
-	darkAbove = -0.35,
+	-- Tones (docs/design "Tones"): a face is white unless it faces away from
+	-- the light (n.L at or below awayBelow, L toward the light from
+	-- shadowX/shadowY), then black. With the default light a standing kubb
+	-- shows a white top and white front, left and back faces and a black
+	-- right face. A piece lying down (its long axis within lyingBelow of
+	-- level: |up component| below it) is grey, the only grey on a piece,
+	-- with its away faces still black.
+	greyPattern = { 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55 },
+	awayBelow = -0.35,
+	lyingBelow = 0.5,
+	thickFrom = 14,   -- px tall: outlines 2 px from here, 1 px below
+	grainFrom = 17,   -- px tall: one grain line on the front face from here,
+	grain2From = 30,  -- and two from here
 	batonMinPx = 2,
-	-- the king's carving, as fractions of its height and half-width
-	kingCrown = 0.11, -- depth of the crown's cuts
-	kingWaist = 0.55, -- where the bevel into the neck starts
-	kingNeck = 0.66,  -- the top of the neck, under the head's shoulder
-	kingInset = 0.3,  -- how far the neck is cut in
+	batonBand = 0.12, -- a flying baton's two black bands: each this fraction of
+	batonBandAt = 0.1, -- its length, starting this fraction in from each end
+	batonBandsFrom = 10, -- px long: bands from here
+	-- the king's drawing, as fractions of its height
+	kingCrown = 0.11,  -- depth of the crown's cuts
+	kingCollar = 0.66, -- the black collar under the head: from here
+	kingCollarTop = 0.73, -- to here
+	kingRing = 0.6,    -- the thin ring
+	kingDiamond = 0.47, -- the diamond's center, and its half-height
+	kingDiamondH = 0.07,
+	kingDetailFrom = 30, -- px tall: the ring and the diamond from here (the
+	                     -- far king keeps the crown points and the collar)
 	cache = true,     -- reuse the last frame's world image when nothing changed
 	layer = true,     -- keep the pieces that hold still in a background image while the camera does
 }
@@ -354,7 +366,9 @@ local function prepare(p)
 	p.hn = n
 	-- faces
 	local FN = p.FN
-	local litAbove, darkAbove = t.litAbove, t.darkAbove
+	local away = t.awayBelow
+	local lying = (r33 < 0 and -r33 or r33) < t.lyingBelow
+	p.lying = lying
 	for f = 1, 6 do
 		local F = FACES[f]
 		local axis, sgn = F[5], F[6]
@@ -367,7 +381,7 @@ local function prepare(p)
 		FN[o + 1], FN[o + 2], FN[o + 3] = nx, ny, nz
 		FN[o + 4], FN[o + 5], FN[o + 6] = x + nx * h, y + ny * h, z + nz * h
 		local lit = nx * LX + ny * LY + nz * LZ
-		FN[o + 7] = (lit > litAbove) and 1 or ((lit > darkAbove) and 2 or 3)
+		FN[o + 7] = (lit <= away) and 3 or (lying and 2 or 1)
 	end
 	p.stale = false
 	p.gen = generation
@@ -402,28 +416,20 @@ local function batonShadow(c, b)
 	setLineWidth(1)
 end
 
--- The king is the same box to the physics, but it is drawn carved, like a
--- real one: a body, a waist cut in above it (a bevel up to a narrower neck,
--- with a square shoulder under the head), and a head whose top is a crown
--- of low teeth (two V cuts in each side, down to a floor inside).
+-- The king is the same box to the physics, but it is drawn as a real one
+-- (docs/design "Pieces"): a straight body and a head whose top is a crown of
+-- four points (two V cuts in each side, down to a floor inside), a black
+-- collar under the head and, at near sizes, a thin ring and one diamond.
 --
 -- Every extra point lies on one of the box's four vertical edges, a
--- fraction u of the way up and pulled a fraction s toward the axis. On
--- entry SX/SY[1..8] hold the projected corners; the rings above bottom
--- corners 1..4 go to 9..12 (A: top of the body), 13..16 (B: the neck),
--- 17..20 (C: under the head) and 21..24 (D: the crown's floor).
+-- fraction u of the way up. On entry SX/SY[1..8] hold the projected
+-- corners; the rings above bottom corners 1..4 go to 9..12 (the ring),
+-- 13..16 (the collar's foot), 17..20 (the collar's top, under the head) and
+-- 21..24 (the crown's floor).
 local function shadeOn(shade)
 	if shade == 1 then setColor(WHITE)
-	elseif shade == 2 then setPattern(world.tune.darkPattern)
+	elseif shade == 2 then setPattern(world.tune.greyPattern)
 	else setColor(BLACK) end
-end
-
--- One side of a section between two rings (bases L and H into SX/SY).
-local function kingSide(L, H, a, b, shade)
-	shadeOn(shade)
-	fillPolygon(SX[L + a], SY[L + a], SX[L + b], SY[L + b], SX[H + b], SY[H + b], SX[H + a], SY[H + a])
-	setColor(BLACK)
-	drawPolygon(SX[L + a], SY[L + a], SX[L + b], SY[L + b], SX[H + b], SY[H + b], SX[H + a], SY[H + a])
 end
 
 -- A cap: the ring at base L, in the order of face F.
@@ -435,15 +441,17 @@ local function kingCap(L, F, shade)
 	drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[c], SY[c], SX[d], SY[d])
 end
 
--- One side of the head, with the crown's two cuts. inner: the far side,
--- whose inner wall shows through the near cuts.
-local function kingHeadSide(a, b, shade, inner)
-	local ax, ay, bx, by = SX[16 + a], SY[16 + a], SX[16 + b], SY[16 + b]       -- under the head
+-- One side of the king: the body up to the crown's floor and the crown's
+-- two cuts. inner: the far side, whose inner wall shows through the near
+-- cuts (only the crown part).
+local function kingFace(a, b, shade, inner)
 	local fax, fay, fbx, fby = SX[20 + a], SY[20 + a], SX[20 + b], SY[20 + b]   -- the crown's floor
 	local tax, tay, tbx, tby = SX[4 + a], SY[4 + a], SX[4 + b], SY[4 + b]       -- the top corners
 	local v1x, v1y = fax + (fbx - fax) * 0.25, fay + (fby - fay) * 0.25
 	local v2x, v2y = fax + (fbx - fax) * 0.75, fay + (fby - fay) * 0.75
 	local px, py = (tax + tbx) / 2, (tay + tby) / 2
+	local ax, ay, bx, by = SX[a], SY[a], SX[b], SY[b]
+	if inner then ax, ay, bx, by = SX[16 + a], SY[16 + a], SX[16 + b], SY[16 + b] end
 	shadeOn(inner and 3 or shade)
 	-- up to the floor, then the three teeth: a concave polygon is not safe
 	-- to fill in one piece
@@ -457,29 +465,19 @@ local function kingHeadSide(a, b, shade, inner)
 	end
 end
 
-local KING_U, KING_S = {}, {}
-local function drawKing(p, FN)
+local KING_U = {}
+local function drawKing(p, FN, tall)
 	local WX, WY, WZ = p.WX, p.WY, p.WZ
 	local t = world.tune
 	local f, cx, cy, near = CF, CCX, CCY, NEAR
 	local cpx, cpy, cpz = CPX, CPY, CPZ
-	KING_U[1], KING_S[1] = t.kingWaist, 0
-	KING_U[2], KING_S[2] = t.kingNeck, t.kingInset
-	KING_U[3], KING_S[3] = t.kingNeck, 0
-	KING_U[4], KING_S[4] = 1 - t.kingCrown, 0
-	-- the axis: from the middle of the bottom to the middle of the top
-	local bx = (WX[1] + WX[2] + WX[3] + WX[4]) / 4
-	local by = (WY[1] + WY[2] + WY[3] + WY[4]) / 4
-	local bz = (WZ[1] + WZ[2] + WZ[3] + WZ[4]) / 4
-	local ux, uy, uz = 2 * (p.x - bx), 2 * (p.y - by), 2 * (p.z - bz)
+	KING_U[1], KING_U[2], KING_U[3], KING_U[4] = t.kingRing, t.kingCollar, t.kingCollarTop, 1 - t.kingCrown
 	for row = 1, 4 do
-		local u, s = KING_U[row], KING_S[row]
-		local mx, my, mz = bx + ux * u, by + uy * u, bz + uz * u
+		local u = KING_U[row]
 		for k = 1, 4 do
-			local wx = WX[k] + (WX[k + 4] - WX[k]) * u
-			local wy = WY[k] + (WY[k + 4] - WY[k]) * u
-			local wz = WZ[k] + (WZ[k + 4] - WZ[k]) * u
-			local dx, dy, dz = wx + (mx - wx) * s - cpx, wy + (my - wy) * s - cpy, wz + (mz - wz) * s - cpz
+			local dx = WX[k] + (WX[k + 4] - WX[k]) * u - cpx
+			local dy = WY[k] + (WY[k + 4] - WY[k]) * u - cpy
+			local dz = WZ[k] + (WZ[k + 4] - WZ[k]) * u - cpz
 			local d = dx * CFX + dy * CFY + dz * CFZ
 			if d < near then return end
 			local sc = f / d
@@ -488,49 +486,85 @@ local function drawKing(p, FN)
 		end
 	end
 	-- which sides face the camera, and which end of the king it looks at
-	local s1, s2, s3, s4
-	for fi = 1, 4 do
-		local o = 7 * fi - 7
-		local front = (cpx - FN[o + 4]) * FN[o + 1] + (cpy - FN[o + 5]) * FN[o + 2] + (cpz - FN[o + 6]) * FN[o + 3] > 0
-		if fi == 1 then s1 = front elseif fi == 2 then s2 = front elseif fi == 3 then s3 = front else s4 = front end
-	end
+	local ux, uy, uz = WX[5] - WX[1], WY[5] - WY[1], WZ[5] - WZ[1]
 	local above = (cpx - p.x) * ux + (cpy - p.y) * uy + (cpz - p.z) * uz > 0
-	local topShade, bottomShade = FN[42], FN[35]
-	-- the three sections, the far one first
-	for step = 1, 3 do
-		local sec = above and step or (4 - step)
-		if sec == 3 then
-			-- the head: from below its underside shows, from above the far
-			-- sides' inner walls and the crown's floor
-			if above then
-				for fi = 1, 4 do
-					local F = FACES[fi]
-					local front = (fi == 1 and s1) or (fi == 2 and s2) or (fi == 3 and s3) or (fi == 4 and s4)
-					if not front then kingHeadSide(F[1], F[2], 3, true) end
-				end
-				local F = FACES[5]
-				shadeOn(topShade)
-				fillPolygon(SX[20 + F[1]], SY[20 + F[1]], SX[20 + F[2]], SY[20 + F[2]],
-					SX[20 + F[3]], SY[20 + F[3]], SX[20 + F[4]], SY[20 + F[4]])
-				setColor(BLACK)
-			else
-				kingCap(16, FACES[5], bottomShade)
-			end
-			for fi = 1, 4 do
+	if above then
+		-- the far sides' inner walls through the cuts, and the crown's floor
+		for fi = 1, 4 do
+			local o = 7 * fi - 7
+			if (cpx - FN[o + 4]) * FN[o + 1] + (cpy - FN[o + 5]) * FN[o + 2] + (cpz - FN[o + 6]) * FN[o + 3] <= 0 then
 				local F = FACES[fi]
-				local front = (fi == 1 and s1) or (fi == 2 and s2) or (fi == 3 and s3) or (fi == 4 and s4)
-				if front then kingHeadSide(F[1], F[2], FN[7 * fi], false) end
-			end
-		else
-			local L, H = 0, 8
-			if sec == 2 then L, H = 8, 12 end
-			if sec == 1 and not above then kingCap(0, FACES[5], bottomShade) end
-			for fi = 1, 4 do
-				local F = FACES[fi]
-				local front = (fi == 1 and s1) or (fi == 2 and s2) or (fi == 3 and s3) or (fi == 4 and s4)
-				if front then kingSide(L, H, F[1], F[2], FN[7 * fi]) end
+				kingFace(F[1], F[2], 3, true)
 			end
 		end
+		local F = FACES[5]
+		shadeOn(FN[42])
+		fillPolygon(SX[20 + F[1]], SY[20 + F[1]], SX[20 + F[2]], SY[20 + F[2]],
+			SX[20 + F[3]], SY[20 + F[3]], SX[20 + F[4]], SY[20 + F[4]])
+		setColor(BLACK)
+	else
+		kingCap(0, FACES[5], FN[35])
+	end
+	local detail = tall >= t.kingDetailFrom and not p.lying
+	for fi = 1, 4 do
+		local o = 7 * fi - 7
+		if (cpx - FN[o + 4]) * FN[o + 1] + (cpy - FN[o + 5]) * FN[o + 2] + (cpz - FN[o + 6]) * FN[o + 3] > 0 then
+			local F = FACES[fi]
+			local a, b = F[1], F[2]
+			local shade = FN[o + 7]
+			kingFace(a, b, shade, false)
+			if shade ~= 3 then
+				-- the collar (black on a light face; a black face needs none)
+				fillPolygon(SX[12 + a], SY[12 + a], SX[12 + b], SY[12 + b], SX[16 + b], SY[16 + b], SX[16 + a], SY[16 + a])
+				if detail then
+					drawLine(SX[8 + a], SY[8 + a], SX[8 + b], SY[8 + b])
+					-- the diamond, in the middle of the face (screen-space
+					-- interpolation: fine at these sizes)
+					local u, h = t.kingDiamond, t.kingDiamondH
+					local lx0, ly0, rx0, ry0 = SX[a], SY[a], SX[b], SY[b]
+					local lx1, ly1, rx1, ry1 = SX[4 + a] - lx0, SY[4 + a] - ly0, SX[4 + b] - rx0, SY[4 + b] - ry0
+					local mx = (lx0 + rx0 + (lx1 + rx1) * u) / 2
+					local my = (ly0 + ry0 + (ly1 + ry1) * u) / 2
+					local vx, vy = (lx1 + rx1) * h / 2, (ly1 + ry1) * h / 2
+					local wx, wy = (rx0 - lx0) * 0.22, (ry0 - ly0) * 0.22
+					fillPolygon(mx + vx, my + vy, mx + wx, my + wy, mx - vx, my - vy, mx - wx, my - wy)
+				end
+			end
+		end
+	end
+end
+
+-- Grain: one or two lines along the long axis of the front face (the white
+-- side face that looks most at the camera), at 17 px and taller.
+local function grain(p, FN, tall)
+	local t = world.tune
+	local best, bf = 0, nil
+	local cpx, cpy, cpz = CPX, CPY, CPZ
+	for fi = 1, 4 do
+		local o = 7 * fi - 7
+		if FN[o + 7] == 1 then
+			local dx, dy, dz = cpx - FN[o + 4], cpy - FN[o + 5], cpz - FN[o + 6]
+			local v = (dx * FN[o + 1] + dy * FN[o + 2] + dz * FN[o + 3]) / sqrt(dx * dx + dy * dy + dz * dz)
+			if v > best then best, bf = v, fi end
+		end
+	end
+	-- seen nearly edge-on, grain would only thicken the outline
+	if not bf or best < 0.35 then return end
+	local F = FACES[bf]
+	local a, b, c, d = F[1], F[2], F[3], F[4]
+	-- a and b at the foot, d above a and c above b
+	local ax, ay, bx, by = SX[a], SY[a], SX[b], SY[b]
+	local ux0, uy0, ux1, uy1 = SX[d] - ax, SY[d] - ay, SX[c] - bx, SY[c] - by
+	local n = (tall >= t.grain2From) and 2 or 1
+	for i = 1, n do
+		-- across the face, and from and to up its length (the board's lines)
+		local s, u0, u1 = 0.5, 0.18, 0.76
+		if n == 2 then
+			if i == 1 then s, u0, u1 = 0.3, 0.2, 0.83 else s, u0, u1 = 0.65, 0.09, 0.71 end
+		end
+		local x0, y0 = ax + (bx - ax) * s, ay + (by - ay) * s
+		local vx, vy = ux0 + (ux1 - ux0) * s, uy0 + (uy1 - uy0) * s
+		drawLine(x0 + vx * u0, y0 + vy * u0, x0 + vx * u1, y0 + vy * u1)
 	end
 end
 
@@ -555,27 +589,41 @@ local function drawBox(p)
 	end
 	-- wholly off screen: nothing to draw
 	if x1 < -2 or x0 > 402 or y1 < -2 or y0 > 242 then return end
+	local t = world.tune
 	local FN = p.FN
 	local cpx, cpy, cpz = CPX, CPY, CPZ
-	if p.king then return drawKing(p, FN) end
-	for fi = 1, 6 do
-		local o = 7 * fi - 7
-		local nx, ny, nz = FN[o + 1], FN[o + 2], FN[o + 3]
-		-- visible when the camera is in front of the face's plane
-		if (cpx - FN[o + 4]) * nx + (cpy - FN[o + 5]) * ny + (cpz - FN[o + 6]) * nz > 0 then
-			local F = FACES[fi]
-			local a, b, cc, d = F[1], F[2], F[3], F[4]
-			local shade = FN[o + 7]
-			if shade == 1 then
-				setColor(WHITE)
-			elseif shade == 2 then
-				setPattern(world.tune.darkPattern)
+	-- how tall it stands on screen decides the line weight and the detail
+	local tall = y1 - y0
+	local thick = tall >= t.thickFrom
+	if thick then setLineWidth(2) end
+	if p.king then
+		drawKing(p, FN, tall)
+	else
+		for fi = 1, 6 do
+			local o = 7 * fi - 7
+			local nx, ny, nz = FN[o + 1], FN[o + 2], FN[o + 3]
+			-- visible when the camera is in front of the face's plane
+			if (cpx - FN[o + 4]) * nx + (cpy - FN[o + 5]) * ny + (cpz - FN[o + 6]) * nz > 0 then
+				local F = FACES[fi]
+				local a, b, cc, d = F[1], F[2], F[3], F[4]
+				local shade = FN[o + 7]
+				if shade == 1 then
+					setColor(WHITE)
+				elseif shade == 2 then
+					setPattern(t.greyPattern)
+				end
+				fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+				if shade ~= 3 then setColor(BLACK) end
+				drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
 			end
-			fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
-			if shade ~= 3 then setColor(BLACK) end
-			drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+		end
+		if tall >= t.grainFrom and not p.lying then
+			if thick then setLineWidth(1) end
+			grain(p, FN, tall)
+			return
 		end
 	end
+	if thick then setLineWidth(1) end
 end
 
 local function drawBaton(c, b)
@@ -583,16 +631,28 @@ local function drawBaton(c, b)
 	local a, bb, cc, d = projectSegment(c, x1, y1, z1, x2, y2, z2)
 	if not a then return end
 	local _, _, dep = project(c, b.x, b.y, b.z)
-	local w = dep and max(world.tune.batonMinPx, floor(BATON_D * c.f / dep + 0.5)) or 2
+	local t = world.tune
+	local w = dep and max(t.batonMinPx, floor(BATON_D * c.f / dep + 0.5)) or 2
 	setColor(BLACK)
 	gfx.setLineCapStyle(gfx.kLineCapStyleRound)
 	setLineWidth(w + 2)
 	drawLine(a, bb, cc, d)
-	setColor(WHITE)
 	gfx.setLineCapStyle(gfx.kLineCapStyleButt)
-	setLineWidth(w)
-	drawLine(a, bb, cc, d)
-	setColor(BLACK)
+	-- a baton lying on the ground is black (docs/design "Pieces"); one in the
+	-- air (or tumbling) is white with two black bands
+	local lying = b.z < BATON_D and (b.az < 0.3 and b.az > -0.3)
+	if not lying then
+		setColor(WHITE)
+		setLineWidth(w)
+		drawLine(a, bb, cc, d)
+		setColor(BLACK)
+		local ex, ey = cc - a, d - bb
+		if ex * ex + ey * ey >= t.batonBandsFrom * t.batonBandsFrom then
+			local u0, u1 = t.batonBandAt, t.batonBandAt + t.batonBand
+			drawLine(a + ex * u0, bb + ey * u0, a + ex * u1, bb + ey * u1)
+			drawLine(cc - ex * u1, d - ey * u1, cc - ex * u0, d - ey * u0)
+		end
+	end
 	setLineWidth(1)
 end
 
