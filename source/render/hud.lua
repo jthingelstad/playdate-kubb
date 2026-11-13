@@ -42,10 +42,10 @@ local hud = {}
 hud.tune = {
 	-- Labels: Roobert 10 Bold from the system, capitals only (DESIGN "Type").
 	labelFont = "/System/Fonts/Roobert-10-Bold.pft",
-	-- THE DISPLAY FONT HOOK: big numbers and words (the power chip's percent,
-	-- the drill callout's verdict). The cut wood-type face is being made; swap
-	-- this one path for it. Until then a system Roobert.
-	displayFont = "/System/Fonts/Roobert-20-Medium.pft",
+	-- The display font: big numbers and words (the power chip's percent, the
+	-- drill callout's verdict). Throwing Wood Display at cap 16 (render/ui,
+	-- AGENTS.md "Woodcut type"); the system font if it cannot be loaded.
+	displayFont = "fonts/ThrowingWoodDisplay-16",
 	labelTop = 2,       -- px from a label's box top to its font's cell top (centres the caps)
 	displayTop = -2,    -- the same for the display font in the chip and the callout
 	shadow = 2,         -- px the plaques' drop shadow sits right and down
