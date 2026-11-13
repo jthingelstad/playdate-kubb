@@ -103,12 +103,20 @@ world.surfaces = {
 -- into it. nil (the default) costs one test per phase.
 world.prof = nil
 world.PHASES = { "forces", "pairs", "ground", "prepare", "solve", "integrate", "relax",
-	"restitution", "store", "tail" }
+	"restitution", "store", "tail", "lone" }
 function world.newProf(clock)
 	local p = { clock = clock, narrow = 0 }
 	for _, k in ipairs(world.PHASES) do p[k] = 0 end
 	return p
 end
+
+-- The awake set's epoch: bumped whenever any body in any world wakes, falls
+-- asleep or is added. A world caches what the lone-flight test needs (the one
+-- awake body, the highest point of everything else) and rebuilds it when
+-- the epoch has moved. A sleeping body is never moved by hand; if one ever
+-- is, call world.touch() so the cache is rebuilt.
+local epoch = 0
+function world.touch() epoch = epoch + 1 end
 
 -- ---------------------------------------------------------------------------
 -- Building a world
@@ -147,6 +155,7 @@ function world.addStakes(w)
 end
 
 function world.addBody(w, kind, id)
+	epoch = epoch + 1
 	local b = body.new(kind, id)
 	w.n = w.n + 1
 	b.index = w.n
@@ -185,6 +194,7 @@ end
 
 local function wake(b)
 	if not b.awake and not b.static then
+		epoch = epoch + 1
 		b.awake = true
 		b.everAwake = true
 		b.sleepTime = 0
@@ -562,14 +572,126 @@ end
 local boxBox, capsuleBox, capsuleCapsule = collide.boxBox, collide.capsuleBox, collide.capsuleCapsule
 local groundBox, groundCapsule = collide.groundBox, collide.groundCapsule
 
+-- The lone flight. A step with exactly one body awake that is clear of the
+-- ground and above everything else (its lowest point higher than the
+-- highest point of every sleeping or static body, by more than the contact
+-- margin the step could use) finds no contact: the full step would then only
+-- apply gravity and the gyroscopic term, move and turn that body and do its
+-- bookkeeping. loneStep does exactly that and nothing else, in the same
+-- order with the same arithmetic, so results are bit-identical; it saves
+-- every loop over the other bodies (a thrown baton spends about half its
+-- steps like this). The test is conservative: it bounds the speeds after
+-- the forces from above and keeps loneSlack (m) in hand for rounding.
+world.loneFlight = true
+local LONE_SLACK <const> = 0.001
+
+local function loneRefresh(w)
+	local bodies = w.bodies
+	local lone, count, top = false, 0, -1e9
+	for i = 1, w.n do
+		local b = bodies[i]
+		if b.awake then
+			count = count + 1
+			lone = b
+		else
+			local h = b.z + b.radius
+			if h > top then top = h end
+		end
+	end
+	w.lone = (count == 1) and lone or false
+	w.loneTop = top
+	w.loneEpoch = epoch
+end
+
+-- One step of the lone body b, or false if it might touch something.
+local function loneStep(w, b, t, P)
+	local dt, g = t.dt, t.g
+	local vx, vy, vz, wx, wy, wz = b.vx, b.vy, b.vz, b.wx, b.wy, b.wz
+	local r = b.radius
+	-- after the forces: |v| grows by at most g dt; the gyroscopic step turns
+	-- the spin and changes its size by far less than half
+	local avz = vz < 0 and -vz or vz
+	local spin = sqrt(wx * wx + wy * wy + wz * wz) * 1.5 * r
+	local low = b.z - r - t.margin - LONE_SLACK
+	-- the ground: every point is above the ground contact margin
+	if low <= (avz + g * dt + spin) * dt then return false end
+	-- the pairs: higher than every other body's bounding sphere by the reach
+	if low - w.loneTop <= (sqrt(vx * vx + vy * vy + vz * vz) + g * dt + spin) * dt then return false end
+	local pc, pt
+	if P then pc = P.clock; pt = pc() end
+	-- 1. forces
+	w.awakeCount = 1
+	b.vz = vz - g * dt
+	if t.gyro then gyro(b, dt) end
+	b.groundImpulse = 0
+	-- 2-4. no contacts
+	C.n = 0
+	w.contacts = 0
+	nRec = 0
+	-- 5. integrate
+	local h = 0.5 * dt
+	b.x, b.y, b.z = b.x + b.vx * dt, b.y + b.vy * dt, b.z + b.vz * dt
+	local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
+	wx, wy, wz = b.wx, b.wy, b.wz
+	local dw = -(wx * qx + wy * qy + wz * qz)
+	local dx = wx * qw + wy * qz - wz * qy
+	local dy = wy * qw + wz * qx - wx * qz
+	local dz = wz * qw + wx * qy - wy * qx
+	qw, qx, qy, qz = qw + h * dw, qx + h * dx, qy + h * dy, qz + h * dz
+	local qn = sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
+	if qn < 1e-12 then
+		qw, qx, qy, qz = 1, 0, 0, 0
+	else
+		qn = 1 / qn
+		qw, qx, qy, qz = qw * qn, qx * qn, qy * qn, qz * qn
+	end
+	b.qw, b.qx, b.qy, b.qz = qw, qx, qy, qz
+	local xx, yy, zz = qx * qx, qy * qy, qz * qz
+	local xy, xz, yz = qx * qy, qx * qz, qy * qz
+	local xw, yw, zw = qw * qx, qw * qy, qw * qz
+	local r11, r12, r13 = 1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw)
+	local r21, r22, r23 = 2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw)
+	local r31, r32, r33 = 2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy)
+	b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33 = r11, r12, r13, r21, r22, r23, r31, r32, r33
+	local ia, ic, ie = b.iIx, b.iIy, b.iIz
+	b.i11 = r11 * r11 * ia + r12 * r12 * ic + r13 * r13 * ie
+	b.i12 = r11 * r21 * ia + r12 * r22 * ic + r13 * r23 * ie
+	b.i13 = r11 * r31 * ia + r12 * r32 * ic + r13 * r33 * ie
+	b.i22 = r21 * r21 * ia + r22 * r22 * ic + r23 * r23 * ie
+	b.i23 = r21 * r31 * ia + r22 * r32 * ic + r23 * r33 * ie
+	b.i33 = r31 * r31 * ia + r32 * r32 * ic + r33 * r33 * ie
+	-- 6-8. nothing to relax, bounce or store; the tail for b (no ground
+	-- impulse: no rolling resistance, and it cannot fall asleep)
+	w.time = w.time + dt
+	w.steps = w.steps + 1
+	w.loneStep = w.steps
+	if b.dig > 0 then
+		b.dig = b.dig * exp(-dt / w.surface.digTime)
+		if b.dig < 1e-5 then b.dig = 0 end
+	end
+	local sinTopple = sin(rad(t.toppleDeg))
+	if b.shape == 1 and not b.toppled and r33 <= sinTopple and r33 >= -sinTopple then b.toppled = true end
+	local x, y = b.x, b.y
+	local half, len, om = t.pitchHalfWidth, t.pitchLength, t.outMargin
+	if x > half + om or x < -(half + om) or y < -om or y > len + om then b.leftPitch = true end
+	b.sleepTime = 0
+	if P then P.lone = P.lone + pc() - pt end
+	return true
+end
+
 function world.step(w)
 	local t = world.tune
+	local P = world.prof
+	if world.loneFlight then
+		if w.loneEpoch ~= epoch then loneRefresh(w) end
+		local b = w.lone
+		if b and loneStep(w, b, t, P) then return w end
+	end
 	local dt = t.dt
 	local invDt = 1 / dt
 	local surf = w.surface
 	local bodies, nb = w.bodies, w.n
 	local stamp = w.steps
-	local P = world.prof
 	local pc, pt
 	if P then pc = P.clock; pt = pc() end
 	local g = t.g
@@ -647,6 +769,7 @@ function world.step(w)
 								or a.wx * a.wx + a.wy * a.wy + a.wz * a.wz > wakeAng2 then o, s = b, j end
 						end
 						if o then
+							epoch = epoch + 1
 							o.awake = true
 							o.everAwake = true
 							o.sleepTime = 0
@@ -1013,6 +1136,7 @@ function world.step(w)
 			if vx * vx + vy * vy + vz * vz < sleepLin2 and wx * wx + wy * wy + wz * wz < sleepAng2 and gi > 0 then
 				b.sleepTime = b.sleepTime + dt
 				if b.sleepTime >= sleepTime then
+					epoch = epoch + 1
 					b.awake = false
 					b.vx, b.vy, b.vz, b.wx, b.wy, b.wz = 0, 0, 0, 0, 0, 0
 					b.dig = 0
@@ -1033,9 +1157,16 @@ end
 -- Everything asleep (or the throw ran past tune.maxTime).
 function world.isAtRest(w)
 	if w.time >= world.tune.maxTime then return true end
+	-- the body found awake last time is the likely one (the projectile is
+	-- added last, so the plain scan would walk past every sleeper first)
 	local bodies = w.bodies
+	local h = w.awakeHint
+	if h and bodies[h] and bodies[h].awake then return false end
 	for i = 1, w.n do
-		if bodies[i].awake then return false end
+		if bodies[i].awake then
+			w.awakeHint = i
+			return false
+		end
 	end
 	return true
 end
