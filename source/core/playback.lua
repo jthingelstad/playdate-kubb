@@ -101,6 +101,24 @@ function playback.pose(pb, i, f)
 	return d[k + 1], d[k + 2], d[k + 3], d[k + 4], d[k + 5], d[k + 6], d[k + 7]
 end
 
+-- Slow motion around a hit. Because the physics runs ahead of the screen,
+-- the time of the first hit is known before it is shown. Returns the speed
+-- of the picture (1 = real time) at screen time `t` for a hit at `hitTime`
+-- (nil = no hit known): slowRate from `lead` seconds before the hit until
+-- `hold` seconds after it, then easing back to 1 over `ease` seconds.
+playback.slow = { rate = 0.3, lead = 0.10, hold = 0.45, ease = 0.35 }
+
+function playback.speed(t, hitTime)
+	if not hitTime then return 1 end
+	local k = playback.slow
+	local d = t - hitTime
+	if d < -k.lead then return 1 end
+	if d <= k.hold then return k.rate end
+	local e = (d - k.hold) / k.ease
+	if e >= 1 then return 1 end
+	return k.rate + (1 - k.rate) * e
+end
+
 -- Run to the end without a clock (tests, the desktop).
 function playback.finish(pb)
 	while not pb.done do playback.advance(pb, math.huge, function() return 0 end) end

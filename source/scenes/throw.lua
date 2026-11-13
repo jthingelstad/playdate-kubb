@@ -335,8 +335,11 @@ local function flightUpdate(s, dt)
 	local t = throw.tune
 	local pb = s.pb
 	playback.advance(pb, t.physicsBudget, s.clock, t.ahead)
-	-- real time on screen, but never past what is recorded (then it slows)
-	s.showTime = min(s.showTime + dt, pb.frames * pb.frameDt)
+	-- real time on screen, slow motion around the first hit (the physics is
+	-- ahead, so the hit is known before it is shown), and never past what is
+	-- recorded (then it waits)
+	local hitAt = pb.w.firstHit and pb.w.firstHit.t or nil
+	s.showTime = min(s.showTime + dt * playback.speed(s.showTime, hitAt), pb.frames * pb.frameDt)
 	-- the nearest frame (floor would stop one short of the last on 32-bit floats)
 	local f = min(pb.frames, floor(s.showTime / pb.frameDt + 0.5))
 	if f ~= pb.frame or f == 0 then

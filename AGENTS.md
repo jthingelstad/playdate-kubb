@@ -327,6 +327,13 @@ throw that leaves every far base kubb down. The System Menu holds three custom i
 most (Readout, Record, Pitch), so Pitch is an options item that acts when the menu closes
 and then reads "play" again.
 
+## Slow motion
+
+`playback.speed(t, hitTime)` (`source/core/playback.lua`, tunables `playback.slow`) slows the
+picture around the baton's first hit: the physics runs ahead of the screen, so the hit time
+is known before it is shown. The slow stretch also gives the physics time to catch up on
+the device.
+
 ## Crank traces
 
 The System Menu has "Readout" (the debug line after each throw) and "Record". Record is
