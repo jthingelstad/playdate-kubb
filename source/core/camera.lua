@@ -29,6 +29,8 @@ camera.tune = {
 		fMax = 1000,         -- ... to about 23 degrees wide
 		stepBackRef = 11,    -- m from the camera to the far baseline with the player on the line;
 		                     -- the lens limit grows by stepBack / this when the player steps back
+		lookBeyond = 1.5,    -- m past the nearest live target the match camera looks (lookDistFor)
+		lookMin = 3.0,       -- m; lookDistFor never looks nearer than this
 	},
 	impact = {
 		dist = 2.75,         -- m, horizontal, from the predicted landing point (DESIGN 3: 2.5 to 3)
@@ -127,12 +129,15 @@ end
 -- `stepBack` (m, optional) is how far behind the throwing line the player
 -- stands: the lens limit grows in proportion, so stepping back does not
 -- shrink the targets below minTargetPx.
-function camera.aim(c, playerX, lineY, swivel, targets, stepBack)
+-- `lookDist` (m, optional, default tune.aim.lookDist) moves the ground point
+-- at screen center nearer the thrower (the match: field kubbs close by).
+function camera.aim(c, playerX, lineY, swivel, targets, stepBack, lookDist)
 	local t = camera.tune.aim
 	local dx, dy = camera.aimDir(swivel)
+	local ld = lookDist or t.lookDist
 	camera.lookAt(c,
 		playerX - dx * t.back, lineY - dy * t.back, t.height,
-		playerX + dx * t.lookDist, lineY + dy * t.lookDist, 0)
+		playerX + dx * ld, lineY + dy * ld, 0)
 	c.cx, c.cy = camera.SCREEN_W / 2, t.cy
 	c.f = 1
 	local need = t.fMin
@@ -146,6 +151,22 @@ function camera.aim(c, playerX, lineY, swivel, targets, stepBack)
 	local fMax = t.fMax * (1 + (stepBack or 0) / t.stepBackRef)
 	c.f = min(fMax, max(t.fMin, need))
 	return c
+end
+
+-- The look distance that frames the live targets (n of them, {x=, y=}) for a
+-- thrower at (playerX, playerY): lookBeyond past the nearest, between lookMin
+-- and the default lookDist. Base kubbs on the far baseline give the default.
+function camera.lookDistFor(playerX, playerY, targets, n)
+	local t = camera.tune.aim
+	local best = nil
+	for i = 1, n or #targets do
+		local k = targets[i]
+		local dx, dy = k.x - playerX, k.y - playerY
+		local d = sqrt(dx * dx + dy * dy)
+		if not best or d < best then best = d end
+	end
+	if not best then return t.lookDist end
+	return max(t.lookMin, min(t.lookDist, best + t.lookBeyond))
 end
 
 -- The impact camera (DESIGN 3): low and close to the predicted landing point
