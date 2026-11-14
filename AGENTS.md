@@ -1011,9 +1011,14 @@ own item). Practice is the throw scene exactly as before.
   `s.stanceKind`), clamped to where this baton may stand (a king shot pulls it back to
   the baseline). The first baton of a turn and every kubb start from the middle of the
   baseline. Self-test `match-opening` checks both.
-- Advantage line: the d-pad walks up past the baseline as far as `forwardY` (the engine's
-  advantage line; king shots are from the baseline). It is drawn on the pitch (2 px, dashed
-  2 on 2 off; the centerline is 6 on 4 off) and on the minimap.
+- Advantage line: the d-pad walks between `backMax` behind the baseline and `forwardY` (the
+  engine's advantage line; king shots are from the baseline). A turn's first baton starts
+  on the line (Jamie, 2026-11-14: from there you are far more accurate, so the camera comes
+  up with you, not held back at the baseline). While aiming, yours or the Playdate's, an
+  inverted flag under the rail says `ADVANTAGE LINE  2.4 M` (`hud.advantage`, its text made
+  once a throw, `s.advText`). The line is drawn on the pitch (2 px, dashed 2 on 2 off; the
+  centerline is 6 on 4 off) and on the minimap. Self-test `match-whole` checks the start
+  and the flag.
 - Camera: the aim camera frames the setup's `targets` (standing field kubbs, else base
   kubbs, else the king) and looks `camera.tune.aim.lookBeyond` past the nearest of them
   (`camera.lookDistFor`, never nearer than `lookMin`); base kubbs on the far baseline give

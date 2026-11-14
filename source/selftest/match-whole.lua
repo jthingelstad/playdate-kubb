@@ -6,8 +6,9 @@
 -- After 30 turns the team on turn resigns, so the scenario always ends.
 --
 -- On the way, the first time a baton may be thrown from an advantage line,
--- the scripted thrower is paused and the d-pad walks the player up to the
--- line (held up), which must stop there.
+-- the thrower must start on the line (a turn's first baton) with the
+-- ADVANTAGE LINE flag up; the scripted thrower is paused, the d-pad steps
+-- back (held down) and walks up again (held up), which must stop there.
 -- Frames: 1 a Team B aim view mid-match, 2 at the advantage line (when the
 -- match had one), 3 the winner card.
 import "selftest/_match"
@@ -32,11 +33,15 @@ st.scenarios["match-whole"] = st.matchScenario {
 		if not advDone and ms.phase == "play" and s and s.kind == "baton" and s.forwardY > 0
 			and ts.mode == "aim" and midShot then
 			if not walking then
-				-- take the controls: hold up well past the time the walk needs
+				if s.n == 1 and math.abs(ts.playerY - s.forwardY) > 1e-6 then
+					error(string.format("started at %.3f, the line is at %.3f", ts.playerY, s.forwardY))
+				end
+				if not ts.advText then error("no advantage line flag") end
+				-- take the controls: step back, then hold up well past the time the walk needs
 				walking = { rng = ms.rng }
 				ms.rng = nil
 				local frames = math.ceil(s.forwardY / tw.scenes.throw.tune.walkSpeed * 50) + 30
-				h.feed { { hold = { "up" }, n = frames } }
+				h.feed { { hold = { "down" }, n = 20 }, { hold = { "up" }, n = frames } }
 			elseif h.idle() then
 				if math.abs(ts.playerY - s.forwardY) > 1e-6 then
 					error(string.format("walked to %.3f, the line is at %.3f", ts.playerY, s.forwardY))

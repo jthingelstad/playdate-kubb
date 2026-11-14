@@ -111,6 +111,9 @@ for the surface.
 - The low, hard throw: loft goes down to 5 degrees, and a low baton is thrown harder, so
   full power carries about 8.9 m at any loft (2026-11-14). In the physics a 5 degree throw
   takes down a field kubb 6.5 m out in up to 14 of 24 throws, against 1 in 24 before.
+- The advantage line: a turn's first baton starts on it (the camera with you), and an
+  ADVANTAGE LINE flag with its distance shows while you or the Playdate aim from it
+  (2026-11-14).
 - Stay put: a team's batons after its first of a turn start where the last was thrown
   from, with its swivel and loft, as a real player stands in one spot until they choose
   to move (2026-11-14). A new turn and every kubb start from the middle.

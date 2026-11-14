@@ -61,6 +61,9 @@ hud.tune = {
 	-- inverted flag over the result flag, so a deliberate slow-down reads
 	-- apart from the physics falling behind (which shows nothing)
 	slow = { x = 318, y = 166, w = 76, h = 15, text = "SLOW MOTION" },
+	-- throwing from the advantage line (Jamie, 2026-11-14: "a big deal"): an
+	-- inverted flag centred under the rail, with how far up the line is
+	advantage = { y = 18, h = 15 },
 	callout = { x = 59, y = 185, w = 234, h = 48, block = 66, rulerW = 144, rulerBands = 3 },
 	readoutX = 4, readoutY = 17,  -- the System Menu "Readout" line, just under the rail
 	cardPad = 10, cardGap = 6, cardRise = 20,              -- hand-off and winner card: padding,
@@ -426,7 +429,7 @@ end
 
 -- ---------- after the release: the power chip and the result flag ----------
 
-local chipPlate, flagPlate, slowPlate
+local chipPlate, flagPlate, slowPlate, advPlate
 -- power: the throw's power (0..1); band, half: a drill's band or nil.
 function hud.chip(power, band, half)
 	local t = hud.tune.chip
@@ -470,6 +473,28 @@ function hud.slow()
 	end
 	if plateBegin(P, t.text) then
 		flagIn(0, 0, P.w - sh, t.h, t.text, true)
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
+end
+
+-- The advantage line flag (hud.tune.advantage): text from hud.advantageText.
+-- One cached image, redrawn only when the text changes.
+function hud.advantageText(meters) return string.format("ADVANTAGE LINE  %.1f M", meters) end
+function hud.advantage(text)
+	local t = hud.tune.advantage
+	local sh = hud.tune.shadow
+	local P = advPlate
+	if not P or P.k1 ~= text or not hud.tune.cache then
+		local w = hud.labelFont():getTextWidth(text) + 14
+		if not P or P.w ~= w + sh then
+			P = newPlate(0, t.y, w + sh, t.h + sh)
+			advPlate = P
+		end
+		P.x = floor((400 - w) / 2)
+	end
+	if plateBegin(P, text) then
+		flagIn(0, 0, P.w - sh, t.h, text, true)
 		plateEnd(P)
 	end
 	P.img:draw(P.x, P.y)
