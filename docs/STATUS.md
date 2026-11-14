@@ -96,8 +96,9 @@ landing digs in, steep landings are turned a little off line, pieces stop instea
 creeping, nothing slides along on an end, and snow ploughs (AGENTS.md "Physics", "The
 ground's texture"). Slide after touching down, over 400 scripted throws: grass 1.4 m, sand
 0.46, snow 1.85. Practice picks the surface in the System Menu; a match plays on its own
-surface. Next: the match options screen (surface, opening, raising by hand or automatic),
-then the Playdate opponent aiming for the surface.
+surface, chosen on the match options screen before each match, with the opening (2-4-6 or
+six from the start) and raising (by hand or automatic). Next: the Playdate opponent aiming
+for the surface.
 
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 
