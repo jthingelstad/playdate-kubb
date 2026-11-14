@@ -17,12 +17,6 @@ SIM_TIMEOUT := 60
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-# Refresh the vendored notation parser and scorer from a pk-kubb-score checkout,
-# then show what changed. Review, run `make test` and `make games`, commit.
-sync-notation:
-	cp "$(PKSCORE)/site/assets/notation-parser.js" "$(PKSCORE)/site/assets/kubb.js" tests/vendor/pk-kubb-score/
-	git --no-pager diff --stat -- tests/vendor/pk-kubb-score
-
 .PHONY: sync-notation build test test-lua test-node games selftest bench clean
 
 build: $(PDX)
@@ -102,3 +96,9 @@ bench:
 
 clean:
 	rm -rf build
+
+# Refresh the vendored notation parser and scorer from a pk-kubb-score checkout,
+# then show what changed. Review, run `make test` and `make games`, commit.
+sync-notation:
+	cp "$(PKSCORE)/site/assets/notation-parser.js" "$(PKSCORE)/site/assets/kubb.js" tests/vendor/pk-kubb-score/
+	git --no-pager diff --stat -- tests/vendor/pk-kubb-score
