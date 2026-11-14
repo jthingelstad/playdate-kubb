@@ -71,6 +71,7 @@ end
 -- A new throw (or none): clears the burst and the screen inversion.
 function burst.reset(B)
 	B.kind, B.done, B.age, B.knocked2, B.provisional, B.gap = nil, false, 0, false, false, nil
+	B.first, B.sure, B.takenBack = nil, false, false
 	if B.inverted then
 		playdate.display.setInverted(false)
 		B.inverted = false
@@ -88,9 +89,9 @@ local KNOCK <const> = { clean = "tok", double = "klak", king = "king" }
 -- the whole window after the first topple the kind is provisional: a later
 -- topple can still make a clean burst a double, or any burst the king's.
 local function classify(B, pb, showTime)
-	local kind, a, b = pick.pick(pb.w, showTime)
+	local kind, a, b, sure = pick.pick(pb.w, showTime)
 	if not kind then return nil end
-	B.kind = kind
+	B.kind, B.first, B.sure = kind, a, sure
 	local fh = pb.w.firstHit
 	if fh and fh.with == a.id then
 		B.x1, B.y1, B.z1 = fh.x, fh.y, fh.z
@@ -113,7 +114,7 @@ local function kingDown(w, t)
 	local bodies = w.bodies
 	for i = 1, w.n do
 		local b = bodies[i]
-		if b.kind == "king" then return b.toppleT ~= nil and pick.hitTime(b) <= t end
+		if b.kind == "king" then return (pick.falling(b, w)) and pick.hitTime(b) <= t end
 	end
 	return false
 end
@@ -136,6 +137,15 @@ function burst.update(B, s, dt)
 			B.age, B.done, B.knocked2 = 0, false, false
 			tw.sound.hit(KNOCK[kind])
 			return
+		end
+	end
+	-- a burst fired at the impact on the strike's speed alone is taken back if
+	-- the piece is left standing after all (core/burstpick.stoodUp)
+	if B.kind and not B.done and not B.sure and B.first and pb then
+		if B.first.toppleT then
+			B.sure = true
+		elseif pick.stoodUp(B.first, pb.done) then
+			B.done, B.takenBack = true, true
 		end
 	end
 	if B.done or not B.kind then return end
