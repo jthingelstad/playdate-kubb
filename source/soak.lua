@@ -186,11 +186,13 @@ function soak.update(st)
 		if ms.throws - st.lastChecked >= soak.tune.saveCheck and ms.ts.mode == "aim" then
 			st.lastChecked = ms.throws
 			st.checks = st.checks + 1
+			local c0 = playdate.getCurrentTimeMilliseconds()
 			local ok2, bad = pcall(checkSave, st)
 			if not ok2 then bad = "check failed: " .. tostring(bad) end
 			if bad then st.checkFails[#st.checkFails + 1] = "throw " .. ms.throws .. ": " .. bad end
-			-- the check's own time is not a game frame
-			st.last = playdate.getCurrentTimeMilliseconds()
+			-- the check's own time is not part of this frame (the frame's own
+			-- update and draw still are)
+			st.last = st.last + (playdate.getCurrentTimeMilliseconds() - c0)
 		end
 		return false
 	end
