@@ -1,0 +1,52 @@
+-- Scenarios "release-stop" and "release-early": the release where the crank
+-- stops (Jamie and Tyler, 2026-11-14). The crank is the throwing arm: the
+-- launch angle is the arm's angle past the bottom of the turn where the
+-- crank stops, and the loft set (30 here) is the target marked on the dial.
+-- release-stop: wound 120 back, a strong flick of 150 forward, stopped 30
+-- past the bottom, on the target: the baton leaves at 30 degrees and flies
+-- long. release-early: the same flick cut to 100 forward, stopped 20 short of
+-- the bottom: it leaves at -20 and goes into the ground in front of the
+-- thrower. Frames: 1 aiming (the target on the dial), 2 the baton in flight
+-- (release-stop) or just down (release-early), 3 at rest.
+import "selftest/_throw"
+
+local st = tw.selftest
+
+local function scenario(flick, want, check)
+	return st.throwScenario {
+		stopRelease = true,
+		setup = function(s) s.loftDeg = 30 end,
+		script = {
+			{ n = 5 },
+			st.windup(120, 30),
+			{ n = 5 },
+			st.flick(flick),
+			{ n = 300 },
+		},
+		shots = {
+			function(s, f) return f == 3 end,
+			function(s) return s.mode == "flight" and tw.flight.progress(s.flight) >= 0.5 end,
+			st.restShot(30),
+		},
+		maxFrames = 500,
+		check = function(s)
+			local l = s.last
+			if not l or not l.launchLoft then return "no launch" end
+			if math.abs(l.launchLoft - want) > 3 then
+				return string.format("launch loft %.1f, wanted about %d", l.launchLoft, want)
+			end
+			if s.loftDeg ~= 30 then return "the loft set moved: " .. s.loftDeg end
+			local err = check(s)
+			if err then return err end
+			return nil, string.format(" loft=%.1f lands=%.2f", l.launchLoft, s.flight.ly)
+		end,
+	}
+end
+
+st.scenarios["release-stop"] = scenario({ 6, 12, 18, 22, 24, 24, 24, 20 }, 30, function(s)
+	if s.flight.ly < 5 then return string.format("landed %.2f m out: too short", s.flight.ly) end
+end)
+
+st.scenarios["release-early"] = scenario({ 6, 12, 18, 22, 24, 18 }, -20, function(s)
+	if s.flight.ly > 2 then return string.format("landed %.2f m out: should be in front", s.flight.ly) end
+end)

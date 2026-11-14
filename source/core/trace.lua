@@ -13,6 +13,12 @@
 -- first frame of the wind-up to the frame of the release or let-down. "sign"
 -- is swing.tune.forwardSign at the time. "result" is absent for a let-down;
 -- "loft" and "distance" are added by the game once the baton lands.
+-- "release":"stop" (lines from 2026-11-14 on, written when "how" is one of
+-- these): the swing was released where the crank stopped, "how" is "stopped" or "over", "releaseAngle" is the
+-- arm's angle past the bottom of the turn there and "launchLoft" the launch
+-- angle it gave ("loft" is the loft set, the target). A line without it was
+-- released as the arm passed the bottom (core/swing passRelease), and
+-- trace.replay replays it so.
 --
 -- A drilled kubb (core/drill) adds, after those, "mode":"drill" (a baton
 -- line has no "mode") and, in meters with y measured from the thrower's
@@ -34,7 +40,7 @@ local trace = {}
 
 local RESULT_KEYS = {
 	"power", "powerCap", "smoothness", "tilt", "legal", "launchSpeed", "tumbleRate", "backswing",
-	"releaseSpeed", "peakSpeed", "frames", "how", "loft", "distance",
+	"releaseSpeed", "peakSpeed", "frames", "how", "releaseAngle", "loft", "launchLoft", "distance",
 	-- drills only (absent on a baton line)
 	"mode", "band", "verdict", "cut", "markerX", "markerY", "landX", "landY", "restX", "restY", "throwerX",
 }
@@ -60,8 +66,12 @@ function trace.encode(samples, n, event, result, sign, time)
 	for i = 1, n do
 		parts[i] = "[" .. num(samples[2 * i - 1]) .. "," .. num(samples[2 * i]) .. "]"
 	end
+	-- "release":"stop" when the swing was released where the crank stopped
+	-- (how "stopped" or "over"); a let-down is the same under either rule
+	local how = result and result.how
+	local stop = (how == "stopped" or how == "over") and ',"release":"stop"' or ""
 	local out = '{"v":1,"time":' .. value(time or "") .. ',"sign":' .. num(sign or 1)
-		.. ',"event":' .. value(event or "") .. ',"samples":[' .. concat(parts, ",") .. "]"
+		.. stop .. ',"event":' .. value(event or "") .. ',"samples":[' .. concat(parts, ",") .. "]"
 	if result then
 		local r = {}
 		for _, k in ipairs(RESULT_KEYS) do
@@ -157,7 +167,9 @@ function trace.replay(t, useCurrentSign)
 		flat[#flat + 1] = p[1]
 		flat[#flat + 1] = p[2] * flip
 	end
-	return swing.replay(flat)
+	-- lines recorded before the release-at-the-stop (2026-11-14) carry no
+	-- "release" field and replay with the old rule
+	return swing.replay(flat, t.release ~= "stop")
 end
 
 tw.trace = trace

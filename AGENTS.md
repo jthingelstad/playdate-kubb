@@ -358,6 +358,30 @@ matches (about a minute; `--quick` about 10 s).
   Simulator's floats differ from the desktop's, so the same seed plays a different match
   there than in `tools/physmatch.lua`: the checks do not depend on what happens.
 
+## The release
+
+Jamie and Tyler (2026-11-14, after play testing: hitting a base kubb was far too easy):
+"you stop the crank where you release the baton". `core/swing`: the wind-up (back) sets
+the power cap as before, the forward flick its speed; the baton is released where the
+crank stops (forward speed below `releaseDropFrac` of its peak, `how = "stopped"`), or at
+`releaseMaxDeg` past the bottom if it never stops (`"over"`). The power is the flick's
+peak (two-frame) speed. The crank is the throwing arm, and a hand swung on an arm leaves
+at right angles to it, so the arm's angle past the bottom of the turn at the stop
+(`result.releaseAngle`, forward degrees) is the launch angle: `swing.releaseLoft(target,
+angle)` = the loft set plus `releaseGain` (1) times the difference, within
+`releaseLoftMin`/`Max` (-30, 85). Stop early and the baton goes into the ground; late and
+it goes up. The loft set by A + crank is the target: the dial marks it (a white wedge and
+a tick, `hud.gauge`'s `target`), and the readout gives `loft <launch>/<set>`. The throw
+scene launches the player's batons at that angle (the loft boost still goes by the loft
+set); the computer's throws and drilled kubbs are unchanged (a drill's push and wobble go
+left for a stop short of the bottom, as for the old `"slowed"`). Trace lines carry
+`"release":"stop"`, `releaseAngle` and `launchLoft`; older lines replay with the old rule
+(`passRelease`: released as the arm passed the bottom, at the loft set). The throw-scene
+self-tests written before it keep the old rule (`throwScenario`'s `stopRelease = true` opts
+in; `burst-reset` and `drawcalls` set `passRelease`); `release-stop` (stopped on the
+target: 30 degrees, lands 8.4 m out) and `release-early` (20 short of the bottom: -20,
+lands 1.3 m out) test it.
+
 ## Input provider
 
 Scenes never read `playdate.buttonIsPressed`/`getCrankChange` directly; they read an input
@@ -379,7 +403,9 @@ Every number that is a guess lives in one table per module, with a comment:
   impact camera, follow margins and mid-flight zoom; `tw.camera.minimap` for the minimap.
 - `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
   to flip if forward feels backwards on hardware), wind-up and swing thresholds, full power
-  speed and backswing, launch speed and tumble ranges, smoothness and tilt.
+  speed and backswing, launch speed and tumble ranges, smoothness and tilt, and the release
+  where the crank stops (`releaseDropFrac`, `releaseMaxDeg`, `releaseGain`,
+  `releaseLoftMin`/`Max`; "The release").
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range (5 to 55) and step,
   `boostBelowDeg` (under it a baton is thrown harder, `flight.loftBoost`: full power carries
   as far as at that loft; the throw scene's own batons only, not the computer's),

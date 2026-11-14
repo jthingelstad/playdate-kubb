@@ -140,7 +140,10 @@ function drill.launch(sol, r, cut, out)
 	local e = drill.powerError(r.power or 0, sol.band)
 	out.speed = sol.speed * max(t.speedMinFrac, 1 + t.speedPerPower * e)
 	local push = rad(t.tiltPushDeg * (r.tilt or 0))
-	if r.how == "slowed" then push = -push end
+	-- the hand that let go before the bottom of the turn: "slowed" under the
+	-- old release, a stop short of the bottom under the release at the stop
+	local early = r.how == "slowed" or (r.how == "stopped" and (r.releaseAngle or 0) < 0)
+	if early then push = -push end
 	out.swivel = sol.swivel + push
 	out.loft = sol.loft
 	out.noseDown = t.noseDownDeg
@@ -151,7 +154,7 @@ function drill.launch(sol, r, cut, out)
 	local jerk = max(0, (t.cleanAbove - (r.smoothness or 1)) / t.cleanAbove)
 	out.jerk = jerk
 	local wob = t.wobbleRate * jerk
-	if r.how == "slowed" then wob = -wob end
+	if early then wob = -wob end
 	out.wobble = wob
 	out.digGain = t.digGain
 	return out

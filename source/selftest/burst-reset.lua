@@ -16,6 +16,7 @@ st.scenarios["burst-reset"] = {
 			})
 			s.loftDeg = 30
 			s.loftBoost = false   -- written for the speeds before flight.loftBoost
+			s.swing.passRelease = true   -- and for the old release (core/swing)
 			throw.enter()
 		end
 		throw.update(s)

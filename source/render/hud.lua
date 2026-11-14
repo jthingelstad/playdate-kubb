@@ -633,6 +633,8 @@ end
 function hud.readoutText(r)
 	local s = string.format("P %.2f  S %.2f  tilt %d  %s  %.2f m",
 		r.power, r.smoothness, floor(r.tilt + 0.5), r.legal and "LEGAL" or "HELICOPTER", r.distance or 0)
+	-- the launch angle the crank's stop gave, against the loft set
+	if r.launchLoft then s = s .. string.format("  loft %d/%d", floor(r.launchLoft + 0.5), floor(r.loft + 0.5)) end
 	if r.down then s = s .. string.format("  down %d", r.down) end
 	return s
 end
@@ -650,7 +652,7 @@ local gt = hud.tune.gauge
 local gaugeLayer = newLayer(gt.x - gt.r - gt.tickOut - 2, gt.y - gt.r - gt.tickOut - 2,
 	gt.x + gt.r + gt.tickOut + 2, 239)
 local gaugeKey = {}
-local discImg, discKey1, discKey2, discKey3 = nil, nil, nil, nil
+local discImg, discKey1, discKey2, discKey3, discKey4 = nil, nil, nil, nil, nil
 local dx0, dy0 = gaugeLayer.x, gaugeLayer.y
 
 -- the point at radius r for a backswing of `deg` degrees (0 = straight down,
@@ -660,8 +662,9 @@ local function onDial(cx, cy, r, deg)
 	return cx - r * sin(a), cy + r * cos(a)
 end
 
--- The disc: what changes only with the full-power backswing or a drill's band.
-local function drawDisc(cx, cy, fullDeg, band, half)
+-- The disc: what changes only with the full-power backswing, a drill's band
+-- or the release target.
+local function drawDisc(cx, cy, fullDeg, band, half, target)
 	local t = hud.tune.gauge
 	local r = t.r
 	gfx.setColor(WHITE)
@@ -699,6 +702,26 @@ local function drawDisc(cx, cy, fullDeg, band, half)
 		end
 		gfx.setColor(WHITE)
 	end
+	if target then
+		-- where to stop the crank (Jamie and Tyler, 2026-11-14: the release
+		-- is where the crank stops, and the loft set is the target): a white
+		-- wedge on the forward side at the loft, from bandIn to the rim, and a
+		-- black tick outside the rim
+		local d = -target
+		local ax, ay = onDial(cx, cy, t.bandIn, d - 4)
+		local bx, by = onDial(cx, cy, r, d - 4)
+		local ex, ey = onDial(cx, cy, r, d + 4)
+		local fx, fy = onDial(cx, cy, t.bandIn, d + 4)
+		gfx.setColor(WHITE)
+		gfx.fillPolygon(ax, ay, bx, by, ex, ey, fx, fy)
+		gfx.setColor(BLACK)
+		gfx.setLineWidth(2)
+		local x0, y0 = onDial(cx, cy, r + 1, d)
+		local x1, y1 = onDial(cx, cy, r + t.tickOut, d)
+		gfx.drawLine(x0, y0, x1, y1)
+		gfx.setLineWidth(1)
+		gfx.setColor(WHITE)
+	end
 	-- the full-power mark, near the rim at the full backswing (10 o'clock)
 	gfx.setLineWidth(3)
 	local x0, y0 = onDial(cx, cy, r - 7, fullDeg)
@@ -722,7 +745,9 @@ end
 --   band, half: a drill's target band (power units: the backswing that caps
 --   power there), drawn as a grey wedge; nil for a baton.
 -- Returns the prompt for the flag over it and whether it is inverted.
-function hud.gauge(phase, angle, backswing, fullDeg, crank, band, half)
+-- target: the release target (the loft set, forward degrees past the bottom)
+-- marked on the disc, or nil (a drill, the Playdate's throw).
+function hud.gauge(phase, angle, backswing, fullDeg, crank, band, half, target)
 	local t = hud.tune.gauge
 	local cx, cy, r = t.x, t.y, t.r
 	local idle = (phase == "idle")
@@ -730,19 +755,21 @@ function hud.gauge(phase, angle, backswing, fullDeg, crank, band, half)
 	local K = gaugeKey
 	local ang = idle and crank or angle
 	band = band or false
+	target = target or false
 	local same = K[1] == phase and K[2] == ang and K[3] == backswing and K[4] == fullDeg and K[6] == band
-		and K[7] == half
-	K[1], K[2], K[3], K[4], K[6], K[7] = phase, ang, backswing, fullDeg, band, half
+		and K[7] == half and K[8] == target
+	K[1], K[2], K[3], K[4], K[6], K[7], K[8] = phase, ang, backswing, fullDeg, band, half, target
 	local ox, oy = begin(gaugeLayer, same)
 	if ox then
 		-- the disc, from its own image
-		if not discImg or discKey1 ~= fullDeg or discKey2 ~= band or discKey3 ~= half or not hud.tune.cache then
+		if not discImg or discKey1 ~= fullDeg or discKey2 ~= band or discKey3 ~= half or discKey4 ~= target
+			or not hud.tune.cache then
 			discImg = discImg or gfx.image.new(gaugeLayer.w, gaugeLayer.h, CLEAR)
 			discImg:clear(CLEAR)
 			gfx.pushContext(discImg)
-			drawDisc(cx - dx0, cy - dy0, fullDeg, band, half)
+			drawDisc(cx - dx0, cy - dy0, fullDeg, band, half, target or nil)
 			gfx.popContext()
-			discKey1, discKey2, discKey3 = fullDeg, band, half
+			discKey1, discKey2, discKey3, discKey4 = fullDeg, band, half, target
 		end
 		discImg:draw(dx0, dy0)
 		local x, y = cx + ox, cy + oy

@@ -36,14 +36,18 @@ end)
 
 test("encode then decode round-trips samples and result", function()
 	local sign = swing.tune.forwardSign
-	local flat = { 0.02, -4.5, 0.021, -3.25, 0.019, 30, 0.02, 31.5, 0.02, 33, 0.02, 30 }
+	-- (a wind-up, a flick and the crank stopped: the release)
+	local flat = { 0.02, -4.5, 0.021, -3.25, 0.019, 30, 0.02, 31.5, 0.02, 33, 0.02, 30, 0.02, 0, 0.02, 0 }
 	for i = 2, #flat, 2 do flat[i] = flat[i] * sign end
 	local ev, r = swing.replay(flat)
 	expect.eq(ev, "release")
-	local line = trace.encode(flat, 6, ev, r, sign, "2026-11-13 10:00:00")
+	local line = trace.encode(flat, 8, ev, r, sign, "2026-11-13 10:00:00")
 	expect.truthy(not line:find("\n"), "one line")
 	local t = trace.decode(line)
-	expect.eq(#t.samples, 6)
+	expect.eq(#t.samples, 8)
+	expect.eq(t.release, "stop")
+	expect.eq(t.result.how, "stopped")
+	expect.near(t.result.releaseAngle, r.releaseAngle, 1e-4)
 	expect.near(t.samples[2][2], -3.25 * sign, 1e-9)
 	expect.eq(t.result.legal, r.legal)
 	expect.near(t.result.power, r.power, 1e-5)
@@ -74,14 +78,15 @@ test("replay keeps the recorded sign unless told otherwise", function()
 end)
 
 test("a drill line carries its mode, marker, band, landing and rest; a baton line has none", function()
-	local flat = { 0.02, -4.5, 0.021, -3.25, 0.019, 30, 0.02, 31.5, 0.02, 33, 0.02, 30 }
+	-- (a wind-up, a flick and the crank stopped: the release)
+	local flat = { 0.02, -4.5, 0.021, -3.25, 0.019, 30, 0.02, 31.5, 0.02, 33, 0.02, 30, 0.02, 0, 0.02, 0 }
 	for i = 2, #flat, 2 do flat[i] = flat[i] * swing.tune.forwardSign end
 	local _, r = swing.replay(flat)
-	local baton = trace.encode(flat, 6, "release", r, 1)
+	local baton = trace.encode(flat, 8, "release", r, 1)
 	expect.truthy(not baton:find('"mode"') and not baton:find('"marker'), "baton line unchanged")
 	r.mode, r.band, r.verdict, r.cut = "drill", 0.6, "on", -1
 	r.markerX, r.markerY, r.landX, r.landY, r.restX, r.restY, r.throwerX = 0.5, 6, 0.48, 5.9, 0.4, 6.05, 0.5
-	local t = trace.decode(trace.encode(flat, 6, "release", r, 1))
+	local t = trace.decode(trace.encode(flat, 8, "release", r, 1))
 	expect.eq(t.result.mode, "drill")
 	expect.eq(t.result.verdict, "on")
 	expect.eq(t.result.cut, -1)
@@ -90,4 +95,17 @@ test("a drill line carries its mode, marker, band, landing and rest; a baton lin
 	expect.near(t.result.landY, 5.9, 1e-6)
 	expect.near(t.result.restX, 0.4, 1e-6)
 	expect.near(t.result.throwerX, 0.5, 1e-6)
+end)
+
+test("a line recorded before the stop release replays with the old rule", function()
+	-- an old line: no "release" field, released as the arm passed the bottom
+	local flat = { 0.02, -4.5, 0.021, -3.25, 0.019, 30, 0.02, 31.5, 0.02, 33, 0.02, 30 }
+	local samples = {}
+	for i = 1, #flat - 1, 2 do samples[#samples + 1] = { flat[i], flat[i + 1] * swing.tune.forwardSign } end
+	local ev, r = trace.replay({ sign = swing.tune.forwardSign, samples = samples })
+	expect.eq(ev, "release")
+	expect.eq(r.how, "passed")
+	-- the same samples under the stop rule have not stopped yet
+	local ev2 = trace.replay({ sign = swing.tune.forwardSign, release = "stop", samples = samples })
+	expect.eq(ev2, nil)
 end)
