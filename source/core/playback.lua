@@ -200,7 +200,10 @@ end
 -- of the picture (1 = real time) at screen time `t` for a hit at `hitTime`
 -- (nil = no hit known): slowRate from `lead` seconds before the hit until
 -- `hold` seconds after it, then easing back to 1 over `ease` seconds.
-playback.slow = { rate = 0.3, lead = 0.10, hold = 0.45, ease = 0.35 }
+-- Jamie (2026-11-14): the slow motion is there for the impact, so it ends
+-- right after it (it was hold 0.45, ease 0.35: it went on while the baton
+-- slid to a stop and held the play up).
+playback.slow = { rate = 0.3, lead = 0.10, hold = 0.12, ease = 0.15 }
 
 function playback.speed(t, hitTime)
 	if not hitTime then return 1 end
