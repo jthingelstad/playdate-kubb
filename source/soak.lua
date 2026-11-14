@@ -43,9 +43,7 @@ local match = tw.scenes.match
 local function out(lines)
 	local f = playdate.file.open("soak.txt", playdate.file.kFileAppend)
 	if not f then return end
-	-- each line also to the console (the USB serial port), so a run's end
-	-- can be seen without stopping the game to mount its disk
-	for _, l in ipairs(lines) do f:write(l .. "\n"); print(l) end
+	for _, l in ipairs(lines) do f:write(l .. "\n") end
 	f:close()
 end
 

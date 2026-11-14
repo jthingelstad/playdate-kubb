@@ -619,14 +619,6 @@ The autobench measures a build on the Playdate with nobody pressing anything:
 4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
    touch `traces.jsonl` (crank recordings), `frames.jsonl` or `games/`.
 
-Know when a run is over without a timer (Jamie, 2026-11-14): the autobench and the soak
-also `print` every line they write, and on the device `print` goes to the USB serial port.
-After `pdutil <port> run`, wait with `python3 tools/devwatch.py <port> <log> "autobench
-done"` (or `"soak done"`; run it in the background): it reads the port raw, with no echo,
-and exits when the line comes. Then mount the disk; mounting stops the game, so never
-mount to look. A plain `cat <port>` does not do: the tty echoed the device's output back
-to it, and the read stalled after 4 KB.
-
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
 autobench; each with the next kubb set of `soak.tune.sets`: classic, USA, Wisconsin), at a player's real pace through `scenes/match` (playback, slow motion, camera,

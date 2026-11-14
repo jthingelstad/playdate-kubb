@@ -1,0 +1,11 @@
+soak 2026-11-14 10:25: 3 matches, max 24 turns; memory 1083 KB
+match 1 (seed 847988743, classic set): finished; turn 25, throws 196, winner B (resigned)
+  frames 27695, over 100 ms 598, over 200 ms 132; memory 915 KB -> 1090 KB after collection, most 1299 KB
+  save checks 27, failed 0
+  slowest ms:
+    319 play/flight -> rest (update 275, phys 87 in 16 steps, draw 43; awake 1 of 18; mem +24 KB)
+    314 play/flight -> rest (update 265, phys 76 in 13 steps, draw 47; awake 1 of 20; mem +34 KB)
+    308 play/flight -> rest (update 265, phys 87 in 11 steps, draw 42; awake 1 of 17; mem +24 KB)
+    307 play/flight -> rest (update 247, phys 79 in 9 steps, draw 59; awake 1 of 23; mem +26 KB)
+    304 play/flight -> rest (update 251, phys 81 in 14 steps, draw 52; awake 1 of 21; mem +25 KB)
+    301 play/flight -> rest (update 265, phys 88 in 11 steps, draw 34; awake 1 of 16; mem +21 KB)
