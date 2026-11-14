@@ -1,0 +1,8 @@
+--- watchdog reset at 2026/11/13 22:02:57---
+build:1a63be33-3.1.2-release.213590-gitlab-runner
+   r0:0001fe63    r1:20032548     r2:00000001    r3: 20026ba0
+  r12:006d3000    lr:08015e5b     pc:08033426   psr: 810f002c
+rcccsr:00000000
+heap allocated: 9734720
+Lua totalbytes=128345193 GCdebt=-121652083 GCestimate=704205 stacksize=168
+

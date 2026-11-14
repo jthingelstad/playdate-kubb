@@ -1,0 +1,51 @@
+autobench 2026-11-13 14:31; memory 691 KB
+micro (ns per iteration, empty loop removed):
+  empty loop                               282 ns
+  clock() call                            4658 ns
+  8 local mul-adds                        3790 ns
+  8 sqrt (local)                         31074 ns
+  8 math.sqrt (global)                   42213 ns
+  8 field reads, 4-field table            4130 ns
+  8 field reads, body table               4865 ns
+  8 field writes, body table              3594 ns
+  8 field reads, 18 bodies in turn       20581 ns
+  16 reads, 16 arrays at one index       24316 ns
+  16 reads, one array record             13493 ns
+  16 reads, flat array stride 16         18154 ns
+  16 local reads (baseline)               3080 ns
+  call, 6 args, 7 results                 8709 ns
+  new table, 5 fields                    56669 ns
+  new closure                            35002 ns
+gc stopped: 44.0 KB made in 720 steps (0.061 KB/step); 8.507 ms/step, collision 29.247 ms/step
+device: 720 steps (3.0 s simulated) in 5.957 s; 8.273 ms/step; 121 steps/s; 1985.6 ms per simulated s; 2.4 steps per 20 ms frame; collision phase 176 steps at 28.447 ms/step (0.7 per 20 ms frame); awake max 6, contacts max 27; toppled 1; bodies 12, woke 6; GC 0%, audio 1%, game 99%
+device with debris: 720 steps (3.0 s simulated) in 7.020 s; 9.749 ms/step; 103 steps/s; 2339.9 ms per simulated s; 2.1 steps per 20 ms frame; collision phase 176 steps at 30.805 ms/step (0.6 per 20 ms frame); awake max 6, contacts max 27; toppled 1; bodies 28, woke 6
+match case (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit    155 frames  6.40 s  mean  41.3 ms  max  63.6 ms  starved  111  stall   2596 ms  steps  360  phys   2586 ms (7.18 ms/step)  speed 0.23
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[53,2.46,46.5,63.6],"slow":[102,3.94,38.6,51.7],"post":[0,0.00,0.0,0.0],"starved":111,"stall":2596.1,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":2585.9}
+  miss   147 frames  5.94 s  mean  40.4 ms  max  62.8 ms  starved  145  stall   5883 ms  steps  394  phys   2149 ms (5.45 ms/step)  speed 0.28
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[147,5.94,40.4,62.8],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":145,"stall":5883.4,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":2148.6}
+  drill  112 frames  5.41 s  mean  48.3 ms  max  61.4 ms  starved  111  stall   5359 ms  steps  359  phys   1661 ms (4.63 ms/step)  speed 0.28
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[112,5.41,48.3,61.4],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":111,"stall":5359.4,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1661.1}
+  all    414 frames 17.75 s  mean  42.9 ms  max  63.6 ms  starved  367  steps 1113  phys   6396 ms (5.75 ms/step)  speed 0.26
+physics profile (ms per step by phase; clock overhead included):
+  collision steps 176: 29.268 ms/step (narrowphase pairs 9.5, contacts 13.7 per step)
+    forces 0.627, pairs 7.033, ground 1.395, prepare 6.873, solve 8.758, integrate 1.029, relax 2.232, restitution 0.153, store 0.552, tail 0.618
+  other steps 544: 1.875 ms/step (narrowphase pairs 0.1, contacts 0.1 per step)
+    forces 0.181, pairs 0.724, ground 0.162, prepare 0.118, solve 0.147, integrate 0.208, relax 0.066, restitution 0.028, store 0.032, tail 0.209
+  aim still       30 frames: update 2.2 ms (max 2.3), draw 6.6 ms (max 50.1), total 8.7 ms (max 52.0) = 50.0 fps
+  aim still render/world (ms/frame): cached 1.00, clear 0.05, lines 0.12, outside 0.06, pieces 0.64, prepare 1.29, shadows 0.29
+  hud (ms): minimap 0.84, panel 0.54, gauge 1.14, gauge thrown 0.45, readout 0.48
+  primitives (ms): clear 0.16, image 400x240 draw 0.71, fillRect 400x240 pattern 0.31, fillRect 400x120 pattern 0.18, fillPolygon 400x120 pattern 0.37, fillPolygon 400x120 black 0.31, drawText label 0.63, label image draw 0.12, 100 setDitherPattern 1.87, 100 setPattern 3.28, 100 fillPolygon 8px quad 4.12, 100 drawPolygon 8px quad 5.02, 100 fillRect 8px 1.73, 100 drawLine 4.65
+  aim swivel      50 frames: update 2.4 ms (max 2.7), draw 22.7 ms (max 49.6), total 25.1 ms (max 52.3) = 39.9 fps
+  aim swivel render/world (ms/frame): clear 0.51, lines 2.55, outside 1.74, pieces 8.71, prepare 0.92, shadows 4.64
+  aim walk        50 frames: update 2.5 ms (max 2.8), draw 22.3 ms (max 50.0), total 24.8 ms (max 51.9) = 40.3 fps
+  aim walk render/world (ms/frame): clear 0.53, lines 2.41, outside 1.21, pieces 9.90, prepare 0.93, shadows 4.64
+  aim (windup)    46 frames: update 2.2 ms (max 2.4), draw 7.2 ms (max 49.5), total 9.3 ms (max 51.5) = 50.0 fps
+  flight          61 frames: update 17.3 ms (max 53.7), draw 17.8 ms (max 23.5), total 35.0 ms (max 74.6) = 28.5 fps
+  impact         193 frames: update 19.0 ms (max 25.7), draw 11.5 ms (max 17.2), total 30.5 ms (max 40.7) = 32.8 fps
+  rest            51 frames: update 4.4 ms (max 22.3), draw 5.1 ms (max 25.2), total 9.5 ms (max 47.6) = 50.0 fps
+  flight render/world (ms/frame): cached 0.13, clear 0.59, lines 1.73, outside 1.50, pieces 7.30, prepare 0.36, shadows 3.78
+  impact render/world (ms/frame): cached 0.57, clear 0.47, lines 0.89, outside 0.47, pieces 2.59, prepare 0.68, shadows 2.33
+  throw: 352 frames, first hit b3, toppled 1; memory 685 KB before, max 762 KB; GC 5%, audio 1%, game 44%, idle 50%, kernel 0%
+autobench done
+
