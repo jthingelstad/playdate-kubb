@@ -310,6 +310,8 @@ matches (about a minute; `--quick` about 10 s).
 - `games`: the games list over three game files the test writes (frames: the list, the
   second game chosen, its score sheet, scrolled by the crank); B twice goes back to the
   title.
+- `options`: the match options driven by the d-pad (frames: the defaults, SNOW, the
+  RAISING row); A must give snow, six from the start and automatic raising.
 - `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
   long second name drawn smaller); a name with no letter is refused, B goes back, and the
   names become the match's teams.
@@ -935,9 +937,20 @@ own item). Practice is the throw scene exactly as before.
   back a step (from the first, to the title). The last names are saved
   (`playdate.datastore` "names") and offered again. The match gets them as
   `opts.names`, the engine's teams (one player each, named as the team), so cards,
-  labels and the game file use them. `main.lua`: title -> `names` -> `play`; the winner
+  labels and the game file use them. `main.lua`: title -> `names` -> `options` -> `play`; the winner
   card's A is `rematch`, the same options again with no names screen. Self-test `names`
   (scripted, no keyboard: `names.type`, `ok`, `back`).
+- Match options (Jamie, 2026-11-14: "the game options for the match you are starting";
+  `scenes/options.lua`, pure rows in `core/matchopts.lua`, tested): after the names, before
+  every match (PASS + PLAY and VS PLAYDATE). Three rows: SURFACE (grass, sand, snow),
+  OPENING (2-4-6, or six from the start) and RAISING (by hand, or automatic: the engine's
+  policies, `autoSettle`; against the Playdate "by hand" is the player's side only, as
+  before). Up/down choose a row, left/right change it (the chosen row black, with arrows),
+  a line under the rows says what the row is for; A starts, B goes back to the names. The
+  choice is kept (`playdate.datastore` "matchopts", `matchopts.valid` on reading) and
+  offered next time. `main.lua`: title -> `names` -> `options` -> `play`; a rematch keeps
+  the options; a resumed match keeps its raising (the save's `opts.autoSettle`; surface and
+  opening are the engine's own). Self-test `options`.
 - Saved games and resume (`core/save.lua`, pure and tested): as soon as each throw is
   ruled on (at rest, so leaving for the title during the rest hold cannot give the throw
   back), before every settle step and after every raise and punishment kubb placed by hand

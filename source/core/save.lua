@@ -41,7 +41,8 @@ end
 save.plain = function(v) return plain(v, {}, "") end
 
 -- Hands writer(d) what a resume needs of match `m`, plus `opts` (the match
--- scene's options: names, vs): the live tables, not a copy (copying the game
+-- scene's options: names, vs, autoSettle; the surface and opening are the
+-- engine's own): the live tables, not a copy (copying the game
 -- cost 43 ms on the device at turn 4), so writer must write it at once
 -- (playdate.datastore.write). The score sheet's current turn is also its
 -- last entry in turns, the one table the engine reaches two ways: it is
@@ -57,7 +58,8 @@ function save.write(m, opts, writer)
 		v = save.version, currentIndex = ci,
 		game = m.game, start = m.start, mode = m.mode, turn = m.turn, tossed = m.tossed,
 		text = m.text, debris = m.debris,
-		opts = { vs = opts and opts.vs, names = opts and opts.names },
+		opts = { vs = opts and opts.vs, names = opts and opts.names,
+			autoSettle = opts and opts.autoSettle or nil },   -- the match options' raising
 	})
 	if sheet then sheet.current = cur end
 	if not ok then error(err, 0) end

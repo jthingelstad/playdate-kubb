@@ -37,6 +37,7 @@ import "scenes/title"
 import "scenes/throw"
 import "scenes/match"
 import "scenes/names"
+import "scenes/options"
 import "core/save"
 import "scenes/games"
 import "scenes/drills"
@@ -50,6 +51,7 @@ import "selftest/settle"
 import "selftest/settle-resign"
 import "selftest/settle-crank"
 import "selftest/names"
+import "selftest/options"
 import "selftest/resume"
 import "selftest/soak"
 import "selftest/games"
@@ -108,6 +110,8 @@ if args.selftest then
 else
 	local throw, match, title = tw.scenes.throw, tw.scenes.match, tw.scenes.title
 	local names, games, drillsScene = tw.scenes.names, tw.scenes.games, tw.scenes.drills
+	local optionsScene = tw.scenes.options
+	local nextMatch = nil            -- names and mode on their way through the options screen
 	local lastMatch = nil            -- the options of the last match (a rematch plays them again)
 	local device = tw.input.device()
 	local current, kind = nil, nil   -- the scene and which: "title" | "practice" | "match"
@@ -225,6 +229,11 @@ else
 			kind = "games"
 			current = games.new(device)
 			games.enter()
+		elseif which == "options" then
+			-- the match options after the names (scenes/options)
+			kind = "options"
+			current = optionsScene.new(device, nextMatch.vs and "vs" or "match")
+			optionsScene.enter()
 		elseif which == "play" or which == "rematch" then
 			-- the match itself: the names just entered, or the last match's again
 			kind = "match"
@@ -233,9 +242,12 @@ else
 		elseif which == "resume" and savedMatch() then
 			-- the match saved in progress (core/save), on from where it was left
 			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
-			lastMatch = { vs = opts.vs, names = opts.names }
+			-- a rematch keeps the resumed match's options (surface and opening
+			-- are the engine's own)
+			lastMatch = { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle,
+				surface = m.game.surface, opening = m.game.opening }
 			kind = "match"
-			current = match.new(device, { vs = opts.vs, names = opts.names, resume = m })
+			current = match.new(device, { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, resume = m })
 			match.enter()
 		else
 			kind = "title"
@@ -303,11 +315,20 @@ else
 		elseif kind == "names" then
 			names.update(current)
 			if current.done then
-				lastMatch = { vs = (current.mode == "vs") and "B" or nil, names = current.list }
-				return open("play")
+				-- then the match options
+				nextMatch = { vs = (current.mode == "vs") and "B" or nil, names = current.list }
+				return open("options")
 			end
 			if current.exit then return open(current.exit) end
 			names.draw(current)
+		elseif kind == "options" then
+			optionsScene.update(current)
+			if current.done then
+				lastMatch = optionsScene.apply(current, nextMatch)
+				return open("play")
+			end
+			if current.back then return open(nextMatch.vs and "vs" or "match") end
+			optionsScene.draw(current)
 		else
 			title.update(current)
 			if current.exit then return open(current.exit) end

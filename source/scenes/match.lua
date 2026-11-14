@@ -123,7 +123,7 @@ local function persist(s)
 	if cmatch.over(s.m) then
 		playdate.datastore.delete(key)
 	else
-		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names },
+		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, autoSettle = s.opts.autoSettle },
 			function(d) playdate.datastore.write(d, key) end)
 	end
 end
@@ -236,10 +236,10 @@ function scene.new(provider, opts)
 	if s.opts.resume then
 		-- a saved match (core/save.unpack): on from where it was left
 		s.m = s.opts.resume
-	elseif s.cpu then
-		s.m = cmatch.new { start = now(), surface = "Grass", teams = teams(s.opts), mode = "Vs Playdate" }
 	else
-		s.m = cmatch.new { start = now(), surface = "Grass", teams = teams(s.opts) }
+		-- the surface and opening from the match options (scenes/options)
+		s.m = cmatch.new { start = now(), surface = s.opts.surface or "Grass", opening = s.opts.opening,
+			teams = teams(s.opts), mode = s.cpu and "Vs Playdate" or nil }
 	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	s.ts.sceneName = "match"
