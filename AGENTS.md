@@ -389,7 +389,9 @@ wind back to the back notch, flick, stop on the front notch, and what each does)
 the throw scene until A or B (`throw.showHowTo`, `s.howto`: nothing else moves); the
 System Menu's Pitch, Drill and Match items have "how to", and it shows once by itself the
 first time a player aims a baton (`throw.howtoFirst`, off in self-tests, the autobench and
-the soak; remembered in the datastore "howto"). Self-test `howto`; `release-stop` and
+the soak; remembered in the datastore "howto"). In a match the match scene hands the
+frame to the card before any phase (a hand-off or settle card, the Playdate's think), and
+draws it, so everything waits under it (Codex on #81; self-test `match-howto`). Self-test `howto`; `release-stop` and
 `release-early` check the verdict and show the dot (frame 4). The throw
 scene launches the player's batons at that angle (the loft boost still goes by the loft
 set); the computer's throws and drilled kubbs are unchanged (a drill's push and wobble go
