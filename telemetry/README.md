@@ -48,6 +48,7 @@ The overnight QA build, after midnight (US Central).
 | `run4-after-reset.txt` | the shorter slow motion, the first run after the Playdate's reset by hand: everything slower, the physics too (4.95 ms a step against 3.95), so not comparable with the runs before |
 | `run5-slow-motion-shorter.txt` | the shorter slow motion against the old one in the same run: the hit 6.20 s against 5.78, 0.30 against 0.31 of real time; the slide after a hit is bound by the physics either way |
 | `run6-ground-texture.txt` | grass with its texture against flat grass in the same run: the three throws 10.61 s against 10.69 (0.43 both), 3.88 against 3.84 ms a physics step; hit and miss settle sooner, the drill later |
+| `run7-sand-snow.txt` | sand and snow against grass in the same run: the three throws 11.4 s on sand, 15.0 on snow, 11.3 on grass (11.4 flat); a physics step 3.96, 4.88 and 4.08 ms. Snow's slides run longer and cost more a step (more steps sliding in contact); sand stops sooner |
 
 `soak/` holds the device soak's `soak.txt` (`AGENTS.md`, "Measuring on the device"):
 
