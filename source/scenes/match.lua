@@ -114,13 +114,16 @@ function scene.saveKey()
 	return tw.selftestRun and "selftest-match" or "match"
 end
 
+-- opts.saveKey (the device soak) saves a scripted match too, under that key.
 local function persist(s)
-	if s.opts.seed or s.opts.instant or s.opts.noSave then return end
+	local key = s.opts.saveKey
+	if not key and (s.opts.seed or s.opts.instant) or s.opts.noSave then return end
+	key = key or scene.saveKey()
 	if cmatch.over(s.m) then
-		playdate.datastore.delete(scene.saveKey())
+		playdate.datastore.delete(key)
 	else
 		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names },
-			function(d) playdate.datastore.write(d, scene.saveKey()) end)
+			function(d) playdate.datastore.write(d, key) end)
 	end
 end
 scene.persist = persist
@@ -131,7 +134,8 @@ local function archive(s)
 	if s.archived then return end
 	s.archived = true
 	s.finish = now()
-	s.file, s.fileError = writeFile(s, s.finish)
+	-- opts.noFile (the device soak): no game file, games/ is left alone
+	if not s.opts.noFile then s.file, s.fileError = writeFile(s, s.finish) end
 end
 
 local function over(s)

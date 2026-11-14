@@ -299,6 +299,8 @@ matches (about a minute; `--quick` about 10 s).
   bodies in its `FAIL` line.
 - `title`: the title with VS PLAYDATE chosen (frame 1), PRACTICE after two right presses
   (frame 2), and A must leave with `practice`.
+- `soak`: the device soak for one short match (soak.lua), the save read back after every
+  throw; `soak.txt` must end with `soak done`, no error and no failed save check.
 - `resume`: a match driven to turn 3, saved by the scene, read back through the
   datastore and resumed (frames: the title's B RESUME line, the resumed hand-off card).
 - `games`: the games list over three game files the test writes (frames: the list, the
@@ -542,6 +544,20 @@ The autobench measures a build on the Playdate with nobody pressing anything:
    while the bench runs.
 4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
    touch `traces.jsonl` (crank recordings), `frames.jsonl` or `games/`.
+
+The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
+Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
+autobench), at a player's real pace through `scenes/match` (playback, slow motion, camera,
+bursts, raising and punishment by the engine's policies), bounded at `maxTurns` (24). It
+saves the match before every throw under its own key (`soak-match`, match option `saveKey`)
+and every `saveCheck` throws reads it back and unpacks it against the live engine; it
+writes no game file (option `noFile`) and turns the recorder and frame log off, so
+`games/`, `traces.jsonl` and `frames.jsonl` are untouched. Each frame runs under `xpcall`:
+an error ends that match with its traceback. `soak.txt` gets per match the turns, throws
+and ending, frames over 100 and 200 ms, the slowest frames with the phase and throw mode,
+memory after a full collection before and after and the most seen, and the save checks;
+then a summary and `soak done` (about 10 minutes a match). Self-test `soak` (one short
+match).
 
 For hours of testing over USB (benches and installs with nobody at the device), put an
 empty file named `nolock` in the same Data folder: while it is there the game never
