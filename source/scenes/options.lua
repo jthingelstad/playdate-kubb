@@ -1,6 +1,6 @@
 -- The match options (Jamie, 2026-11-14): after the names, before every match
 -- (PASS + PLAY and VS PLAYDATE): the surface, the opening and who stands the
--- thrown-in kubbs up. Rows from core/matchopts; up/down choose a row,
+-- thrown-in kubbs up, and the kubb set. Rows from core/matchopts; up/down choose a row,
 -- left/right change its value, A starts the match, B goes back to the names.
 -- The choice is kept (playdate.datastore "matchopts") and offered next time.
 -- One image, redrawn only on a change.
@@ -18,12 +18,12 @@ local scene = {}
 
 scene.tune = {
 	key = "matchopts",   -- the datastore file
-	top = 30,            -- y of the first row
-	rowH = 44,           -- px a row
+	top = 22,            -- y of the first row
+	rowH = 36,           -- px a row
 	labelX = 16,         -- the row's label
 	valueX = 150,        -- the value (display 16), between arrows
 	arrowGap = 10,
-	noteY = 168,         -- the chosen row's line of explanation
+	noteY = 172,         -- the chosen row's line of explanation
 	buttonY = 214,
 }
 
@@ -32,6 +32,7 @@ scene.notes = {
 	surface = "THE GROUND: GRASS HOLDS, SAND STOPS, SNOW SLIDES",
 	opening = "2-4-6: TEAM A OPENS WITH 2, B WITH 4, THEN 6",
 	raising = "WHO STANDS UP THE KUBBS THROWN IN",
+	set = "THE KUBBS' PAINTED HEADS AND THE KING'S CROWN",
 }
 scene.openingSix = "SIX: SIX BATONS A TURN FROM THE START"
 
@@ -61,10 +62,11 @@ local function render(s)
 			gfx.setColor(BLACK)
 			gfx.fillRect(0, y, 400, t.rowH - 6)
 		end
-		ui.text(label, row.label, t.labelX, y + 14, chosen)
+		local boxH = t.rowH - 6
+		ui.text(label, row.label, t.labelX, y + (boxH - 10) // 2, chosen)
 		local value = matchopts.shown(s.choice, row.key)
 		local f = (d16:getTextWidth(value) <= 400 - t.valueX - 40) and d16 or label
-		local vy = y + ((f == d16) and 10 or 14)
+		local vy = y + ((f == d16) and (boxH - 16) // 2 or (boxH - 10) // 2)
 		local w = ui.text(f, value, t.valueX + t.arrowGap + 8, vy, chosen)
 		if chosen then
 			-- the arrows that say left/right change it

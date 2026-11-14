@@ -92,6 +92,12 @@ world.tune = {
 	kingDiamondH = 0.07,
 	kingDetailFrom = 30, -- px tall: the ring and the diamond from here (the
 	                     -- far king keeps the crown points and the collar)
+	-- the kubb set (Jamie, 2026-11-14: painted sets; world.sets below): the
+	-- name of the one in play, "classic" bare wood. world.setSet changes it.
+	set = "classic",
+	setBandsFrom = 20,  -- px tall: all of a set's bands and its fill from here (farther, one
+	                    -- plain black head band: game play first, Jamie 2026-11-14)
+	setDetailFrom = 30, -- px tall: a set's stars, crosses and waves from here
 	cache = true,     -- reuse the last frame's world image when nothing changed
 	layer = true,     -- keep the pieces that hold still in a background image while the camera does
 }
@@ -155,6 +161,52 @@ function world.setSurface(name)
 		world.tune.roughPattern = p
 		world.invalidate()
 	end
+end
+
+-- The kubb sets (Jamie, 2026-11-14: "different Kubb sets... a USA set,
+-- Sweden set, Minnesota set, Wisconsin set"). As real painted sets, only the
+-- kubbs' heads and the king's crown are painted; the bodies stay bare wood,
+-- so a piece reads the same standing, falling or lying. A kubb's head is its
+-- local +z end (a kubb raised the other way up wears its paint at the foot,
+-- as a real one would). Painted on the lit faces only: a face away from the
+-- light stays black.
+--   bands   the head's bands, {from, to[, fill]} as fractions of the kubb's
+--           length (a band's own fill, else the set's)
+--   fill    "black" or "dots" (Wisconsin's cheese: world.DOTS)
+--   detail  near (setDetailFrom): "stars" (USA), "cross" (Sweden), "wave"
+--           (Minnesota) on the head band
+--   crown   the king's head painted from the collar up, in the fill
+--   emblem  near, on the king's head: "star", "cross", "northstar"
+world.sets = {
+	classic = nil,
+	usa = { bands = { { 0.80, 1 }, { 0.71, 0.75 }, { 0.62, 0.66 } }, fill = "black", detail = "stars",
+		crown = true, emblem = "star" },
+	sweden = { bands = { { 0.90, 1 }, { 0.76, 0.86 } }, fill = "black", detail = "cross",
+		crown = true, emblem = "cross" },
+	minnesota = { bands = { { 0.76, 1 } }, fill = "black", detail = "wave", crown = true, emblem = "northstar" },
+	wisconsin = { bands = { { 0.78, 1 }, { 0.73, 0.78, "black" } }, fill = "dots", crown = true },
+}
+world.SETS = { "classic", "usa", "sweden", "minnesota", "wisconsin" }
+-- the cheese: 2 x 2 holes every 4 px, staggered row to row (1 = white)
+world.DOTS = { 0x33, 0x33, 0xFF, 0xFF, 0xCC, 0xCC, 0xFF, 0xFF }
+
+local SET = nil   -- world.sets[world.tune.set], read by the draw
+
+-- A set's paint (world.sets). fillOn sets the colour or the cheese pattern.
+local DOTS = world.DOTS
+local function fillOn(fill)
+	if fill == "dots" then setPattern(DOTS) else setColor(BLACK) end
+end
+
+-- The set in play (a name of world.SETS; unknown or nil is classic). Drops
+-- the caches only when it changes.
+function world.setSet(name)
+	if not world.sets[name or ""] then name = "classic" end
+	if world.tune.set ~= name then
+		world.tune.set = name
+		world.invalidate()
+	end
+	SET = world.sets[name]
 end
 
 function world.invalidate()
@@ -540,7 +592,7 @@ end
 -- One side of the king: the body up to the crown's floor and the crown's
 -- two cuts. inner: the far side, whose inner wall shows through the near
 -- cuts (only the crown part).
-local function kingFace(a, b, shade, inner)
+local function kingFace(a, b, shade, inner, paint)
 	local fax, fay, fbx, fby = SX[20 + a], SY[20 + a], SX[20 + b], SY[20 + b]   -- the crown's floor
 	local tax, tay, tbx, tby = SX[4 + a], SY[4 + a], SX[4 + b], SY[4 + b]       -- the top corners
 	local v1x, v1y = fax + (fbx - fax) * 0.25, fay + (fby - fay) * 0.25
@@ -555,10 +607,57 @@ local function kingFace(a, b, shade, inner)
 	fillPolygon(fax, fay, v1x, v1y, tax, tay)
 	fillPolygon(v1x, v1y, v2x, v2y, px, py)
 	fillPolygon(v2x, v2y, fbx, fby, tbx, tby)
+	if paint then
+		-- a set's crown (world.sets): the head from the collar's foot up, teeth
+		-- and all, in its fill
+		fillOn(paint)
+		fillPolygon(SX[12 + a], SY[12 + a], SX[12 + b], SY[12 + b], fbx, fby, fax, fay)
+		fillPolygon(fax, fay, v1x, v1y, tax, tay)
+		fillPolygon(v1x, v1y, v2x, v2y, px, py)
+		fillPolygon(v2x, v2y, fbx, fby, tbx, tby)
+	end
 	setColor(BLACK)
 	if not inner then
 		drawPolygon(ax, ay, bx, by, tbx, tby, v2x, v2y, px, py, v1x, v1y, tax, tay)
 	end
+end
+
+-- A set's emblem, white, in the middle of the king's painted head on one
+-- face: between the collar's top (ring 17..20) and the crown's floor
+-- (21..24). Screen-space, like the diamond.
+local function kingEmblem(emblem, a, b)
+	local lx0, ly0, rx0, ry0 = SX[16 + a], SY[16 + a], SX[16 + b], SY[16 + b]
+	local lx1, ly1, rx1, ry1 = SX[20 + a], SY[20 + a], SX[20 + b], SY[20 + b]
+	local mx, my = (lx0 + rx0 + lx1 + rx1) / 4, (ly0 + ry0 + ly1 + ry1) / 4
+	-- half the head's height (up the face) and its width across
+	local vx, vy = ((lx1 + rx1) - (lx0 + rx0)) / 4, ((ly1 + ry1) - (ly0 + ry0)) / 4
+	local wx, wy = (rx0 - lx0 + rx1 - lx1) / 4, (ry0 - ly0 + ry1 - ly1) / 4
+	setColor(WHITE)
+	if emblem == "star" then
+		-- a five-point star's outline, filled as a diamond and a bar (cheap
+		-- and reads as a star at these sizes)
+		local k = 0.8
+		fillPolygon(mx + vx * k, my + vy * k, mx + wx * 0.22, my + wy * 0.22, mx - vx * k, my - vy * k,
+			mx - wx * 0.22, my - wy * 0.22)
+		fillPolygon(mx - wx * 0.38 + vx * 0.25, my - wy * 0.38 + vy * 0.25, mx + wx * 0.38 + vx * 0.25,
+			my + wy * 0.38 + vy * 0.25, mx + wx * 0.38 + vx * 0.05, my + wy * 0.38 + vy * 0.05,
+			mx - wx * 0.38 + vx * 0.05, my - wy * 0.38 + vy * 0.05)
+	elseif emblem == "cross" then
+		-- the Nordic cross: a bar across, an upright left of centre
+		fillPolygon(mx - wx + vx * 0.2, my - wy + vy * 0.2, mx + wx + vx * 0.2, my + wy + vy * 0.2,
+			mx + wx - vx * 0.2, my + wy - vy * 0.2, mx - wx - vx * 0.2, my - wy - vy * 0.2)
+		local cx, cy = mx - wx * 0.3, my - wy * 0.3
+		fillPolygon(cx - wx * 0.12 + vx, cy - wy * 0.12 + vy, cx + wx * 0.12 + vx, cy + wy * 0.12 + vy,
+			cx + wx * 0.12 - vx, cy + wy * 0.12 - vy, cx - wx * 0.12 - vx, cy - wy * 0.12 - vy)
+	elseif emblem == "northstar" then
+		-- the North Star: four long points
+		local i = 0.2
+		fillPolygon(mx + vx * 0.9, my + vy * 0.9, mx + (wx + vx) * i, my + (wy + vy) * i,
+			mx + wx * 0.45, my + wy * 0.45, mx + (wx - vx) * i, my + (wy - vy) * i,
+			mx - vx * 0.9, my - vy * 0.9, mx - (wx + vx) * i, my - (wy + vy) * i,
+			mx - wx * 0.45, my - wy * 0.45, mx - (wx - vx) * i, my - (wy - vy) * i)
+	end
+	setColor(BLACK)
 end
 
 local KING_U = {}
@@ -608,10 +707,12 @@ local function drawKing(p, FN, tall)
 			local F = FACES[fi]
 			local a, b = F[1], F[2]
 			local shade = FN[o + 7]
-			kingFace(a, b, shade, false)
+			local paint = (shade ~= 3 and SET and SET.crown) and SET.fill or nil
+			kingFace(a, b, shade, false, paint)
 			if shade ~= 3 then
 				-- the collar (black on a light face; a black face needs none)
 				fillPolygon(SX[12 + a], SY[12 + a], SX[12 + b], SY[12 + b], SX[16 + b], SY[16 + b], SX[16 + a], SY[16 + a])
+				if detail and paint and SET.emblem then kingEmblem(SET.emblem, a, b) end
 				if detail then
 					drawLine(SX[8 + a], SY[8 + a], SX[8 + b], SY[8 + b])
 					-- the diamond, in the middle of the face (screen-space
@@ -664,6 +765,68 @@ local function grain(p, FN, tall)
 	end
 end
 
+-- A point on a face: s across from its foot edge a..b, u along its length
+-- (screen-space interpolation: fine at these sizes). FA holds the face.
+local FA = { 0, 0, 0, 0, 0, 0, 0, 0 }
+local function faceAt(s, u)
+	local ax, ay, bx, by, lx, ly, rx, ry = FA[1], FA[2], FA[3], FA[4], FA[5], FA[6], FA[7], FA[8]
+	return ax + (bx - ax) * s + (lx + (rx - lx) * s) * u, ay + (by - ay) * s + (ly + (ry - ly) * s) * u
+end
+
+-- One lit side face of a kubb: its head bands, and near, the set's detail.
+-- a, b the face's foot corners, d above a and c above b (screen, SX/SY).
+-- Black on entry (the face's outline colour) and on exit. A far kubb gets
+-- its head band only (setBandsFrom): every call counts in flight.
+local function paintKubbFace(set, a, b, c, d, tall)
+	local t = world.tune
+	local ax, ay, bx, by = SX[a], SY[a], SX[b], SY[b]
+	local lx, ly, rx, ry = SX[d] - ax, SY[d] - ay, SX[c] - bx, SY[c] - by
+	local bands = set.bands
+	-- far: the head band alone, plain black (Jamie, 2026-11-14: the styling
+	-- must never cost the game play)
+	local far = tall < t.setBandsFrom
+	local nb = far and 1 or #bands
+	local cur = "black"
+	for i = 1, nb do
+		local band = bands[i]
+		local u0, u1, fill = band[1], band[2], far and "black" or (band[3] or set.fill)
+		if fill ~= cur then fillOn(fill); cur = fill end
+		fillPolygon(ax + lx * u0, ay + ly * u0, bx + rx * u0, by + ry * u0,
+			bx + rx * u1, by + ry * u1, ax + lx * u1, ay + ly * u1)
+	end
+	if cur ~= "black" then setColor(BLACK) end
+	local near = tall >= t.setDetailFrom
+	local detail = set.detail
+	if not (near and detail) then return end
+	FA[1], FA[2], FA[3], FA[4], FA[5], FA[6], FA[7], FA[8] = ax, ay, bx, by, lx, ly, rx, ry
+	local u0, u1 = bands[1][1], bands[1][2]
+	local um = (u0 + u1) / 2
+	setColor(WHITE)
+	if detail == "stars" then
+		for i = 1, 3 do
+			local x, y = faceAt(i / 4, um)
+			gfx.fillRect(floor(x), floor(y), 2, 2)
+		end
+	elseif detail == "cross" then
+		-- the Nordic cross's upright, left of centre, through the gap
+		-- between the two bands
+		local x1, y1 = faceAt(0.30, bands[2][1])
+		local x2, y2 = faceAt(0.40, bands[2][1])
+		local x3, y3 = faceAt(0.40, 1)
+		local x4, y4 = faceAt(0.30, 1)
+		fillPolygon(x1, y1, x2, y2, x3, y3, x4, y4)
+	elseif detail == "wave" then
+		local amp = (u1 - u0) * 0.2
+		local px, py = faceAt(0.08, um)
+		for i = 1, 6 do
+			local x, y = faceAt(0.08 + i * 0.14, um + ((i % 2 == 1) and amp or -amp))
+			drawLine(px, py, x, y)
+			px, py = x, y
+		end
+	end
+	setColor(BLACK)
+end
+
 -- Draw one box (line width 1 and colour black on entry and exit).
 local function drawBox(p)
 	local WX, WY, WZ = p.WX, p.WY, p.WZ
@@ -695,6 +858,7 @@ local function drawBox(p)
 	local tall = (dc > near) and f * 2 * p.hz / dc or y1 - y0
 	local thick = tall >= t.thickFrom
 	if thick then setLineWidth(2) end
+	local set = (not p.king) and SET or nil
 	if p.king then
 		drawKing(p, FN, tall)
 	else
@@ -709,6 +873,16 @@ local function drawBox(p)
 				if shade == 1 then setColor(WHITE) end
 				fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
 				if shade ~= 3 then setColor(BLACK) end
+				if set and shade == 1 then
+					if fi <= 4 then
+						paintKubbFace(set, a, b, cc, d, tall)
+					elseif fi == 6 and tall >= t.setBandsFrom then
+						-- the head's end (near only: far, a sliver the band already reads as)
+						if set.fill ~= "black" then fillOn(set.fill) end
+						fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
+						if set.fill ~= "black" then setColor(BLACK) end
+					end
+				end
 				drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
 			end
 		end

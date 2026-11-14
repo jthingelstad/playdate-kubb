@@ -318,6 +318,9 @@ matches (about a minute; `--quick` about 10 s).
   title.
 - `options`: the match options driven by the d-pad (frames: the defaults, SNOW, the
   RAISING row); A must give snow, six from the start and automatic raising.
+- `sets`: every kubb set up close (frames 1 to 5: classic, USA, Sweden, Minnesota,
+  Wisconsin) and USA from the baseline (frame 6); classic drawn again must match its first
+  frame, and every other set must differ from it.
 - `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
   long second name drawn smaller); a name with no letter is refused, B goes back, and the
   names become the match's teams.
@@ -413,7 +416,8 @@ Every number that is a guess lives in one table per module, with a comment:
   `stakeThick` at their true size, `stakeMinPx` the thinnest; no shadow), the baton's
   bands, the king's drawing (`kingCrown`, `kingCollar`, `kingCollarTop`, `kingRing`,
   `kingDiamond`, `kingDetailFrom`: drawing only, the physics king stays a plain box; the
-  `king` scenario shows it), HUD fonts (`labelFont`, `displayFont`) and every HUD box
+  `king` scenario shows it), the kubb set (`set`, `setBandsFrom`, `setDetailFrom`; the
+  sets themselves are `render.world.sets`, see "Kubb sets"), HUD fonts (`labelFont`, `displayFont`) and every HUD box
   (`rail`, `prompt`, `gauge`, `plaque`, `chip`, `flag`, `slow`, `callout`, ...), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
@@ -953,10 +957,10 @@ own item). Practice is the throw scene exactly as before.
   (scripted, no keyboard: `names.type`, `ok`, `back`).
 - Match options (Jamie, 2026-11-14: "the game options for the match you are starting";
   `scenes/options.lua`, pure rows in `core/matchopts.lua`, tested): after the names, before
-  every match (PASS + PLAY and VS PLAYDATE). Three rows: SURFACE (grass, sand, snow),
-  OPENING (2-4-6, or six from the start) and RAISING (by hand, or automatic: the engine's
+  every match (PASS + PLAY and VS PLAYDATE). Four rows: SURFACE (grass, sand, snow),
+  OPENING (2-4-6, or six from the start), RAISING (by hand, or automatic: the engine's
   policies, `autoSettle`; against the Playdate "by hand" is the player's side only, as
-  before). Up/down choose a row, left/right change it (the chosen row black, with arrows),
+  before) and SET (the kubb set, "Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
   a line under the rows says what the row is for; A starts, B goes back to the names. The
   choice is kept (`playdate.datastore` "matchopts", `matchopts.valid` on reading) and
   offered next time. `main.lua`: title -> `names` -> `options` -> `play`; a rematch keeps
@@ -1040,6 +1044,38 @@ own item). Practice is the throw scene exactly as before.
   result). Per frame it adds, from the throw scene, a dozen-entry target scan for the camera. Once per throw (not per frame) it builds the
   engine's pieces and outcome tables and rebuilds the items: expect one longer frame on the
   device when a throw is resolved and the next set up.
+
+## Kubb sets
+
+Jamie (2026-11-14): "different Kubb sets... a USA set, Sweden set, Minnesota set,
+Wisconsin set", envisioned here and chosen in the match options' SET row
+(`core/matchopts`, `opts.set`, kept by the save and a rematch). As real painted sets, only
+the kubbs' heads and the king's crown are painted; the bodies stay bare wood, so a piece
+reads the same standing, falling or lying, and a face away from the light stays black.
+`render.world.sets` (`render/world.lua`):
+
+- **Classic**: bare wood (the default and the practice pitch, `throw.tune.set`).
+- **USA**: a black head with three white stars, two black stripes under it; the king's
+  crown black with a white star.
+- **Sweden**: a black head split by a white bar, and near, the Nordic cross's upright left
+  of centre; the crown black with a white Nordic cross.
+- **Minnesota**: a deep black head with a white wave (the lakes); the crown black with the
+  North Star.
+- **Wisconsin**: a cheese head (`world.DOTS`, 2 x 2 holes every 4 px) on a black rim; the
+  crown in cheese.
+
+A kubb's head is its local +z end: one raised the other way up wears its paint at the foot,
+as a real one would. `render.world.setSet(name)` changes the set and drops the caches only
+when it changes; the throw scene owns its set (`throw.setSet`, `s.set`) and sets it at
+every draw (render/world is shared with the settle view). Game play first (Jamie, 2026-11-14:
+"keep the Kubb set styling simple enough that it doesn't destroy game play"): a far kubb
+(under `setBandsFrom`, 20 px, which is every kubb from the thrower's line) gets one plain
+black head band whatever the set, black needs no colour change (the outline's colour), the
+set's other bands and the cheese come from 20 px, and the stars, crosses and waves from
+`setDetailFrom` (30 px): the impact camera's close views. The
+`drawcalls` self-test with the USA set: 154 calls a flight frame against 134 classic, 183 an
+impact frame against 158 (2026-11-14). Self-test `sets` draws every set up close and from
+the baseline (frames 1 to 6); the autobench has USA and Wisconsin variants.
 
 ## Slow motion
 
