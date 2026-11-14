@@ -80,6 +80,11 @@ crank in a 3D close-up) and places punishment kubbs itself (AGENTS.md "Match", `
 2. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
    2026-11-13): build after the bursts, measure its cost on the device.
 
+## Licence
+
+MIT (`LICENSE`; Jamie, 2026-11-13). The display font stays under the SIL Open Font
+License; README.md says what is under which.
+
 ## Open calls
 
-- A licence, before the repo goes public.
+None.

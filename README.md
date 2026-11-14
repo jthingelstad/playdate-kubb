@@ -15,6 +15,15 @@ Needs the Playdate SDK 3.1.2 at `~/Developer/PlaydateSDK`, Lua 5.4 from Homebrew
 (`lua@5.4`) and Node. The notation parser the tests use is vendored in
 `tests/vendor/pk-kubb-score/`.
 
-Status: stage 1, camera and throw feel. An endless practice loop from the baseline: walk,
-swivel, loft, wind up and flick the crank; the baton flies a plain arc (no collisions yet).
-`lua5.4 tools/replay_traces.lua <traces.jsonl>` replays recorded crank swings.
+Status: `docs/STATUS.md` (what is built, what is next, what has not been tried on a
+Playdate yet).
+
+## Licence
+
+MIT (`LICENSE`), except:
+
+- The display font, Throwing Wood Display (`source/fonts/`), is a 1-bit rendering of
+  Londrina Solid and is under the SIL Open Font License 1.1 (`source/fonts/OFL.txt`; the
+  original font and licence are in `tools/art/`).
+- `tests/vendor/pk-kubb-score/` holds copies of files from the pk-kubb-score project, the
+  home of Planet Kubb Notation, and follows that project's terms.
