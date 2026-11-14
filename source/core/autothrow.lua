@@ -80,7 +80,9 @@ end
 -- A throw for match setup `s` (view frame). Batons: stand in line with the
 -- first target (as far forward as allowed) and throw at it; the king from
 -- the baseline. Tosses: a random spot in the far half.
-function autothrow.choose(s, r)
+-- scale (default 1) multiplies every scatter: below 1 a steadier thrower.
+function autothrow.choose(s, r, scale)
+	scale = scale or 1
 	local t = autothrow.tune
 	local a = { tumbleRate = t.tumble, tilt = 0, legal = true }
 	if s.kind == "toss" then
@@ -88,7 +90,7 @@ function autothrow.choose(s, r)
 		local ty = r.uniform(t.tossSpot[1], t.tossSpot[2])
 		-- keep clear of the king (a toss that topples it loses the game)
 		if tx > -t.kingClear and tx < t.kingClear then tx = (tx < 0) and -t.kingClear or t.kingClear end
-		tx, ty = tx + r.normal(t.tossScatter[1]), ty + r.normal(t.tossScatter[2]) - t.tossRoll
+		tx, ty = tx + r.normal(t.tossScatter[1] * scale), ty + r.normal(t.tossScatter[2] * scale) - t.tossRoll
 		return aimAt(a, 0, s.lineY, tx, ty, t.tossLoft)
 	end
 	local pos = {}
@@ -103,8 +105,8 @@ function autothrow.choose(s, r)
 	local px = target.x
 	if px > 2.4 then px = 2.4 elseif px < -2.4 then px = -2.4 end
 	local py = s.forwardY or s.lineY
-	local tx = target.x + r.normal(sc[1])
-	local ty = target.y - t.batonShort + r.normal(sc[2])
+	local tx = target.x + r.normal(sc[1] * scale)
+	local ty = target.y - t.batonShort + r.normal(sc[2] * scale)
 	return aimAt(a, px, py, tx, ty, t.batonLoft)
 end
 

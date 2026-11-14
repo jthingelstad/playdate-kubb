@@ -65,6 +65,7 @@ import "selftest/bench"
 import "selftest/match-opening"
 import "selftest/match-toss"
 import "selftest/match-whole"
+import "selftest/match-vs"
 import "selftest/match-debris"
 import "selftest/drill"
 import "selftest/cards"
@@ -156,8 +157,10 @@ else
 		if which == "practice" then
 			current = throw.new(device)
 			throw.enter()
-		elseif which == "match" then
-			current = match.new(device)
+		elseif which == "match" or which == "vs" then
+			-- PASS + PLAY, or VS PLAYDATE (the Playdate is Team B)
+			kind = "match"
+			current = match.new(device, which == "vs" and { vs = "B" } or nil)
 			match.enter()
 		else
 			kind = "title"

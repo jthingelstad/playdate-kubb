@@ -32,12 +32,17 @@ local fmt = string.format
 
 local match = {}
 
-function match.teamName(side) return "Team " .. side end
+-- A team's name: the engine's (match.new's `teams`), "Team A" / "Team B"
+-- when no game is given.
+function match.teamName(side, g)
+	local t = g and g.teams and g.teams[side]
+	return t and t.name or ("Team " .. side)
+end
 
 function match.new(opts)
 	opts = opts or {}
 	local g = rules.new {
-		teams = {
+		teams = opts.teams or {
 			A = { name = "Team A", players = { { name = "Player A", id = "a" } } },
 			B = { name = "Team B", players = { { name = "Player B", id = "b" } } },
 		},
@@ -121,7 +126,7 @@ function match.setup(m)
 		s.projectile, s.kubb = "kubb", n.kubb
 		s.rethrow = n.rethrow
 		s.n, s.of = m.tossed + 1, m.tossed + n.left
-		s.label = fmt("%s  %s %d of %d", match.teamName(side), n.rethrow and "rethrow" or "kubb", s.n, s.of)
+		s.label = fmt("%s  %s %d of %d", match.teamName(side, g), n.rethrow and "rethrow" or "kubb", s.n, s.of)
 	else
 		s.projectile = "baton"
 		s.kingShot = n.kingShot
@@ -129,7 +134,7 @@ function match.setup(m)
 		s.targets = n.targets
 		s.n, s.of = n.n, n.of
 		s.batonId = "baton" .. n.n
-		s.label = fmt("%s  %s %d of %d", match.teamName(side), n.kingShot and "king shot, baton" or "baton", n.n, n.of)
+		s.label = fmt("%s  %s %d of %d", match.teamName(side, g), n.kingShot and "king shot, baton" or "baton", n.n, n.of)
 	end
 	m.setup = s
 	return s
@@ -156,7 +161,7 @@ local function hasNote(notes, from, pattern)
 end
 
 local function wins(g)
-	return match.teamName(g.winner) .. " wins"
+	return match.teamName(g.winner, g) .. " wins"
 end
 
 -- A short line for a baton token (and the notes the throw added).
@@ -291,15 +296,15 @@ function match.resign(m)
 	g:resign(side)
 	m.setup = nil
 	debris.clear(m.debris)
-	m.text = match.teamName(side) .. " resigned: " .. wins(g)
+	m.text = match.teamName(side, g) .. " resigned: " .. wins(g)
 	return true
 end
 
 -- One line for the winner screen.
 function match.howText(m)
 	local g = m.game
-	local loser = match.teamName(g.winner == "A" and "B" or "A")
-	if g.how == "king" then return match.teamName(g.winner) .. " toppled the king"
+	local loser = match.teamName(g.winner == "A" and "B" or "A", g)
+	if g.how == "king" then return match.teamName(g.winner, g) .. " toppled the king"
 	elseif g.how == "resigned" then return loser .. " resigned"
 	elseif g.how == "king toppled by a thrown kubb" then return loser .. " toppled the king with a kubb"
 	elseif g.how == "king toppled early" then return loser .. " toppled the king early" end

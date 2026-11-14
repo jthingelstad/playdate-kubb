@@ -18,7 +18,10 @@ local notation, frame, pitch = tw.notation, tw.frame, tw.pitch
 
 local cards = {}
 
-local function team(side) return "Team " .. side end
+local function team(side, g)
+	local t = g and g.teams and g.teams[side]
+	return t and t.name or ("Team " .. side)
+end
 cards.teamName = team
 
 -- "2FB" -> 2, 1, hit; "F" -> 1, 0, hit; "K" -> 0, 0, hit; "2FE" -> 2, 0,
@@ -83,12 +86,12 @@ function cards.handoff(m, setup)
 	local to = setup.side
 	local from = to == "A" and "B" or "A"
 	local c = {
-		to = to, toName = team(to), turn = g.turn,
+		to = to, toName = team(to, g), turn = g.turn,
 		kubbs = setup.kind == "toss" and setup.of or 0,
 		batons = g.batonsTotal or 6,
 	}
 	if g.turn > 1 then
-		c.from, c.fromName = from, team(from)
+		c.from, c.fromName = from, team(from, g)
 		c.took = cards.took(g, g.turn - 1)
 	end
 	c.base = { #g:baseKubbs(from), #g:baseKubbs(to) }
@@ -123,7 +126,7 @@ end
 --   minutes, hits, thrown (the winner's batons)
 function cards.winner(m, finish)
 	local g = m.game
-	local c = { winner = g.winner, winnerName = team(g.winner), turns = g.turn }
+	local c = { winner = g.winner, winnerName = team(g.winner, g), turns = g.turn }
 	if m.start and finish then c.minutes = notation.minutesBetween(m.start, finish) end
 	c.hits, c.thrown = cards.hitRate(g, g.winner)
 	return c

@@ -824,6 +824,14 @@ end
 -- the crank had made it. Only in aim mode. With a.drill = {markerX, markerY}
 -- and s.drill on (the autobench's match case), the kubb is drilled at that
 -- marker instead: a clean swing at the band's center, no cut.
+-- Show a throw's aim before it is made (the Playdate's turn): where it stands,
+-- swivel and loft, and the aim camera on them. s.watching hides the
+-- player's controls (gauge, loft plaque) and prompts WATCH.
+function throw.showAim(s, a)
+	s.playerX, s.playerY, s.swivel, s.loftDeg = a.x, a.y, a.swivel, a.loftDeg
+	aimCamera(s)
+end
+
 function throw.autoLaunch(s, a)
 	assert(s.mode == "aim", "autoLaunch while " .. s.mode)
 	s.playerX, s.playerY, s.swivel, s.loftDeg = a.x, a.y, a.swivel, a.loftDeg
@@ -934,7 +942,9 @@ function throw.drawFrame(s)
 	local half = drill.tune.bandHalf
 	local sw = s.swing
 	local l = s.last
-	if s.mode == "aim" then
+	if s.mode == "aim" and s.watching then
+		hud.prompt("WATCH", true)
+	elseif s.mode == "aim" then
 		local cap = (sw.phase ~= "idle") and swing.powerCap(sw) or nil
 		local band = marker and s.drillSol.band or nil
 		hud.plaque(s.loftDeg, cap, band, half)
