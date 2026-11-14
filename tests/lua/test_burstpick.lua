@@ -115,24 +115,27 @@ test("burstpick: the physics times a topple (world bodies carry toppleT)", funct
 	expect.truthy(down >= 1, "the bench throw topples a kubb")
 end)
 
-test("burstpick: a king struck after a toppled kubb carries its own certainty", function()
+test("burstpick: a king is judged only once it has toppled; pushed, it gets no burst", function()
 	local w = fake {
 		{ kind = "kubb", id = "b3", toppleT = 1.0 },
-		{ kind = "king", id = "king", touchT = 1.1, awake = true, vx = 1, vy = 0, vz = 0, wx = 0, wy = 0, wz = 0 },
+		{ kind = "king", id = "king", touchT = 1.1, awake = true, vx = 1, vy = 0, vz = 0, wx = 9, wy = 0, wz = 0 },
 	}
 	w.time = 1.2
-	local kind, a, _, sure = pick.pick(w, 1.1)
-	expect.eq(kind, "king")
-	expect.eq(a.id, "king")
-	expect.eq(sure, false, "the king has not toppled: not sure")
-	-- it settles standing: its burst is taken back
-	w.bodies[2].awake = false
-	expect.truthy(pick.stoodUp(w.bodies[2], false))
-	-- toppled, it is sure
-	w.bodies[2].awake, w.bodies[2].toppleT = true, 1.15
+	local kind, a = pick.pick(w, 1.1)
+	expect.eq(kind, "clean", "a king struck and moving but not toppled is not the king burst")
+	expect.eq(a.id, "b3")
+	w.bodies[2].toppleT = 1.15
+	local sure
 	kind, a, _, sure = pick.pick(w, 1.2)
 	expect.eq(kind, "king")
 	expect.eq(sure, true)
+end)
+
+test("burstpick: a graze then a later topple is timed at the topple", function()
+	local b = { kind = "kubb", id = "b2", touchT = 0.3, toppleT = 1.5 }
+	expect.eq(pick.hitTime(b), 1.5)
+	b.toppleT = 0.5
+	expect.eq(pick.hitTime(b), 0.3)
 end)
 
 test("burstpick: a double carries the second kubb's own certainty", function()

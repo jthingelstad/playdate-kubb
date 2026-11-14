@@ -397,7 +397,7 @@ Every number that is a guess lives in one table per module, with a comment:
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
   speed").
 - `tw.render.burst.tune` (`source/render/burst.lua`): the hit bursts' phase lengths, the
-  double's second star, the anchor lift, the chips; `tw.burstpick.tune` the double's window and the fall judged at the impact (`fallV`, `fallW`, `judgeFor`);
+  double's second star, the anchor lift, the chips; `tw.burstpick.tune` the double's window and the fall judged at the impact (`fallV`, `fallW`, `judgeFor`, `grazeFor`);
   `tw.sound.tune` (`source/sound.lua`) the knocks' pitches, volumes and lengths.
 - `tw.playback.paceTune`, `tw.playback.calm`, `tw.playback.slow` (`source/core/playback.lua`):
   the pace of the picture, the calm tail and the slow motion ("Playback", "Slow motion").
@@ -925,7 +925,10 @@ on it, with a knock.
   way), so a kubb or king is judged falling at its impact: toppled already, or struck
   within `judgeFor` (0.5 s) and moving at `fallV` (0.5 m/s) or turning at `fallW`
   (5 rad/s) or more (`burstpick.falling`, which also says whether it is `sure`, that is
-  toppled). The burst starts when the picture reaches the first falling piece's impact;
+  toppled). The king is judged only once it has toppled: its burst inverts the screen and
+  plays the game's end, so a king merely pushed must never get it, at the price of a king
+  burst that can come up to the physics' lead late. A topple more than `grazeFor` (1 s)
+  after the first touch was a later blow, so it is timed at the topple. The burst starts when the picture reaches the first falling piece's impact;
   one that was not sure and then comes to rest standing (`burstpick.stoodUp`) is taken back
   (`B.takenBack`: the burst ends at once). `render/burst` keeps how late it started,
   `B.gap`, and the autobench prints it: 2 to 6 ms of shown time on the device (2026-11-13),
