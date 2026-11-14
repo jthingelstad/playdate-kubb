@@ -55,6 +55,13 @@ end)
 
 test("playback: keeps the most bodies awake and contacts of any step", function()
 	local pb = playback.finish(playback.new(bench.world(), 1 / 50))
-	expect.eq(pb.awakeMax, 6)
+	-- the same throw stepped by hand: the most awake in any step
+	local w, most = bench.world(), 0
+	while not tw.world.isAtRest(w) do
+		tw.world.step(w)
+		if w.awakeCount > most then most = w.awakeCount end
+	end
+	expect.eq(pb.awakeMax, most)
+	expect.truthy(most >= 4, "awake " .. most)
 	expect.truthy(pb.contactsMax > 10, "contacts " .. pb.contactsMax)
 end)

@@ -47,6 +47,7 @@ The overnight QA build, after midnight (US Central).
 | `run3-collector-held.txt` | the collector held off in flight (not merged): 0.39, the same as without the hold (0.40) |
 | `run4-after-reset.txt` | the shorter slow motion, the first run after the Playdate's reset by hand: everything slower, the physics too (4.95 ms a step against 3.95), so not comparable with the runs before |
 | `run5-slow-motion-shorter.txt` | the shorter slow motion against the old one in the same run: the hit 6.20 s against 5.78, 0.30 against 0.31 of real time; the slide after a hit is bound by the physics either way |
+| `run6-ground-texture.txt` | grass with its texture against flat grass in the same run: the three throws 10.61 s against 10.69 (0.43 both), 3.88 against 3.84 ms a physics step; hit and miss settle sooner, the drill later |
 
 `soak/` holds the device soak's `soak.txt` (`AGENTS.md`, "Measuring on the device"):
 
@@ -56,4 +57,3 @@ The overnight QA build, after midnight (US Central).
 | `run2-slow-frames.txt` | the same matches' kind with each slow frame broken down: the update 180 to 350 ms where the physics took about 80 (only the baton awake, about 8 ms a step) and the draw about 30; the heap grew 15 to 28 KB in each (its `gc +N KB` is the net growth, not memory freed: the label was wrong), about ten times a usual flight frame |
 | `run3-collector-held.txt` | a try at holding the collector off in flight and catching up in the rest hold (not merged): no better, the slow frames unchanged (`gc` as in run2: net growth) |
 | `run4-profiled-stopped.txt` | branch `soak-profile`, each slow frame's update split by part: the throw's flight 70 to 105 ms (nearly all of it the physics), the bursts and camera 0 to 3, and 130 to 230 ms in the match scene's own update. These are the throw's landing frames (the physics' last calm-tail stretch, then the engine's ruling and the save), labelled by the mode the frame began in. Two matches finished (23 and 25 turns); the Playdate stopped answering USB during the third and needed a reset by hand, with nothing in its crash log |
-

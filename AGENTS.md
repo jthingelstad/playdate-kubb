@@ -386,7 +386,8 @@ Every number that is a guess lives in one table per module, with a comment:
   margin, bounce threshold and passes, wood-on-wood friction and bounce, sleep and wake
   thresholds, topple angle, out margin, maximum throw time, stake height.
   `tw.world.surfaces`: one parameter set per ground (grass, sand; ice is a marked
-  placeholder): friction, bounce, dig, rolling resistance.
+  placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
+  (Physics, "The ground's texture").
 - `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds,
   and `bench.debris`, the lying batons and kubbs of a full turn).
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
@@ -481,6 +482,45 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   `w.loneStep == w.steps` marks a lone step for the benches.
 - `world.prof`: set it to `world.newProf(clock)` and `world.step` adds the seconds of each
   phase (`world.PHASES`) into it; nil costs one test per phase.
+- The ground's texture (Jamie, 2026-11-14: "in a real game of Kubb there is always random
+  stuff because of the surface"). A surface may carry `texture` (`world.surfaces.grass`
+  does; sand and snow are next). The ground stays a flat plane; what a flat plane leaves
+  out is put back where it is cheap:
+  - **Patches.** The ground is cut into `cell` (0.25 m) patches, each with five numbers in
+    -1..1 from an integer hash of the patch and the throw's seed. They are read only when
+    a ground contact is new (no tables, no calls): the patch's friction, bounce and dig
+    vary by `muVar`, `eVar`, `digVar` (kept per contact in `b.gMf`, `b.gEf`), and a steep
+    landing faster than `bumpSpeed` is turned sideways by up to `bump` times its approach
+    speed times the steepness squared (its travel only; at the contact point it gave an
+    edge landing a wild spin), so a low skidding drill is barely turned and a baton
+    dropping end first is.
+  - **Grass holds.** A baton or a lying piece touching the ground loses `drag` of its ground
+    speed and spin a second, and `grip` more below `gripSpeed`, so it stops instead of
+    creeping. Standing or falling kubbs are left alone (a falling kubb must still fall).
+  - **Nothing slides on an end.** A baton within 30 degrees of upright, touching the
+    ground and sliding faster than `tripSpeed`, is tipped toward the way it is going
+    (`trip` rad/s^2 per m/s): its foot catches.
+  - **The seed** is the throw's own (`world.seedFrom` of the launch position and
+    velocities, set in `world.launch`): the same throw meets the same ground (replays,
+    tests, the autobench), every other throw its own. `world.new{ groundSeed = n }` fixes
+    it; `world.new{ texture = false }` is the plain surface (the mechanics tests in
+    `test_physics.lua` use it, and `tools/groundstats.lua --flat`).
+  - **Measured** (`lua5.4 tools/groundstats.lua [--n --seed --surface --flat]`: 400 scripted
+    batons at the base kubbs): on grass a baton slid on an end 0.050 s a throw before, 0.008
+    with the texture; slid 2.1 m after touching down, 1.4; came to rest in 2.12 s of
+    simulated time, 1.85; toppled a kubb in 12.5% of throws, 11.5. A drill still rests
+    within 0.27 m of its marker, and the cuts part by 17 cm on average, A right of B on 59
+    grounds of 60 (`test_drill.lua`). Physics matches run longer (23.9 turns against 19.9
+    over 40, seed 7): the scripted thrower aims a little short and counted on the skid,
+    which is what a real player has to unlearn from surface to surface.
+  - On the device (`telemetry/2026-11-14/bench/run6`, against flat grass in the same run):
+    the three match-case throws 10.61 s against 10.69 (0.43 of real time both), a physics
+    step 3.88 against 3.84 ms. The autobench has a flat-grass variant.
+  - The 32-bit device Lua: the patch is `math.floor` (a true integer); `//` leaves a float
+    that `&` and `>>` refuse there (the desktop's 64-bit Lua takes it, so only the
+    Simulator self-tests catch it). Tests: `test_ground.lua`.
+  - This changed every throw on grass on purpose, so dumps after a scenario are not
+    identical to before; the lone flight is untouched (no ground in the air).
 - Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
   tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
   would save about 8% of a collision step but changes the feel, so it was not applied.

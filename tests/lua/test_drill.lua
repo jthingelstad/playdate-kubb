@@ -13,13 +13,14 @@ local sqrt, abs = math.sqrt, math.abs
 
 -- One drill at the marker (mx, my) from the baseline at y = 0 on an empty
 -- pitch. `r` is a swing result (power defaults to the band center).
-local function throwAt(mx, my, r, cut, pieces)
+-- groundSeed: the ground texture's seed (nil: the throw's own, as in play)
+local function throwAt(mx, my, r, cut, pieces, groundSeed)
 	local sol = drill.solve(mx, my, 0)
 	r = r or {}
 	local sr = { power = r.power or sol.band, smoothness = r.smoothness or 1,
 		tilt = r.tilt or 90 * (1 - (r.smoothness or 1)), how = r.how or "passed" }
 	local L = drill.launch(sol, sr, cut or drill.CUT_NONE)
-	local w = world.new { surface = "grass", stakes = false, pieces = pieces }
+	local w = world.new { surface = "grass", stakes = false, pieces = pieces, groundSeed = groundSeed }
 	local b = world.launchDrill(w, "p", sol.x, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
 		L.spin, L.wobble, L.digGain)
 	world.run(w)
@@ -71,13 +72,25 @@ test("drill: a farther marker needs more power and the band leaves room to throw
 end)
 
 test("drill: regular (A) and goofy (B) cuts curve opposite ways", function()
+	-- On the textured grass the cut is reliable but not certain, as on a real
+	-- lawn: over twelve grounds at each marker, A ends right of B at least
+	-- nine times in ten and they part by 8 cm or more on average (with the
+	-- grass texture of 2026-11-14: 59 of 60, 17 cm). Each cut also curls its
+	-- own way on average.
 	for _, m in ipairs { { 0, 5 }, { 0.5, 6.5 }, { -1, 8 } } do
-		local straight = throwAt(m[1], m[2])
-		local a = throwAt(m[1], m[2], nil, drill.CUT_A)
-		local b = throwAt(m[1], m[2], nil, drill.CUT_B)
-		local da, db = a.rest.x - straight.rest.x, b.rest.x - straight.rest.x
-		expect.truthy(da > 0.03, string.format("A curves right (%+.3f m)", da))
-		expect.truthy(db < -0.03, string.format("B curves left (%+.3f m)", db))
+		local right, sep, sa, sb, n = 0, 0, 0, 0, 0
+		for seed = 1, 12 do
+			local straight = throwAt(m[1], m[2], nil, nil, nil, seed)
+			local a = throwAt(m[1], m[2], nil, drill.CUT_A, nil, seed)
+			local b = throwAt(m[1], m[2], nil, drill.CUT_B, nil, seed)
+			local da, db = a.rest.x - straight.rest.x, b.rest.x - straight.rest.x
+			if da > db then right = right + 1 end
+			sep, sa, sb, n = sep + (da - db), sa + da, sb + db, n + 1
+		end
+		local where = string.format("(%.1f, %.1f)", m[1], m[2])
+		expect.truthy(right >= 0.9 * n, string.format("A right of B at %s: %d of %d", where, right, n))
+		expect.truthy(sep / n > 0.08, string.format("A and B part by %.3f m at %s", sep / n, where))
+		expect.truthy(sa / n > 0 and sb / n < 0, string.format("A %+.3f, B %+.3f m at %s", sa / n, sb / n, where))
 	end
 end)
 

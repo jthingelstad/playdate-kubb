@@ -70,7 +70,7 @@ function body.new(kind, id)
 		toppled = false, touched = false, leftPitch = false,
 		-- ground contact slots (one per box corner or capsule end) for warm
 		-- starting: accumulated impulses from the last step that had them
-		gStamp = {}, gN = {}, gT1 = {}, gT2 = {}, gDig = {},
+		gStamp = {}, gN = {}, gT1 = {}, gT2 = {}, gDig = {}, gMf = {}, gEf = {},
 		groundImpulse = 0,   -- sum of ground normal impulses in this step
 		dig = 0,             -- extra rolling-resistance lever from digging in (m), decays
 		digGain = 1,         -- how much harder than the surface's dig this body's new ground
@@ -82,7 +82,10 @@ function body.new(kind, id)
 		b.static = true
 		b.im, b.iIx, b.iIy, b.iIz = 0, 0, 0, 0
 	end
-	for i = 1, 8 do b.gStamp[i], b.gN[i], b.gT1[i], b.gT2[i], b.gDig[i] = -1, 0, 0, 0, 0 end
+	for i = 1, 8 do
+		b.gStamp[i], b.gN[i], b.gT1[i], b.gT2[i], b.gDig[i] = -1, 0, 0, 0, 0
+		b.gMf[i], b.gEf[i] = 1, 1   -- the ground texture's friction and bounce factors
+	end
 	body.updateDerived(b)
 	return b
 end
