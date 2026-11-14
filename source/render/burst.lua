@@ -2,8 +2,8 @@
 -- the picture reaches the impact on the first kubb (or the king) a baton
 -- toppled (the moment it was struck, not once it is down), a
 -- pre-drawn burst is put up and to the left of the hit with its long spike
--- touching it, with a knock (sound.lua) at the flash, the moment of the
--- hit; the double's second knock comes with its second star. Three images per kind from
+-- touching it, at the moment of the hit (the knocks are every piece's own:
+-- scenes/throw; the king's adds its chord at its flash). Three images per kind from
 -- tools/art/build.py (images/burst/<kind>-1..3): the flash, the burst with
 -- the word, the break-up with six chips flying out. Which kind and when is
 -- core/burstpick. The king's flash inverts the whole screen for its two
@@ -65,12 +65,12 @@ local CHIP_C, CHIP_S = {}, {}
 for i = 1, 6 do CHIP_C[i], CHIP_S[i] = cos(CHIP_A[i]), sin(CHIP_A[i]) end
 
 function burst.new()
-	return { kind = nil, done = false, age = 0, inverted = false, knocked2 = false, provisional = false }
+	return { kind = nil, done = false, age = 0, inverted = false, provisional = false }
 end
 
 -- A new throw (or none): clears the burst and the screen inversion.
 function burst.reset(B)
-	B.kind, B.done, B.age, B.knocked2, B.provisional, B.gap = nil, false, 0, false, false, nil
+	B.kind, B.done, B.age, B.provisional, B.gap = nil, false, 0, false, nil
 	B.first, B.sure, B.takenBack = nil, false, false
 	B.second, B.sure2 = nil, false
 	if B.inverted then
@@ -84,7 +84,6 @@ local function length(B)
 	return t.flash + t.burst + t.breakup + ((B.kind == "double") and t.second or 0)
 end
 
-local KNOCK <const> = { clean = "tok", double = "klak", king = "king" }
 
 -- The kind and anchors from core/burstpick. Until the physics has computed
 -- the whole window after the first topple the kind is provisional: a later
@@ -136,8 +135,8 @@ function burst.update(B, s, dt)
 		end
 		if kind and kind ~= was and (not was or kind == "king") then
 			-- a new burst, or the king's replacing whatever showed: from the start
-			B.age, B.done, B.knocked2 = 0, false, false
-			tw.sound.hit(KNOCK[kind])
+			B.age, B.done = 0, false
+			if kind == "king" then tw.sound.king() end
 			return
 		end
 	end
@@ -167,10 +166,6 @@ function burst.update(B, s, dt)
 	end
 	if B.done or not B.kind then return end
 	B.age = B.age + dt
-	if B.kind == "double" and not B.knocked2 and B.age >= burst.tune.second then
-		B.knocked2 = true
-		tw.sound.hit("klak")
-	end
 	if B.age >= length(B) then B.done = true end
 end
 

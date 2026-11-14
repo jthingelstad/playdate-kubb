@@ -40,12 +40,14 @@ import "recorder"
 import "framelog"
 import "core/frametel"
 import "core/drill"
+import "sound"
 
 local gfx <const> = playdate.graphics
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
 local phys, playback, frametel, drill = tw.world, tw.playback, tw.frametel, tw.drill
 local render, hud, burst = tw.render.world, tw.render.hud, tw.render.burst
 local burstpick = tw.burstpick
+local sound = tw.sound
 local max, min, rad, abs, sqrt, floor = math.max, math.min, math.rad, math.abs, math.sqrt, math.floor
 
 tw.scenes = tw.scenes or {}
@@ -99,6 +101,7 @@ throw.tune = {
 	tossTumble = 0.5,     -- a lobbed kubb turns end over end at this fraction of the swing's
 	                      -- tumble rate (guess: it is heavier and thrown softer than a baton)
 	instantHold = 0.1,    -- s the rest hold lasts in instant mode (self-tests)
+	knockLate = 0.15,     -- s: a knock this far behind the picture is not played (sound.lua)
 	drillKeep = 10,       -- drilled kubbs kept on the practice pitch; the oldest goes past this
 	markerRadius = 0.2,   -- m: the drill marker's ring on the ground
 	markerSegments = 12,  -- straight pieces the ring is drawn with
@@ -535,7 +538,29 @@ end
 
 -- Launch the throw `r` (the swing's result: launchSpeed, tumbleRate, tilt,
 -- power, smoothness, legal) from where the player stands and aims.
+-- A knock for every kubb or king struck, as the picture reaches the moment
+-- (sound.lua; Jamie, 2026-11-14): those first touched since the last frame's
+-- shown time, nothing until the thrown piece's first hit is on screen
+-- (before it nothing else is awake to touch), and none more than knockLate
+-- behind the picture (a jump to the end of the calm tail plays no pile of
+-- old knocks). No tables.
+local knockBuf = {}
+local function knocks(s)
+	local pb = s.pb
+	if not pb then return end
+	local t1, fh = s.showTime, pb.w.firstHit
+	local t0 = s.knockT or -1
+	if not fh or t1 < fh.t or t1 <= t0 then return end
+	local n = burstpick.touches(pb.w, t0, t1, knockBuf)
+	local late = throw.tune.knockLate
+	for i = 1, n do
+		if t1 - knockBuf[i].touchT <= late then sound.knock() end
+	end
+	s.knockT = t1
+end
+
 local function launch(s, r)
+	s.knockT = -1
 	local t = throw.tune
 	local fl = s.flight
 	local kubb = s.projectile == "kubb"
@@ -877,8 +902,10 @@ function throw.update(s)
 	elseif s.mode == "flight" then
 		flightUpdate(s, dt)
 		burst.update(s.burst, s, dt)
+		knocks(s)
 	elseif s.mode == "rest" then
 		burst.update(s.burst, s, dt)
+		knocks(s)
 		s.restTime = s.restTime + dt
 		if not s.auto and s.restTime >= (s.instant and t.instantHold or t.restHold) then
 			-- the match takes it from here (throw.prepare sets the next throw up)
