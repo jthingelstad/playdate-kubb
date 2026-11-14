@@ -51,6 +51,7 @@ import "selftest/rearm"
 import "selftest/hit"
 import "selftest/burst"
 import "selftest/bursts"
+import "selftest/burst-reset"
 import "selftest/layer"
 import "selftest/miss"
 import "selftest/field"
@@ -147,6 +148,9 @@ else
 
 	function open(which)
 		kind = which
+		-- a scene left during the king burst's flash must not leave the
+		-- screen inverted (render/burst)
+		playdate.display.setInverted(false)
 		if which == "practice" then
 			current = throw.new(device)
 			throw.enter()
