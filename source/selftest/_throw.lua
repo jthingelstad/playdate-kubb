@@ -9,6 +9,8 @@
 --           second return value is appended to the marker's note
 --   loftBoost  true: low throws are harder as in play (flight.loftBoost); off
 --           by default, so the older scenarios keep their throws
+--   stopRelease  true: the release where the crank stops, the launch angle
+--           from it (as in play); off by default: the old release at the loft set
 --   setup   optional fn(scene), run once after the scene is made (a layout,
 --           a surface)
 -- The scenario ends when every shot is taken (or fails after maxFrames).
@@ -32,6 +34,10 @@ function tw.selftest.throwScenario(def)
 				-- speeds before the low throw got harder (flight.loftBoost);
 				-- `loftBoost = true` opts in
 				scene.loftBoost = def.loftBoost or false
+				-- and for the old release, as the arm passes the bottom of
+				-- the turn at the loft set (core/swing passRelease);
+				-- `stopRelease = true` opts in to the release where the crank stops
+				scene.swing.passRelease = not def.stopRelease
 				if def.setup then def.setup(scene) end
 				throw.enter()
 			end

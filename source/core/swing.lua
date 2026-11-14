@@ -11,9 +11,19 @@
 --             -> slow forward: lets the wind-up down; back at the start
 --                angle = "letdown", no throw
 --             -> forward faster than swingStartDps -> swinging
---   swinging  -> released when the forward swing passes the angle the wind-up
---                started from, or when forward speed falls below half its
---                peak -> "release", with swing.result filled in
+--   swinging  -> released where the crank stops (Jamie and Tyler, 2026-11-14:
+--                "you stop the crank where you release the baton"): when the
+--                forward speed falls below half its peak -> "release", with
+--                swing.result filled in. The crank is the throwing arm, and a
+--                hand swung on an arm leaves at right angles to it, so the
+--                arm's angle past the bottom of the turn at the stop is the
+--                launch angle (result.releaseAngle; the throw scene turns it
+--                into the loft, swing.releaseLoft): stop early and the baton
+--                goes into the ground, late and it goes up. The power is the
+--                flick's peak speed. A swing that never stops is released at
+--                releaseMaxDeg. (Before 2026-11-14 the baton was released as
+--                the arm passed the bottom, at the loft set by hand; a state
+--                with passRelease keeps that, for traces recorded then.)
 --
 -- Angles inside are "forward degrees": the raw crank change times
 -- tune.forwardSign, so forward is positive and the wind-up is negative.
@@ -37,7 +47,14 @@ swing.tune = {
 	fullSpeedDps = 1100,    -- forward speed (deg/s) at release that gives power 1
 	speedWindow = 2,        -- frames averaged for "forward speed" (release test and release speed),
 	                        -- so one slow sample in a jittery flick does not release it early
-	releaseDropFrac = 0.5,  -- release when forward speed falls below this fraction of its peak (DESIGN 4)
+	releaseDropFrac = 0.5,  -- release when forward speed falls below this fraction of its peak (DESIGN 4):
+	                        -- the crank has stopped
+	releaseMaxDeg = 150,    -- forward degrees past the bottom: a swing that has not stopped by here
+	                        -- is released (straight up and over)
+	releaseGain = 1.0,      -- launch angle = the loft set + this times (the stop's arm angle minus it):
+	                        -- 1 is the arm itself (the loft set is the target to stop at)
+	releaseLoftMin = -30,   -- degrees: the launch angle's range (below 0 the baton is thrown down)
+	releaseLoftMax = 85,
 	launchMin = 4.0,        -- m/s at power 0 (a mid-loft throw lands about 2 m out)
 	launchMax = 9.2,        -- m/s at power 1 (a mid-loft throw lands about 8.9 m out)
 	tumbleMin = 4.5,        -- rad/s at power 0
@@ -62,6 +79,7 @@ function swing.new()
 		n = 0,            -- forward-swing speed samples
 		speeds = {},      -- deg/s per frame of the forward swing (reused)
 		lastSpeed = 0,    -- previous frame's forward speed
+		passRelease = false, -- true: the old release as the arm passes the bottom (old traces)
 		result = {},      -- filled at release (reused)
 	}
 end
@@ -130,6 +148,7 @@ local function release(s, releaseSpeed, nUsed, how)
 	r.peakSpeed = s.peak
 	r.frames = nUsed
 	r.how = how
+	r.releaseAngle = s.angle   -- forward degrees past the bottom of the turn at the release
 	r.launchSpeed = t.launchMin + (t.launchMax - t.launchMin) * p
 	r.tumbleRate = t.tumbleMin + (t.tumbleMax - t.tumbleMin) * p
 	r.smoothness = sm
@@ -193,23 +212,48 @@ function swing.update(s, delta, dt)
 	s.angle = s.angle + fwd
 	local w = windowSpeed(s, n)
 	if w > s.peak then s.peak = w end
-	if s.angle >= 0 then
-		return release(s, w, n, "passed")
+	if s.passRelease then
+		if s.angle >= 0 then
+			return release(s, w, n, "passed")
+		end
+		if w < t.releaseDropFrac * s.peak then
+			-- the hand let go in the frames before this one
+			local used = max(1, n - 1)
+			return release(s, windowSpeed(s, used), used, "slowed")
+		end
+		return nil
 	end
 	if w < t.releaseDropFrac * s.peak then
-		-- the hand let go in the frames before this one
-		local used = max(1, n - 1)
-		return release(s, windowSpeed(s, used), used, "slowed")
+		-- stopped: released here, at the flick's speed (the frames since it
+		-- slowed are not part of the throw)
+		local used = n
+		while used > 1 and s.speeds[used] < t.releaseDropFrac * s.peak do used = used - 1 end
+		return release(s, s.peak, used, "stopped")
+	end
+	if s.angle >= t.releaseMaxDeg then
+		return release(s, s.peak, n, "over")
 	end
 	return nil
+end
+
+-- The launch angle for a release at arm angle `releaseAngle` with the loft
+-- set to `target` (degrees; releaseGain, releaseLoftMin/Max).
+function swing.releaseLoft(target, releaseAngle)
+	local t = swing.tune
+	local a = target + t.releaseGain * (releaseAngle - target)
+	if a < t.releaseLoftMin then return t.releaseLoftMin end
+	if a > t.releaseLoftMax then return t.releaseLoftMax end
+	return a
 end
 
 -- Run a recorded swing through a fresh state. `samples` is a flat array
 -- {dt1, delta1, dt2, delta2, ...}. Returns the first event ("release" or
 -- "letdown") and, for a release, the result table; or nil if the samples end
--- mid-swing.
-function swing.replay(samples)
+-- mid-swing. passRelease: the old release at the bottom of the turn (traces
+-- recorded before 2026-11-14).
+function swing.replay(samples, passRelease)
 	local s = swing.new()
+	s.passRelease = passRelease or false
 	for i = 1, #samples - 1, 2 do
 		local ev = swing.update(s, samples[i + 1], samples[i])
 		if ev then return ev, (ev == "release") and s.result or nil end

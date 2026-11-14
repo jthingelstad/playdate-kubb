@@ -107,7 +107,7 @@ The throw, with A and B released (A and B swapped after play testing; set on har
 | Input | Does |
 |---|---|
 | Crank back past the bottom of the turn | Wind up. The wind-up starts only when the crank crosses the bottom going back; the backswing angle caps the power. |
-| Crank forward flick | The swing. Release happens when the forward swing passes the bottom again, or when forward speed falls below half its peak. |
+| Crank forward flick, then stop | The swing. The baton is released where the crank stops (forward speed below half its peak), and the crank is the throwing arm: the launch angle is the arm's angle past the bottom of the turn at the stop. Stop early and it goes into the ground, late and it goes up; the loft set is the target, marked on the dial (Jamie and Tyler, 2026-11-14). The power is the flick's speed. |
 | Slow crank forward | Lets the wind-up down without throwing. |
 | B (hold, on the other side's turn) | Fast-forward their throws. |
 

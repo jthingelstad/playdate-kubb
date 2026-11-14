@@ -26,9 +26,11 @@ local function run(parts)
 	return swing.replay(trace(parts))
 end
 
+-- a wind-up, the forward steps, then the crank stopped (the release)
 local function flick(steps)
 	local parts = { windup(120, 30), { d = 0, n = 5 } }
 	for _, d in ipairs(steps) do parts[#parts + 1] = { d = d } end
+	parts[#parts + 1] = { d = 0, n = 3 }
 	return parts
 end
 
@@ -48,7 +50,9 @@ end)
 test("clean strong flick: legal, smooth, power near 1", function()
 	local ev, r = run(flick { 6, 12, 18, 22, 24, 24, 24 })
 	expect.eq(ev, "release")
-	expect.eq(r.how, "passed")
+	expect.eq(r.how, "stopped")
+	-- wound 120 back, 130 forward: stopped 10 past the bottom
+	expect.near(r.releaseAngle, 10, 1e-6)
 	expect.truthy(r.power >= 0.95, "power " .. r.power)
 	expect.truthy(r.smoothness >= 0.9, "smoothness " .. r.smoothness)
 	expect.truthy(r.tilt <= 30 and r.legal, "tilt " .. r.tilt)
@@ -76,7 +80,7 @@ end)
 test("uneven but honest flick is legal (hardware sampling jitter)", function()
 	-- speeds from a recorded hardware flick at 41 ms frames: 391, 1454, 775, 798, 1244 deg/s
 	local ev, r = swing.replay(trace {
-		windup(120, 12), { d = 0 }, { d = 16 }, { d = 60 }, { d = 32 }, { d = 33 }, { d = 51 } })
+		windup(120, 12), { d = 0 }, { d = 16 }, { d = 60 }, { d = 32 }, { d = 33 }, { d = 51 }, { d = 0, n = 3 } })
 	expect.eq(ev, "release")
 	expect.truthy(r.legal, "tilt " .. r.tilt)
 end)
@@ -95,7 +99,7 @@ test("wind-up alone is no throw", function()
 end)
 
 test("backswing caps power", function()
-	local ev, r = run { windup(40, 10), { d = 25, n = 2 } }
+	local ev, r = run { windup(40, 10), { d = 25, n = 2 }, { d = 0, n = 3 } }
 	expect.eq(ev, "release")
 	expect.truthy(r.power <= 40 / swing.tune.fullBackswingDeg + 1e-9, "power " .. r.power)
 	-- and the backswing itself stops growing at backswingMaxDeg
@@ -105,11 +109,49 @@ test("backswing caps power", function()
 	expect.near(s.backswing, swing.tune.backswingMaxDeg, 1e-9)
 end)
 
-test("forward speed falling below half its peak releases early", function()
+test("the release is where the crank stops, at the flick's speed", function()
 	local ev, r = run(flick { 10, 20, 24, 6, 2 })
 	expect.eq(ev, "release")
-	expect.eq(r.how, "slowed")
+	expect.eq(r.how, "stopped")
 	expect.truthy(r.power > 0.5, "released at speed, power " .. r.power)
+	-- 120 back, 62 forward: stopped 58 short of the bottom (into the ground)
+	expect.near(r.releaseAngle, -58, 1e-6)
+end)
+
+test("stopped past the bottom: the arm's angle there", function()
+	local ev, r = run(flick { 10, 20, 30, 30, 30, 30, 5 })
+	expect.eq(ev, "release")
+	expect.near(r.releaseAngle, 35, 1e-6)
+	expect.truthy(r.power > 0.9, "power " .. r.power)
+end)
+
+test("a swing that never stops is released at releaseMaxDeg", function()
+	local steps = {}
+	for i = 1, 20 do steps[i] = 24 end
+	local ev, r = swing.replay(trace { windup(120, 30), { d = 0, n = 5 }, { d = 24, n = 20 } })
+	expect.eq(ev, "release")
+	expect.eq(r.how, "over")
+	expect.truthy(r.releaseAngle >= swing.tune.releaseMaxDeg, "angle " .. r.releaseAngle)
+end)
+
+test("the launch angle: the arm's at the stop, the loft set the target", function()
+	local t = swing.tune
+	local g = t.releaseGain
+	t.releaseGain = 1
+	expect.near(swing.releaseLoft(35, 35), 35, 1e-9)
+	expect.near(swing.releaseLoft(35, 20), 20, 1e-9)
+	expect.eq(swing.releaseLoft(35, -80), t.releaseLoftMin)
+	expect.eq(swing.releaseLoft(35, 140), t.releaseLoftMax)
+	t.releaseGain = 0.5
+	expect.near(swing.releaseLoft(30, 50), 40, 1e-9)
+	t.releaseGain = g
+end)
+
+test("the old release (passRelease) still lets go as the arm passes the bottom", function()
+	local ev, r = swing.replay(trace { windup(120, 30), { d = 0, n = 5 },
+		{ d = 6 }, { d = 12 }, { d = 18 }, { d = 22 }, { d = 24 }, { d = 24 }, { d = 24 } }, true)
+	expect.eq(ev, "release")
+	expect.eq(r.how, "passed")
 end)
 
 test("a little crank jitter while idle does not start a wind-up", function()

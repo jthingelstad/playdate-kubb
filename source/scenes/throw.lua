@@ -532,6 +532,14 @@ local function launch(s, r)
 	if not kubb and not s.scripted and s.loftBoost ~= false then
 		speed = speed * flight.loftBoost(s.loftDeg, swing.tune.launchMax)
 	end
+	-- a baton leaves at the angle the crank stopped at (Jamie and Tyler,
+	-- 2026-11-14: the loft set is the target; swing.releaseLoft). The
+	-- computer's loft is its own, and a swing with the old release
+	-- (passRelease: the self-tests written before it) keeps the loft set.
+	local loft = s.loftDeg
+	if not kubb and not s.scripted and r.releaseAngle and not s.swing.passRelease then
+		loft = swing.releaseLoft(s.loftDeg, r.releaseAngle)
+	end
 	-- a drilled kubb (not the computer's: it lobs): the launch the drill
 	-- solution and the swing make (core/drill)
 	local drilling = kubb and s.drill and (not s.scripted or s.autoDrill)
@@ -550,7 +558,7 @@ local function launch(s, r)
 	s.thisDrill = drilling
 	local id = s.projectileId or (drilling and s.drillId) or nil
 	-- the stage 1 prediction: landing point and flight time for the cameras
-	flight.launch(fl, s.playerX, s.playerY, s.swivel, s.loftDeg, speed, tumble, tilt)
+	flight.launch(fl, s.playerX, s.playerY, s.swivel, loft, speed, tumble, tilt)
 	-- the physics world: every piece where it lies now, then the baton
 	local pieces = {}
 	for i = 1, s.nitems do
@@ -577,7 +585,7 @@ local function launch(s, r)
 		end
 		s.items[s.nitems + 1] = it
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, s.swivel, s.loftDeg, speed, tumble, tilt,
+		b = phys.launchBaton(w, s.playerX, s.playerY, s.swivel, loft, speed, tumble, tilt,
 			s.projectileId)
 	end
 	s.batonIndex = b.index
@@ -596,6 +604,7 @@ local function launch(s, r)
 	local l = s.last
 	l.power, l.smoothness, l.tilt, l.legal = r.power, r.smoothness, tilt, kubb or r.legal
 	l.launchSpeed, l.tumbleRate, l.loft = speed, tumble, s.loftDeg
+	l.launchLoft, l.releaseAngle = loft, r.releaseAngle
 	l.distance, l.down, l.hit = nil, nil, nil
 	l.drill = drilling
 	if drilling then
@@ -683,6 +692,7 @@ local function landed(s)
 	if not s.scripted then
 		local r = s.swing.result
 		r.loft, r.distance = s.loftDeg, l.distance
+		r.launchLoft = (not l.drill) and l.launchLoft or nil
 		if l.drill then
 			-- drill fields (core/trace): lengths from the thrower's baseline
 			local y0 = s.lineY
@@ -693,7 +703,7 @@ local function landed(s)
 			r.throwerX, r.launchSpeed = s.playerX, l.launchSpeed
 		end
 		tw.recorder.write("release", r)
-		r.loft, r.distance = nil, nil
+		r.loft, r.distance, r.launchLoft = nil, nil, nil
 		r.mode, r.band, r.verdict, r.cut, r.markerX, r.markerY = nil, nil, nil, nil, nil, nil
 		r.landX, r.landY, r.restX, r.restY, r.throwerX = nil, nil, nil, nil, nil
 	end
@@ -1049,8 +1059,10 @@ function throw.drawFrame(s)
 		local cap = (sw.phase ~= "idle") and swing.powerCap(sw) or nil
 		local band = marker and s.drillSol.band or nil
 		hud.plaque(s.loftDeg, cap, band, half)
+		-- a baton's release target: the loft set (the crank stops there)
+		local target = (not marker and not sw.passRelease) and floor(s.loftDeg + 0.5) or nil
 		local prompt, inverted = hud.gauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
-			swing.tune.fullBackswingDeg, s.arm or 0, band, half)
+			swing.tune.fullBackswingDeg, s.arm or 0, band, half, target)
 		hud.prompt(prompt, inverted)
 		s.promptText = prompt    -- (self-tests read it)
 		if marker and s.cut ~= drill.CUT_NONE then
