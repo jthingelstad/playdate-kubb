@@ -131,7 +131,12 @@ function soak.start()
 	playdate.setAutoLockDisabled(true)
 	out { "", string.format("soak %s: %d matches, max %d turns; memory %.0f KB", stamp(), soak.tune.matches,
 		soak.tune.maxTurns, kb()) }
-	newMatch(st)
+	local ok, err = xpcall(newMatch, debug.traceback, st)
+	if not ok then
+		out { "match 1: error setting up: " .. tostring(err) }
+		st.errors = st.errors + 1
+		st.failedStart = true
+	end
 	return st
 end
 
@@ -155,6 +160,7 @@ end
 
 -- One frame. Returns true when finished.
 function soak.update(st)
+	if st.failedStart then return finish(st) end
 	local now = playdate.getCurrentTimeMilliseconds()
 	local ms = st.ms
 	if st.last then
@@ -180,14 +186,23 @@ function soak.update(st)
 		if ms.throws - st.lastChecked >= soak.tune.saveCheck and ms.ts.mode == "aim" then
 			st.lastChecked = ms.throws
 			st.checks = st.checks + 1
-			local bad = checkSave(st)
+			local ok2, bad = pcall(checkSave, st)
+			if not ok2 then bad = "check failed: " .. tostring(bad) end
 			if bad then st.checkFails[#st.checkFails + 1] = "throw " .. ms.throws .. ": " .. bad end
+			-- the check's own time is not a game frame
+			st.last = playdate.getCurrentTimeMilliseconds()
 		end
 		return false
 	end
-	if st.n >= soak.tune.matches then return finish(st) end
-	newMatch(st)
-	return false
+	-- the next match (its setup under the same guard: an error there is logged
+	-- and ends the soak, it does not stop the game)
+	while st.n < soak.tune.matches do
+		local okNew, errNew = xpcall(newMatch, debug.traceback, st)
+		if okNew then return false end
+		out { string.format("match %d: error setting up: %s", st.n, tostring(errNew)) }
+		st.errors = st.errors + 1
+	end
+	return finish(st)
 end
 
 tw.soak = soak
