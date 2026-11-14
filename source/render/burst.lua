@@ -1,5 +1,6 @@
 -- Hit bursts (docs/design/README.md "Hit effects", boards/HitFX.png): when
--- the picture reaches the first kubb (or the king) a baton toppled, a
+-- the picture reaches the impact on the first kubb (or the king) a baton
+-- toppled (the moment it was struck, not once it is down), a
 -- pre-drawn burst is put up and to the left of the hit with its long spike
 -- touching it, with a knock (sound.lua) at the flash, the moment of the
 -- hit; the double's second knock comes with its second star. Three images per kind from
@@ -69,7 +70,7 @@ end
 
 -- A new throw (or none): clears the burst and the screen inversion.
 function burst.reset(B)
-	B.kind, B.done, B.age, B.knocked2, B.provisional = nil, false, 0, false, false
+	B.kind, B.done, B.age, B.knocked2, B.provisional, B.gap = nil, false, 0, false, false, nil
 	if B.inverted then
 		playdate.display.setInverted(false)
 		B.inverted = false
@@ -94,11 +95,11 @@ local function classify(B, pb, showTime)
 	if fh and fh.with == a.id then
 		B.x1, B.y1, B.z1 = fh.x, fh.y, fh.z
 	else
-		local x, y, z = playback.poseAt(pb, a.index, a.toppleT)
+		local x, y, z = playback.poseAt(pb, a.index, pick.hitTime(a))
 		B.x1, B.y1, B.z1 = x, y, z + burst.tune.lift
 	end
 	if b then
-		local x, y, z = playback.poseAt(pb, b.index, b.toppleT)
+		local x, y, z = playback.poseAt(pb, b.index, pick.hitTime(b))
 		B.x2, B.y2, B.z2 = x, y, z + burst.tune.lift
 	end
 	B.provisional = not pb.done and pb.w.time < showTime + pick.tune.window
@@ -112,7 +113,7 @@ local function kingDown(w, t)
 	local bodies = w.bodies
 	for i = 1, w.n do
 		local b = bodies[i]
-		if b.kind == "king" then return b.toppleT ~= nil and b.toppleT <= t end
+		if b.kind == "king" then return b.toppleT ~= nil and pick.hitTime(b) <= t end
 	end
 	return false
 end
@@ -124,6 +125,12 @@ function burst.update(B, s, dt)
 		and (not B.kind or B.provisional or kingDown(pb.w, s.showTime)) then
 		local was = B.kind
 		local kind = classify(B, pb, s.showTime)
+		if kind and not was then
+			-- how far past the impact the picture is as the burst starts (the
+			-- autobench reports it: 0 to a frame when the physics is ahead)
+			local _, a = pick.pick(pb.w, s.showTime)
+			B.gap = a and (s.showTime - pick.hitTime(a)) or nil
+		end
 		if kind and kind ~= was and (not was or kind == "king") then
 			-- a new burst, or the king's replacing whatever showed: from the start
 			B.age, B.done, B.knocked2 = 0, false, false

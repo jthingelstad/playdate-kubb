@@ -235,8 +235,9 @@ function auto.matchCase(y, label, tune, prof)
 					I.phys * 1000, I.phys * 1000 / I.steps, sim / secs)
 				local mean = nf > 0 and sum / nf or 0
 				local sd = nf > 1 and math.sqrt(math.max(0, sum2 / nf - mean * mean)) or 0
-				lines[#lines + 1] = string.format("    release to rest %.2f s; flight frames %d, dt sd %.1f ms; held %d; min pace %.2f; draws: %s",
-					wall, nf, sd * 1000, held, minPace, counts)
+				lines[#lines + 1] = string.format("    release to rest %.2f s; flight frames %d, dt sd %.1f ms; held %d; min pace %.2f; draws: %s%s",
+					wall, nf, sd * 1000, held, minPace, counts,
+					(s.burst and s.burst.gap) and string.format("; burst %.0f ms of shown time after the impact", s.burst.gap * 1000) or "")
 				lines[#lines + 1] = "    " .. got.line
 				if prof and D.n > 0 then
 					local k = 1000 / D.n
