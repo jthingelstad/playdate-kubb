@@ -390,8 +390,10 @@ the baton would be released up into the air and then landing". While a player ai
 (not a drill, not the Playdate's throw), `throw.drawFrame` draws the arc over the world
 (`drawArc`, outside its caches, no tables): where a clean throw at the loft set goes from
 where the player stands and points (`flight.predict`'s arc with the loft boost,
-`arcLaunch`), at full power while idle and at the power the backswing allows so far while
-winding, so it grows as the crank goes back; dashed (`arcPoints` 24, every other gap
+`arcLaunch`), at full power: the farthest this aim reaches, the arc the camera is framed
+for (it once shrank with the backswing while winding, and a short arc lands under the
+view's lower edge, so it vanished: Codex on #74; the plaque's power fill shows the
+wind-up); dashed (`arcPoints` 24, every other gap
 drawn, the first `arcSkip` left out, `arcWidth` 2 px) with a small ring where it lands. It
 shows the aim, not the throw: the flick and where the crank stops still decide it (and the
 wind will not show in it).
@@ -399,10 +401,16 @@ wind will not show in it).
 From straight behind the thrower an arc is edge-on (a line), so the aim camera stands over
 the shoulder (Jamie chose it, 2026-11-14): `camera.tune.aim.side` (1.0 m) to the right,
 looking at the same ground point. `fitArc` (in `aimCamera`, every aim frame) keeps the
-whole full-power arc on screen: the camera first looks up (the principal row lowered as far
-as `arcMaxCy`, 158: the kubbs keep their size, the pitch sits lower), then widens its lens
-for what is still over (`arcTop`, `arcSide`, never wider than `arcMinF`). At the default 35
-degrees the arc fits by looking up alone; at 55 the lens widens. `arc = false` turns the arc
+full-power arc under `arcTop` and inside `arcSide`, and where it lands above `arcBottom`
+(230): a low hard throw first touches down about 4 m out, under the long lens's lower edge
+(Codex on #74). The arc may rise in from the lower edge (at 5 degrees only its last few
+points show); where it lands always shows. The camera first looks up (the principal row
+lowered as far as `arcMaxCy`, 158: the kubbs keep their size, the pitch sits lower), then
+widens its lens for what is still over (never wider than `arcMinF`). At the default 35
+degrees the arc fits by looking up alone; at 55 the lens widens; at 5 it widens a little
+(a far kubb 11 px against 12.5). Self-test `aim-arc`: mid wind-up, every loft from 5 to 55
+from the middle and both ends of the line turned both ways, the ring wholly on screen and
+the arc inside the margins (`throw.arcBox`). `arc = false` turns the arc
 and the fit off (the crane still stands to the side). `drawcalls`: aim frames 61 calls
 against 39 (the arc's lines; aim frames wait on the player, not the physics).
 
