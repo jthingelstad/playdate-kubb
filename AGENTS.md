@@ -297,7 +297,7 @@ matches (about a minute; `--quick` about 10 s).
   `restShot(n)` (n frames into the rest; the rest hold is 50 frames) and `item(s, id)`.
   A scenario that runs out of frames reports the scene's mode, playback frame and awake
   bodies in its `FAIL` line.
-- `title`: the title with PASS + PLAY chosen (frame 1), PRACTICE after a right press
+- `title`: the title with VS PLAYDATE chosen (frame 1), PRACTICE after two right presses
   (frame 2), and A must leave with `practice`.
 - `settle`: raising a kubb and placing a punishment kubb by hand, on an engine driven to
   turn 3 (frames: the raise view, the other end chosen, the placement view, a spot
@@ -685,8 +685,8 @@ The look is `docs/design/` (README and boards). What is built of it here:
 - `render/ui.lua` (`tw.render.ui`): the fonts, `ui.text`, `ui.textDots` and `ui.button` (a
   filled disc with A or B and one word). Draw them into a cached image.
 - **Title** (`scenes/title.lua`, `boards/Title.png`): `images/title` (the wordmark, band and
-  THROWING WOOD, one pre-drawn image) with a menu of what works today (PASS + PLAY,
-  PRACTICE; d-pad either way) and A START. The System Menu is as before.
+  THROWING WOOD, one pre-drawn image) with a menu of what works today (VS PLAYDATE, PASS +
+  PLAY, PRACTICE; d-pad either way) and A START. The System Menu is as before.
 - **Cards**: `core/cards.lua` (pure, `test_cards.lua`) works out what the hand-off and winner
   cards say from the engine and its score sheet: who throws, what the other team's batons
   took last turn (field and base), kubbs to throw in and batons, base kubbs standing, the
@@ -705,8 +705,8 @@ The look is `docs/design/` (README and boards). What is built of it here:
 
 ## Match
 
-The title (`scenes/title.lua`, Woodcut look below) offers "PASS + PLAY" (the match) and
-"PRACTICE" (the practice pitch); `main.lua` opens one
+The title (`scenes/title.lua`, Woodcut look below) offers "VS PLAYDATE" (a match against
+the computer), "PASS + PLAY" (the match) and "PRACTICE" (the practice pitch); `main.lua` opens one
 scene at a time and rebuilds the System Menu for it (Readout, Record, then the scene's
 own item). Practice is the throw scene exactly as before.
 
@@ -782,6 +782,17 @@ own item). Practice is the throw scene exactly as before.
   still parts are one image redrawn only on a change. Scripted matches (`seed`,
   `instant`, or `autoSettle` in the scene's options) leave both to the engine
   (`match.setup`). Self-test `settle`.
+- VS PLAYDATE (`scenes/match` with `opts.vs = "B"`; `main.lua` opens it as `"vs"`, and a
+  rematch keeps it): the player is Team A "You", the Playdate Team B "Playdate" (the
+  engine's team names, so cards, labels and the game file say so; mode "Vs Playdate").
+  Its throws come from `core/autothrow` (`choose(setup, rng, scale)`, scatter times
+  `scene.tune.cpuScatter`, seeded from the clock): it chooses as its turn comes up, the
+  scene shows that stance and aim (`throw.showAim`, `s.watching`: the gauge and loft
+  plaque give way to a WATCH prompt) for `cpuThink` s, then `throw.autoLaunch`. It raises
+  and places punishment kubbs with the engine's policies (no settle screen); the player
+  settles by hand. No hand-off card before the Playdate's turn. The System Menu resign is
+  always the player's and waits for the player's turn. Self-test `match-vs` (a whole
+  match, the player's throws seeded, its game file gated).
 - Kubb toss: the same aim, loft and crank swing as a baton, always from the baseline; the
   kubb is a real body (`world.launchKubb`) turning at `throw.tune.tossTumble` of the
   swing's tumble with no tilt (no helicopter), drawn as one more box item.

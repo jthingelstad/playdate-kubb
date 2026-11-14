@@ -35,6 +35,12 @@
 -- it is the defender's and waits for its turn) or title (leave: the match is
 -- dropped, no file written).
 --
+-- VS PLAYDATE (opts.vs = "B"): the Playdate is Team B. Its throws come from
+-- core/autothrow (scene.tune.cpuScatter, after scene.tune.cpuThink s of its
+-- aim on screen), it raises and places punishment kubbs with the engine's
+-- policies, there is no hand-off card before its turn, and the System Menu
+-- resign always means the player (on the player's own turn).
+--
 -- Self-test options (scenes/match.new opts): seed (throws come from
 -- core/autothrow, not the crank), instant (each throw is shown at rest at
 -- once), skipHandoff, maxTurns (the attacker resigns past it).
@@ -58,6 +64,17 @@ tw.scenes = tw.scenes or {}
 local scene = {}
 
 scene.version = playdate.metadata and playdate.metadata.version or "0.0.1"
+
+scene.tune = {
+	cpuThink = 0.9,      -- s the Playdate's aim shows before it throws
+	cpuScatter = 1.0,    -- times core/autothrow's scatter (lower: a steadier opponent)
+}
+
+-- the teams of a match against the Playdate
+local VS_TEAMS = {
+	A = { name = "You", players = { { name = "You" } } },
+	B = { name = "Playdate", players = { { name = "Playdate" } } },
+}
 
 -- The time now as notation wants it.
 local function now()
@@ -101,10 +118,10 @@ local function nextThrow(s)
 	-- the defender raises kubbs and places punishment kubbs by hand first
 	-- (scenes/settle); scripted matches leave it to the engine (match.setup)
 	if s.byHand and not cmatch.over(m) then
-		local k = m.game:need().kind
-		if k == "raise" or k == "punish" then
+		local n = m.game:need()
+		if (n.kind == "raise" or n.kind == "punish") and n.side ~= s.cpu then
 			s.phase = "settle"
-			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side)) end, s.input)
+			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side, m.game)) end, s.input)
 			return
 		end
 	end
@@ -129,12 +146,13 @@ local function nextThrow(s)
 		r2 = throw.railBase[base] or ("BASE " .. base)
 		if not r1 then r1, r2 = r2, nil end
 	end
-	throw.setRail(s.ts, string.upper(cmatch.teamName(setup.side)), setup.projectile, setup.n, setup.of, r1, r2)
+	throw.setRail(s.ts, string.upper(cmatch.teamName(setup.side, m.game)), setup.projectile, setup.n, setup.of, r1, r2)
 	if setup.side ~= s.side then
 		-- a new turn: the other team takes the Playdate
 		s.side = setup.side
 		s.result = nil
-		s.phase = s.opts.skipHandoff and "play" or "handoff"
+		-- (no card before the Playdate's own turn)
+		s.phase = (s.opts.skipHandoff or setup.side == s.cpu) and "play" or "handoff"
 		if s.phase == "handoff" then
 			s.handoff = cards.handoff(m, setup)
 			s.card = nil
@@ -142,6 +160,8 @@ local function nextThrow(s)
 	else
 		s.phase = "play"
 	end
+	s.cpuWait, s.cpuAim = 0, nil
+	s.ts.watching = s.cpu ~= nil and setup.side == s.cpu
 end
 
 function scene.new(provider, opts)
@@ -158,10 +178,17 @@ function scene.new(provider, opts)
 		resignWanted = false,
 		exit = nil,              -- "title" or "match" (a rematch) when the scene is done
 		throws = 0,
+		cpuThrows = 0,           -- the Playdate's throws (VS PLAYDATE)
 	}
 	-- raising and punishment kubbs by hand, except in scripted matches
 	s.byHand = not (s.opts.seed or s.opts.instant or s.opts.autoSettle)
-	s.m = cmatch.new { start = now(), surface = "Grass" }
+	s.cpu = s.opts.vs        -- the Playdate's side, or nil
+	if s.cpu then
+		s.m = cmatch.new { start = now(), surface = "Grass", teams = VS_TEAMS, mode = "Vs Playdate" }
+		s.cpuRng = autothrow.rng(s.opts.cpuSeed or playdate.getSecondsSinceEpoch())
+	else
+		s.m = cmatch.new { start = now(), surface = "Grass" }
+	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	s.ts.sceneName = "match"
 	nextThrow(s)
@@ -174,10 +201,16 @@ end
 function scene.resign(s)
 	if s.phase ~= "over" and s.setup then
 		s.resignWanted = true
-		-- while the defender raises it holds the Playdate: the resign is
-		-- theirs, and waits for their own turn (the rules allow no other)
-		s.resignSide = (s.phase == "settle") and s.settle.side or s.setup.side
-		s.resignWait = s.phase == "settle"
+		if s.cpu then
+			-- against the Playdate it is always the player who resigns, on
+			-- the player's own turn
+			s.resignSide, s.resignWait = (s.cpu == "A") and "B" or "A", true
+		else
+			-- while the defender raises it holds the Playdate: the resign is
+			-- theirs, and waits for their own turn (the rules allow no other)
+			s.resignSide = (s.phase == "settle") and s.settle.side or s.setup.side
+			s.resignWait = s.phase == "settle"
+		end
 	end
 end
 
@@ -194,7 +227,7 @@ function scene.update(s)
 			cmatch.resign(s.m)
 			return over(s)
 		elseif s.resignWait then
-			s.resignWanted = true   -- the defender's: wait for its turn
+			s.resignWanted = true   -- not that side's turn yet: wait for it
 		end
 	end
 	if s.phase == "handoff" then
@@ -212,10 +245,27 @@ function scene.update(s)
 	end
 	if s.phase == "over" then
 		s.input:advance()
-		if s.input:pressed("a") then s.exit = "match" elseif s.input:pressed("b") then s.exit = "title" end
+		if s.input:pressed("a") then s.exit = s.cpu and "vs" or "match" elseif s.input:pressed("b") then s.exit = "title" end
 		return
 	end
-	if ts.mode == "aim" and s.rng then
+	if ts.mode == "aim" and s.cpu and s.setup.side == s.cpu then
+		-- the Playdate's throw: its aim shows a moment, then it throws
+		ts.input:advance()
+		if not s.cpuAim then
+			-- choose now and show it: its stance and aim stay on screen while it thinks
+			s.cpuAim = autothrow.choose(s.setup, s.cpuRng, scene.tune.cpuScatter)
+			ts.watching = true
+			throw.showAim(ts, s.cpuAim)
+		end
+		s.cpuWait = s.cpuWait + ts.input:dt()
+		if s.cpuWait >= (s.opts.cpuThink or scene.tune.cpuThink) then
+			s.cpuWait = 0
+			s.cpuThrows = s.cpuThrows + 1
+			local a = s.cpuAim
+			s.cpuAim = nil
+			throw.autoLaunch(ts, a)
+		end
+	elseif ts.mode == "aim" and s.rng then
 		ts.input:advance()
 		throw.autoLaunch(ts, autothrow.choose(s.setup, s.rng))
 	else

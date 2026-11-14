@@ -17,13 +17,13 @@ local ui = tw.render.ui
 tw.scenes = tw.scenes or {}
 local title = {}
 
-title.choices = { { id = "match", text = "PASS + PLAY" }, { id = "practice", text = "PRACTICE" } }
+title.choices = { { id = "vs", text = "VS PLAYDATE" }, { id = "match", text = "PASS + PLAY" }, { id = "practice", text = "PRACTICE" } }
 
 title.tune = {
 	menuY = 172,      -- top of the menu boxes (the board's band starts at 117, the rule at 162)
-	boxPadX = 8,      -- the chosen item's white box around its text
+	boxPadX = 6,      -- the chosen item's white box around its text
 	boxH = 24,
-	gap = 20,         -- between items
+	gap = 8,          -- between items (three fit across with room to spare)
 	startRight = 388, -- the A START button's right edge and top (board: disc centre 346, 225)
 	startY = 218,
 }
