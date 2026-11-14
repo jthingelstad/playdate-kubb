@@ -370,8 +370,10 @@ at right angles to it, so the arm's angle past the bottom of the turn at the sto
 (`result.releaseAngle`, forward degrees) is the launch angle: `swing.releaseLoft(target,
 angle)` = the loft set plus `releaseGain` (1) times the difference, within
 `releaseLoftMin`/`Max` (-30, 85). Stop early and the baton goes into the ground; late and
-it goes up. The loft set by A + crank is the target: the dial marks it (a white wedge and
-a tick, `hud.gauge`'s `target`), and the readout gives `loft <launch>/<set>`. The throw
+it goes up. The loft set by A + crank is the target: the dial marks it (`hud.gauge`'s `target`:
+a white notch on the forward side, drawn like the full-power notch at the back and a
+little longer, `notchIn`; Jamie: "a notch on the forward swing too ... this would be
+perfect"), and the readout gives `loft <launch>/<set>`. The throw
 scene launches the player's batons at that angle (the loft boost still goes by the loft
 set); the computer's throws and drilled kubbs are unchanged (a drill's push and wobble go
 left for a stop short of the bottom, as for the old `"slowed"`). Trace lines carry
