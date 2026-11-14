@@ -141,7 +141,10 @@ end
 local function nextThrow(s)
 	local m = s.m
 	if s.opts.maxTurns and m.game.turn > s.opts.maxTurns and not cmatch.over(m) then cmatch.resign(m) end
-	if not cmatch.over(m) then persist(s) end
+	-- (not again when the throw just ruled on was saved at rest: nothing has
+	-- changed since)
+	if not cmatch.over(m) and not s.savedAtRest then persist(s) end
+	s.savedAtRest = false
 	-- the defender raises kubbs and places punishment kubbs by hand first
 	-- (scenes/settle); scripted matches leave it to the engine (match.setup)
 	if s.byHand and not cmatch.over(m) then
@@ -310,6 +313,11 @@ function scene.update(s)
 		-- the throw is at rest: the engine rules on it now, so its result
 		-- shows during the rest hold
 		cmatch.resolve(s.m, ts.result, not ts.last.legal)
+		-- saved now, not at the next setup: leaving for the title during the
+		-- rest hold must not give the throw back on resume (a finished match's
+		-- save is deleted here too)
+		persist(s)
+		s.savedAtRest = true
 		s.resolved = true
 		s.result = s.m.text
 		throw.setFlag(ts, hud.short(s.result))
