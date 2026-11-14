@@ -224,3 +224,38 @@ test("raising: tipPose goes from lying to standing on that end's footprint", fun
 		expect.truthy(z > pitch.kubbSide / 2 and z < pitch.kubbLong / 2 + 0.03, "half way up")
 	end
 end)
+
+-- the lowest corner of a kubb at (x, y, z) turned by q (local z its long axis)
+local function lowest(x, y, z, qw, qx, qy, qz)
+	local pitch, quat = tw.pitch, tw.quat
+	local lo = math.huge
+	for _, sx in ipairs { -1, 1 } do
+		for _, sy in ipairs { -1, 1 } do
+			for _, sz in ipairs { -1, 1 } do
+				local _, _, cz = quat.rotate(qw, qx, qy, qz, sx * pitch.kubbSide / 2, sy * pitch.kubbSide / 2,
+					sz * pitch.kubbLong / 2)
+				if z + cz < lo then lo = z + cz end
+			end
+		end
+	end
+	return lo
+end
+
+test("raising: tipPose keeps the pivot edge on the ground at any angle, and stands square to the footprint", function()
+	local raising, quat = tw.raising, tw.quat
+	for _, a in ipairs { 0, 0.4, math.pi / 4, 1.3, -2.2 } do
+		local p = raising.pose(0, 6, false, a)
+		for which = 1, 2 do
+			for _, t in ipairs { 0, 0.25, 0.5, 0.75, 1 } do
+				local lo = lowest(raising.tipPose(p, which, t))
+				expect.near(lo, 0, 1e-9, string.format("angle %.2f end %d t %.2f: lowest corner", a, which, t))
+			end
+			-- standing: a side face points along the footprint's angle (mod 90 degrees)
+			local _, _, _, qw, qx, qy, qz = raising.tipPose(p, which, 1)
+			local sx, sy = quat.rotate(qw, qx, qy, qz, 1, 0, 0)
+			local yaw = math.atan(sy, sx) - a
+			local off = math.abs(math.sin(2 * yaw))
+			expect.near(off, 0, 1e-9, string.format("angle %.2f end %d: square to the footprint", a, which))
+		end
+	end
+end)
