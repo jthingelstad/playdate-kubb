@@ -34,6 +34,7 @@ import "framelog"
 import "scenes/title"
 import "scenes/throw"
 import "scenes/match"
+import "scenes/names"
 import "benchscreen"
 import "autobench"
 import "selftest/runner"
@@ -41,6 +42,7 @@ import "selftest/hello"
 import "selftest/title"
 import "selftest/settle"
 import "selftest/settle-resign"
+import "selftest/names"
 import "selftest/aim-center"
 import "selftest/aim-walk-swivel"
 import "selftest/loft"
@@ -91,6 +93,8 @@ if args.selftest then
 	end
 else
 	local throw, match, title = tw.scenes.throw, tw.scenes.match, tw.scenes.title
+	local names = tw.scenes.names
+	local lastMatch = nil            -- the options of the last match (a rematch plays them again)
 	local device = tw.input.device()
 	local current, kind = nil, nil   -- the scene and which: "title" | "practice" | "match"
 	local showReadout = false        -- System Menu "Readout": off in normal play
@@ -158,9 +162,14 @@ else
 			current = throw.new(device)
 			throw.enter()
 		elseif which == "match" or which == "vs" then
-			-- PASS + PLAY, or VS PLAYDATE (the Playdate is Team B)
+			-- PASS + PLAY or VS PLAYDATE: the names first (scenes/names)
+			kind = "names"
+			current = names.new(device, which)
+			names.enter(current)
+		elseif which == "play" or which == "rematch" then
+			-- the match itself: the names just entered, or the last match's again
 			kind = "match"
-			current = match.new(device, which == "vs" and { vs = "B" } or nil)
+			current = match.new(device, lastMatch)
 			match.enter()
 		else
 			kind = "title"
@@ -205,6 +214,14 @@ else
 			match.update(current)
 			if current.exit then return open(current.exit) end
 			match.draw(current)
+		elseif kind == "names" then
+			names.update(current)
+			if current.done then
+				lastMatch = { vs = (current.mode == "vs") and "B" or nil, names = current.list }
+				return open("play")
+			end
+			if current.exit then return open(current.exit) end
+			names.draw(current)
 		else
 			title.update(current)
 			if current.exit then return open(current.exit) end

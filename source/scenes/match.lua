@@ -53,6 +53,7 @@ import "render/hud"
 import "core/cards"
 import "render/cards"
 import "scenes/settle"
+import "core/names"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
@@ -70,11 +71,14 @@ scene.tune = {
 	cpuScatter = 1.0,    -- times core/autothrow's scatter (lower: a steadier opponent)
 }
 
--- the teams of a match against the Playdate
-local VS_TEAMS = {
-	A = { name = "You", players = { { name = "You" } } },
-	B = { name = "Playdate", players = { { name = "Playdate" } } },
-}
+-- the teams: opts.names = { A = name, B = name } (scenes/names), else
+-- "You" against "Playdate", or "Team A" and "Team B"
+local function teams(opts)
+	local n = opts.names or {}
+	if opts.vs then return tw.names.teams { A = n.A or "You", B = "Playdate" } end
+	if n.A and n.B then return tw.names.teams(n) end
+	return nil
+end
 
 -- The time now as notation wants it.
 local function now()
@@ -184,10 +188,10 @@ function scene.new(provider, opts)
 	s.byHand = not (s.opts.seed or s.opts.instant or s.opts.autoSettle)
 	s.cpu = s.opts.vs        -- the Playdate's side, or nil
 	if s.cpu then
-		s.m = cmatch.new { start = now(), surface = "Grass", teams = VS_TEAMS, mode = "Vs Playdate" }
+		s.m = cmatch.new { start = now(), surface = "Grass", teams = teams(s.opts), mode = "Vs Playdate" }
 		s.cpuRng = autothrow.rng(s.opts.cpuSeed or playdate.getSecondsSinceEpoch())
 	else
-		s.m = cmatch.new { start = now(), surface = "Grass" }
+		s.m = cmatch.new { start = now(), surface = "Grass", teams = teams(s.opts) }
 	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	s.ts.sceneName = "match"
@@ -245,7 +249,7 @@ function scene.update(s)
 	end
 	if s.phase == "over" then
 		s.input:advance()
-		if s.input:pressed("a") then s.exit = s.cpu and "vs" or "match" elseif s.input:pressed("b") then s.exit = "title" end
+		if s.input:pressed("a") then s.exit = "rematch" elseif s.input:pressed("b") then s.exit = "title" end
 		return
 	end
 	if ts.mode == "aim" and s.cpu and s.setup.side == s.cpu then

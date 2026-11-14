@@ -131,6 +131,8 @@ title screen without its menu. All three are pure black and white with no grey.
   are his call.
 - The title menu shows VS PLAYDATE (built: the computer opponent) and a GRASS · 2-4-6 line
   (those options do not exist yet; show only what works).
-- The team names on the boards (ASH, BIRCH) are placeholders until name entry exists.
+- Team names are entered before each match (`scenes/names`, from the Names board); ASH and
+  BIRCH on the boards were placeholders.
 - Raising and punishment are built from their sketches (`scenes/settle`; AGENTS.md "Match").
-  Names, saved games and drills are still sketches for stages not built yet.
+  Names are built from their sketch too. Saved games and drills are still sketches for
+  stages not built yet.
