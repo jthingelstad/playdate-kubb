@@ -133,8 +133,10 @@ for the surface.
   (Jamie, 2026-11-14, after the throws went everywhere): the stop counts only when the
   crank all but halts, within 10 degrees of the notch is perfect, and beyond that a third
   of the miss goes into the angle. After each throw a flag says ON THE NOTCH, EARLY: LOW
-  or LATE: HIGH and the dial keeps a dot where the crank stopped; a HOW TO THROW card shows
-  once before the first baton and from the System Menu ("how to"). Stop early and the baton goes into the ground, late and it goes up.
+  or LATE: HIGH and the dial keeps a dot where the crank stopped. HOW TO THROW is a
+  walkthrough on the real crank (wind back, flick and stop on the notch, move the notch),
+  with a side view of each throw; once before the first baton and from the System Menu
+  ("how to"). Stop early and the baton goes into the ground, late and it goes up.
 - Kubb sets: Classic, USA, Sweden, Minnesota and Wisconsin, painted heads and crown (near
   views only: from the throwing line every set looks classic),
   chosen in the match options' SET row (2026-11-14).

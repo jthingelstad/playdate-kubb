@@ -389,15 +389,28 @@ after a baton throw the flag above the loft plaque (the drill's cut flag's place
 the crank stopped against the notch, `ON THE NOTCH`, `EARLY: LOW` or `LATE: HIGH`
 (`swing.releaseMiss`, `throw.STOP_TEXT`, `s.stopText`), and on the next aim the dial keeps
 a white dot where it stopped (`hud.gauge`'s `stop`, `s.stopAngle`) with the flag, until the
-next wind-up. HOW TO THROW (`hud.howto`, one cached full-screen card: three little dials,
-wind back to the back notch, flick, stop on the front notch, and what each does) covers
-the throw scene until A or B (`throw.showHowTo`, `s.howto`: nothing else moves); the
-System Menu's Pitch, Drill and Match items have "how to", and it shows once by itself the
-first time a player aims a baton (`throw.howtoFirst`, off in self-tests, the autobench and
-the soak; remembered in the datastore "howto"). In a match the match scene hands the
-frame to the card before any phase (a hand-off or settle card, the Playdate's think), and
-draws it, so everything waits under it (Codex on #81; self-test `match-howto`). Self-test `howto`; `release-stop` and
-`release-early` check the verdict and show the dot (frame 4). The throw
+next wind-up. HOW TO THROW is a walkthrough run by the crank (Jamie, 2026-11-14: a static
+card "is not useful ... make it an interactive thing that walks the player through the
+different steps and meaning of the crank"; `core/howto`, pure and tested in
+`test_howto.lua`, drawn by `render/howto`). The player's crank runs the game's own swing,
+armed at the bottom of the turn as a throw is: a big dial that is the crank (both
+notches, the wind-up arc, the last stop's dot), a power bar, and a side view of the throw
+(the last one solid with where it landed, the full-power throw at the notch dashed, a
+kubb 8 m out), with the step's words and a line on the last throw (`ON THE NOTCH`,
+`EARLY: LOW`, `LATE: HIGH`, the angle it left at and its carry, or `TOO SLOW` after a
+let-down). Steps: 1 wind back to the back notch (full power), 2 flick and stop on the
+front notch until one throw is on it, 3 hold A and turn the crank to move the notch
+(`notchMoveDeg`, 10), then A plays; B leaves at any step. A throw's launch is
+`swing.releaseLoft` and its speed the loft boost's, as on the pitch. It covers the throw
+scene (`throw.showHowTo`, `s.howto`: nothing else moves; closing it makes the scene's crank
+arm afresh); the System Menu's Pitch, Drill and Match items have "how to", and it shows
+once by itself the first time a player aims a baton (`throw.howtoFirst`, off in
+self-tests, the autobench and the soak; remembered in the datastore "howto"). In a match
+the match scene hands the frame to it before any phase (a hand-off or settle card, the
+Playdate's think), and draws it, so everything waits under it (Codex on #81; self-test
+`match-howto`). Self-test `howto` drives it with the crank (frames: each step, a throw on
+the notch carrying 8.9 m, the notch moved); `release-stop` and `release-early` check the
+verdict and show the dot (frame 4). The throw
 scene launches the player's batons at that angle (the loft boost still goes by the loft
 set); the computer's throws and drilled kubbs are unchanged (a drill's push and wobble go
 left for a stop short of the bottom, as for the old `"slowed"`). Trace lines carry

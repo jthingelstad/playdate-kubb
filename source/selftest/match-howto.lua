@@ -1,7 +1,7 @@
 -- Scenario "match-howto": HOW TO THROW in a match (System Menu "Match: how
 -- to"; Codex on #81: the match drove its own phases under it). A VS match:
--- asked for over the first hand-off card, it shows at once (frame 1), A only
--- puts it away (the card stays), and the match goes on. Asked for while the
+-- asked for over the first hand-off card, it shows at once (frame 1), B only
+-- leaves it (the card stays), and the match goes on. Asked for while the
 -- Playdate shows its aim, nothing is thrown under it however long it stays
 -- up (frame 2); B puts it away and the Playdate throws.
 import "selftest/_match"
@@ -27,12 +27,12 @@ st.scenarios["match-howto"] = st.matchScenario {
 			if ms.phase ~= "handoff" then error("the match left the hand-off under the card: " .. ms.phase) end
 			if ctx.frame >= at.frame + 3 then
 				ctx:capture()
-				h.feed { { press = { "a" } }, { n = 3 } }
+				h.feed { { press = { "b" } }, { n = 3 } }
 				stage = 3
 			end
 		elseif stage == 3 and h.idle() then
-			if ts.howto then error("A did not put the card away") end
-			if ms.phase ~= "handoff" then error("A went through the card to the hand-off: " .. ms.phase) end
+			if ts.howto then error("B did not leave the walkthrough") end
+			if ms.phase ~= "handoff" then error("B went through the walkthrough to the hand-off: " .. ms.phase) end
 			h.feed { { press = { "a" } }, { n = 2 } }
 			stage = 4
 		elseif stage == 4 then
@@ -49,7 +49,7 @@ st.scenarios["match-howto"] = st.matchScenario {
 				stage = 6
 			end
 		elseif stage == 6 and ms.cpuThrows > at.cpu then
-			if ts.howto then error("B did not put the card away") end
+			if ts.howto then error("B did not leave the walkthrough") end
 			return true
 		end
 		return false
