@@ -808,9 +808,11 @@ own item). Practice is the throw scene exactly as before.
   card's A is `rematch`, the same options again with no names screen. Self-test `names`
   (scripted, no keyboard: `names.type`, `ok`, `back`).
 - Saved games and resume (`core/save.lua`, pure and tested): before every throw and settle
-  step the match scene saves the match in progress (`scene.persist`: `save.pack(m, {vs,
-  names})` to `playdate.datastore` "match"); a finished match deletes it; leaving for the
-  title keeps it. Scripted matches (`seed`, `instant`, `noSave`) never touch it.
+  step and after every raise and punishment kubb placed by hand the match scene saves the
+  match in progress (`scene.persist` to `playdate.datastore` "match"); a finished match
+  deletes it; leaving for the title keeps it. Scripted matches (`seed`, `instant`,
+  `noSave`) never save, and self-test runs (`tw.selftestRun`) save under their own key
+  (`scene.saveKey()`, "selftest-match"), so they never touch a player's saved match.
   `save.write(m, opts, writer)` hands the writer the live engine game, sheet, debris and
   clock (no copy: copying cost 43 ms on the device at turn 4; the datastore write itself
   is 68 ms, at the frame that already sets the next throw up); the sheet's `current` turn,
