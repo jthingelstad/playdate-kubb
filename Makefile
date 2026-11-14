@@ -17,7 +17,7 @@ SIM_TIMEOUT := 60
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-.PHONY: sync-notation build test test-lua test-node games selftest bench clean
+.PHONY: sync-notation build test test-lua test-node games selftest bench clean release
 
 build: $(PDX)
 
@@ -99,6 +99,17 @@ bench:
 
 clean:
 	rm -rf build
+
+# A build for friends to sideload (play.date/account/sideload takes a zipped
+# .pdx): from a clean build/, so nothing stale rides along, zipped as
+# build/ThrowingWood-<version>.pdx.zip. Raise buildNumber in source/pdxinfo for
+# each one, or a Playdate that has the last one will not take it.
+VERSION := $(shell sed -n 's/^version=//p' source/pdxinfo)
+release:
+	$(MAKE) clean
+	$(MAKE) build
+	cd build && zip -qr -X ThrowingWood-$(VERSION).pdx.zip ThrowingWood.pdx -x '*.DS_Store'
+	@echo "build/ThrowingWood-$(VERSION).pdx.zip"
 
 # Refresh the vendored notation parser and scorer from a pk-kubb-score checkout,
 # then show what changed. Review, run `make test` and `make games`, commit.
