@@ -1,5 +1,5 @@
 -- Scenario "games": the games list and a score sheet (scenes/games) over
--- three game files written for the test into the Data folder's
+-- three game files (one with two ten-letter names) written for the test into the Data folder's
 -- selftest-games/. Frames: 1 the list (newest first), 2 the second game
 -- chosen, 3 its score sheet, 4 scrolled down with the crank. Then B twice
 -- must go back to the list and on to the title.
@@ -31,7 +31,7 @@ tw.selftest.scenarios.games = {
 			local dir = "selftest-games"
 			playdate.file.mkdir(dir)
 			for _, g in ipairs {
-				{ "2026-11-18-1900-ash-v-birch.txt", "2026-11-18 19:00", "Ash", "Birch", "B", 9 },
+				{ "2026-11-18-1900-woodchucks-v-lumberjack.txt", "2026-11-18 19:00", "Woodchucks", "Lumberjack", "B", 19 },
 				{ "2026-11-19-2010-ash-v-playdate.txt", "2026-11-19 20:10", "Ash", "Playdate", "A", 7 },
 				{ "2026-11-20-2130-oak-v-birch-grove.txt", "2026-11-20 21:30", "Oak", "Birch Grov", "A", 15 },
 			} do

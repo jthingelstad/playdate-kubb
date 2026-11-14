@@ -31,6 +31,7 @@ scene.tune = {
 	lineH = 14,         -- px a score sheet line
 	crankPx = 1.2,      -- px of score sheet a degree of crank
 	nameX = 76,         -- px where the teams start (after the widest date)
+	statGap = 10,       -- px kept clear between the teams and the turns and minutes
 	dir = "games",
 }
 
@@ -112,14 +113,34 @@ local function renderList(s)
 		if g then
 			local ty = y + floor((t.rowH - 16) / 2)
 			ui.text(label, g.date, 10, y + floor((t.rowH - 12) / 2), chosen)
+			-- the names get what the turns and minutes leave of the row: those on
+			-- one line if the names fit at cap 16, else on two lines, and the names
+			-- in the label font if they still do not fit (clipped as a last resort)
+			local stats = { g.turns .. " TURNS", g.minutes .. " MIN" }
+			local oneW = label:getTextWidth(stats[1]) + label:getTextWidth(stats[2]) + 10
+			local twoW = max(label:getTextWidth(stats[1]), label:getTextWidth(stats[2]))
+			local fixed = 10 + label:getTextWidth("V") + (g.winner and 16 or 0)
+			local bigW = big:getTextWidth(string.upper(g.a)) + big:getTextWidth(string.upper(g.b)) + fixed
+			local room = 380 - t.statGap - t.nameX
+			local f, fy, stacked = big, ty, false
+			if bigW > room - oneW then
+				stacked = true
+				if bigW > room - twoW then f, fy = label, ty + 3 end
+			end
+			if stacked then
+				ui.text(label, stats[1], 380, y + 4, chosen, "right")
+				ui.text(label, stats[2], 380, y + t.rowH - 17, chosen, "right")
+			else
+				ui.textDots(label, stats, 380, y + floor((t.rowH - 12) / 2), chosen, "right")
+			end
+			gfx.setClipRect(0, y, 380 - (stacked and twoW or oneW) - t.statGap, t.rowH)
 			local x = t.nameX
 			if g.winner == "A" then crown(x, ty - 2, chosen); x = x + 16 end
-			x = x + ui.text(big, g.a, x, ty, chosen)
+			x = x + ui.text(f, g.a, x, fy, chosen)
 			x = x + 5 + ui.text(label, "V", x + 5, ty + 3, chosen) + 5
 			if g.winner == "B" then crown(x, ty - 2, chosen); x = x + 16 end
-			ui.text(big, g.b, x, ty, chosen)
-			ui.textDots(label, { g.turns .. " TURNS", g.minutes .. " MIN" }, 380, y + floor((t.rowH - 12) / 2), chosen,
-				"right")
+			ui.text(f, g.b, x, fy, chosen)
+			gfx.clearClipRect()
 		else
 			ui.text(label, s.files[i], 10, y + 10, chosen)
 		end
