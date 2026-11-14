@@ -5,8 +5,8 @@
 -- release-stop: wound 120 back, a strong flick of 150 forward, stopped 30
 -- past the bottom, on the target: the baton leaves at 30 degrees and flies
 -- long. release-early: the same flick cut to 100 forward, stopped 20 short of
--- the bottom: it leaves at -20 and goes into the ground in front of the
--- thrower. Frames: 1 aiming (the target on the dial), 2 the baton in flight
+-- the bottom, 50 short of the notch: with the forgiving notch it leaves at
+-- about 17 degrees, low and short (it was -20, into the ground). Frames: 1 aiming (the target on the dial), 2 the baton in flight
 -- (release-stop) or just down (release-early), 3 at rest.
 import "selftest/_throw"
 
@@ -47,6 +47,8 @@ st.scenarios["release-stop"] = scenario({ 6, 12, 18, 22, 24, 24, 24, 20 }, 30, f
 	if s.flight.ly < 5 then return string.format("landed %.2f m out: too short", s.flight.ly) end
 end)
 
-st.scenarios["release-early"] = scenario({ 6, 12, 18, 22, 24, 18 }, -20, function(s)
-	if s.flight.ly > 2 then return string.format("landed %.2f m out: should be in front", s.flight.ly) end
+-- 50 short of the notch: 10 of it forgiven, a third of the other 40 off
+-- the loft (30 - 13.3): a lower, shorter throw, not one into the ground
+st.scenarios["release-early"] = scenario({ 6, 12, 18, 22, 24, 18 }, 30 - 40 / 3, function(s)
+	if s.flight.ly > 7.5 then return string.format("landed %.2f m out: should be short", s.flight.ly) end
 end)

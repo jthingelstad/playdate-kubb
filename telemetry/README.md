@@ -61,3 +61,13 @@ The overnight QA build, after midnight (US Central).
 | `run3-collector-held.txt` | a try at holding the collector off in flight and catching up in the rest hold (not merged): no better, the slow frames unchanged (`gc` as in run2: net growth) |
 | `run4-profiled-stopped.txt` | branch `soak-profile`, each slow frame's update split by part: the throw's flight 70 to 105 ms (nearly all of it the physics), the bursts and camera 0 to 3, and 130 to 230 ms in the match scene's own update. These are the throw's landing frames (the physics' last calm-tail stretch, then the engine's ruling and the save), labelled by the mode the frame began in. Two matches finished (23 and 25 turns); the Playdate stopped answering USB during the third and needed a reset by hand, with nothing in its crash log |
 | `run5-match1-classic.txt` | 2026-11-14 10:25, `main` with the advantage line, stay put, the basket inkast, the low throw and the sets: the first match (classic set, 25 turns, 196 throws) finished with no error, 27 save checks good, memory 0.92 to 1.09 MB; 132 frames over 200 ms (worst 319), the landing frames as in run4. Stopped there by a disk mount, so the USA and Wisconsin matches did not run |
+
+`traces.jsonl` and `frames.jsonl` (copied 13:45 Central): every swing and throw on the device
+so far. The last 13 swings (13:33 to 13:36, `"release":"stop"`) are Jamie's first with the
+release where the crank stops: launch angles from -27 to 137 degrees against a loft set of 23
+to 35, most batons landing 1 to 2.6 m out. Two causes: the stop was called when the flick
+fell to half its peak speed (on several the crank was still turning at about 300 deg/s),
+and every degree off the notch counted in full. Fixed by calling the stop only when the
+crank all but halts (`releaseStopDps`) and the forgiving notch (`releaseTolDeg`,
+`releaseGain`). These lines end at the old release, so they replay as unfinished under the
+new rule.

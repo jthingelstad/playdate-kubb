@@ -13,7 +13,8 @@ Everything built is merged except the diagnostic timing hooks on branch `soak-pr
 - Team names before each match; raising kubbs and placing punishment kubbs by hand (the
   crank tips a kubb up in a 3D close-up); the match in progress saved and resumed from the
   title; the games list with score sheets.
-- Recorded knocks (Jamie's recording, 2026-11-14): one for every kubb or king struck, as
+- Recorded knocks (Jamie's recording, 2026-11-14): one for every piece struck (wood on
+  wood: kubbs, the king, lying batons, stakes), as
   it is struck on screen, overlapping when a baton takes two; nine takes, never the same
   one twice running, each at a slightly different pitch.
 - Hit bursts (TOK!, KLAK KLAK!, KING!) at the baton's impact; SLOW MOTION flag;
@@ -128,7 +129,10 @@ for the surface.
   2026-11-14).
 - The release where the crank stops (Jamie and Tyler, 2026-11-14): the launch angle is
   the crank's angle past the bottom of the turn where it stops; the loft set is the target,
-  a notch on the dial's forward side like the full-power notch at the back. Stop early and the baton goes into the ground, late and it goes up.
+  a notch on the dial's forward side like the full-power notch at the back. Forgiving
+  (Jamie, 2026-11-14, after the throws went everywhere): the stop counts only when the
+  crank all but halts, within 10 degrees of the notch is perfect, and beyond that a third
+  of the miss goes into the angle. Stop early and the baton goes into the ground, late and it goes up.
 - Kubb sets: Classic, USA, Sweden, Minnesota and Wisconsin, painted heads and crown (near
   views only: from the throwing line every set looks classic),
   chosen in the match options' SET row (2026-11-14).

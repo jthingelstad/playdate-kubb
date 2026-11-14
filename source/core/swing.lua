@@ -13,13 +13,21 @@
 --             -> forward faster than swingStartDps -> swinging
 --   swinging  -> released where the crank stops (Jamie and Tyler, 2026-11-14:
 --                "you stop the crank where you release the baton"): when the
---                forward speed falls below half its peak -> "release", with
---                swing.result filled in. The crank is the throwing arm, and a
+--                forward speed falls below releaseStopDps, the crank all but
+--                halted -> "release", with swing.result filled in. (It was
+--                half the flick's peak: on the device that fired while the
+--                hand was still turning the crank at 300 deg/s, or well after
+--                the stop Jamie meant; 13 swings of 2026-11-14 left from -27
+--                to 137 degrees against a 25 to 35 target.) The crank is the throwing arm, and a
 --                hand swung on an arm leaves at right angles to it, so the
 --                arm's angle past the bottom of the turn at the stop is the
 --                launch angle (result.releaseAngle; the throw scene turns it
---                into the loft, swing.releaseLoft): stop early and the baton
---                goes into the ground, late and it goes up. The power is the
+--                into the loft, swing.releaseLoft): within releaseTolDeg of
+--                the notch (the loft set) is perfect; beyond it, stop early
+--                and the baton goes lower, late and it goes higher, by
+--                releaseGain of the miss (Jamie, 2026-11-14: a forgiving
+--                notch; the crank moves 20 to 30 degrees a frame in a flick,
+--                so a degree for a degree threw batons into the ground). The power is the
 --                flick's peak speed. A swing that never stops is released at
 --                releaseMaxDeg. (Before 2026-11-14 the baton was released as
 --                the arm passed the bottom, at the loft set by hand; a state
@@ -47,12 +55,14 @@ swing.tune = {
 	fullSpeedDps = 1100,    -- forward speed (deg/s) at release that gives power 1
 	speedWindow = 2,        -- frames averaged for "forward speed" (release test and release speed),
 	                        -- so one slow sample in a jittery flick does not release it early
-	releaseDropFrac = 0.5,  -- release when forward speed falls below this fraction of its peak (DESIGN 4):
-	                        -- the crank has stopped
+	releaseDropFrac = 0.5,  -- the old release (passRelease): let go early when the speed falls below
+	                        -- this fraction of its peak ("slowed")
+	releaseStopDps = 150,   -- release when the forward speed (speedWindow frames) falls below this: the
+	                        -- crank has all but stopped (3 degrees a 20 ms frame)
 	releaseMaxDeg = 150,    -- forward degrees past the bottom: a swing that has not stopped by here
 	                        -- is released (straight up and over)
-	releaseGain = 1.0,      -- launch angle = the loft set + this times (the stop's arm angle minus it):
-	                        -- 1 is the arm itself (the loft set is the target to stop at)
+	releaseTolDeg = 10,     -- a stop within this of the notch (the loft set) launches at the loft set
+	releaseGain = 1 / 3,    -- beyond it, this much of the rest of the miss goes into the launch angle
 	releaseLoftMin = -30,   -- degrees: the launch angle's range (below 0 the baton is thrown down)
 	releaseLoftMax = 85,
 	launchMin = 4.0,        -- m/s at power 0 (a mid-loft throw lands about 2 m out)
@@ -231,11 +241,11 @@ function swing.update(s, delta, dt)
 		end
 		return nil
 	end
-	if w < t.releaseDropFrac * s.peak then
+	if w < t.releaseStopDps then
 		-- stopped: released here, at the flick's speed (the frames since it
 		-- slowed are not part of the throw)
 		local used = n
-		while used > 1 and s.speeds[used] < t.releaseDropFrac * s.peak do used = used - 1 end
+		while used > 1 and s.speeds[used] < t.releaseStopDps do used = used - 1 end
 		return release(s, s.peak, used, "stopped")
 	end
 	if s.arm >= t.releaseMaxDeg then
@@ -245,10 +255,12 @@ function swing.update(s, delta, dt)
 end
 
 -- The launch angle for a release at arm angle `releaseAngle` with the loft
--- set to `target` (degrees; releaseGain, releaseLoftMin/Max).
+-- set to `target` (degrees; releaseTolDeg, releaseGain, releaseLoftMin/Max).
 function swing.releaseLoft(target, releaseAngle)
 	local t = swing.tune
-	local a = target + t.releaseGain * (releaseAngle - target)
+	local miss, tol = releaseAngle - target, t.releaseTolDeg
+	if miss > tol then miss = miss - tol elseif miss < -tol then miss = miss + tol else miss = 0 end
+	local a = target + t.releaseGain * miss
 	if a < t.releaseLoftMin then return t.releaseLoftMin end
 	if a > t.releaseLoftMax then return t.releaseLoftMax end
 	return a

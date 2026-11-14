@@ -1,6 +1,6 @@
 -- Scenario "knocks": the recorded knocks (sound.lua). The hit throw (b3
 -- knocked over) with the sound on at volume 0: every knock take loads, and
--- one knock plays for each kubb or king struck, as the picture reaches it
+-- one knock plays for each piece struck (wood on wood), as the picture reaches it
 -- (none before the first hit). Frame: just after the hit.
 import "selftest/_throw"
 
@@ -32,7 +32,7 @@ st.scenarios.knocks = st.throwScenario {
 			struck = 0
 			for i = 1, w.n do
 				local b = w.bodies[i]
-				if b.touchT and b ~= w.projectile and (b.kind == "kubb" or b.kind == "king") then struck = struck + 1 end
+				if b.touchT and b ~= w.projectile then struck = struck + 1 end
 			end
 			played = sound.played
 			return true
