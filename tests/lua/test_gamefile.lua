@@ -42,6 +42,15 @@ test("gamefile: every fixture game parses, with turns and a winner", function()
 	expect.truthy(n >= 10, "fixtures found: " .. n)
 end)
 
+test("gamefile: a note after # is not counted as throws", function()
+	local text = '[Team A "Ash"]\n[Team B "Birch"]\n[First "Team A"]\n[Win "Team B"]\n\n'
+		.. "1. a:B a:- # b1 toppled the king early\n2. b:- b:F\n"
+	local s = assert(gamefile.parse(text))
+	expect.eq(s.hits.A[2], 2)
+	expect.eq(s.hits.A[1], 1)
+	expect.eq(s.hits.B[2], 2)
+end)
+
 test("gamefile: not a game file", function()
 	expect.eq((gamefile.parse("hello")), nil)
 	expect.eq((gamefile.parse(nil)), nil)
