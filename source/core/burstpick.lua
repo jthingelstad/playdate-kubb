@@ -83,7 +83,13 @@ function burstpick.pick(w, showTime)
 			end
 		end
 	end
-	if king then return "king", king, nil, sure end
+	if king then
+		-- the king's burst is anchored on the king: its own certainty, so a
+		-- king struck hard that stays standing is taken back even after a
+		-- kubb that surely fell
+		if king ~= first then local _, ks = falling(king, w); sure = ks end
+		return "king", king, nil, sure
+	end
 	if second then return "double", first, second, sure end
 	return "clean", first, nil, sure
 end
