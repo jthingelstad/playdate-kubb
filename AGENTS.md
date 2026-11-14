@@ -596,7 +596,8 @@ and copying a full-screen image about 0.7 ms. So:
   is dropped when the camera, the item list or a background piece changes. `setPose` with an
   unchanged pose changes nothing. The `layer` self-test draws every layered frame of the hit
   throw a second time from scratch (`render.world.verify`) and needs at least 50 of them
-  with no pixel different (112, 0 on the Simulator).
+  with no pixel different (66, 0 on the Simulator since the shorter slow motion; 112
+  before).
 - The device autobench turns the crank recorder and the frame-time log off while it runs
   and restores them after, so its scripted throws never reach `traces.jsonl` or
   `frames.jsonl`.
@@ -949,7 +950,9 @@ the device.
 While it plays (`playback.speed` below 1, the ease back included) the throw scene sets
 `s.slowMo` and the HUD shows the SLOW MOTION flag (`hud.slow`, `hud.tune.slow`). The pace
 slowing because the physics fell behind shows nothing. The `hit` self-test checks the flag
-0.25 s after the hit (frames 2 and 3 show it).
+0.1 s after the hit (frames 2 and 3 show it). It is short (Jamie, 2026-11-14: it is for the
+impact and must not hold the play up while the baton slides): `hold` 0.12 s after the hit,
+then back to real time over `ease` 0.15 s (it was 0.45 and 0.35).
 
 The camera's half circle (Jamie, 2026-11-13): once a hit burst fires (baton throws only),
 the impact camera orbits the struck piece by `throw.tune.swingDeg` (180) over `swingTime`

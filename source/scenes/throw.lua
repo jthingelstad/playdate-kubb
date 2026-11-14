@@ -89,7 +89,7 @@ throw.tune = {
 	-- motion shows the piece fall and the pitch round it; it stays there for
 	-- the rest. 0 turns it off.
 	swingDeg = 180,
-	swingTime = 0.8,      -- about the slow motion's hold and ease (playback.slow)
+	swingTime = 0.8,      -- s of shown time for the half circle (it runs on past the slow motion)
 	-- s per flight frame while the camera turns: every one is a full draw (the
 	-- layer needs a still camera), so fewer frames leave the physics its time.
 	-- On the device a hit took 6.7 s release to rest at 40 ms, 4.7 at 60, 4.2
