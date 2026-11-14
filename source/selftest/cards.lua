@@ -45,7 +45,7 @@ st.scenarios.cards = st.matchScenario {
 				h.pressA()
 				pressed = true
 			elseif pressed and h.idle() then
-				if ms.exit ~= "match" then error("A on the winner card gave " .. tostring(ms.exit)) end
+				if ms.exit ~= "rematch" then error("A on the winner card gave " .. tostring(ms.exit)) end
 				ctx.note = ctx.note .. notes
 				return true
 			end

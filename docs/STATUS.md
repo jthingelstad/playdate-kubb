@@ -46,6 +46,11 @@ are still the board's, pending Jamie's call (Open calls).
 `nolock` is in the game's Data folder on Jamie's Playdate so it stays awake for unattended
 testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testing is done.
 
+## Team names
+
+Entered before each match with the Playdate's keyboard and saved for next time (AGENTS.md
+"Match", `scenes/names.lua`).
+
 ## VS PLAYDATE
 
 A match against the computer from the title (AGENTS.md "Match"). One level so far:
@@ -66,10 +71,11 @@ kubbs itself (AGENTS.md "Match", `scenes/settle.lua`).
 - The hand-cut M, N, W and 8 in the 16 px display font; Roobert loading for labels.
 - Raising and punishment by hand: how the two screens read and how the cursor moves.
 - VS PLAYDATE: how strong it plays, and whether its think pause feels right.
+- Name entry with the real system keyboard (only scripted in the Simulator self-tests).
 
 ## Not built yet
 
-1. Name entry, saved games and resume, practice drills.
+1. Saved games and resume, practice drills.
 2. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
    2026-11-13): build after the bursts, measure its cost on the device.
 

@@ -299,6 +299,9 @@ matches (about a minute; `--quick` about 10 s).
   bodies in its `FAIL` line.
 - `title`: the title with VS PLAYDATE chosen (frame 1), PRACTICE after two right presses
   (frame 2), and A must leave with `practice`.
+- `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
+  long second name drawn smaller); a name with no letter is refused, B goes back, and the
+  names become the match's teams.
 - `settle`: raising a kubb and placing a punishment kubb by hand, on an engine driven to
   turn 3 (frames: the raise view, the other end chosen, the placement view, a spot
   refused by the king); the check reads the engine after A places it.
@@ -782,8 +785,21 @@ own item). Practice is the throw scene exactly as before.
   still parts are one image redrawn only on a change. Scripted matches (`seed`,
   `instant`, or `autoSettle` in the scene's options) leave both to the engine
   (`match.setup`). Self-test `settle`.
+- Names (`scenes/names.lua`, board `Names.png`; pure rules in `core/names.lua`, tested):
+  PASS + PLAY asks for both teams' names, VS PLAYDATE for the player's, on the board's
+  black panel beside the Playdate's system keyboard (`playdate.keyboard`): whose name it
+  is, the name as typed (cap 32, cap 16 when wider than `bigMax`), UP TO 10 LETTERS, the
+  game file id, and what comes next. A name keeps letters, spaces, hyphens and
+  apostrophes, ten at most, and needs a letter; OK takes it, the keyboard's cancel goes
+  back a step (from the first, to the title). The last names are saved
+  (`playdate.datastore` "names") and offered again. The match gets them as
+  `opts.names`, the engine's teams (one player each, named as the team), so cards,
+  labels and the game file use them. `main.lua`: title -> `names` -> `play`; the winner
+  card's A is `rematch`, the same options again with no names screen. Self-test `names`
+  (scripted, no keyboard: `names.type`, `ok`, `back`).
 - VS PLAYDATE (`scenes/match` with `opts.vs = "B"`; `main.lua` opens it as `"vs"`, and a
-  rematch keeps it): the player is Team A "You", the Playdate Team B "Playdate" (the
+  rematch keeps it): the player is Team A (the name entered, "You" by default), the
+  Playdate Team B "Playdate" (the
   engine's team names, so cards, labels and the game file say so; mode "Vs Playdate").
   Its throws come from `core/autothrow` (`choose(setup, rng, scale)`, scatter times
   `scene.tune.cpuScatter`, seeded from the clock): it chooses as its turn comes up, the
