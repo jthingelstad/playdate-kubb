@@ -1,0 +1,20 @@
+[Event "Throwing Wood"]
+[Location "Playdate"]
+[Start "2026-11-13 14:07"]
+[End "2026-11-13 14:12"]
+[Duration "5m"]
+[Surface "Grass"]
+[Team A "Team A"]
+[Team A Players "Player A (a)"]
+[Team B "Team B"]
+[Team B Players "Player B (b)"]
+[First "Team A"]
+[Win "Team A"]
+[Scored by "Throwing Wood 0.0.1"]
+[Mode "Pass and Play"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+
+1. a:- a:- # b1 pushed a kubb out without toppling; put back (II.B.7)
+2. b:B b:B b:- b:-
+3. a:2IR a:- a:F a:- a:F a:- a:- # b3 toppled a base kubb early; raised (II.B.4a); b5 pushed a kubb out without toppling; put back (II.B.7)
+4. b:2IR b:- b:- b:E X X X # b3 toppled the king early
