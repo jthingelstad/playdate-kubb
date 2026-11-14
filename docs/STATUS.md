@@ -125,7 +125,7 @@ for the surface.
   2026-11-14).
 - The release where the crank stops (Jamie and Tyler, 2026-11-14): the launch angle is
   the crank's angle past the bottom of the turn where it stops; the loft set is the target,
-  marked on the dial. Stop early and the baton goes into the ground, late and it goes up.
+  a notch on the dial's forward side like the full-power notch at the back. Stop early and the baton goes into the ground, late and it goes up.
 - Kubb sets: Classic, USA, Sweden, Minnesota and Wisconsin, painted heads and crown (near
   views only: from the throwing line every set looks classic),
   chosen in the match options' SET row (2026-11-14).
