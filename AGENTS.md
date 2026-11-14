@@ -622,8 +622,11 @@ hit rate (records in `playdate.datastore` "drills").
   (`drills.setup` -> `throw.prepare`, `s.auto = false`; `drills.tally` on the throw's
   `result.toppled` and `last.restCm` once it is `done`); the rail counts throws and the
   score. A card gives the score and any new best; A runs it again, B goes back to the menu.
-- Self-test `drills`: the menu, a whole KING SHOTS run with straight scripted batons, the
-  result card and the record it leaves.
+- In drill mode (BLAST, and a match's kubb tosses) the rail shows the marker's distance
+  and beside it what the caller gave (`throw.setRail`'s first right-hand text: a drill's
+  score).
+- Self-tests `drills` (the menu, a whole KING SHOTS run with straight scripted batons, the
+  result card and the record it leaves) and `drills-blast` (BLAST's rail keeps its score).
 
 ## Throw scene practice
 
