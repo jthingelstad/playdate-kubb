@@ -132,7 +132,9 @@ for the surface.
   a notch on the dial's forward side like the full-power notch at the back. Forgiving
   (Jamie, 2026-11-14, after the throws went everywhere): the stop counts only when the
   crank all but halts, within 10 degrees of the notch is perfect, and beyond that a third
-  of the miss goes into the angle. Stop early and the baton goes into the ground, late and it goes up.
+  of the miss goes into the angle. After each throw a flag says ON THE NOTCH, EARLY: LOW
+  or LATE: HIGH and the dial keeps a dot where the crank stopped; a HOW TO THROW card shows
+  once before the first baton and from the System Menu ("how to"). Stop early and the baton goes into the ground, late and it goes up.
 - Kubb sets: Classic, USA, Sweden, Minnesota and Wisconsin, painted heads and crown (near
   views only: from the throwing line every set looks classic),
   chosen in the match options' SET row (2026-11-14).
@@ -161,6 +163,8 @@ the game; nothing in its crash log). Jamie reset it by hand; `main` is installed
 ## To try on the device
 
 - The recorded knocks: loud enough, on time, two at once when a baton takes two kubbs.
+- The forgiving notch: do throws now go where they are aimed; does the flag and the dot
+  make the crank's part clear; the HOW TO THROW card.
 - The bursts at the impact; the king's flash (now only once the king is down).
 - The camera's half circle in slow motion: how it looks.
 - The punishment kubb fix (the search that used to trip the watchdog).

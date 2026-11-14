@@ -560,6 +560,11 @@ local function knocks(s)
 	s.knockT = t1
 end
 
+-- The verdict on where the crank stopped (swing.releaseMiss), shown after a
+-- baton throw and on the next aim until the next wind-up.
+local STOP_TEXT <const> = { [-1] = "EARLY: LOW", [0] = "ON THE NOTCH", [1] = "LATE: HIGH" }
+throw.STOP_TEXT = STOP_TEXT
+
 local function launch(s, r)
 	s.knockT = -1
 	local t = throw.tune
@@ -579,8 +584,13 @@ local function launch(s, r)
 	-- computer's loft is its own, and a swing with the old release
 	-- (passRelease: the self-tests written before it) keeps the loft set.
 	local loft = s.loftDeg
+	s.stopAngle, s.stopText = nil, nil
 	if not kubb and not s.scripted and r.releaseAngle and not s.swing.passRelease then
 		loft = swing.releaseLoft(s.loftDeg, r.releaseAngle)
+		-- where the crank stopped against the notch, for the flag and the
+		-- dial's dot (Jamie, 2026-11-14: to see what the crank did)
+		s.stopAngle = r.releaseAngle
+		s.stopText = STOP_TEXT[swing.releaseMiss(s.loftDeg, r.releaseAngle)]
 	end
 	-- a drilled kubb (not the computer's: it lobs): the launch the drill
 	-- solution and the swing make (core/drill)
@@ -875,9 +885,32 @@ local function flightUpdate(s, dt)
 	if pb.done and s.showTime >= have then landed(s) end
 end
 
+-- HOW TO THROW (hud.howto) over the scene until A or B: from the System
+-- Menu's "how to", and once by itself the first time a player aims a baton
+-- (throw.howtoFirst, set by main.lua for a player's own runs; the device
+-- remembers it in the datastore "howto").
+throw.howtoFirst = false
+function throw.showHowTo(s)
+	s.howto = true
+end
+
+local function firstHowTo(s)
+	if not throw.howtoFirst or s.watching or s.drill or s.projectile == "kubb" then return end
+	throw.howtoFirst = false
+	local seen = playdate.datastore.read("howto")
+	if seen and seen.seen then return end
+	playdate.datastore.write({ seen = true }, "howto")
+	s.howto = true
+end
+
 function throw.update(s)
 	local p = s.input
 	p:advance()
+	-- HOW TO THROW over the scene: A or B puts it away; nothing else moves
+	if s.howto then
+		if p:pressed("a") or p:pressed("b") then s.howto = false end
+		return
+	end
 	local dt = p:dt()
 	-- the frame clock: when this frame started, and how long the last one's
 	-- draw and display took (fast up, slow down: the budget errs short)
@@ -893,6 +926,7 @@ function throw.update(s)
 	s.drawEnd = nil
 	local t = throw.tune
 	if s.mode == "aim" then
+		firstHowTo(s)
 		local ev = aimInput(s, dt)
 		aimCamera(s)
 		if ev == "release" then
@@ -1183,6 +1217,10 @@ function throw.setSet(s, name)
 end
 
 function throw.draw(s)
+	if s.howto then
+		hud.howto()
+		return true
+	end
 	-- (render/world is shared: the scene's own set, a no-op when unchanged)
 	render.setSet(s.set)
 	s.drawStart = s.clock() - (s.frameStart or 0)
@@ -1190,6 +1228,7 @@ function throw.draw(s)
 	s.drawEnd = s.clock() - (s.frameStart or 0)
 	return ok
 end
+
 
 function throw.drawFrame(s)
 	local b = nil
@@ -1247,8 +1286,12 @@ function throw.drawFrame(s)
 		hud.plaque(s.loftDeg, cap, band, half)
 		-- a baton's release target: the loft set (the crank stops there)
 		local target = (not marker and not sw.passRelease) and floor(s.loftDeg + 0.5) or nil
+		-- the last throw's stop: a dot on the dial and its verdict, until the
+		-- next wind-up
+		local stop = (target and sw.phase == "idle" and s.stopAngle) and floor(s.stopAngle + 0.5) or nil
 		local prompt, inverted = hud.gauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
-			swing.tune.fullBackswingDeg, s.arm or 0, band, half, target)
+			swing.tune.fullBackswingDeg, s.arm or 0, band, half, target, stop)
+		if stop and s.stopText then hud.cutFlag(s.stopText) end
 		hud.prompt(prompt, inverted)
 		s.promptText = prompt    -- (self-tests read it)
 		if marker and s.cut ~= drill.CUT_NONE then
@@ -1261,6 +1304,8 @@ function throw.drawFrame(s)
 		-- drilled kubb stops, how near the band it was
 		hud.chip(l.power, l.drill and l.band or nil, half)
 		hud.flag(s.flagText)
+		-- where the crank stopped: ON THE NOTCH, EARLY: LOW or LATE: HIGH
+		if s.stopText then hud.cutFlag(s.stopText) end
 		if s.mode == "flight" and s.slowMo then hud.slow() end
 		if l.drill and l.restCm and s.mode ~= "flight" then
 			hud.callout(l.verdict, (l.power or 0) - l.band, half, l.restCm)

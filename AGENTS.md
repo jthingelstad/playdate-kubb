@@ -378,7 +378,19 @@ set plus `releaseGain` (1/3) of the rest of the miss, within `releaseLoftMin`/`M
 85). Stop early and the baton goes lower and shorter; late and it goes higher. The loft set by A + crank is the target: the dial marks it (`hud.gauge`'s `target`:
 a white notch on the forward side, drawn like the full-power notch at the back and a
 little longer, `notchIn`; Jamie: "a notch on the forward swing too ... this would be
-perfect"), and the readout gives `loft <launch>/<set>`. The throw
+perfect"), and the readout gives `loft <launch>/<set>`. Seeing what the crank did (Jamie, 2026-11-14:
+"I'm not able to see the connection between the crank and what is happening"; no lesson):
+after a baton throw the flag above the loft plaque (the drill's cut flag's place) says where
+the crank stopped against the notch, `ON THE NOTCH`, `EARLY: LOW` or `LATE: HIGH`
+(`swing.releaseMiss`, `throw.STOP_TEXT`, `s.stopText`), and on the next aim the dial keeps
+a white dot where it stopped (`hud.gauge`'s `stop`, `s.stopAngle`) with the flag, until the
+next wind-up. HOW TO THROW (`hud.howto`, one cached full-screen card: three little dials,
+wind back to the back notch, flick, stop on the front notch, and what each does) covers
+the throw scene until A or B (`throw.showHowTo`, `s.howto`: nothing else moves); the
+System Menu's Pitch, Drill and Match items have "how to", and it shows once by itself the
+first time a player aims a baton (`throw.howtoFirst`, off in self-tests, the autobench and
+the soak; remembered in the datastore "howto"). Self-test `howto`; `release-stop` and
+`release-early` check the verdict and show the dot (frame 4). The throw
 scene launches the player's batons at that angle (the loft boost still goes by the loft
 set); the computer's throws and drilled kubbs are unchanged (a drill's push and wobble go
 left for a stop short of the bottom, as for the old `"slowed"`). Trace lines carry
