@@ -46,6 +46,11 @@ are still the board's, pending Jamie's call (Open calls).
 `nolock` is in the game's Data folder on Jamie's Playdate so it stays awake for unattended
 testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testing is done.
 
+## Raising and punishment by hand
+
+The defending team raises each kubb thrown in (choosing the end) and places punishment
+kubbs itself (AGENTS.md "Match", `scenes/settle.lua`).
+
 ## Not checked on hardware yet
 
 - The punishment kubb fix (the search that used to trip the watchdog).
@@ -54,13 +59,13 @@ testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testi
 - The hit bursts and their knocks (how they look and sound at full speed; the king's
   screen flash).
 - The hand-cut M, N, W and 8 in the 16 px display font; Roobert loading for labels.
+- Raising and punishment by hand: how the two screens read and how the cursor moves.
 
 ## Not built yet
 
-1. Raising kubbs and placing a punishment kubb by hand.
-2. A computer opponent.
-3. Name entry, saved games and resume, practice drills.
-4. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
+1. A computer opponent.
+2. Name entry, saved games and resume, practice drills.
+3. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
    2026-11-13): build after the bursts, measure its cost on the device.
 
 ## Open calls
