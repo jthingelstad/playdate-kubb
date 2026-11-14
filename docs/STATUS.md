@@ -48,7 +48,7 @@ Final `main` (`telemetry/2026-11-14/bench/run2-final-main.txt`): 0.39 to 0.40, t
 - **The camera's half circle** (Jamie's idea): in slow motion after a hit the camera goes
   half way round the struck piece and opens out to show the pitch round it. While it turns
   every frame is a full draw, so those frames take 60 ms instead of 40; that keeps its cost
-  to about half a second a hit (see Open calls).
+  to about half a second a hit. Jamie kept it on as built (2026-11-14).
 - **Resume, games list, drills** merged after Codex's findings were fixed.
 - **QA.**
   - 500 rules games and 45 physics matches (5 by `make games`, 40 more on another seed:
@@ -111,8 +111,7 @@ from that run may say what happened.
 ## To try on the device
 
 - The bursts and knocks at the impact; the king's flash (now only once the king is down).
-- The camera's half circle in slow motion: how it looks, and whether half a second more a
-  hit is worth it.
+- The camera's half circle in slow motion: how it looks.
 - The punishment kubb fix (the search that used to trip the watchdog).
 - The rough shimmering when the camera zooms or turns; the hand-cut M, N, W and 8 in the
   16 px display font; Roobert loading for labels.
@@ -126,15 +125,11 @@ from that run may say what happened.
 
 Jamie's to make, one at a time; each has a recommendation.
 
-1. **The camera's half circle costs about half a second a hit** (4.7 s against 4.2 for the
-   match case's hit; 0.40 shown speed against 0.42). Recommendation: keep it on as built
-   (60 ms frames while it turns). Turning it off is one number
-   (`throw.tune.swingDeg = 0`).
-2. **The king's burst waits until the king is down.** A king judged falling from the strike
+1. **The king's burst waits until the king is down.** A king judged falling from the strike
    alone could be a king merely pushed, and its flash and chord read as the game's end, so
    the king's burst can come up to the physics' lead (a fraction of a second) after the hit
    where a kubb's comes at it. Recommendation: keep it so.
-3. **PASS + PLAY has no "pass the Playdate" card around raising.** When the defending team
+2. **PASS + PLAY has no "pass the Playdate" card around raising.** When the defending team
    raises or places punishment kubbs, only the rail's team name says who should hold the
    Playdate. Recommendation: a short card before the defender's settle ("RAISE: <TEAM>, A
    to start") and none after.

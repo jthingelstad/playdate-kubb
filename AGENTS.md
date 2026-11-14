@@ -957,7 +957,7 @@ the match case's hit took 6.7 s from release to rest with the half circle at 40 
 4.7 s at 60 ms and 4.2 s without it (shown speed over the three throws 0.34, 0.40, 0.42;
 the open view costs nothing measurable; 2026-11-14). It goes round the piece its burst is
 for (`s.burst.x1, y1`), not the first thing hit, and a burst taken back stops it where it
-is (`s.swingStop`). `swingDeg = 0`
+is (`s.swingStop`). Jamie kept it on at that cost (2026-11-14). `swingDeg = 0`
 turns it off (the `layer` self-test does, to test the layer with a still camera; the
 autobench has a variant without it). The `burst` self-test checks it starts at the impact.
 
