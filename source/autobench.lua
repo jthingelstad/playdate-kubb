@@ -18,6 +18,8 @@ import "input"
 import "scenes/throw"
 import "render/world"
 import "render/hud"
+import "core/save"
+import "core/match"
 import "render/burst"
 
 local gfx <const> = playdate.graphics
@@ -279,6 +281,35 @@ local function body()
 	out(l)
 	y()
 
+	-- the resume save (core/save, playdate.datastore): a match at turn 5 with
+	-- kubbs thrown in, packed and written, then read and unpacked, as the
+	-- match scene does before every throw
+	do
+		local m = tw.match.new { start = { year = 2026, month = 11, day = 13, hour = 21, min = 0 } }
+		local g = m.game
+		local MISS = {}
+		g:throwBaton(MISS); g:throwBaton(MISS)
+		g:throwBaton({ toppled = { "a1" } }); g:throwBaton({ toppled = { "a2" } }); g:throwBaton(MISS); g:throwBaton(MISS)
+		g:toss({ rest = { x = 0.5, y = 6.0, standing = false, angle = 0.4 }, moved = {} })
+		g:toss({ rest = { x = -0.8, y = 5.5, standing = false, angle = 1.2 }, moved = {} })
+		g:raiseAll()
+		for _ = 1, 6 do if g.phase == "batons" then g:throwBaton(MISS) end end
+		local t0 = clock()
+		local t1 = t0
+		tw.save.write(m, { names = { A = "Ash", B = "Birch" } }, function(d)
+			t1 = clock()
+			playdate.datastore.write(d, "benchsave")
+		end)
+		local t2 = clock()
+		local back = playdate.datastore.read("benchsave")
+		local t3 = clock()
+		local ok = tw.save.unpack(back) ~= nil
+		local t4 = clock()
+		playdate.datastore.delete("benchsave")
+		out { string.format("resume save (turn %d): pack %.1f ms, write %.1f ms, read %.1f ms, unpack %.1f ms%s",
+			g.turn, (t1 - t0) * 1000, (t2 - t1) * 1000, (t3 - t2) * 1000, (t4 - t3) * 1000, ok and "" or " (unpack failed)") }
+		y()
+	end
 	-- garbage made by the physics: the collector stopped for the run
 	collectgarbage("collect")
 	playdate.setCollectsGarbage(false)

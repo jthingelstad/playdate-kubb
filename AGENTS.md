@@ -811,10 +811,13 @@ own item). Practice is the throw scene exactly as before.
   step the match scene saves the match in progress (`scene.persist`: `save.pack(m, {vs,
   names})` to `playdate.datastore` "match"); a finished match deletes it; leaving for the
   title keeps it. Scripted matches (`seed`, `instant`, `noSave`) never touch it.
-  `save.pack` copies the engine game, the sheet, the debris and the clock into plain data
-  (no shared tables, functions or mixed tables: `save.plain` refuses them; the sheet's
-  `current` turn, the one table reached two ways, is kept as `currentIndex`);
-  `save.unpack` puts the `rules.Game` and `notation.Sheet` metatables back.
+  `save.write(m, opts, writer)` hands the writer the live engine game, sheet, debris and
+  clock (no copy: copying cost 43 ms on the device at turn 4; the datastore write itself
+  is 68 ms, at the frame that already sets the next throw up); the sheet's `current` turn,
+  the one table reached two ways, is detached for the write and kept as `currentIndex`.
+  `save.pack` is the same as a checked plain copy for the tests (`save.plain` refuses
+  shared tables, functions and mixed tables); `save.unpack` puts the `rules.Game` and
+  `notation.Sheet` metatables back.
   `tests/lua/test_save.lua` plays 40 seeded games saved and restored every 7th action
   and needs the same game file as straight through. With a save, the title shows `B
   RESUME <A> V <B>, TURN n` beside A START; `main.lua` opens `resume` from it (the match

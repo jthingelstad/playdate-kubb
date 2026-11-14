@@ -113,7 +113,8 @@ local function persist(s)
 	if cmatch.over(s.m) then
 		playdate.datastore.delete("match")
 	else
-		playdate.datastore.write(tw.save.pack(s.m, { vs = s.opts.vs, names = s.opts.names }), "match")
+		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names },
+			function(d) playdate.datastore.write(d, "match") end)
 	end
 end
 scene.persist = persist
