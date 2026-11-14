@@ -177,3 +177,13 @@ test("the throw arms only when the crank crosses the bottom going back", functio
 	expect.truthy(not swing.crossedBack(nil, -10), "first frame")
 	expect.truthy(not swing.crossedBack(-5, 5), "going forward")
 end)
+
+test("wound past the backswing cap, the release angle is still where the crank stops", function()
+	-- Codex on #73: wound 210 back (the power counts 180), 240 forward: stopped
+	-- 30 past the bottom, not 60
+	local ev, r = run { windup(210, 30), { d = 0, n = 5 },
+		{ d = 10 }, { d = 20 }, { d = 30, n = 7 }, { d = 0, n = 3 } }
+	expect.eq(ev, "release")
+	expect.near(r.backswing, swing.tune.backswingMaxDeg, 1e-9)
+	expect.near(r.releaseAngle, 30, 1e-6)
+end)

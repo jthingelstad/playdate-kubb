@@ -72,7 +72,10 @@ swing.tune = {
 function swing.new()
 	return {
 		phase = "idle",
-		angle = 0,        -- forward degrees from where the wind-up started (negative = wound)
+		angle = 0,        -- forward degrees from where the wind-up started (negative = wound;
+		                  -- held at -backswingMaxDeg while winding: the power's backswing)
+		arm = 0,          -- the same, never held: where the crank really is (the release angle;
+		                  -- Codex on #73: wound past the cap, `angle` no longer was)
 		pending = 0,      -- back motion seen while idle, before it counts as a wind-up
 		backswing = 0,    -- degrees wound back at the start of the swing (or now, while winding)
 		peak = 0,         -- peak forward speed of this swing, deg/s
@@ -86,6 +89,7 @@ end
 
 function swing.reset(s)
 	s.phase, s.angle, s.pending, s.backswing, s.peak, s.n, s.lastSpeed = "idle", 0, 0, 0, 0, 0, 0
+	s.arm = 0
 end
 
 -- Where the crank is, as the throwing arm: forward degrees from the bottom of
@@ -148,13 +152,13 @@ local function release(s, releaseSpeed, nUsed, how)
 	r.peakSpeed = s.peak
 	r.frames = nUsed
 	r.how = how
-	r.releaseAngle = s.angle   -- forward degrees past the bottom of the turn at the release
+	r.releaseAngle = s.arm     -- forward degrees past the bottom of the turn at the release
 	r.launchSpeed = t.launchMin + (t.launchMax - t.launchMin) * p
 	r.tumbleRate = t.tumbleMin + (t.tumbleMax - t.tumbleMin) * p
 	r.smoothness = sm
 	r.tilt = t.tiltMaxDeg * (1 - sm)
 	r.legal = r.tilt <= t.legalTiltDeg
-	s.phase, s.angle, s.pending, s.peak, s.n = "idle", 0, 0, 0, 0
+	s.phase, s.angle, s.pending, s.peak, s.n, s.arm = "idle", 0, 0, 0, 0, 0
 	-- s.backswing is kept until the next wind-up so the HUD can show it
 	return "release"
 end
@@ -173,6 +177,7 @@ function swing.update(s, delta, dt)
 			if s.pending >= t.windStartDeg then
 				s.phase = "winding"
 				s.angle = -min(s.pending, t.backswingMaxDeg)
+				s.arm = -s.pending
 				s.backswing = -s.angle
 			end
 		elseif fwd > 0 then
@@ -184,6 +189,7 @@ function swing.update(s, delta, dt)
 	if phase == "winding" then
 		local speed = fwd / dt
 		if fwd <= 0 then
+			s.arm = s.arm + fwd
 			s.angle = max(s.angle + fwd, -t.backswingMaxDeg)
 		elseif speed >= t.swingStartDps then
 			s.phase = "swinging"
@@ -192,8 +198,9 @@ function swing.update(s, delta, dt)
 			return swing.update(s, delta, dt)
 		else
 			s.angle = s.angle + fwd
+			s.arm = s.arm + fwd
 			if s.angle >= 0 then
-				s.phase, s.angle, s.pending, s.backswing = "idle", 0, 0, 0
+				s.phase, s.angle, s.pending, s.backswing, s.arm = "idle", 0, 0, 0, 0
 				return "letdown"
 			end
 		end
@@ -210,6 +217,7 @@ function swing.update(s, delta, dt)
 		s.n = n
 	end
 	s.angle = s.angle + fwd
+	s.arm = s.arm + fwd
 	local w = windowSpeed(s, n)
 	if w > s.peak then s.peak = w end
 	if s.passRelease then
@@ -230,7 +238,7 @@ function swing.update(s, delta, dt)
 		while used > 1 and s.speeds[used] < t.releaseDropFrac * s.peak do used = used - 1 end
 		return release(s, s.peak, used, "stopped")
 	end
-	if s.angle >= t.releaseMaxDeg then
+	if s.arm >= t.releaseMaxDeg then
 		return release(s, s.peak, n, "over")
 	end
 	return nil
