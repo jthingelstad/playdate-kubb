@@ -330,10 +330,19 @@ function throw.prepare(s, setup)
 		s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX))
 		s.playerY = max(s.lineY - t.backMax, min(s.forwardY, s.playerY))
 	else
-		s.playerX, s.playerY, s.swivel = 0, setup.lineY, 0
+		-- a turn's first baton starts on the advantage line when there is one
+		-- (Jamie, 2026-11-14: from there you are far more accurate); the d-pad
+		-- can still step back
+		local startY = (setup.projectile == "baton") and s.forwardY or setup.lineY
+		s.playerX, s.playerY, s.swivel = 0, startY, 0
 		s.loftDeg = flight.tune.loftDefaultDeg
 	end
 	s.stanceSide, s.stanceKind = setup.side, setup.projectile
+	-- metres the advantage line is up from the baseline, for the HUD's flag
+	-- (batons only; nil from the baseline and for a king shot)
+	local adv = s.forwardY - s.lineY
+	s.advMeters = (setup.projectile == "baton" and adv > 0.05) and adv or nil
+	s.advText = s.advMeters and hud.advantageText(s.advMeters) or nil
 	-- a kubb is drilled; the marker stays where the team left it last throw
 	-- (setup.markerY, a drill's own marker from the thrower's line: fixed there)
 	local drilling = setup.projectile == "kubb"
@@ -1021,6 +1030,9 @@ function throw.drawFrame(s)
 	local half = drill.tune.bandHalf
 	local sw = s.swing
 	local l = s.last
+	-- throwing from the advantage line (yours or the Playdate's): a flag under
+	-- the rail while aiming
+	if s.mode == "aim" and s.advText then hud.advantage(s.advText) end
 	if s.mode == "aim" and s.watching then
 		hud.prompt("WATCH", true)
 	elseif s.mode == "aim" then
