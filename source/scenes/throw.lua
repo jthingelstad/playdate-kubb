@@ -984,7 +984,9 @@ drawRail = function(s)
 			s.railDm = d
 			s.railDist = string.format("%d.%d M", d // 10, d % 10)
 		end
-		r1, r2 = s.railDist, nil
+		-- the marker's distance, and beside it what the caller gave (a drill's
+		-- score; a match's kubb toss gives nothing)
+		r1, r2 = s.railDist, s.railR1
 	elseif s.railName == "PRACTICE" then
 		local n = 0
 		for i = 1, s.nitems do
