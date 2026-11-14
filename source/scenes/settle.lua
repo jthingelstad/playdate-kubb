@@ -238,8 +238,13 @@ local function endWhy(s, which)
 end
 
 -- The crank's tip: > 0 toward the right-hand end, < 0 the left, 1 standing.
+local readEnds   -- (below, with the raise camera)
+
 local function tipTo(s, tip)
 	s.tip = tip
+	-- back to flat: which end is on the right is read again (the view may
+	-- have turned while it was tipped)
+	if tip == 0 and s.cam and s.vpose then readEnds(s) end
 	local which = (tip >= 0) and s.rightEnd or (3 - s.rightEnd)
 	local t = tip >= 0 and tip or -tip
 	render.setPose(s.it, raising.tipPose(s.vpose, which, t))
@@ -290,13 +295,16 @@ raiseCamera = function(s)
 	ox, oy = ox * cy - oy * sy, ox * sy + oy * cy
 	camera.lookAt(c, vx + ox, vy + oy, t.raiseUp * s.zoom, vx, vy, SIDE / 2)
 	c.f, c.cy = t.raiseLens, t.raiseCY
-	if not s.tip or s.tip == 0 then
-		local a = s.vpose.angle
-		local e1 = camera.project(c, vx + cos(a) * LONG / 2, vy + sin(a) * LONG / 2, SIDE / 2) or 0
-		local e2 = camera.project(c, vx - cos(a) * LONG / 2, vy - sin(a) * LONG / 2, SIDE / 2) or 0
-		s.rightEnd = (e1 >= e2) and 1 or 2
-	end
+	if not s.tip or s.tip == 0 then readEnds(s) end
 	s.img = nil
+end
+
+-- Which end of the lying kubb shows on the right of the raise camera.
+readEnds = function(s)
+	local c, vx, vy, a = s.cam, s.vpose.x, s.vpose.y, s.vpose.angle
+	local e1 = camera.project(c, vx + cos(a) * LONG / 2, vy + sin(a) * LONG / 2, SIDE / 2) or 0
+	local e2 = camera.project(c, vx - cos(a) * LONG / 2, vy - sin(a) * LONG / 2, SIDE / 2) or 0
+	s.rightEnd = (e1 >= e2) and 1 or 2
 end
 
 local function raiseView(s)
@@ -465,6 +473,8 @@ function settle.update(s)
 		local up = false
 		if d ~= 0 then
 			local tip = s.tip + d / settle.tune.crankPerRaise
+			-- through flat (or from it): read the ends for this view first
+			if s.tip == 0 or (s.tip > 0) ~= (tip > 0) then readEnds(s) end
 			local which = (tip > 0) and s.rightEnd or ((tip < 0) and (3 - s.rightEnd) or nil)
 			local ci = which and choiceFor(s, which)
 			if which and not ci then
