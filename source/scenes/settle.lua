@@ -48,7 +48,7 @@ local settle = {}
 settle.tune = {
 	raiseBack = 0.95,     -- m the raise camera stands behind the kubb (toward the baseline),
 	raiseUp = 0.62,       -- above the ground,
-	raiseSide = 0.25,     -- and to the right
+	raiseSide = -0.25,    -- and to the left (the light comes from the far left: lit faces)
 	raiseLens = 760,      -- px focal length
 	raiseCY = 104,        -- screen y the kubb's centre is put at
 	raiseNear = 1.6,      -- m: other pieces this near are drawn
@@ -209,7 +209,10 @@ local function placeItem(it, side, p)
 	if p.standing then
 		render.setPose(it, x, y, it.hz, quat.fromAxisAngle(0, 0, 1, a))
 	else
-		render.setPose(it, x, y, SIDE / 2, quat.fromAxisAngle(-sin(a), cos(a), 0, math.pi / 2))
+		-- turned to its angle about the vertical, then laid along it (a face flat)
+		local zw, zx, zy, zz = quat.fromAxisAngle(0, 0, 1, a)
+		local lw, lx, ly, lz = quat.fromAxisAngle(-sin(a), cos(a), 0, math.pi / 2)
+		render.setPose(it, x, y, SIDE / 2, quat.mul(lw, lx, ly, lz, zw, zx, zy, zz))
 	end
 end
 

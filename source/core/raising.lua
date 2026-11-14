@@ -84,10 +84,14 @@ function raising.tipPose(p, which, t)
 	-- of the axis and up
 	local px, py = p.x + ux * L / 2, p.y + uy * L / 2
 	local along, up = -L / 2 * c + S / 2 * sn, L / 2 * sn + S / 2 * c
-	-- the orientation: the long axis turned from up to along the ground (a
-	-- quarter turn about the horizontal normal), then on by th toward down
-	local nx, ny = -uy, ux
-	local qw, qx, qy, qz = tw.quat.fromAxisAngle(nx, ny, 0, pi / 2 + th)
+	-- the orientation: first turned about the vertical to the kubb's angle (so
+	-- the square cross-section is square to its axis and a face lies flat),
+	-- then the long axis turned from up to along the ground (a quarter turn
+	-- about the horizontal normal) and on by th toward down
+	local quat = tw.quat
+	local zw, zx, zy, zz = quat.fromAxisAngle(0, 0, 1, a)
+	local tw_, tx, ty, tz = quat.fromAxisAngle(-uy, ux, 0, pi / 2 + th)
+	local qw, qx, qy, qz = quat.mul(tw_, tx, ty, tz, zw, zx, zy, zz)
 	return px + ux * along, py + uy * along, up, qw, qx, qy, qz
 end
 
