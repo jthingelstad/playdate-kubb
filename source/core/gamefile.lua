@@ -37,9 +37,11 @@ function gamefile.parse(text)
 				first = first or ((h["First"] == "Team B") and "B" or "A")
 				local side = (n % 2 == 1) and first or ((first == "A") and "B" or "A")
 				local batons = 0
+				-- a note (# ...) says what the tokens cannot: not throws
+				rest = rest:gsub("%s*#.*$", "")
 				for tok in rest:gmatch("%S+") do
 					local t = tok:match("^[%w_]+:(.+)$") or tok
-					if not t:match("^%d+A$") and not isInkast(t) and t:sub(1, 1) ~= "#" then
+					if not t:match("^%d+A$") and not isInkast(t) then
 						local _, _, hit, thrown = cards.batonCounts(t)
 						if thrown then
 							batons = batons + 1

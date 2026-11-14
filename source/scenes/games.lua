@@ -156,7 +156,23 @@ local function renderSheet(s)
 	local label = ui.label()
 	gfx.clear(WHITE)
 	if not s.sheetImg then
-		local lines = g and g.lines or { "(this game file could not be read)" }
+		-- long lines wrap at a space, the rest indented (the sheet only scrolls
+		-- up and down)
+		local lines = {}
+		local maxW = 384
+		for _, line in ipairs(g and g.lines or { "(this game file could not be read)" }) do
+			local cur, indent = "", ""
+			for word in line:gmatch("%S+") do
+				local try = (cur == "") and (indent .. word) or (cur .. " " .. word)
+				if cur ~= "" and label:getTextWidth(try) > maxW then
+					lines[#lines + 1] = cur
+					cur, indent = "    " .. word, "    "
+				else
+					cur = try
+				end
+			end
+			lines[#lines + 1] = cur
+		end
 		local h = 8 + #lines * t.lineH
 		local img = gfx.image.new(400, h, WHITE)
 		gfx.pushContext(img)
