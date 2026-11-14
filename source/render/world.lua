@@ -299,9 +299,21 @@ local function drawPitch()
 		-- straight line, tilted when the camera turns), then the footprint
 		-- white. Two fills that stay on the screen; three ground quads 120 m
 		-- wide cost twice as much on the device. The old quads are the
-		-- fallback if an end of the far edge is behind the camera.
-		local ax, ay = projectPoint(-60, far)
-		local bx, by = projectPoint(60, far)
+		-- fallback if an end of the far edge is behind the camera. The far
+		-- edge is `far` metres out along the camera's own heading on the
+		-- ground, so it holds whichever way the camera looks (the impact
+		-- camera's half circle looks back down the pitch); looking down the
+		-- pitch from behind the baseline it is the old y = far within a metre.
+		local hx, hy = CFX, CFY
+		local hl = sqrt(hx * hx + hy * hy)
+		local ax, ay, bx, by
+		if hl > 0.01 then
+			hx, hy = hx / hl, hy / hl
+			local cx, cy = CPX + hx * far, CPY + hy * far
+			ax, ay = projectPoint(cx + hy * 60, cy - hx * 60)
+			bx, by = projectPoint(cx - hy * 60, cy + hx * 60)
+			if ax and bx and bx < ax then ax, ay, bx, by = bx, by, ax, ay end
+		end
 		if ax and bx and bx - ax > 1 then
 			local k = (by - ay) / (bx - ax)
 			fillPolygon(-1, ay + (-1 - ax) * k, 401, ay + (401 - ax) * k, 401, 241, -1, 241)

@@ -49,6 +49,11 @@ camera.tune = {
 		f = 700,             -- px; a standing kubb at the landing point is about 35 px tall
 		cy = 104,            -- px row of the look point: high enough that a kubb there stands clear
 		                     -- of the throw gauge and its label (stage 2: the hit happens there)
+		-- the half circle round a hit (throw.tune.swingDeg) also opens the view
+		-- by its end, so the pitch round the piece shows: guesses
+		openHeight = 1.6,    -- m
+		openDist = 3.4,      -- m
+		openF = 420,         -- px
 	},
 	follow = {
 		marginX = 30,        -- px kept between the baton's center and the screen edge while following
@@ -195,16 +200,26 @@ end
 -- (1 or -1) fixes which way it turns; by default it is chosen from lx, so a
 -- caller that moves the point during a throw passes the side it started with
 -- (otherwise the camera jumps across when the point crosses x = 0).
-function camera.impact(c, lx, ly, dirX, dirY, side)
+-- `orbit` (radians, default 0) carries the camera further round the point
+-- the same way: the half circle of the slow motion after a hit.
+-- `open` (0 to 1, default 0) blends height, distance and lens toward the
+-- tune's open view as the half circle goes round.
+function camera.impact(c, lx, ly, dirX, dirY, side, orbit, open)
 	local t = camera.tune.impact
 	side = side or ((lx > 0) and 1 or -1)       -- swing the camera toward x = 0
-	local a = t.yaw * side
+	local a = (t.yaw + (orbit or 0)) * side
 	local ca, sa = cos(a), sin(a)
 	-- rotate the backwards direction (-dir) by a about z
 	local bx, by = -dirX, -dirY
 	bx, by = bx * ca - by * sa, bx * sa + by * ca
-	camera.lookAt(c, lx + bx * t.dist, ly + by * t.dist, t.height, lx, ly, t.lookUp)
-	c.f, c.cx, c.cy = t.f, camera.SCREEN_W / 2, t.cy
+	local dist, height, f = t.dist, t.height, t.f
+	if open and open > 0 then
+		dist = dist + (t.openDist - dist) * open
+		height = height + (t.openHeight - height) * open
+		f = f * (t.openF / f) ^ open        -- in log space, like the follow's zoom
+	end
+	camera.lookAt(c, lx + bx * dist, ly + by * dist, height, lx, ly, t.lookUp)
+	c.f, c.cx, c.cy = f, camera.SCREEN_W / 2, t.cy
 	return c
 end
 
