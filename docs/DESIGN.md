@@ -337,7 +337,11 @@ design sessions):
   the right. The dot pattern outside the sidelines stops at the far baseline.
 - The baton enters the frame about a quarter of the way into its flight, and the lens widens
   mid-flight.
-- The aim preview is the line on the minimap only; nothing is drawn on the pitch.
+- The aim preview: the line on the minimap, and on the pitch a dashed 3D arc of a clean
+  throw at the loft set with a ring where it lands (Jamie and Tyler, 2026-11-14: "like
+  billiards on a computer"), at full power while idle and growing with the backswing. So
+  the arc reads as an arc, the aim crane stands 1 m to the thrower's right, over the
+  shoulder, and looks up (or widens, for a high loft) until the whole arc is on screen.
 - The low, hard throw (Jamie, 2026-11-14: a field kubb near the baseline is hit low and
   hard, to roll it into others): loft goes down to 5 degrees, and below 35 a baton is
   thrown harder (`flight.loftBoost`), so full power carries about 8.9 m at any loft: 9.2

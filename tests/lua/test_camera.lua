@@ -64,6 +64,9 @@ test("every far base kubb is at least 12 px tall unless f is at its clamp", func
 end)
 
 test("the aimed-at ground point and the whole aim line project to screen center x", function()
+	-- (with the crane straight behind the thrower: side 0)
+	local side = camera.tune.aim.side
+	camera.tune.aim.side = 0
 	local c = camera.new()
 	for _, p in ipairs(POSES) do
 		camera.aim(c, p[1], 0, p[2], FAR)
@@ -75,6 +78,23 @@ test("the aimed-at ground point and the whole aim line project to screen center 
 			expect.near(sx, 200, 1e-6, "aim line at " .. d .. " m")
 		end
 	end
+	camera.tune.aim.side = side
+end)
+
+test("over the shoulder: the aimed-at point stays centered, the aim line comes in from the left", function()
+	local c = camera.new()
+	local side = camera.tune.aim.side
+	camera.tune.aim.side = 1.0
+	for _, p in ipairs(POSES) do
+		camera.aim(c, p[1], 0, p[2], FAR)
+		expect.near(camera.project(c, c.lx, c.ly, 0), 200, 1e-6, "look point")
+		local dx, dy = camera.aimDir(p[2])
+		local near = camera.project(c, p[1] + dx * 3, dy * 3, 0)
+		expect.truthy(near < 200, "the near aim line is left of center: " .. near)
+		-- the crane is to the thrower's right: its right vector points the same way
+		expect.truthy((c.px - p[1]) * dy - c.py * dx > 0.99, "a metre to the right")
+	end
+	camera.tune.aim.side = side
 end)
 
 test("the camera moves with the player and pans with the swivel", function()

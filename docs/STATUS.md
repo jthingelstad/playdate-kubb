@@ -116,6 +116,9 @@ for the surface.
   (2026-11-14).
 - The score sheet during a match: System Menu "Match: sheet" shows the game so far,
   latest turns first on screen; B goes back (2026-11-14). Sharing a finished one is next.
+- The aim arc: a dashed 3D arc of the throw at the loft set and a ring where it lands,
+  growing with the backswing, seen over the thrower's shoulder (Jamie and Tyler,
+  2026-11-14).
 - The release where the crank stops (Jamie and Tyler, 2026-11-14): the launch angle is
   the crank's angle past the bottom of the turn where it stops; the loft set is the target,
   marked on the dial. Stop early and the baton goes into the ground, late and it goes up.

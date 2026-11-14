@@ -382,6 +382,30 @@ in; `burst-reset` and `drawcalls` set `passRelease`); `release-stop` (stopped on
 target: 30 degrees, lands 8.4 m out) and `release-early` (20 short of the bottom: -20,
 lands 1.3 m out) test it.
 
+## The aim arc
+
+Jamie and Tyler (2026-11-14): "the player should visually see the arc of the baton throw
+... like a game of billiards on a computer", and then (Jamie): "an actual arc ... from where
+the baton would be released up into the air and then landing". While a player aims a baton
+(not a drill, not the Playdate's throw), `throw.drawFrame` draws the arc over the world
+(`drawArc`, outside its caches, no tables): where a clean throw at the loft set goes from
+where the player stands and points (`flight.predict`'s arc with the loft boost,
+`arcLaunch`), at full power while idle and at the power the backswing allows so far while
+winding, so it grows as the crank goes back; dashed (`arcPoints` 24, every other gap
+drawn, the first `arcSkip` left out, `arcWidth` 2 px) with a small ring where it lands. It
+shows the aim, not the throw: the flick and where the crank stops still decide it (and the
+wind will not show in it).
+
+From straight behind the thrower an arc is edge-on (a line), so the aim camera stands over
+the shoulder (Jamie chose it, 2026-11-14): `camera.tune.aim.side` (1.0 m) to the right,
+looking at the same ground point. `fitArc` (in `aimCamera`, every aim frame) keeps the
+whole full-power arc on screen: the camera first looks up (the principal row lowered as far
+as `arcMaxCy`, 158: the kubbs keep their size, the pitch sits lower), then widens its lens
+for what is still over (`arcTop`, `arcSide`, never wider than `arcMinF`). At the default 35
+degrees the arc fits by looking up alone; at 55 the lens widens. `arc = false` turns the arc
+and the fit off (the crane still stands to the side). `drawcalls`: aim frames 61 calls
+against 39 (the arc's lines; aim frames wait on the player, not the physics).
+
 ## Input provider
 
 Scenes never read `playdate.buttonIsPressed`/`getCrankChange` directly; they read an input
