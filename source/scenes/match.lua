@@ -125,13 +125,22 @@ local function persist(s)
 end
 scene.persist = persist
 
+-- The game file of a finished match, written once, before its resume save
+-- is deleted: the match is never in neither place.
+local function archive(s)
+	if s.archived then return end
+	s.archived = true
+	s.finish = now()
+	s.file, s.fileError = writeFile(s, s.finish)
+end
+
 local function over(s)
+	archive(s)
 	persist(s)
 	s.phase = "over"
 	s.setup = nil
 	s.ts.readout = nil
-	local finish = now()
-	s.file, s.fileError = writeFile(s, finish)
+	local finish = s.finish
 	s.win = cards.winner(s.m, finish)
 	s.winHow = cmatch.howText(s.m)
 	s.card = nil
@@ -314,8 +323,9 @@ function scene.update(s)
 		-- shows during the rest hold
 		cmatch.resolve(s.m, ts.result, not ts.last.legal)
 		-- saved now, not at the next setup: leaving for the title during the
-		-- rest hold must not give the throw back on resume (a finished match's
-		-- save is deleted here too)
+		-- rest hold must not give the throw back on resume. A throw that ended
+		-- the match writes its game file first, then the save is deleted.
+		if cmatch.over(s.m) then archive(s) end
 		persist(s)
 		s.savedAtRest = true
 		s.resolved = true
