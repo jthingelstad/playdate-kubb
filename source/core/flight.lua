@@ -64,21 +64,24 @@ end
 -- as the same power does at boostBelowDeg: full power (fullSpeed, the swing's
 -- launchMax) lands as far at 10 degrees as at 35, flatter and faster. 1 at and
 -- above boostBelowDeg. The speed that carries R from handHeight at loft e is
--- sqrt(g R^2 / (2 cos^2 e (R tan e + h))). The last answer is kept (the aim
--- preview asks every frame).
+-- sqrt(g R^2 / (2 cos^2 e (R tan e + h))) (carrySpeed). The last answer is
+-- kept (the aim preview asks every frame); a new loft, as while the crank
+-- changes it, costs two calls and no table or closure.
+local tan = math.tan
+-- The speed that carries R (m) from hand height h at loft e (radians).
+local function carrySpeed(R, e, h, g)
+	local c = cos(e)
+	return sqrt(g * R * R / (2 * c * c * (R * tan(e) + h)))
+end
 local lastLoft, lastFull, lastBoost = nil, nil, 1
 function flight.loftBoost(loftDeg, fullSpeed)
 	local t = flight.tune
 	if loftDeg >= t.boostBelowDeg then return 1 end
 	if loftDeg == lastLoft and fullSpeed == lastFull then return lastBoost end
 	local _, R = flight.predict(0, 0, 0, t.boostBelowDeg, fullSpeed)
-	local h = t.handHeight
-	local function need(e)
-		local c = cos(e)
-		return sqrt(t.g * R * R / (2 * c * c * (R * math.tan(e) + h)))
-	end
+	local h, g = t.handHeight, t.g
 	lastLoft, lastFull = loftDeg, fullSpeed
-	lastBoost = max(1, need(rad(loftDeg)) / need(rad(t.boostBelowDeg)))
+	lastBoost = max(1, carrySpeed(R, rad(loftDeg), h, g) / carrySpeed(R, rad(t.boostBelowDeg), h, g))
 	return lastBoost
 end
 
