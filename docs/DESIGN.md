@@ -51,7 +51,7 @@ behind the thrower: 3 m behind the throwing line, 3.4 m up, long lens (focal len
 - From an advantage line the camera moves forward with the throwing line and keeps the same
   framing rule (farthest live target at least 12 px tall).
 - The pitch is not dithered (Jamie, 2026-11-13: it makes things hard to see). White ground,
-  2 px black lines, stakes with shadows, a sparse rough outside the sidelines and past the
+  2 px black lines, stakes as solid posts (3/4 inch by 6 inches, no shadow), a sparse rough outside the sidelines and past the
   far baseline. Kubbs read by a black outline, a black
   face away from the light and a solid black shadow; a piece looks the same lying down. The look
   is "Woodcut" (`docs/design/README.md` and its boards). The mockups here predate it and

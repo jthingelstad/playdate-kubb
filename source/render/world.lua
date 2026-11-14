@@ -47,8 +47,9 @@ local world = {}
 world.tune = {
 	shadowX = 0.55,   -- ground shadow offset per meter of height: light from the far left,
 	shadowY = -0.30,  -- so shadows fall right and toward the thrower, beside the piece
-	stakeHeight = 0.30, -- keep equal to tw.world.tune.stakeHeight (the physics post)
-	stakeWidth = 2,   -- px
+	stakeHeight = 0.15, -- keep equal to tw.world.tune.stakeHeight (the physics post)
+	stakeThick = 0.019, -- m, 3/4 inch (keep equal to 2 x tw.pitch.stakeRadius)
+	stakeMinPx = 3,   -- px, the thinnest a stake is drawn, however far off
 	lineWidth = 2,    -- px, the pitch's lines (docs/design "Lines")
 	dash = 0.24,      -- m, the centerline's dash and gap: 6 on 4 off
 	dashGap = 0.16,
@@ -355,16 +356,22 @@ local function drawPitch()
 	-- the advantage line (the match, II.B.6): 2 on 2 off
 	local ay = world.advantageY
 	if ay then dashes(-2.5, 2.5, ay, t.advDash, t.advDash) end
-	-- the stakes, each with its shadow along the light
-	setLineWidth(t.stakeWidth)
-	local sh = t.stakeHeight
-	local ox, oy = t.shadowX * sh, t.shadowY * sh
+	-- the stakes (Jamie, 2026-11-14: a real pitch's wooden stakes, 3/4 inch thick
+	-- and 6 inches out of the ground): solid posts their true width at their
+	-- distance, never thinner than stakeMinPx, and no shadow (a shadow line at a
+	-- corner read as the pitch's lines running on past it)
+	local sh, thick, minPx = t.stakeHeight, t.stakeThick * CF, t.stakeMinPx
 	for i = 0, 2 do
 		local y = 4 * i
-		line(-2.5, y, 0, -2.5, y, sh)
-		line(-2.5, y, 0, -2.5 + ox, y + oy, 0)
-		line(2.5, y, 0, 2.5, y, sh)
-		line(2.5, y, 0, 2.5 + ox, y + oy, 0)
+		for sx = -2.5, 2.5, 5 do
+			local d = (sx - CPX) * CFX + (y - CPY) * CFY - CPZ * CFZ
+			if d > NEAR then
+				local w = thick / d
+				if w < minPx then w = minPx end
+				setLineWidth(floor(w + 0.5))
+				line(sx, y, 0, sx, y, sh)
+			end
+		end
 	end
 	setLineWidth(1)
 	lap("lines")

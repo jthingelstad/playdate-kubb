@@ -13,7 +13,7 @@ local pitch = {
 	kubbSide = 0.07,
 	kingSide = 0.09,        -- king 9 x 9 x 30 cm
 	batonLength = 0.30,     -- punishment kubbs keep one baton length from king and stakes
-	stakeRadius = 0.015,    -- a stake is treated as a small circle for obstruction
+	stakeRadius = 0.0095,   -- m: a 3/4 inch stake (Jamie, 2026-11-14); a small circle for obstruction
 	baseline = { A = 0, B = 8 },
 	-- Six stakes: the four corners and the two ends of the centerline.
 	stakes = {
