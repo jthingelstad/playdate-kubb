@@ -1,0 +1,33 @@
+soak 2026-11-14 02:27: 3 matches, max 24 turns; memory 1011 KB
+match 1 (seed 847960063): finished; turn 19, throws 164, winner A (king)
+  frames 23456, over 100 ms 422, over 200 ms 89; memory 864 KB -> 1009 KB after collection, most 1263 KB
+  save checks 23, failed 0
+  slowest ms:
+    402 play/rest (update 354, phys 0 in 0 steps, draw 46; awake 0 of 0; gc +160 KB)
+    304 play/flight (update 253, phys 84 in 10 steps, draw 49; awake 1 of 20; gc +26 KB)
+    298 play/flight (update 265, phys 73 in 9 steps, draw 32; awake 1 of 22; gc +24 KB)
+    287 play/flight (update 252, phys 83 in 14 steps, draw 34; awake 1 of 22; gc +23 KB)
+    287 play/flight (update 247, phys 62 in 11 steps, draw 38; awake 1 of 19; gc +26 KB)
+    282 play/flight (update 250, phys 84 in 10 steps, draw 31; awake 1 of 19; gc +28 KB)
+match 2 (seed 847961038): finished; turn 6, throws 30, winner A (king toppled early)
+  frames 4557, over 100 ms 75, over 200 ms 7; memory 1009 KB -> 991 KB after collection, most 1202 KB
+  save checks 4, failed 0
+  slowest ms:
+    234 play/flight (update 203, phys 87 in 14 steps, draw 30; awake 1 of 20; gc +16 KB)
+    232 play/flight (update 179, phys 76 in 12 steps, draw 52; awake 1 of 21; gc +17 KB)
+    211 play/flight (update 192, phys 85 in 13 steps, draw 18; awake 1 of 20; gc +16 KB)
+    207 play/flight (update 184, phys 81 in 11 steps, draw 22; awake 1 of 16; gc +14 KB)
+    207 play/flight (update 182, phys 75 in 10 steps, draw 24; awake 1 of 18; gc +15 KB)
+    206 play/flight (update 181, phys 71 in 10 steps, draw 24; awake 1 of 21; gc +18 KB)
+match 3 (seed 847961226): finished; turn 17, throws 149, winner A (king)
+  frames 23088, over 100 ms 418, over 200 ms 87; memory 990 KB -> 1007 KB after collection, most 1344 KB
+  save checks 21, failed 0
+  slowest ms:
+    277 play/flight (update 243, phys 87 in 10 steps, draw 32; awake 1 of 21; gc +23 KB)
+    269 play/flight (update 212, phys 69 in 12 steps, draw 54; awake 1 of 22; gc +21 KB)
+    264 play/flight (update 234, phys 79 in 10 steps, draw 29; awake 1 of 22; gc +24 KB)
+    263 play/flight (update 225, phys 61 in 11 steps, draw 37; awake 1 of 18; gc +19 KB)
+    262 play/flight (update 233, phys 78 in 9 steps, draw 28; awake 1 of 21; gc +24 KB)
+    262 play/flight (update 229, phys 85 in 11 steps, draw 31; awake 1 of 18; gc +21 KB)
+soak summary: 3 matches, 0 ended by an error, 51101 frames, 183 over 200 ms, 35.5 min
+soak done

@@ -76,6 +76,7 @@ local function newMatch(st)
 	st.n = st.n + 1
 	st.memStart, st.memMax = kb(), kb()
 	st.frames, st.over100, st.over200, st.slow = 0, 0, 0, {}
+	st.info = { update = 0, draw = 0, phys = 0, steps = 0, awake = 0, bodies = 0, gc = 0 }
 	st.checks, st.checkFails, st.lastChecked = 0, {}, 0
 	st.seed = playdate.getSecondsSinceEpoch() + st.n
 	st.ms = match.new(st.input, { seed = st.seed, skipHandoff = true, noFile = true, saveKey = soak.tune.key,
@@ -111,7 +112,8 @@ local function endMatch(st, why)
 	for _, f in ipairs(st.checkFails) do lines[#lines + 1] = "    " .. f end
 	local parts = {}
 	for _, s in ipairs(st.slow) do parts[#parts + 1] = string.format("%.0f %s", s[1], s[2]) end
-	lines[#lines + 1] = "  slowest ms: " .. table.concat(parts, ", ")
+	lines[#lines + 1] = "  slowest ms:"
+	for _, p in ipairs(parts) do lines[#lines + 1] = "    " .. p end
 	out(lines)
 	st.totalFrames = st.totalFrames + st.frames
 	st.totalOver200 = st.totalOver200 + st.over200
@@ -152,10 +154,30 @@ local function finish(st)
 	return true
 end
 
+-- One frame, and where its time went: the update (of it the physics,
+-- playback.busy, and its steps), the draw, the bodies awake and the memory
+-- the collector gave back. Numbers only: a label is made only for a frame
+-- slow enough to list.
+local clockMs = playdate.getCurrentTimeMilliseconds
 local function frame(st)
 	local ms = st.ms
+	local pb = ms.ts and ms.ts.pb
+	local b0, s0 = pb and pb.busy or 0, pb and pb.steps or 0
+	local m0 = collectgarbage("count")
+	local t0 = clockMs()
 	match.update(ms)
+	local t1 = clockMs()
 	match.draw(ms)
+	local f = st.info
+	f.update, f.draw = t1 - t0, clockMs() - t1
+	local pb2 = ms.ts and ms.ts.pb
+	if pb2 and pb2 == pb then
+		f.phys, f.steps = (pb.busy - b0) * 1000, pb.steps - s0
+		f.awake, f.bodies = pb.w.awakeCount or 0, pb.w.n
+	else
+		f.phys, f.steps, f.awake, f.bodies = 0, 0, 0, 0
+	end
+	f.gc = m0 - collectgarbage("count")   -- > 0: the collector ran this frame
 end
 
 -- One frame. Returns true when finished.
@@ -168,7 +190,12 @@ function soak.update(st)
 		st.frames = st.frames + 1
 		if dt > 100 then st.over100 = st.over100 + 1 end
 		if dt > 200 then st.over200 = st.over200 + 1 end
-		noteFrame(st, dt, st.what or "?")
+		local list = st.slow
+		if #list < soak.tune.slowest or dt > list[#list][1] then
+			local f = st.info
+			noteFrame(st, dt, string.format("%s (update %.0f, phys %.0f in %.0f steps, draw %.0f; awake %.0f of %.0f; gc %+.0f KB)",
+				st.what or "?", f.update, f.phys, f.steps, f.draw, f.awake, f.bodies, -f.gc))
+		end
 	end
 	st.last = now
 	-- what this frame is doing, for the slowest-frames list

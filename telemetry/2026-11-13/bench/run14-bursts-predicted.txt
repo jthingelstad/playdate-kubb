@@ -1,0 +1,161 @@
+autobench 2026-11-13 23:36; memory 922 KB
+micro (ns per iteration, empty loop removed):
+  empty loop                               344 ns
+  clock() call                            4629 ns
+  8 local mul-adds                        3722 ns
+  8 sqrt (local)                         31000 ns
+  8 math.sqrt (global)                   45500 ns
+  8 field reads, 4-field table            4275 ns
+  8 field reads, body table               5063 ns
+  8 field writes, body table              3269 ns
+  8 field reads, 18 bodies in turn       23997 ns
+  16 reads, 16 arrays at one index       21952 ns
+  16 reads, one array record             13545 ns
+  16 reads, flat array stride 16         17652 ns
+  16 local reads (baseline)               3019 ns
+  call, 6 args, 7 results                 8520 ns
+  new table, 5 fields                    52418 ns
+  new closure                            34812 ns
+gc stopped: 43.9 KB made in 720 steps (0.061 KB/step); 8.139 ms/step, collision 29.025 ms/step
+device: 720 steps (3.0 s simulated) in 5.708 s; 7.928 ms/step; 126 steps/s; 1902.8 ms per simulated s; 2.5 steps per 20 ms frame; collision phase 176 steps at 28.338 ms/step (0.7 per 20 ms frame); awake max 6, contacts max 27; toppled 1; bodies 12, woke 6; GC 3%, audio 1%, game 87%, idle 10%
+device with debris: 720 steps (3.0 s simulated) in 6.551 s; 9.098 ms/step; 110 steps/s; 2183.6 ms per simulated s; 2.2 steps per 20 ms frame; collision phase 176 steps at 30.841 ms/step (0.6 per 20 ms frame); awake max 6, contacts max 27; toppled 1; bodies 28, woke 6
+match case (defaults) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     92 frames  4.25 s  mean  46.2 ms  max 122.7 ms  starved    0  stall      0 ms  steps  360  phys   1964 ms (5.46 ms/step)  speed 0.35
+    release to rest 4.19 s; flight frames 92, dt sd 11.8 ms; held 3; min pace 0.11; draws: cached 47 layer 51 (built 2) full 38; burst 3 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[26,1.24,47.5,69.7],"slow":[66,3.01,45.7,122.7],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1964.4}
+  miss    67 frames  2.92 s  mean  43.6 ms  max  63.4 ms  starved    0  stall      0 ms  steps  394  phys   1478 ms (3.75 ms/step)  speed 0.56
+    release to rest 2.86 s; flight frames 67, dt sd 5.8 ms; held 0; min pace 0.24; draws: cached 44 layer 32 (built 2) full 35
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[67,2.92,43.6,63.4],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1478.2}
+  drill   84 frames  3.72 s  mean  44.2 ms  max 120.7 ms  starved    0  stall      0 ms  steps  359  phys   1001 ms (2.79 ms/step)  speed 0.40
+    release to rest 3.65 s; flight frames 84, dt sd 9.8 ms; held 1; min pace 0.10; draws: cached 44 layer 24 (built 2) full 59
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[84,3.72,44.2,120.7],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1001.4}
+  all    243 frames 10.89 s  mean  44.8 ms  max 122.7 ms  starved    0  steps 1113  phys   4444 ms (3.99 ms/step)  speed 0.43
+match case (framePeriod 50 ms) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     61 frames  3.41 s  mean  55.9 ms  max 122.8 ms  starved    0  stall      0 ms  steps  360  phys   1893 ms (5.26 ms/step)  speed 0.44
+    release to rest 3.35 s; flight frames 61, dt sd 12.0 ms; held 3; min pace 0.18; draws: cached 48 layer 32 (built 2) full 26; burst 3 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[18,1.00,55.7,66.8],"slow":[43,2.41,56.0,122.8],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1892.9}
+  miss    44 frames  2.33 s  mean  53.1 ms  max  68.7 ms  starved    0  stall      0 ms  steps  394  phys   1382 ms (3.51 ms/step)  speed 0.70
+    release to rest 2.27 s; flight frames 44, dt sd 6.6 ms; held 0; min pace 0.39; draws: cached 44 layer 22 (built 2) full 22
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[44,2.33,53.1,68.7],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1382.1}
+  drill   40 frames  2.18 s  mean  54.5 ms  max 120.0 ms  starved    0  stall      0 ms  steps  359  phys    980 ms (2.73 ms/step)  speed 0.69
+    release to rest 2.12 s; flight frames 40, dt sd 12.5 ms; held 1; min pace 0.34; draws: cached 45 layer 15 (built 2) full 24
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[40,2.18,54.5,120.0],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":979.8}
+  all    145 frames  7.93 s  mean  54.7 ms  max 122.8 ms  starved    0  steps 1113  phys   4255 ms (3.82 ms/step)  speed 0.59
+match case (framePeriod 33 ms) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit    154 frames  6.11 s  mean  39.7 ms  max 121.8 ms  starved    0  stall      0 ms  steps  360  phys   1953 ms (5.43 ms/step)  speed 0.25
+    release to rest 6.04 s; flight frames 154, dt sd 10.3 ms; held 3; min pace 0.10; draws: cached 46 layer 72 (built 2) full 79; burst 3 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[67,2.66,39.7,64.6],"slow":[87,3.45,39.7,121.8],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1953.2}
+  miss   118 frames  4.52 s  mean  38.3 ms  max 120.8 ms  starved    0  stall      0 ms  steps  394  phys   1443 ms (3.66 ms/step)  speed 0.36
+    release to rest 4.46 s; flight frames 118, dt sd 9.0 ms; held 1; min pace 0.10; draws: cached 46 layer 42 (built 2) full 75
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[118,4.52,38.3,120.8],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1443.2}
+  drill  129 frames  5.26 s  mean  40.8 ms  max 121.7 ms  starved    0  stall      0 ms  steps  359  phys   1040 ms (2.90 ms/step)  speed 0.28
+    release to rest 5.20 s; flight frames 129, dt sd 10.1 ms; held 2; min pace 0.10; draws: cached 47 layer 35 (built 2) full 92
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[129,5.26,40.8,121.7],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1039.9}
+  all    401 frames 15.89 s  mean  39.6 ms  max 121.8 ms  starved    0  steps 1113  phys   4436 ms (3.99 ms/step)  speed 0.29
+match case (no layer) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit    136 frames  6.42 s  mean  47.2 ms  max 106.7 ms  starved    0  stall      0 ms  steps  360  phys   1975 ms (5.49 ms/step)  speed 0.23
+    release to rest 6.36 s; flight frames 136, dt sd 8.8 ms; held 5; min pace 0.10; draws: cached 48 layer 0 (built 0) full 131; burst 4 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[25,1.20,48.1,64.1],"slow":[111,5.22,47.0,106.7],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1974.9}
+  miss    93 frames  4.29 s  mean  46.1 ms  max 104.8 ms  starved    0  stall      0 ms  steps  394  phys   1502 ms (3.81 ms/step)  speed 0.38
+    release to rest 4.23 s; flight frames 93, dt sd 9.0 ms; held 3; min pace 0.17; draws: cached 48 layer 0 (built 0) full 90
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[93,4.29,46.1,104.8],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1501.5}
+  drill   95 frames  4.36 s  mean  45.9 ms  max 102.8 ms  starved    0  stall      0 ms  steps  359  phys   1014 ms (2.82 ms/step)  speed 0.34
+    release to rest 4.30 s; flight frames 95, dt sd 8.5 ms; held 3; min pace 0.13; draws: cached 46 layer 0 (built 0) full 92
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[95,4.36,45.9,102.8],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1014.0}
+  all    324 frames 15.07 s  mean  46.5 ms  max 106.7 ms  starved    0  steps 1113  phys   4490 ms (4.03 ms/step)  speed 0.31
+match case (camera holds on the impact: frameRadius 0) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     90 frames  4.13 s  mean  45.9 ms  max 116.7 ms  starved    0  stall      0 ms  steps  360  phys   1942 ms (5.39 ms/step)  speed 0.36
+    release to rest 4.07 s; flight frames 90, dt sd 11.5 ms; held 3; min pace 0.11; draws: cached 47 layer 50 (built 2) full 37; burst 5 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[25,1.19,47.7,63.4],"slow":[65,2.94,45.3,116.7],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1942.1}
+  miss    66 frames  2.89 s  mean  43.8 ms  max  64.1 ms  starved    0  stall      0 ms  steps  394  phys   1437 ms (3.65 ms/step)  speed 0.57
+    release to rest 2.83 s; flight frames 66, dt sd 5.7 ms; held 0; min pace 0.24; draws: cached 44 layer 31 (built 2) full 35
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[66,2.89,43.8,64.1],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1436.7}
+  drill   82 frames  3.62 s  mean  44.2 ms  max 121.0 ms  starved    0  stall      0 ms  steps  359  phys   1019 ms (2.84 ms/step)  speed 0.41
+    release to rest 3.56 s; flight frames 82, dt sd 10.1 ms; held 1; min pace 0.11; draws: cached 44 layer 24 (built 2) full 57
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[82,3.62,44.2,121.0],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1018.9}
+  all    238 frames 10.65 s  mean  44.7 ms  max 121.0 ms  starved    0  steps 1113  phys   4398 ms (3.95 ms/step)  speed 0.44
+match case (defaults, profiled) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     91 frames  4.24 s  mean  46.6 ms  max 122.7 ms  starved    0  stall      0 ms  steps  360  phys   1907 ms (5.30 ms/step)  speed 0.35
+    release to rest 4.17 s; flight frames 91, dt sd 11.5 ms; held 3; min pace 0.11; draws: cached 47 layer 50 (built 2) full 38; burst 6 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[25,1.21,48.2,64.3],"slow":[66,3.03,45.9,122.7],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1906.8}
+    flight frames 90: draw mean 19.6 ms (max 41.1) = world 15.5 + burst 0.15 + hud 2.9 + other 1.0; display mean 1.7 ms (max 2.9); estimate taken from the physics mean 21.5 ms
+    render/world (ms/frame): cached 0.03, clear 0.30, layer 3.91, lines 1.15, outside 0.90, pieces 5.57, prepare 0.94, shadows 2.61
+  miss    68 frames  3.09 s  mean  45.4 ms  max 122.7 ms  starved    0  stall      0 ms  steps  394  phys   1439 ms (3.65 ms/step)  speed 0.53
+    release to rest 3.02 s; flight frames 68, dt sd 11.3 ms; held 1; min pace 0.21; draws: cached 46 layer 31 (built 2) full 36
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[68,3.09,45.4,122.7],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1439.0}
+    flight frames 67: draw mean 18.1 ms (max 37.2) = world 15.3 + burst 0.05 + hud 1.7 + other 1.0; display mean 1.6 ms (max 2.8); estimate taken from the physics mean 19.8 ms
+    render/world (ms/frame): cached 0.01, clear 0.39, layer 1.95, lines 1.30, outside 1.13, pieces 6.76, prepare 0.37, shadows 3.34
+  drill   90 frames  3.99 s  mean  44.3 ms  max 119.9 ms  starved    0  stall      0 ms  steps  359  phys   1009 ms (2.81 ms/step)  speed 0.37
+    release to rest 3.93 s; flight frames 90, dt sd 9.5 ms; held 1; min pace 0.10; draws: cached 44 layer 25 (built 2) full 64
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[90,3.99,44.3,119.9],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1009.2}
+    flight frames 89: draw mean 28.3 ms (max 42.8) = world 20.9 + burst 0.05 + hud 3.5 + other 3.8; display mean 1.6 ms (max 3.0); estimate taken from the physics mean 29.7 ms
+    render/world (ms/frame): cached 0.01, clear 0.51, layer 1.36, lines 2.16, outside 1.58, pieces 9.03, prepare 1.58, shadows 4.61
+  all    249 frames 11.31 s  mean  45.4 ms  max 122.7 ms  starved    0  steps 1113  phys   4355 ms (3.91 ms/step)  speed 0.41
+match case (no bursts) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     90 frames  4.07 s  mean  45.3 ms  max 121.8 ms  starved    0  stall      0 ms  steps  360  phys   1931 ms (5.36 ms/step)  speed 0.37
+    release to rest 4.01 s; flight frames 90, dt sd 11.6 ms; held 3; min pace 0.11; draws: cached 47 layer 49 (built 2) full 38
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[25,1.18,47.1,65.1],"slow":[65,2.90,44.5,121.8],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1930.8}
+  miss    66 frames  2.84 s  mean  43.1 ms  max  64.2 ms  starved    0  stall      0 ms  steps  394  phys   1431 ms (3.63 ms/step)  speed 0.58
+    release to rest 2.78 s; flight frames 66, dt sd 5.9 ms; held 0; min pace 0.25; draws: cached 44 layer 31 (built 2) full 35
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[66,2.84,43.1,64.2],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1431.4}
+  drill   81 frames  3.56 s  mean  44.0 ms  max 118.7 ms  starved    0  stall      0 ms  steps  359  phys    988 ms (2.75 ms/step)  speed 0.42
+    release to rest 3.50 s; flight frames 81, dt sd 9.9 ms; held 1; min pace 0.11; draws: cached 44 layer 24 (built 2) full 56
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[81,3.56,44.0,118.7],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":988.1}
+  all    237 frames 10.48 s  mean  44.2 ms  max 121.8 ms  starved    0  steps 1113  phys   4350 ms (3.91 ms/step)  speed 0.44
+match case (no rough) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     88 frames  4.02 s  mean  45.7 ms  max 112.9 ms  starved    0  stall      0 ms  steps  360  phys   1951 ms (5.42 ms/step)  speed 0.37
+    release to rest 3.96 s; flight frames 88, dt sd 11.0 ms; held 3; min pace 0.12; draws: cached 47 layer 49 (built 2) full 36; burst 5 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[24,1.14,47.4,64.2],"slow":[64,2.89,45.1,112.9],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1951.3}
+  miss    65 frames  2.82 s  mean  43.4 ms  max  64.1 ms  starved    0  stall      0 ms  steps  394  phys   1436 ms (3.65 ms/step)  speed 0.58
+    release to rest 2.76 s; flight frames 65, dt sd 5.5 ms; held 0; min pace 0.25; draws: cached 44 layer 31 (built 2) full 34
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[65,2.82,43.4,64.1],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1436.3}
+  drill   67 frames  2.98 s  mean  44.5 ms  max 116.8 ms  starved    0  stall      0 ms  steps  359  phys   1008 ms (2.81 ms/step)  speed 0.50
+    release to rest 2.92 s; flight frames 67, dt sd 10.3 ms; held 1; min pace 0.19; draws: cached 44 layer 22 (built 2) full 44
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[67,2.98,44.5,116.8],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1008.1}
+  all    220 frames  9.83 s  mean  44.7 ms  max 116.8 ms  starved    0  steps 1113  phys   4396 ms (3.95 ms/step)  speed 0.47
+match case (estimates jump to the slowest frame) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     97 frames  4.36 s  mean  45.0 ms  max 116.8 ms  starved    0  stall      0 ms  steps  360  phys   1969 ms (5.47 ms/step)  speed 0.34
+    release to rest 4.30 s; flight frames 97, dt sd 10.2 ms; held 3; min pace 0.11; draws: cached 46 layer 52 (built 2) full 42; burst 5 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[29,1.32,45.5,63.9],"slow":[68,3.04,44.8,116.8],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1969.0}
+  miss    75 frames  3.17 s  mean  42.3 ms  max  63.6 ms  starved    0  stall      0 ms  steps  394  phys   1437 ms (3.65 ms/step)  speed 0.52
+    release to rest 3.11 s; flight frames 75, dt sd 6.0 ms; held 0; min pace 0.21; draws: cached 44 layer 33 (built 2) full 42
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[75,3.17,42.3,63.6],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1437.4}
+  drill   95 frames  4.05 s  mean  42.6 ms  max 118.0 ms  starved    1  stall     40 ms  steps  359  phys   1002 ms (2.79 ms/step)  speed 0.37
+    release to rest 3.99 s; flight frames 95, dt sd 9.2 ms; held 1; min pace 0.10; draws: cached 44 layer 25 (built 2) full 69
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[95,4.05,42.6,118.0],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":1,"stall":39.9,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1002.1}
+  all    267 frames 11.59 s  mean  43.4 ms  max 118.0 ms  starved    1  steps 1113  phys   4408 ms (3.96 ms/step)  speed 0.40
+match case (1 px pitch lines and outlines) (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):
+  hit     88 frames  4.05 s  mean  46.0 ms  max 116.7 ms  starved    0  stall      0 ms  steps  360  phys   1947 ms (5.41 ms/step)  speed 0.37
+    release to rest 3.99 s; flight frames 88, dt sd 11.4 ms; held 3; min pace 0.12; draws: cached 47 layer 49 (built 2) full 36; burst 2 ms of shown time after the impact
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[24,1.15,47.8,63.7],"slow":[64,2.90,45.4,116.7],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":2,"contacts":7,"bodies":21,"steps":360,"phys":1946.8}
+  miss    65 frames  2.83 s  mean  43.6 ms  max  63.5 ms  starved    0  stall      0 ms  steps  394  phys   1439 ms (3.65 ms/step)  speed 0.58
+    release to rest 2.77 s; flight frames 65, dt sd 5.7 ms; held 0; min pace 0.24; draws: cached 44 layer 31 (built 2) full 34
+    {"v":1,"time":"autobench","scene":"match","proj":"baton","pre":[65,2.83,43.6,63.5],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":2,"bodies":21,"steps":394,"phys":1439.4}
+  drill   70 frames  3.12 s  mean  44.6 ms  max 118.9 ms  starved    0  stall      0 ms  steps  359  phys   1010 ms (2.81 ms/step)  speed 0.48
+    release to rest 3.06 s; flight frames 70, dt sd 10.5 ms; held 1; min pace 0.17; draws: cached 44 layer 23 (built 2) full 46
+    {"v":1,"time":"autobench","scene":"match","proj":"drill","pre":[70,3.12,44.6,118.9],"slow":[0,0.00,0.0,0.0],"post":[0,0.00,0.0,0.0],"starved":0,"stall":0.0,"awake":1,"contacts":1,"bodies":21,"steps":359,"phys":1010.1}
+  all    223 frames 10.01 s  mean  44.9 ms  max 118.9 ms  starved    0  steps 1113  phys   4396 ms (3.95 ms/step)  speed 0.46
+match physics (lone flight off): 1113 steps, 4.142 ms/step; lone 0 at 0.000, air 637 at 2.632, ground 365 at 5.237, multi 111 at 9.211
+match physics (lone flight on): 1113 steps, 3.223 ms/step; lone 561 at 0.660, air 76 at 2.823, ground 365 at 5.411, multi 111 at 9.260
+physics profile (ms per step by phase; clock overhead included):
+  collision steps 176: 29.616 ms/step (narrowphase pairs 9.5, contacts 13.7 per step)
+    forces 0.658, pairs 7.210, ground 1.329, prepare 6.813, solve 8.997, integrate 1.010, relax 2.309, restitution 0.139, store 0.564, tail 0.588, lone 0.000
+  other steps 544: 1.315 ms/step (narrowphase pairs 0.1, contacts 0.1 per step)
+    forces 0.091, pairs 0.463, ground 0.091, prepare 0.098, solve 0.120, integrate 0.083, relax 0.049, restitution 0.017, store 0.023, tail 0.121, lone 0.159
+  aim still       30 frames: update 2.2 ms (max 2.4), draw 7.2 ms (max 55.6), total 9.4 ms (max 57.3) = 50.0 fps
+  aim still render/world (ms/frame): cached 1.02, clear 0.05, lines 0.12, outside 0.15, pieces 0.56, prepare 1.30, shadows 0.29
+  hud (ms): minimap 0.85, rail 0.46, plaque 0.43, gauge 0.86, chip 0.39, readout 5.62
+  primitives (ms): clear 0.17, image 400x240 draw 0.72, fillRect 400x240 pattern 0.30, fillRect 400x120 pattern 0.19, fillPolygon 400x120 pattern 0.36, fillPolygon 400x120 black 0.32, drawText label 0.63, label image draw 0.13, 100 setDitherPattern 1.89, 100 setPattern 3.27, 100 fillPolygon 8px quad 4.12, 100 drawPolygon 8px quad 5.02, 100 fillRect 8px 1.73, 100 drawLine 4.64, 100 drawLine 2px 6.58, 100 drawPolygon 8px quad 2px 7.15, 100 drawPolygon 30px quad 2px 14.57, 100 drawPolygon 30px quad 10.03, 100 image 15x11 draw 6.63
+  aim swivel      50 frames: update 2.5 ms (max 2.8), draw 22.5 ms (max 54.4), total 25.1 ms (max 57.2) = 39.9 fps
+  aim swivel render/world (ms/frame): clear 0.67, lines 3.12, outside 1.89, pieces 7.81, prepare 0.91, shadows 4.63
+  aim walk        50 frames: update 2.8 ms (max 3.6), draw 22.7 ms (max 51.7), total 25.5 ms (max 54.2) = 39.2 fps
+  aim walk render/world (ms/frame): clear 0.63, lines 2.82, outside 1.86, pieces 8.73, prepare 0.96, shadows 4.67
+  aim (windup)    46 frames: update 2.7 ms (max 3.0), draw 7.1 ms (max 51.8), total 9.8 ms (max 53.8) = 50.0 fps
+  flight          50 frames: update 17.8 ms (max 54.8), draw 19.1 ms (max 31.9), total 36.8 ms (max 86.7) = 27.1 fps
+  impact         193 frames: update 19.0 ms (max 23.4), draw 16.3 ms (max 32.2), total 35.3 ms (max 45.4) = 28.3 fps
+  rest            51 frames: update 5.2 ms (max 22.4), draw 5.0 ms (max 21.3), total 10.2 ms (max 40.4) = 50.0 fps
+  flight render/world (ms/frame): clear 0.66, layer 0.44, lines 2.04, outside 1.71, pieces 7.61, prepare 0.34, shadows 3.74
+  impact render/world (ms/frame): cached 0.04, clear 0.61, layer 0.23, lines 1.65, outside 1.66, pieces 3.95, prepare 1.01, shadows 3.32
+  throw: 341 frames, first hit b3, toppled 1; memory 919 KB before, max 1003 KB; GC 5%, audio 1%, game 50%, idle 44%
+autobench done
+
