@@ -34,6 +34,7 @@ import "core/playback"
 import "core/quat"
 import "render/world"
 import "render/hud"
+import "render/burst"
 import "recorder"
 import "framelog"
 import "core/frametel"
@@ -42,7 +43,7 @@ import "core/drill"
 local gfx <const> = playdate.graphics
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
 local phys, playback, frametel, drill = tw.world, tw.playback, tw.frametel, tw.drill
-local render, hud = tw.render.world, tw.render.hud
+local render, hud, burst = tw.render.world, tw.render.hud, tw.render.burst
 local max, min, rad, abs, sqrt, floor = math.max, math.min, math.rad, math.abs, math.sqrt, math.floor
 
 tw.scenes = tw.scenes or {}
@@ -259,6 +260,7 @@ function throw.new(provider)
 		held = 0,                -- flight frames the picture held still for the calm tail
 		baton = { x = 0, y = 0, z = 0, ax = 0, ay = 0, az = 1 },
 		hudState = { playerX = 0, lineY = 0 },
+		burst = tw.render.burst.new(), -- the hit burst (render/burst)
 		lineY = throw.tune.lineY, forwardY = throw.tune.lineY,
 		projectile = "baton", projectileId = nil, projItem = nil,
 		auto = true,
@@ -314,6 +316,7 @@ function throw.prepare(s, setup)
 	s.mode = "aim"
 	s.pb, s.result, s.readout, s.last, s.flagText = nil, nil, nil, nil, nil
 	s.slowMo = false
+	burst.reset(s.burst)
 	s.arm, s.armed = nil, false
 	swing.reset(s.swing)
 	s.swing.backswing = 0
@@ -767,7 +770,9 @@ function throw.update(s)
 		end
 	elseif s.mode == "flight" then
 		flightUpdate(s, dt)
+		burst.update(s.burst, s, dt)
 	elseif s.mode == "rest" then
+		burst.update(s.burst, s, dt)
 		s.restTime = s.restTime + dt
 		if not s.auto and s.restTime >= (s.instant and t.instantHold or t.restHold) then
 			-- the match takes it from here (throw.prepare sets the next throw up)
@@ -778,6 +783,7 @@ function throw.update(s)
 			-- crossing of the bottom, seen from aim mode
 			s.arm, s.armed = nil, false
 			s.pb = nil
+			burst.reset(s.burst)
 			swing.reset(s.swing)
 			s.swing.backswing = 0
 			if s.thisDrill then
@@ -895,6 +901,7 @@ function throw.drawFrame(s)
 	render.advantageY = s.advY
 	local cam = s.viewCam or s.aimCam
 	render.draw(cam, s.items, n, b)
+	burst.draw(s.burst, cam)
 	local marker = s.drill and (s.mode == "aim" or s.thisDrill)
 	if marker then drawMarker(s, cam) end
 

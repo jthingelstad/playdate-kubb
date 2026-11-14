@@ -26,5 +26,6 @@ installed.
 | `run5-draw-split.txt` | the same play screen with the profiled match case: each flight frame's draw split, and one variant per suspect (outlines, tufts, rough, speed lines) |
 | `run6-cheaper-rough.txt` | the rough as two on-screen fills, no speed lines; variants for tufts (16, 8, 0) and the draw estimate |
 | `run7-speed-fix.txt` | the fix: no tufts, the estimate rising by a quarter; 0.44 of real time |
+| `run8-bursts.txt` | with the hit bursts: 0.44 (0.45 without them); the first burst's image loading made a 173 ms frame, since moved to launch |
 
 `watchdog-reset.txt` is the reset caused by the slow punishment kubb search, since fixed.

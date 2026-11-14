@@ -18,6 +18,7 @@ import "input"
 import "scenes/throw"
 import "render/world"
 import "render/hud"
+import "render/burst"
 
 local gfx <const> = playdate.graphics
 local bench, throw, render, hud = tw.bench, tw.scenes.throw, tw.render.world, tw.render.hud
@@ -144,7 +145,7 @@ function auto.matchCase(y, label, tune, prof)
 	end
 	local lines = { "match case " .. (label or "") .. " (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):" }
 	local saved = {}
-	local tables = { throw.tune, render.tune, tw.playback.paceTune }
+	local tables = { throw.tune, render.tune, tw.playback.paceTune, tw.render.burst.tune }
 	for k, v in pairs(tune or {}) do
 		for _, T in ipairs(tables) do
 			if T[k] ~= nil then saved[#saved + 1] = { T, k, T[k] }; T[k] = v end
@@ -155,7 +156,7 @@ function auto.matchCase(y, label, tune, prof)
 	local D = { on = false }
 	local unwrap
 	if prof then
-		local list = { { render, "draw", "world" } }
+		local list = { { render, "draw", "world" }, { tw.render.burst, "draw", "burst" } }
 		for k, v in pairs(hud) do
 			if type(v) == "function" and k ~= "short" and k ~= "readoutText" and k ~= "drillReadoutText" then
 				list[#list + 1] = { hud, k, "hud" }
@@ -179,8 +180,8 @@ function auto.matchCase(y, label, tune, prof)
 			local C = render.count
 			C.cached, C.layer, C.built, C.full = 0, 0, 0, 0
 			local sum, sum2, nf, minPace, wall, restAt = 0, 0, 0, 1, 0, nil
-			D.world, D.hud, D.n, D.draw, D.drawMax, D.post, D.postMax, D.np, D.est =
-				0, 0, 0, 0, 0, 0, 0, 0, 0
+			D.world, D.burst, D.hud, D.n, D.draw, D.drawMax, D.post, D.postMax, D.np, D.est =
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 			local RPm = prof and { clock = clock } or nil
 			local lastEnd, lastFlying = nil, false
 			while s.mode ~= "done" and n < 3000 do
@@ -237,9 +238,9 @@ function auto.matchCase(y, label, tune, prof)
 				lines[#lines + 1] = "    " .. got.line
 				if prof and D.n > 0 then
 					local k = 1000 / D.n
-					lines[#lines + 1] = string.format("    flight frames %d: draw mean %.1f ms (max %.1f) = world %.1f + hud %.1f + other %.1f; display mean %.1f ms (max %.1f); estimate taken from the physics mean %.1f ms",
-						D.n, D.draw * k, D.drawMax * 1000, D.world * k, D.hud * k,
-						(D.draw - D.world - D.hud) * k, D.np > 0 and D.post * 1000 / D.np or 0,
+					lines[#lines + 1] = string.format("    flight frames %d: draw mean %.1f ms (max %.1f) = world %.1f + burst %.2f + hud %.1f + other %.1f; display mean %.1f ms (max %.1f); estimate taken from the physics mean %.1f ms",
+						D.n, D.draw * k, D.drawMax * 1000, D.world * k, D.burst * k, D.hud * k,
+						(D.draw - D.world - D.burst - D.hud) * k, D.np > 0 and D.post * 1000 / D.np or 0,
 						D.postMax * 1000, D.est * k)
 					lines[#lines + 1] = profLines(RPm, D.n, "  render/world")
 				end
@@ -315,6 +316,8 @@ local function body()
 	-- where the draw goes, and what each part of the Woodcut ground costs in
 	-- shown speed (each variant switches one part off)
 	out(auto.matchCase(y, "(defaults, profiled)", nil, true))
+	y()
+	out(auto.matchCase(y, "(no bursts)", { on = false }))
 	y()
 	out(auto.matchCase(y, "(no rough)", { rough = false }))
 	y()

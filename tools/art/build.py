@@ -133,8 +133,72 @@ def wordmark_card(b_angle=16):
 
 
 def svg(w, h, body, bg="#fff"):
+    back = f'<rect width="{w}" height="{h}" fill="{bg}"/>' if bg else ""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" '
-            f'shape-rendering="crispEdges"><rect width="{w}" height="{h}" fill="{bg}"/>{body}</svg>')
+            f'shape-rendering="crispEdges">{back}{body}</svg>')
+
+
+# --------------------------------------------------------------------------
+# Hit bursts (docs/design/README.md "Hit effects", src/HitFX.html): per kind
+# three images, 1 flash, 2 burst, 3 break-up, on a clear ground. The star is
+# the board's 22-point star (x 98..204, y 42..118 in its own units), scaled
+# by S with a margin of BURST_M px; every image of a kind has its long spike's
+# tip (204, 112) at the same pixel, the point render/burst puts on the hit.
+# The flash is the same star at BURST_FLASH of the size about that tip.
+
+BURST_WORDS = {"clean": "TOK!", "double_a": "KLAK", "double_b": "KLAK!", "king": "KING!"}
+BURST_STAR = [(202, 80), (180, 87), (204, 112), (168, 99), (166, 118), (150, 104), (134, 118), (132, 99),
+              (108, 104), (120, 87), (98, 80), (120, 73), (108, 56), (132, 61), (134, 42), (150, 56),
+              (166, 42), (168, 61), (192, 56), (180, 73)]
+BURST_CROWN = [(132, 66), (132, 54), (138, 60), (144, 52), (150, 60), (156, 52), (162, 60), (168, 54), (168, 66)]
+BURST_M = 3
+BURST_FLASH = 0.55
+# kind: scale, word's baseline and size in star units, the burst star's look
+BURST_KINDS = {
+    "clean": {"S": 1.0, "base": 91, "size": 30, "star": "black"},
+    "double_a": {"S": 0.9, "base": 90, "size": 26, "star": "black"},
+    "double_b": {"S": 0.9, "base": 90, "size": 26, "star": "outline"},
+    "king": {"S": 1.15, "base": 96, "size": 28, "star": "black", "crown": True},
+}
+
+
+def burst_images():
+    out = {}
+    for kind, k in BURST_KINDS.items():
+        S, M = k["S"], BURST_M
+        w, h = int(106 * S + 2 * M + 1), int(76 * S + 2 * M + 1)
+
+        def pts(points, f=1.0):
+            return " ".join(f"{M + (204 + (x - 204) * f - 98) * S:.2f},{M + (112 + (y - 112) * f - 42) * S:.2f}"
+                            for x, y in points)
+        star = pts(BURST_STAR)
+        word = BURST_WORDS[kind]
+        tx, ty, size = M + (150 - 98) * S, M + (k["base"] - 42) * S, k["size"] * S
+        crown = pts(BURST_CROWN) if k.get("crown") else None
+        # 1 flash: a small black star (the king's screen inverts around it)
+        out[f"images/burst/{kind}-1"] = {"w": w, "h": h, "clear": True, "texts": [],
+                                        "svg": svg(w, h, f'<polygon points="{pts(BURST_STAR, BURST_FLASH)}" fill="#000"/>', bg=None)}
+        # 2 burst: the star with the word
+        if k["star"] == "black":
+            body = f'<polygon points="{star}" fill="#000"/>'
+            if crown:
+                body += f'<polygon points="{crown}" fill="#fff"/>'
+            fill = "#fff"
+        else:
+            body = f'<polygon points="{star}" fill="#fff" stroke="#000" stroke-width="{4 * S:.2f}"/>'
+            fill = "#000"
+        out[f"images/burst/{kind}-2"] = {"w": w, "h": h, "clear": True, "svg": svg(w, h, body, bg=None),
+                                        "texts": [{"text": word, "x": tx, "y": ty, "size": size, "fill": fill}]}
+        # 3 break-up: the star dashed and white, the word black (the chips are
+        # drawn by render/burst); the double's first star keeps only its word
+        body = ""
+        if kind != "double_a":
+            body = f'<polygon points="{star}" fill="#fff" stroke="#000" stroke-width="{3 * S:.2f}" stroke-dasharray="{14 * S:.1f} {8 * S:.1f}"/>'
+        if crown:
+            body += f'<polygon points="{crown}" fill="#000"/>'
+        out[f"images/burst/{kind}-3"] = {"w": w, "h": h, "clear": True, "svg": svg(w, h, body, bg=None),
+                                        "texts": [{"text": word, "x": tx, "y": ty, "size": size, "fill": "#000"}]}
+    return out
 
 
 # The title without its menu (src/Title.html): the wordmark, the black band
@@ -193,6 +257,7 @@ def images():
     }
     for i, a in enumerate(HIGHLIGHT_ANGLES):
         out[f"launcher/card-highlighted/{i + 1}"] = card(a)
+    out.update(burst_images())
     return out
 
 
@@ -234,7 +299,7 @@ async function main() {
     out.fonts.push({ cap: f.cap, size, x0, B, glyphs });
   }
   for (const [name, im] of Object.entries(JOBS.images)) {
-    c.width = im.w; c.height = im.h;
+    c.width = im.w; c.height = im.h; x.clearRect(0, 0, im.w, im.h);
     const img = new Image(); img.src = "data:image/svg+xml;base64," + btoa(im.svg); await img.decode();
     x.drawImage(img, 0, 0);
     for (const t of im.texts) {
@@ -244,7 +309,9 @@ async function main() {
       x.fillText(t.text, Math.round(t.x - w / 2), t.y);
     }
     const d = x.getImageData(0, 0, im.w, im.h).data; const rows = [];
-    for (let y = 0; y < im.h; y++) { let r = ""; for (let xx = 0; xx < im.w; xx++) r += d[(y * im.w + xx) * 4] < 128 ? "1" : "0"; rows.push(r); }
+    // clear images: "2" where nothing was drawn (alpha under half)
+    for (let y = 0; y < im.h; y++) { let r = ""; for (let xx = 0; xx < im.w; xx++) { const i = (y * im.w + xx) * 4;
+      r += (im.clear && d[i + 3] < 128) ? "2" : (d[i] < 128 ? "1" : "0"); } rows.push(r); }
     out.images[name] = { w: im.w, h: im.h, rows };
   }
   document.getElementById("out").textContent = JSON.stringify(out);
@@ -273,6 +340,29 @@ def render(jobs):
 
 # --------------------------------------------------------------------------
 # 1-bit PNGs.
+
+def write_png3(path, rows):
+    """rows: strings of '1' (black), '0' (white) and '2' (clear): a 2-bit
+    palette image with tRNS (white, black, clear)."""
+    h, w = len(rows), len(rows[0])
+    raw = bytearray()
+    for r in rows:
+        raw.append(0)
+        r = r + "2" * (-len(r) % 4)
+        raw.extend((int(r[i]) << 6) | (int(r[i + 1]) << 4) | (int(r[i + 2]) << 2) | int(r[i + 3])
+                   for i in range(0, len(r), 4))
+
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    png = b"\x89PNG\r\n\x1a\n"
+    png += chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 2, 3, 0, 0, 0))
+    png += chunk(b"PLTE", bytes([255, 255, 255, 0, 0, 0, 255, 255, 255]))
+    png += chunk(b"tRNS", bytes([255, 255, 0]))
+    png += chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(png)
+
 
 def write_png(path, rows, transparent=False):
     """rows: strings of '1' (black) and '0' (white). transparent: white is
@@ -397,7 +487,10 @@ def main():
     for f, spec in zip(res["fonts"], FONTS):
         write_font(f, spec["tracking"], preview)
     for name, im in res["images"].items():
-        write_png(os.path.join(SRC, name + ".png"), im["rows"])
+        if ims[name].get("clear"):
+            write_png3(os.path.join(SRC, name + ".png"), im["rows"])
+        else:
+            write_png(os.path.join(SRC, name + ".png"), im["rows"])
         print(f"{name}.png {im['w']} x {im['h']}")
     with open(os.path.join(SRC, "launcher", "card-highlighted", "animation.txt"), "w") as fh:
         fh.write(ANIMATION_TXT)

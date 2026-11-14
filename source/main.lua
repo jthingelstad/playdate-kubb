@@ -49,6 +49,8 @@ import "selftest/gauge"
 import "selftest/gauge-ghost"
 import "selftest/rearm"
 import "selftest/hit"
+import "selftest/burst"
+import "selftest/bursts"
 import "selftest/layer"
 import "selftest/miss"
 import "selftest/field"
@@ -78,6 +80,7 @@ end
 local args = launchArgs()
 
 if args.selftest then
+	tw.sound.on = false      -- no knocks from the Simulator during self-tests
 	tw.selftest.start(args.selftest, args.out)
 	function playdate.update()
 		tw.selftest.update()
