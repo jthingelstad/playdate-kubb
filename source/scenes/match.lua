@@ -105,16 +105,22 @@ local function writeFile(s, finish)
 	return path
 end
 
--- The match in progress, saved for a resume (core/save, playdate.datastore
--- "match") before every throw and settle step; a finished match deletes it.
--- Scripted matches (self-tests) never touch it.
+-- The match in progress, saved for a resume (core/save, playdate.datastore)
+-- before every throw and after every raise and punishment kubb placed; a
+-- finished match deletes it. Self-test runs (tw.selftestRun) use their own
+-- key, so they never touch a player's saved match; scripted matches (seed,
+-- instant, noSave) do not save at all.
+function scene.saveKey()
+	return tw.selftestRun and "selftest-match" or "match"
+end
+
 local function persist(s)
 	if s.opts.seed or s.opts.instant or s.opts.noSave then return end
 	if cmatch.over(s.m) then
-		playdate.datastore.delete("match")
+		playdate.datastore.delete(scene.saveKey())
 	else
 		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names },
-			function(d) playdate.datastore.write(d, "match") end)
+			function(d) playdate.datastore.write(d, scene.saveKey()) end)
 	end
 end
 scene.persist = persist
@@ -260,7 +266,10 @@ function scene.update(s)
 		return
 	end
 	if s.phase == "settle" then
+		local before = s.settle.raised + s.settle.placed
 		settle.update(s.settle)
+		-- each raise and placement is saved as it is made
+		if s.settle.raised + s.settle.placed ~= before and not s.settle.done then persist(s) end
 		if s.settle.done then
 			s.settle = nil
 			nextThrow(s)

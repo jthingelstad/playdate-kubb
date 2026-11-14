@@ -90,6 +90,7 @@ local args = launchArgs()
 
 if args.selftest then
 	tw.sound.on = false      -- no knocks from the Simulator during self-tests
+	tw.selftestRun = true    -- saves go to their own key (scenes/match.saveKey)
 	tw.selftest.start(args.selftest, args.out)
 	function playdate.update()
 		tw.selftest.update()
