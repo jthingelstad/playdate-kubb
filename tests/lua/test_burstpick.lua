@@ -45,6 +45,15 @@ test("burstpick: the king toppled is the king burst, first or not", function()
 	expect.eq((pick.pick(w, 1.2)), "king")
 end)
 
+test("burstpick: a king that falls after the window is the king burst once it is on screen", function()
+	local w = fake { { kind = "kubb", id = "b3", toppleT = 1.0 }, { kind = "king", id = "king", toppleT = 1.5 } }
+	expect.eq((pick.pick(w, 1.0)), "clean")
+	expect.eq((pick.pick(w, 1.49)), "clean")
+	local kind, a = pick.pick(w, 1.5)
+	expect.eq(kind, "king")
+	expect.eq(a.id, "king")
+end)
+
 test("burstpick: the physics times a topple (world bodies carry toppleT)", function()
 	-- core/bench's scenario: a baton into five field kubbs (it topples one)
 	local w = tw.bench.world()

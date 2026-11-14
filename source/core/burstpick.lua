@@ -4,9 +4,11 @@
 --
 -- A burst starts when the picture reaches the first kubb or king the throw
 -- toppled (world bodies carry toppleT, the simulated time they went down).
--- What kind: the king among the toppled pieces is "king" (the winning hit or
--- the losing one); two or more kubbs down within `window` s of the first is
--- "double"; one is "clean". A baton that touches a kubb and leaves it
+-- What kind: the king toppled within `window` s of the first topple, or by
+-- now (whenever it fell), is "king" (the winning hit or the losing one); two
+-- or more kubbs down within `window` s of the first is "double"; one is
+-- "clean". So a king that falls well after a kubb turns the burst into the
+-- king's when the picture reaches it (render/burst restarts it). A baton that touches a kubb and leaves it
 -- standing, or a miss, gets nothing. Pieces already down when the throw
 -- started have no toppleT and never count.
 import "core/tw"
@@ -34,9 +36,12 @@ function burstpick.pick(w, showTime)
 	for i = 1, n do
 		local b = bodies[i]
 		local tt = b.toppleT
-		if b ~= first and tt and tt <= limit then
-			if b.kind == "king" then king = b
-			elseif b.kind == "kubb" and (not second or tt < second.toppleT) then second = b end
+		if b ~= first and tt then
+			if b.kind == "king" then
+				if tt <= limit or tt <= showTime then king = b end
+			elseif b.kind == "kubb" and tt <= limit and (not second or tt < second.toppleT) then
+				second = b
+			end
 		end
 	end
 	if king then return "king", king, nil end
