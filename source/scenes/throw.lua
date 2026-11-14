@@ -318,8 +318,22 @@ function throw.prepare(s, setup)
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
 	s.targetIds = setup.targets
 	s.auto = false
-	s.playerX, s.playerY, s.swivel = 0, setup.lineY, 0
-	s.loftDeg = flight.tune.loftDefaultDeg
+	-- Stay put (Jamie, 2026-11-14: "in a real Kubb game you stand in one spot
+	-- and throw until you want to move"): a team's batons after its first of a
+	-- turn start where the last was thrown from, with its swivel and loft,
+	-- held to where this one may stand (a king shot is from the baseline).
+	-- The first baton of a turn, and every kubb, start from the middle.
+	local keep = setup.projectile == "baton" and (setup.n or 1) > 1
+		and s.stanceSide == setup.side and s.stanceKind == "baton"
+	if keep then
+		local t = throw.tune
+		s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX))
+		s.playerY = max(s.lineY - t.backMax, min(s.forwardY, s.playerY))
+	else
+		s.playerX, s.playerY, s.swivel = 0, setup.lineY, 0
+		s.loftDeg = flight.tune.loftDefaultDeg
+	end
+	s.stanceSide, s.stanceKind = setup.side, setup.projectile
 	-- a kubb is drilled; the marker stays where the team left it last throw
 	-- (setup.markerY, a drill's own marker from the thrower's line: fixed there)
 	local drilling = setup.projectile == "kubb"
