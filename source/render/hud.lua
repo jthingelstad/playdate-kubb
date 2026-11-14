@@ -52,7 +52,7 @@ hud.tune = {
 	rail = { h = 14, pennantX = 4, nameX = 17, pipsX = 188, rightX = 395, gap = 6, dotGap = 4 },
 	prompt = { x = 316, y = 158, w = 70, h = 15 },
 	gauge = { x = 346, y = 205, r = 27, halo = 2, track = 22, arcW = 6, arm = 21, knob = 4, hub = 3,
-		bandIn = 12, tickOut = 6 },
+		bandIn = 12, tickOut = 6, notchIn = 9 },
 	plaque = { x = 250, y = 199, w = 62, h = 34 },
 	cutFlag = { x = 250, y = 182, w = 62, h = 15 },
 	chip = { x = 318, y = 203, w = 76, h = 32 },
@@ -749,23 +749,17 @@ local function drawDisc(cx, cy, fullDeg, band, half, target)
 	end
 	if target then
 		-- where to stop the crank (Jamie and Tyler, 2026-11-14: the release
-		-- is where the crank stops, and the loft set is the target): a white
-		-- wedge on the forward side at the loft, from bandIn to the rim, and a
-		-- black tick outside the rim
-		local d = -target
-		local ax, ay = onDial(cx, cy, t.bandIn, d - 4)
-		local bx, by = onDial(cx, cy, r, d - 4)
-		local ex, ey = onDial(cx, cy, r, d + 4)
-		local fx, fy = onDial(cx, cy, t.bandIn, d + 4)
+		-- is where the crank stops, and the loft set is the target): a notch
+		-- on the forward side at the loft, drawn as the full-power notch at
+		-- the back is, a little longer (Jamie: "a notch on the forward swing
+		-- too ... this would be perfect"), so the pair reads at a glance:
+		-- back to the one, forward to stop on the other
 		gfx.setColor(WHITE)
-		gfx.fillPolygon(ax, ay, bx, by, ex, ey, fx, fy)
-		gfx.setColor(BLACK)
-		gfx.setLineWidth(2)
-		local x0, y0 = onDial(cx, cy, r + 1, d)
-		local x1, y1 = onDial(cx, cy, r + t.tickOut, d)
+		gfx.setLineWidth(3)
+		local x0, y0 = onDial(cx, cy, r - t.notchIn, -target)
+		local x1, y1 = onDial(cx, cy, r - 1, -target)
 		gfx.drawLine(x0, y0, x1, y1)
 		gfx.setLineWidth(1)
-		gfx.setColor(WHITE)
 	end
 	-- the full-power mark, near the rim at the full backswing (10 o'clock)
 	gfx.setLineWidth(3)
