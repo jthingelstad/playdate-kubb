@@ -9,7 +9,8 @@
 -- knocks, raising and punishment kubbs by the engine's policies, and the
 -- resume save before every throw, under its own key ("soak-match") so a
 -- player's saved match is never touched. Every saveCheck throws the save is
--- read back and unpacked and must match the live engine. No game file is
+-- read back, unpacked and settled as match.setup settles the live one, and
+-- must match the live engine. No game file is
 -- written (games/ is left alone), and the crank recorder and frame-time log
 -- are off, so traces.jsonl and frames.jsonl are not touched either.
 --
@@ -22,6 +23,7 @@
 -- then a summary and "soak done". Auto-lock is off while it runs.
 import "core/tw"
 import "core/save"
+import "core/match"
 import "scenes/match"
 import "input"
 
@@ -57,6 +59,9 @@ local function checkSave(st)
 	if not d then return "no save" end
 	local m = tw.save.unpack(d)
 	if not m then return "unpack failed" end
+	-- the save is made before match.setup settles the kubbs by the engine's
+	-- policies (a scripted match); settle the copy the same way to compare
+	tw.match.settle(m)
 	local a, b = m.game, st.ms.m.game
 	if a.turn ~= b.turn or a.attacker ~= b.attacker or a.phase ~= b.phase or a.batonsLeft ~= b.batonsLeft then
 		return string.format("save turn %s %s %s %s, live %s %s %s %s", tostring(a.turn), tostring(a.attacker),

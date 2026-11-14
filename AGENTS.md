@@ -278,6 +278,10 @@ matches (about a minute; `--quick` about 10 s).
   the game's Data folder. So the runner writes `DONE`/`FAIL` to
   `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/selftest/<name>.done`, and
   the Makefile copies it to `build/selftest/` and checks it and the PNG sizes.
+- The Simulator (SDK 3.1.2) often segfaults as it quits, after the scenario has written its
+  marker; now and then the crash leaves it hanging until the 60 s timeout. The Makefile
+  counts a timed-out run by its `DONE` marker when there is one (and says so), so these
+  are not failures; a run with no marker still is.
 - The Simulator connects to a Playdate plugged in over USB when it starts. Self-tests do not
   touch the device, but do not unplug or reboot it.
 - Screenshots for Jamie are the 2x frames. The 1x frames are for agent checks.

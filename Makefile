@@ -67,7 +67,10 @@ selftest: build
 	  start=$$(date +%s); \
 	  timeout -k 5 $(SIM_TIMEOUT) "$(SIM)" "$(CURDIR)/$(PDX)" selftest=$$s out="$(OUT)" > "$(OUT)/$$s.log" 2>&1; \
 	  rc=$$?; secs=$$(( $$(date +%s) - start )); \
-	  if [ $$rc -eq 124 ] || [ $$rc -eq 137 ]; then echo "selftest $$s: TIMEOUT after $(SIM_TIMEOUT)s (log: build/selftest/$$s.log)"; fail=1; continue; fi; \
+	  if [ $$rc -eq 124 ] || [ $$rc -eq 137 ]; then \
+	    if grep -q '^DONE' "$(SIMDATA)/$$s.done" 2>/dev/null; then echo "selftest $$s: the Simulator hung after DONE (exit $$rc); counted by its marker"; \
+	    else echo "selftest $$s: TIMEOUT after $(SIM_TIMEOUT)s (log: build/selftest/$$s.log)"; fail=1; continue; fi; \
+	  fi; \
 	  if [ ! -f "$(SIMDATA)/$$s.done" ]; then echo "selftest $$s: no marker (Simulator exit $$rc; log: build/selftest/$$s.log)"; fail=1; continue; fi; \
 	  cp "$(SIMDATA)/$$s.done" "$(OUT)/$$s.done"; \
 	  status=$$(cat "$(OUT)/$$s.done"); \
