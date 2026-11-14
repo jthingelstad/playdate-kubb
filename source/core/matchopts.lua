@@ -3,7 +3,7 @@
 -- match, after the names. Pure: no playdate.*.
 --
 --   matchopts.list           the rows, in order: key, label, values, shown
---   matchopts.defaults()     a choice table { surface = 1, opening = 1, raising = 1, set = 1 }
+--   matchopts.defaults()     a choice table { surface = 1, opening = 1, raising = 1, set = 1, wind = 1 }
 --   matchopts.valid(c)       a choice table read back from the datastore, or the defaults
 --   matchopts.step(c, key, d)  the value of row `key` moved by d (-1 or 1), wrapping
 --   matchopts.value(c, key)  the chosen value; matchopts.shown(c, key) its words
@@ -20,6 +20,8 @@ matchopts.list = {
 	-- the kubb set (Jamie, 2026-11-14; render/world's sets: painted heads and crown)
 	{ key = "set", label = "SET", values = { "classic", "usa", "sweden", "minnesota", "wisconsin" },
 		shown = { "CLASSIC", "USA", "SWEDEN", "MINNESOTA", "WISCONSIN" } },
+	-- the wind (Jamie and Tyler, 2026-11-14; core/wind)
+	{ key = "wind", label = "WIND", values = { "off", "light", "strong" }, shown = { "OFF", "LIGHT", "STRONG" } },
 }
 
 local byKey = {}
@@ -51,13 +53,14 @@ function matchopts.value(c, key) return byKey[key].values[c[key]] end
 function matchopts.shown(c, key) return byKey[key].shown[c[key]] end
 
 -- opts (scenes/match options: names, vs, ...) with the surface, the opening,
--- whether the engine raises the kubbs (autoSettle) and the kubb set from the
--- choice.
+-- whether the engine raises the kubbs (autoSettle), the kubb set and the wind
+-- from the choice.
 function matchopts.apply(opts, c)
 	opts.surface = matchopts.value(c, "surface")
 	opts.opening = matchopts.value(c, "opening")
 	opts.autoSettle = matchopts.value(c, "raising") == "auto" or nil
 	opts.set = matchopts.value(c, "set")
+	opts.wind = matchopts.value(c, "wind")
 	return opts
 end
 

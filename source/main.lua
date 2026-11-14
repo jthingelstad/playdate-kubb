@@ -87,6 +87,7 @@ import "selftest/match-opening"
 import "selftest/match-toss"
 import "selftest/match-whole"
 import "selftest/match-sheet"
+import "selftest/match-wind"
 import "selftest/match-vs"
 import "selftest/match-debris"
 import "selftest/drill"
@@ -251,11 +252,11 @@ else
 			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
 			-- a rematch keeps the resumed match's options (surface and opening
 			-- are the engine's own)
-			lastMatch = { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, set = opts.set,
+			lastMatch = { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, set = opts.set, wind = opts.wind,
 				surface = m.game.surface, opening = m.game.opening }
 			kind = "match"
 			current = match.new(device, { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, set = opts.set,
-				resume = m })
+				wind = opts.wind, resume = m })
 			match.enter()
 		else
 			kind = "title"

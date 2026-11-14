@@ -582,7 +582,7 @@ local function launch(s, r)
 			qw = it.qw, qx = it.qx, qy = it.qy, qz = it.qz, toppled = it.toppled }
 	end
 	render.setSurface(s.surface)
-	local w = phys.new { surface = s.surface, pieces = pieces }
+	local w = phys.new { surface = s.surface, pieces = pieces, windX = s.windX, windY = s.windY }
 	for i = 1, s.nitems do s.bodyIndex[i] = w.byId[s.items[i].id].index end
 	local b
 	if kubb then
@@ -1099,6 +1099,12 @@ drawMarker = function(s, c)
 end
 
 -- The kubb set this scene draws (render.world.SETS; a match's options).
+-- The wind for the next throw (core/wind: m/s in the view frame), or nil
+-- for still air. The match sets it before each throw; practice has none.
+function throw.setWind(s, wx, wy, text)
+	s.windX, s.windY, s.windText = wx, wy, text
+end
+
 function throw.setSet(s, name)
 	s.set = name or "classic"
 	render.setSet(s.set)
@@ -1148,6 +1154,8 @@ function throw.drawFrame(s)
 		hs.landX, hs.landY = nil, nil
 	end
 	hud.minimap(hs)
+	-- the wind (a match with WIND on): an arrow on the minimap, the speed above it
+	if s.windText and (s.mode == "aim" or s.mode == "flight") then hud.wind(s.windText, s.windX, s.windY) end
 	drawRail(s)
 
 	-- s.covered: a card is over the pitch (the match's hand-off and winner

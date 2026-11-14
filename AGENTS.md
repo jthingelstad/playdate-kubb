@@ -406,6 +406,37 @@ degrees the arc fits by looking up alone; at 55 the lens widens. `arc = false` t
 and the fit off (the crane still stands to the side). `drawcalls`: aim frames 61 calls
 against 39 (the arc's lines; aim frames wait on the player, not the physics).
 
+## Wind
+
+Jamie and Tyler (2026-11-14): "optional in a game to turn on wind ... some indicator in the
+game that would indicate where the wind is blowing, and wind would affect the baton throws
+and kubb throws ... while they're in the air". The match options' WIND row (off, light,
+strong; `opts.wind`, kept by the save, a resume and a rematch).
+
+- **The air** (`core/wind`, pure, `test_wind.lua`): `wind.levels` light 2.5 and strong 6
+  m/s. Each turn rolls a direction and a speed (`wind.turn`: the level's mean times
+  `turnLow` to `turnHigh`); each throw is a gust of it (`wind.gust`: speed +-`gust`,
+  direction +-`gustDeg`), so no two throws meet quite the same air. The match scene
+  (`s.windLevel`, `s.windRng` from `opts.windSeed`, the seed or the clock) turns it into
+  the thrower's view frame (`wind.vector`; Team B's is turned like the pitch) and hands it
+  to the throw scene (`throw.setWind(s, wx, wy, text)`); practice has none.
+- **The push** (`core/world`): `world.new{ windX, windY }`; `windForce` gives the thrown
+  piece (`w.projectile`, until its first contact) its drag in the moving air less its
+  drag in still air, `k (|r| r + |v| v)` with `r` = wind - v and `k` =
+  `world.tune.windK` per kind (0.5 rho Cd A / m: baton 0.015, kubb 0.0086). With no wind it
+  is nothing at all (still-air throws are bit-identical; the throws were tuned in still
+  air). Applied right after gravity in both the full step and the lone flight, which stay
+  identical with wind. Over an 8 m baton at 30 degrees: a light cross wind carries it 0.16
+  m, a strong one 0.44, a strong head wind costs 0.97 m and a tail wind adds 0.54; a lobbed
+  kubb half that. Cost: one call a step while the piece is in the air (two square roots),
+  nothing without wind.
+- **The indicator** (`hud.wind`): an arrow across the minimap's middle the way the wind
+  blows in the thrower's view, longer the stronger, and `WIND n M/S` on a label above the
+  minimap, while aiming and in flight. The aim arc does not show the wind: judging it is
+  the player's.
+- The Playdate's own throws do not allow for the wind yet. Self-test `match-wind` (a
+  strong-wind match: the label, the speed, Team B's turn).
+
 ## Input provider
 
 Scenes never read `playdate.buttonIsPressed`/`getCrankChange` directly; they read an input
@@ -1007,10 +1038,10 @@ own item). Practice is the throw scene exactly as before.
   (scripted, no keyboard: `names.type`, `ok`, `back`).
 - Match options (Jamie, 2026-11-14: "the game options for the match you are starting";
   `scenes/options.lua`, pure rows in `core/matchopts.lua`, tested): after the names, before
-  every match (PASS + PLAY and VS PLAYDATE). Four rows: SURFACE (grass, sand, snow),
+  every match (PASS + PLAY and VS PLAYDATE). Five rows: SURFACE (grass, sand, snow),
   OPENING (2-4-6, or six from the start), RAISING (by hand, or automatic: the engine's
   policies, `autoSettle`; against the Playdate "by hand" is the player's side only, as
-  before) and SET (the kubb set, "Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
+  before), SET (the kubb set, "Kubb sets") and WIND (off, light, strong; "Wind"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
   a line under the rows says what the row is for; A starts, B goes back to the names. The
   choice is kept (`playdate.datastore` "matchopts", `matchopts.valid` on reading) and
   offered next time. `main.lua`: title -> `names` -> `options` -> `play`; a rematch keeps

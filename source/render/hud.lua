@@ -33,7 +33,7 @@ import "render/world"
 local gfx <const> = playdate.graphics
 local camera = tw.camera
 local rworld = tw.render.world
-local floor, cos, sin, rad, max, min, abs = math.floor, math.cos, math.sin, math.rad, math.max, math.min, math.abs
+local floor, cos, sin, rad, max, min, abs, sqrt = math.floor, math.cos, math.sin, math.rad, math.max, math.min, math.abs, math.sqrt
 local CLEAR <const>, BLACK <const>, WHITE <const> = gfx.kColorClear, gfx.kColorBlack, gfx.kColorWhite
 
 tw.render = tw.render or {}
@@ -64,6 +64,8 @@ hud.tune = {
 	-- throwing from the advantage line (Jamie, 2026-11-14: "a big deal"): an
 	-- inverted flag centred under the rail, with how far up the line is
 	advantage = { y = 18, h = 15 },
+	-- the wind: its label above the minimap, and the arrow's length on it
+	wind = { x = 4, y = 145, h = 15, baseLen = 10, perMps = 2.5, maxLen = 30 },
 	callout = { x = 59, y = 185, w = 234, h = 48, block = 66, rulerW = 144, rulerBands = 3 },
 	readoutX = 4, readoutY = 17,  -- the System Menu "Readout" line, just under the rail
 	cardPad = 10, cardGap = 6, cardRise = 20,              -- hand-off and winner card: padding,
@@ -375,6 +377,49 @@ function hud.minimap(state)
 		if bx > 2.6 then bx = 2.6 elseif bx < -2.6 then bx = -2.6 end
 		dot(bx, by, 3, 0, 0)
 	end
+end
+
+-- ---------- the wind ----------
+
+local windPlate
+-- The wind (core/wind; a match with WIND on): an arrow across the minimap's
+-- middle the way the wind blows in the thrower's view (wx, wy m/s: x across,
+-- y down the pitch, so up the map), longer the stronger, and the speed on a
+-- small inverted label above the minimap (one cached image per text). Over
+-- the minimap's layer, every frame: a line, a head, one image.
+function hud.wind(text, wx, wy)
+	local m = camera.minimap
+	local t = hud.tune.wind
+	local sp = sqrt(wx * wx + wy * wy)
+	if sp > 0.01 then
+		local cx, cy = m.ox + m.w / 2, m.oy + m.h / 2
+		local L = min(t.maxLen, t.baseLen + t.perMps * sp)
+		local ux, uy = wx / sp, -wy / sp
+		local hx, hy = cx + ux * L / 2, cy + uy * L / 2
+		local qx, qy = cx - ux * L / 2, cy - uy * L / 2
+		gfx.setColor(BLACK)
+		gfx.setLineWidth(2)
+		gfx.drawLine(qx, qy, hx, hy)
+		gfx.setLineWidth(1)
+		local px, py = -uy, ux
+		local hw, hl = 3, 5
+		gfx.fillPolygon(hx + ux * 2, hy + uy * 2, hx - ux * hl + px * hw, hy - uy * hl + py * hw,
+			hx - ux * hl - px * hw, hy - uy * hl - py * hw)
+	end
+	local sh = hud.tune.shadow
+	local P = windPlate
+	if not P or P.k1 ~= text or not hud.tune.cache then
+		local w = hud.labelFont():getTextWidth(text) + 10
+		if not P or P.w ~= w + sh then
+			P = newPlate(t.x, t.y, w + sh, t.h + sh)
+			windPlate = P
+		end
+	end
+	if plateBegin(P, text) then
+		flagIn(0, 0, P.w - sh, t.h, text, true)
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
 end
 
 -- ---------- the loft and power plaque ----------

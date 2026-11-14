@@ -59,12 +59,14 @@ import "scenes/settle"
 import "core/names"
 import "core/save"
 import "scenes/sheet"
+import "core/wind"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
 local throw, hud = tw.scenes.throw, tw.render.hud
 local cards, rcards = tw.cards, tw.render.cards
 local settle, sheet = tw.scenes.settle, tw.scenes.sheet
+local wind = tw.wind
 
 tw.scenes = tw.scenes or {}
 local scene = {}
@@ -126,7 +128,8 @@ local function persist(s)
 	if cmatch.over(s.m) then
 		playdate.datastore.delete(key)
 	else
-		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, autoSettle = s.opts.autoSettle, set = s.opts.set },
+		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, autoSettle = s.opts.autoSettle, set = s.opts.set,
+			wind = s.opts.wind },
 			function(d) playdate.datastore.write(d, key) end)
 	end
 end
@@ -183,6 +186,18 @@ local function nextThrow(s)
 	s.resolved = false
 	throw.prepare(s.ts, setup)
 	s.ts.instant = s.opts.instant
+	-- the wind (match option WIND): a direction and speed for each turn, a
+	-- gust of it for each throw, in this side's view frame
+	if s.windLevel then
+		local turn = m.game.turn
+		if s.windTurn ~= turn then
+			s.windTurn = turn
+			s.windDir, s.windSpeed = wind.turn(s.windRng, s.windLevel)
+		end
+		local d, sp = wind.gust(s.windRng, s.windDir, s.windSpeed)
+		local wx, wy = wind.vector(d, sp, setup.side)
+		throw.setWind(s.ts, wx, wy, wind.text(sp))
+	end
 	-- the rail: the team, this throw's pips and what is left to knock down
 	local r1, r2
 	if setup.kingShot then
@@ -249,6 +264,11 @@ function scene.new(provider, opts)
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	s.ts.sceneName = "match"
 	throw.setSet(s.ts, s.opts.set)
+	-- the wind (match option WIND; off or absent: still air)
+	if s.opts.wind and s.opts.wind ~= "off" and (wind.levels[s.opts.wind] or 0) > 0 then
+		s.windLevel = s.opts.wind
+		s.windRng = autothrow.rng(s.opts.windSeed or s.opts.seed or playdate.getSecondsSinceEpoch())
+	end
 	nextThrow(s)
 	return s
 end
