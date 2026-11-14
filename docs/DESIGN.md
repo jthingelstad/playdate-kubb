@@ -98,7 +98,7 @@ Before the throw:
 | D-pad left/right | Walk the player along the throwing line (baseline or advantage line, II.B.2). The camera moves with the player. |
 | D-pad down/up | Step back from the throwing line (up to 3 m) and forward again as far as the line. |
 | Hold B + crank | Swivel the player left and right, so a throw need not be straight on. The crank is geared down for fine aim. |
-| Hold A + crank | Loft: crank forward for a higher arc, back for a low driving throw. |
+| Hold A + crank | Loft (5 to 55 degrees): crank forward for a higher arc, back for a low, hard throw. |
 | Double tap B | Face straight down the pitch again. |
 | Double tap A | Loft back to the default. |
 
@@ -338,8 +338,12 @@ design sessions):
 - The baton enters the frame about a quarter of the way into its flight, and the lens widens
   mid-flight.
 - The aim preview is the line on the minimap only; nothing is drawn on the pitch.
-- Open: a full-power throw at the lowest loft (15 degrees) lands at 5.9 m, short of the far
-  baseline; a baton at rest on plain white ground reads as floating; when swivelled, far
+- The low, hard throw (Jamie, 2026-11-14: a field kubb near the baseline is hit low and
+  hard, to roll it into others): loft goes down to 5 degrees, and below 35 a baton is
+  thrown harder (`flight.loftBoost`), so full power carries about 8.9 m at any loft: 9.2
+  m/s at 35 degrees, 11.8 at 15, 13.6 at 10, 16.8 at 5. A flat throw lands short and
+  skids in. (It was 15 degrees at the same top speed: full power landed 5.9 m out.)
+- Open: a baton at rest on plain white ground reads as floating; when swivelled, far
   kubbs can pass under the minimap.
 
 **Hit effects** (Jamie, 2026-11-13, for stage 7): a comic-book burst ("POW", "BAM") at the

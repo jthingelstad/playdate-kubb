@@ -95,3 +95,18 @@ test("a landed baton lies flat and stops", function()
 	expect.eq(az, 0)
 	expect.near(ax * ax + ay * ay, 1, 1e-9)
 end)
+
+test("a low throw is harder: full power carries as far at any loft below boostBelowDeg", function()
+	local t = flight.tune
+	local full = 9.2
+	local _, ref = flight.predict(0, 0, 0, t.boostBelowDeg, full)
+	for loft = t.loftMinDeg, t.boostBelowDeg, 5 do
+		local b = flight.loftBoost(loft, full)
+		local _, ly = flight.predict(0, 0, 0, loft, full * b)
+		expect.near(ly, ref, 1e-6)
+		expect.truthy(b >= 1)
+	end
+	expect.near(flight.loftBoost(t.loftMinDeg, full), 1.83, 0.01)
+	expect.eq(flight.loftBoost(45, full), 1)
+	expect.eq(flight.loftBoost(t.boostBelowDeg, full), 1)
+end)

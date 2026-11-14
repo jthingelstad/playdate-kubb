@@ -515,6 +515,12 @@ local function launch(s, r)
 	local tumble, tilt, speed = r.tumbleRate, r.tilt, r.launchSpeed
 	-- a lobbed kubb: slower end over end, never sideways (no helicopter)
 	if kubb then tumble, tilt = tumble * t.tossTumble, 0 end
+	-- a low baton is thrown harder (flight.loftBoost); the computer's speed is
+	-- already the one it wants
+	-- (s.loftBoost = false: the throw-scene self-tests written before it)
+	if not kubb and not s.scripted and s.loftBoost ~= false then
+		speed = speed * flight.loftBoost(s.loftDeg, swing.tune.launchMax)
+	end
 	-- a drilled kubb (not the computer's: it lobs): the launch the drill
 	-- solution and the swing make (core/drill)
 	local drilling = kubb and s.drill and (not s.scripted or s.autoDrill)
@@ -560,7 +566,7 @@ local function launch(s, r)
 		end
 		s.items[s.nitems + 1] = it
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, s.swivel, s.loftDeg, r.launchSpeed, tumble, tilt,
+		b = phys.launchBaton(w, s.playerX, s.playerY, s.swivel, s.loftDeg, speed, tumble, tilt,
 			s.projectileId)
 	end
 	s.batonIndex = b.index
@@ -991,7 +997,9 @@ function throw.drawFrame(s)
 	if marker then
 		hs.aimX, hs.aimY = s.markerX, s.markerY
 	else
-		hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, swing.tune.launchMax)
+		local full = swing.tune.launchMax
+		if s.projectile ~= "kubb" and s.loftBoost ~= false then full = full * flight.loftBoost(s.loftDeg, full) end
+		hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, full)
 	end
 	hs.baton = (s.mode ~= "aim") and s.baton or nil
 	hs.pieces, hs.npieces = s.items, s.nitems

@@ -15,6 +15,7 @@ st.scenarios["burst-reset"] = {
 				{ n = 5 }, st.windup(120, 30), { n = 5 }, st.flick { 6, 12, 18, 22, 24, 24, 24 }, { n = 300 },
 			})
 			s.loftDeg = 30
+			s.loftBoost = false   -- written for the speeds before flight.loftBoost
 			throw.enter()
 		end
 		throw.update(s)
