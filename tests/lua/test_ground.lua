@@ -15,13 +15,14 @@ end
 -- One throw at a base kubb run to rest; returns the baton, the world and the
 -- seconds it slid on an end, and how far it went after first touching down.
 local function throw(i, opts)
+	local surface = opts and opts.surface or "grass"
 	local R = autothrow.rng(1000 + i)
 	local tx = -3 + (1 + math.floor(R.next() * 5))
 	local x = -2 + R.next() * 4
 	local loft = 25 + R.next() * 12
 	local d = sqrt((tx - x) ^ 2 + 64) - 0.15
 	local speed = autothrow.speedFor(d, loft) * (1 + R.normal(0.06))
-	local w = world.new { surface = "grass", pieces = pieces(), texture = opts and opts.texture,
+	local w = world.new { surface = surface, pieces = pieces(), texture = opts and opts.texture,
 		groundSeed = opts and opts.groundSeed }
 	world.launchBaton(w, x, 0, math.atan(tx - x, 8) + rad(R.normal(1.5)), loft, speed,
 		5 + R.next() * 5, R.normal(8))
@@ -70,4 +71,40 @@ test("ground: on textured grass a baton hardly ever slides on an end and stops s
 	end
 	expect.truthy(endT < 0.4 * endF, string.format("on an end %.2f s against %.2f flat", endT, endF))
 	expect.truthy(slideT < 0.85 * slideF, string.format("slide %.1f m against %.1f flat", slideT, slideF))
+end)
+
+test("ground: sand stops a baton far sooner than grass; snow lets it run farther, then stops it", function()
+	local g, sa, sn = 0, 0, 0
+	for i = 1, 60 do
+		local _, _, _, s1 = throw(i)
+		local _, _, _, s2 = throw(i, { surface = "sand" })
+		local b, w, _, s3 = throw(i, { surface = "snow" })
+		g, sa, sn = g + s1, sa + s2, sn + s3
+		expect.truthy(w.time < world.tune.maxTime, "snow throw " .. i .. " came to rest")
+		expect.truthy(not b.awake, "snow baton " .. i .. " asleep")
+	end
+	-- 400 throws (tools/groundstats): grass 1.39 m, sand 0.46, snow 1.85
+	expect.truthy(sa < 0.5 * g, string.format("sand %.1f m against grass %.1f", sa, g))
+	expect.truthy(sn > 1.1 * g, string.format("snow %.1f m against grass %.1f", sn, g))
+end)
+
+test("ground: in snow the drag grows with the distance ploughed, and resets off the ground", function()
+	local w = world.new { surface = "snow", stakes = false,
+		pieces = { { id = "b", kind = "baton", x = 0, y = 2, qw = math.cos(math.pi / 4), qx = math.sin(math.pi / 4), qy = 0, qz = 0, z = 0.025 } },
+		groundSeed = 1 }
+	local b = w.byId.b
+	tw.world.wake(b)
+	b.vx = 3
+	for _ = 1, 60 do world.step(w) end
+	expect.truthy(b.plough > 0.2, "ploughed " .. b.plough .. " m")
+	b.z, b.vz = 1, 0          -- lifted clear: the next step it is off the ground
+	world.step(w)
+	expect.eq(b.plough, 0)
+end)
+
+test("ground: every surface a game can be played on has its texture", function()
+	for _, name in ipairs(world.SURFACES) do
+		local s = world.surfaces[name]
+		expect.truthy(s and s.texture, name .. " has a texture")
+	end
 end)

@@ -3,7 +3,8 @@
 -- scene without the screen. Writes each game file; the notation gate checks
 -- them (`make physgames`).
 --
---   lua5.4 tools/physmatch.lua [--n 3] [--seed 1] [--out build/physgames] [--maxturns 40] [-v]
+--   lua5.4 tools/physmatch.lua [--n 3] [--seed 1] [--out build/physgames] [--maxturns 40]
+--     [--surface Grass|Sand|Snow] [-v]
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -20,7 +21,7 @@ import "core/autothrow"
 import "core/notation"
 local match, world, autothrow, notation = tw.match, tw.world, tw.autothrow, tw.notation
 
-local n, seed, out, maxTurns, verbose = 3, 1, "build/physgames", 40, false
+local n, seed, out, maxTurns, verbose, surface = 3, 1, "build/physgames", 40, false, "Grass"
 local i = 1
 while i <= #arg do
 	local a = arg[i]
@@ -28,6 +29,7 @@ while i <= #arg do
 	elseif a == "--seed" then seed = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "--out" then out = arg[i + 1]; i = i + 1
 	elseif a == "--maxturns" then maxTurns = tonumber(arg[i + 1]); i = i + 1
+	elseif a == "--surface" then surface = arg[i + 1]; i = i + 1   -- Grass, Sand or Snow
 	elseif a == "-v" then verbose = true
 	else error("unknown argument " .. a) end
 	i = i + 1
@@ -51,7 +53,7 @@ local t0 = os.clock()
 local throws = 0
 for gi = 1, n do
 	local start = notation.addMinutes(base, (gi - 1) * 41)
-	local m = match.new { start = start, first = (gi % 2 == 0) and "B" or "A" }
+	local m = match.new { start = start, first = (gi % 2 == 0) and "B" or "A", surface = surface }
 	local r = autothrow.rng(seed * 7919 + gi)
 	while not match.over(m) do
 		if m.game.turn > maxTurns then
@@ -61,7 +63,7 @@ for gi = 1, n do
 		local s = match.setup(m)
 		if not s then break end
 		local a = autothrow.choose(s, r)
-		local res = simulate(s, a, "grass")
+		local res = simulate(s, a, s.surface or "grass")
 		match.resolve(m, res, not a.legal)
 		throws = throws + 1
 		if verbose then print(string.format("turn %d %s -> %s", m.game.turn, s.label, m.text)) end

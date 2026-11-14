@@ -92,7 +92,10 @@ local function renderList(s)
 	local label, big = ui.label(), ui.display(16)
 	gfx.clear(WHITE)
 	local n = #s.files
-	rail("GAMES", n > 0 and { s.sel .. " OF " .. n, "GRASS" } or nil)
+	-- the chosen game's surface, from its file
+	local chosen = n > 0 and summary(s, s.sel)
+	local surf = chosen and chosen.headers and chosen.headers.Surface or "Grass"
+	rail("GAMES", n > 0 and { s.sel .. " OF " .. n, string.upper(surf) } or nil)
 	if n == 0 then
 		ui.text(big, "NO GAMES YET", 200, 80, false, "center")
 		ui.text(label, "A FINISHED MATCH IS SAVED HERE", 200, 110, false, "center")

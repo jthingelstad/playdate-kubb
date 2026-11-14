@@ -15,7 +15,7 @@
 --   "Pitch"    practice only: play (nothing) / reset (stand every piece back
 --              up and clear the drilled kubbs) / drill (aim kubbs at the far
 --              half with a landing marker; they stay where they end) / batons
---              (back to throwing batons) / bench (the physics benchmark of core/bench plus the
+--              (back to throwing batons) / grass, sand, snow (the surface) / bench (the physics benchmark of core/bench plus the
 --              scene's draw time; shows the figures and appends a line to
 --              bench.txt) / title (back to the title)
 --   "Match"    match only: play (nothing) / resign (the team on turn gives
@@ -74,6 +74,7 @@ import "selftest/field"
 import "selftest/king"
 import "selftest/skid"
 import "selftest/skid-sand"
+import "selftest/skid-snow"
 import "selftest/autoreset"
 import "selftest/bench"
 import "selftest/match-opening"
@@ -143,8 +144,11 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			item = menu:addOptionsMenuItem("Pitch", { "play", "reset", "drill", "batons", "bench", "title" }, "play", function(v)
-				if v == "reset" then
+			item = menu:addOptionsMenuItem("Pitch", { "play", "reset", "drill", "batons", "grass", "sand", "snow",
+				"bench", "title" }, "play", function(v)
+				if v == "grass" or v == "sand" or v == "snow" then
+					throw.setSurface(current, v)
+				elseif v == "reset" then
 					throw.reset(current)
 				elseif v == "drill" or v == "batons" then
 					throw.setDrill(current, v == "drill")

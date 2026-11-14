@@ -112,3 +112,11 @@ test("cards: the pass card before the defender raises counts its kubbs and punis
 	expect.eq(c.raise, 1)
 	expect.eq(c.punish, 1)
 end)
+
+test("match: the setup carries the game's surface to the physics", function()
+	for _, sf in ipairs { "Grass", "Sand", "Snow" } do
+		local m = match.new { start = { year = 2026, month = 11, day = 14, hour = 9, min = 0 }, surface = sf }
+		local s = match.setup(m)
+		expect.eq(s.surface, string.lower(sf))
+	end
+end)

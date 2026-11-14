@@ -106,6 +106,14 @@ end
 --   batonId     the body id of this baton ("baton1" .. "baton6"), so it can
 --               lie on the pitch as debris after it
 -- Returns nil when the game is over.
+-- core/world's surface for the engine's (the game file's "Grass", "Sand",
+-- "Snow"); grass for anything it does not know.
+function match.surfaceName(g)
+	local name = string.lower(g.surface or "grass")
+	if tw.world and tw.world.surfaces and not tw.world.surfaces[name] then return "grass" end
+	return name
+end
+
 function match.setup(m)
 	local g = m.game
 	local raised, punished = match.settle(m)
@@ -118,7 +126,8 @@ function match.setup(m)
 	end
 	local side = n.side
 	debris.begin(m.debris, g.turn)
-	local s = { kind = n.kind, side = side, pieces = outcome.pieces(g, side), lineY = 0, forwardY = 0 }
+	local s = { kind = n.kind, side = side, pieces = outcome.pieces(g, side), lineY = 0, forwardY = 0,
+		surface = match.surfaceName(g) }
 	debris.applyExact(m.debris, s.pieces, side)
 	s.debris = debris.pieces(m.debris, side)
 	if g.advantageY then s.advY = frame.y(side, g.advantageY) end

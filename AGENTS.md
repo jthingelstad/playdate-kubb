@@ -320,7 +320,8 @@ matches (about a minute; `--quick` about 10 s).
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
   right-hand end); all the way up must stand it on that end's footprint.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
-  group of field kubbs), `skid` and `skid-sand` (the kick after landing on each surface),
+  group of field kubbs), `skid`, `skid-sand` and `skid-snow` (the kick after landing on
+  each surface),
   `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
   are the Mac's, not the device's). They set loft and position in `setup`, not through the
   controls. Strong throws use loft 30 or less: at full speed and 35 degrees the baton
@@ -385,9 +386,9 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
   margin, bounce threshold and passes, wood-on-wood friction and bounce, sleep and wake
   thresholds, topple angle, out margin, maximum throw time, stake height.
-  `tw.world.surfaces`: one parameter set per ground (grass, sand; ice is a marked
+  `tw.world.surfaces`: one parameter set per ground (grass, sand, snow; ice is a marked
   placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
-  (Physics, "The ground's texture").
+  (Physics, "The ground's texture"). `world.SURFACES` lists the playable ones in order.
 - `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds,
   and `bench.debris`, the lying batons and kubbs of a full turn).
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
@@ -483,9 +484,9 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
 - `world.prof`: set it to `world.newProf(clock)` and `world.step` adds the seconds of each
   phase (`world.PHASES`) into it; nil costs one test per phase.
 - The ground's texture (Jamie, 2026-11-14: "in a real game of Kubb there is always random
-  stuff because of the surface"). A surface may carry `texture` (`world.surfaces.grass`
-  does; sand and snow are next). The ground stays a flat plane; what a flat plane leaves
-  out is put back where it is cheap:
+  stuff because of the surface"). Every surface a game can be played on carries a
+  `texture` (`world.SURFACES`: grass, sand, snow). The ground stays a flat plane; what a
+  flat plane leaves out is put back where it is cheap:
   - **Patches.** The ground is cut into `cell` (0.25 m) patches, each with five numbers in
     -1..1 from an integer hash of the patch and the throw's seed. They are read only when
     a ground contact is new (no tables, no calls): the patch's friction, bounce and dig
@@ -497,6 +498,17 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   - **Grass holds.** A baton or a lying piece touching the ground loses `drag` of its ground
     speed and spin a second, and `grip` more below `gripSpeed`, so it stops instead of
     creeping. Standing or falling kubbs are left alone (a falling kubb must still fall).
+  - **Snow ploughs** (`plough`, 1/s per m): the drag grows with the distance a piece has
+    slid since it last left the ground (`b.plough`, reset off the ground, in the lone
+    flight too), so a slide on snow starts slick and ends heavy.
+  - **The surfaces.** Grass: high friction, moderate dig, holds. Sand (DESIGN 5): very high
+    dig, almost no bounce or slide, soft and packed spots, ridges that turn a landing more,
+    drags and grabs hard. Snow (Jamie, 2026-11-14): slick (`mu` 0.25) but soft: a steep
+    landing plugs, almost no bounce, icy and soft patches, and it ploughs. Over 400 scripted
+    batons (`tools/groundstats.lua --surface`): the slide after touching down is 1.39 m on
+    grass, 0.46 on sand, 1.85 on snow; a kubb toppled in 11.5%, 6.0% and 11.8% of throws.
+    Physics matches (20 each, seed 7, `tools/physmatch.lua --surface`): 21.1, 29.6 and
+    21.6 turns; on sand a baton has to land on its kubb.
   - **Nothing slides on an end.** A baton within 30 degrees of upright, touching the
     ground and sliding faster than `tripSpeed`, is tipped toward the way it is going
     (`trip` rad/s^2 per m/s): its foot catches.
@@ -659,7 +671,10 @@ and copying a full-screen image about 0.7 ms. So:
   that stay on the screen: everything below the projected far edge (`roughFar`), then the
   pitch's footprint white. The far edge is `roughFar` out along the camera's own heading,
   so the two fills hold whichever way it looks (the half circle looks back down the
-  pitch). The three ground quads 120 m wide it replaced cost 2.8 ms a
+  pitch). Each surface has its own rough (`roughBySurface`: grass short dashes, sand a
+  denser stipple, snow a sparse sprinkle on white); `render.world.setSurface(name)` swaps
+  it and drops the caches only when it changes (the throw scene calls it at prepare and
+  launch). The three ground quads 120 m wide it replaced cost 2.8 ms a
   flight frame on the device, the two fills about 1.3. All of it is inside the frame cache
   and the layer. There are no grass tufts (about 2 ms a flight frame) and no speed lines
   (both dropped 2026-11-13, speed over niceties).
@@ -703,6 +718,12 @@ hit rate (records in `playdate.datastore` "drills").
   result card and the record it leaves, then a second run quit part way) and `drills-blast` (BLAST's rail keeps its score).
 
 ## Throw scene practice
+
+The practice pitch's surface is the System Menu "Pitch" item's grass, sand or snow
+(`throw.setSurface`). A match's surface is the engine's (`g.surface`, written to the game
+file's `[Surface]` header): `match.setup` passes it on as `setup.surface` (core/world's
+name, `match.surfaceName`) and `throw.prepare` takes it, so the physics and the look follow
+the match. The games list's rail shows the chosen game's surface.
 
 Toppled kubbs stay down between throws at their rest poses (the scene's item list, the
 render items of `render/world`, carries every piece's pose). System Menu "Pitch" set to
