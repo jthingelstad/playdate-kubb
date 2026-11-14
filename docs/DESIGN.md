@@ -5,7 +5,8 @@ Jamie agreed to all seven recommendations in section 10 on 2026-11-13, so each
 "Recommendation" there is the decision.
 
 Sources: U.S. National Kubb Championship Rules V4.0 (usakubb.org; cited below as II.B.4 and so
-on), the Planet Kubb Notation grammar and `kubb.js` in `~/Projects/pk-kubb-score` (read only),
+on), the Planet Kubb Notation grammar and `kubb.js` from pk-kubb-score (vendored in
+`tests/vendor/pk-kubb-score/`),
 the 2017 Planet Kubb glossary, and Inside Playdate for SDK 3.1.2.
 
 ## 1. What it is
@@ -263,8 +264,8 @@ What the recorder writes:
 Unfinished games are kept in the datastore so they can be resumed; they are not written to
 `games/` until they end, because a file with no ending draws a parser warning.
 
-**The gate:** a Node test loads `kubb.js` and the generated grammar parser straight from
-`~/Projects/pk-kubb-score` (read only, nothing copied or written there) and runs both over
+**The gate:** a Node test loads `kubb.js` and the generated grammar parser from
+`tests/vendor/pk-kubb-score/` (copies of pk-kubb-score's files) and runs both over
 every generated game. The grammar must accept every file. `kubb.js` must report the same
 winner as the header, and its warnings are listed and reviewed; the target is zero.
 

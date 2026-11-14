@@ -7,6 +7,7 @@ GAMEDATA := $(SDK)/Disk/Data/com.thingelstad.throwingwood
 SIMDATA  := $(GAMEDATA)/selftest
 LUA      := /opt/homebrew/opt/lua@5.4/bin/lua5.4
 NODE     := /opt/homebrew/bin/node
+PKSCORE  := $(or $(PK_KUBB_SCORE),$(HOME)/Projects/pk-kubb-score)
 
 PDX      := build/ThrowingWood.pdx
 OUT      := $(CURDIR)/build/selftest
@@ -16,7 +17,13 @@ SIM_TIMEOUT := 60
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-.PHONY: build test test-lua test-node games selftest bench clean
+# Refresh the vendored notation parser and scorer from a pk-kubb-score checkout,
+# then show what changed. Review, run `make test` and `make games`, commit.
+sync-notation:
+	cp "$(PKSCORE)/site/assets/notation-parser.js" "$(PKSCORE)/site/assets/kubb.js" tests/vendor/pk-kubb-score/
+	git --no-pager diff --stat -- tests/vendor/pk-kubb-score
+
+.PHONY: sync-notation build test test-lua test-node games selftest bench clean
 
 build: $(PDX)
 
