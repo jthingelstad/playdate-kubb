@@ -35,6 +35,7 @@ import "core/quat"
 import "render/world"
 import "render/hud"
 import "render/burst"
+import "core/burstpick"
 import "recorder"
 import "framelog"
 import "core/frametel"
@@ -44,6 +45,7 @@ local gfx <const> = playdate.graphics
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
 local phys, playback, frametel, drill = tw.world, tw.playback, tw.frametel, tw.drill
 local render, hud, burst = tw.render.world, tw.render.hud, tw.render.burst
+local burstpick = tw.burstpick
 local max, min, rad, abs, sqrt, floor = math.max, math.min, math.rad, math.abs, math.sqrt, math.floor
 
 tw.scenes = tw.scenes or {}
@@ -81,6 +83,13 @@ throw.tune = {
 	ahead = 50,           -- frames the physics may record ahead of the screen (1 s)
 	focusSpeed = 4,       -- m/s the impact camera's aim point slews toward the first hit
 	frameRadius = 1.5,    -- m from the impact point within which the camera keeps the baton in frame
+	-- the camera's half circle round the hit (Jamie, 2026-11-13): once a burst
+	-- fires, the impact camera orbits the struck piece by swingDeg over
+	-- swingTime seconds of shown time from its impact, eased, so the slow
+	-- motion shows the piece fall and the pitch round it; it stays there for
+	-- the rest. 0 turns it off.
+	swingDeg = 180,
+	swingTime = 0.8,      -- about the slow motion's hold and ease (playback.slow)
 	tossTumble = 0.5,     -- a lobbed kubb turns end over end at this fraction of the swing's
 	                      -- tumble rate (guess: it is heavier and thrown softer than a baton)
 	instantHold = 0.1,    -- s the rest hold lasts in instant mode (self-tests)
@@ -533,6 +542,7 @@ local function launch(s, r)
 	s.result = nil
 	s.focusX, s.focusY = fl.lx, fl.ly
 	s.side = (fl.lx > 0) and 1 or -1
+	s.swingFrom = nil
 	camera.impact(s.impactCam, fl.lx, fl.ly, fl.dx, fl.dy, s.side)
 	s.last = s.last or {}
 	local l = s.last
@@ -741,7 +751,18 @@ local function flightUpdate(s, dt)
 	if d > step then dx, dy = dx * step / d, dy * step / d end
 	-- (held still in the calm tail, so the held picture is one cached image)
 	if not tail then s.focusX, s.focusY = s.focusX + dx, s.focusY + dy end
-	camera.impact(s.impactCam, s.focusX, s.focusY, fl.dx, fl.dy, s.side)
+	-- the half circle: from the impact of the piece the burst is for, by
+	-- shown time (so it holds when the picture holds)
+	local B = s.burst
+	if not s.swingFrom and t.swingDeg ~= 0 and B.kind and not B.takenBack then
+		s.swingFrom = B.first and burstpick.hitTime(B.first) or s.showTime
+	end
+	local orbit, open = 0, 0
+	if s.swingFrom then
+		open = camera.smooth((s.showTime - s.swingFrom) / t.swingTime)
+		orbit = rad(t.swingDeg) * open
+	end
+	camera.impact(s.impactCam, s.focusX, s.focusY, fl.dx, fl.dy, s.side, orbit, open)
 	if pb.done and s.showTime >= have then landed(s) end
 end
 

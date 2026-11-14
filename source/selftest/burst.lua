@@ -9,10 +9,14 @@ local st = tw.selftest
 local t = tw.render.burst.tune
 local seen = nil   -- the burst's kind while it played
 local startGap = nil   -- shown seconds from the impact to the burst's first frame
+local hitT = nil       -- the baton's first hit, simulated seconds
 local function at(lo, hi)
 	return function(s)
 		local B = s.burst
-		if B.kind and not seen and s.pb and s.pb.w.firstHit then startGap = s.showTime - s.pb.w.firstHit.t end
+		if B.kind and not seen and s.pb and s.pb.w.firstHit then
+			hitT = s.pb.w.firstHit.t
+			startGap = s.showTime - hitT
+		end
 		if B.kind then seen = B.kind end
 		return B.kind ~= nil and not B.done and B.age >= lo and B.age < hi
 	end
@@ -41,6 +45,10 @@ st.scenarios.burst = st.throwScenario {
 		if s.mode ~= "aim" then return "mode " .. s.mode end
 		-- the burst starts at the impact: within one shown frame of it (at
 		-- the slow motion's 0.3, a 20 ms frame shows 6 ms)
+		-- the camera's half circle started from the burst's impact
+		if not s.swingFrom or not hitT or math.abs(s.swingFrom - hitT) > 0.02 then
+			return "camera half circle from " .. tostring(s.swingFrom)
+		end
 		if not startGap or startGap < 0 or startGap > 0.02 then
 			return "burst started " .. tostring(startGap) .. " s after the impact"
 		end

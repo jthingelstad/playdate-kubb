@@ -3,7 +3,8 @@
 -- layer (the still pieces kept in a background image while the camera
 -- holds) is drawn a second time from scratch and the two must match pixel
 -- for pixel. The camera is made to hold on the impact point once the baton
--- touches anything (frameRadius 0), so the layer is used while b3 falls.
+-- touches anything (frameRadius 0) and its half circle is off (swingDeg 0),
+-- so the layer is used while b3 falls.
 -- Frames: 1 b3 falling, 2 at rest.
 import "selftest/_throw"
 
@@ -18,6 +19,7 @@ st.scenarios.layer = st.throwScenario {
 		R.verify = {}
 		frameRadius = T.tune.frameRadius
 		T.tune.frameRadius = 0
+		T.tune.swingDeg = 0   -- one scenario a Simulator run: nothing to restore
 	end,
 	script = {
 		{ n = 5 },
