@@ -116,6 +116,8 @@ for the surface.
   (2026-11-14).
 - The score sheet during a match: System Menu "Match: sheet" shows the game so far,
   latest turns first on screen; B goes back (2026-11-14). Sharing a finished one is next.
+- Kubb sets: Classic, USA, Sweden, Minnesota and Wisconsin, painted heads and crown,
+  chosen in the match options' SET row (2026-11-14).
 - Stay put: a team's batons after its first of a turn start where the last was thrown
   from, with its swivel and loft, as a real player stands in one spot until they choose
   to move (2026-11-14). A new turn and every kubb start from the middle.

@@ -76,6 +76,7 @@ import "selftest/miss"
 import "selftest/field"
 import "selftest/low-hard"
 import "selftest/king"
+import "selftest/sets"
 import "selftest/skid"
 import "selftest/skid-sand"
 import "selftest/skid-snow"
@@ -249,10 +250,11 @@ else
 			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
 			-- a rematch keeps the resumed match's options (surface and opening
 			-- are the engine's own)
-			lastMatch = { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle,
+			lastMatch = { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, set = opts.set,
 				surface = m.game.surface, opening = m.game.opening }
 			kind = "match"
-			current = match.new(device, { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, resume = m })
+			current = match.new(device, { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, set = opts.set,
+				resume = m })
 			match.enter()
 		else
 			kind = "title"

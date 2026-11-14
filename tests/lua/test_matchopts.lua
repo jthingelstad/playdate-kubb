@@ -40,3 +40,17 @@ test("matchopts: the options reach the engine, and a save keeps the raising", fu
 	expect.eq(opts.autoSettle, true)
 	expect.eq(back.game.surface, "Sand"); expect.eq(back.game.opening, "six")
 end)
+
+test("matchopts: the kubb set row, and a save keeps the set", function()
+	local c = matchopts.defaults()
+	expect.eq(matchopts.value(c, "set"), "classic")
+	matchopts.step(c, "set", 1); expect.eq(matchopts.value(c, "set"), "usa")
+	matchopts.step(c, "set", -2); expect.eq(matchopts.value(c, "set"), "wisconsin")
+	expect.eq(matchopts.shown(c, "set"), "WISCONSIN")
+	local o = matchopts.apply({}, c)
+	expect.eq(o.set, "wisconsin")
+	expect.eq(matchopts.valid({ set = 9 }).set, 1)
+	local m = match.new { start = { year = 2026, month = 11, day = 14, hour = 9, min = 0 } }
+	local _, opts = save.unpack(save.pack(m, { set = "sweden" }))
+	expect.eq(opts.set, "sweden")
+end)

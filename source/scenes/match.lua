@@ -126,7 +126,7 @@ local function persist(s)
 	if cmatch.over(s.m) then
 		playdate.datastore.delete(key)
 	else
-		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, autoSettle = s.opts.autoSettle },
+		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, autoSettle = s.opts.autoSettle, set = s.opts.set },
 			function(d) playdate.datastore.write(d, key) end)
 	end
 end
@@ -248,6 +248,7 @@ function scene.new(provider, opts)
 	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	s.ts.sceneName = "match"
+	throw.setSet(s.ts, s.opts.set)
 	nextThrow(s)
 	return s
 end

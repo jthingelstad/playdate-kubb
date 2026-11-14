@@ -63,6 +63,7 @@ throw.tune = {
 	restHold = 1.0,       -- s the landed baton stays on screen before the next baton
 	lineY = 0,            -- the throwing line: Team A's baseline
 	surface = "grass",    -- the practice pitch (tw.world.surfaces)
+	set = "classic",      -- the practice pitch's kubb set (render.world.SETS; a match's from its options)
 	-- The flight's pacing (AGENTS.md "Playback"). In flight the display runs
 	-- unlocked (flightRate 0: the next frame starts when this one is done)
 	-- and each frame gives the physics what is left of framePeriod after the
@@ -258,6 +259,7 @@ function throw.new(provider)
 		railDm = nil, railDist = nil,
 		throws = 0,
 		surface = throw.tune.surface,
+		set = throw.tune.set,     -- the kubb set drawn (render.world.sets; a match's from its options)
 		layout = throw.defaultLayout(),
 		items = {}, nitems = 0,  -- render/world items, one per layout piece
 		targets = {},
@@ -981,7 +983,15 @@ drawMarker = function(s, c)
 	gfx.setColor(gfx.kColorBlack)
 end
 
+-- The kubb set this scene draws (render.world.SETS; a match's options).
+function throw.setSet(s, name)
+	s.set = name or "classic"
+	render.setSet(s.set)
+end
+
 function throw.draw(s)
+	-- (render/world is shared: the scene's own set, a no-op when unchanged)
+	render.setSet(s.set)
 	s.drawStart = s.clock() - (s.frameStart or 0)
 	local ok = throw.drawFrame(s)
 	s.drawEnd = s.clock() - (s.frameStart or 0)
