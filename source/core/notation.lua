@@ -165,6 +165,7 @@ end
 
 local Sheet = {}
 Sheet.__index = Sheet
+notation.Sheet = Sheet   -- (core/save restores a saved sheet with it)
 
 function notation.sheet()
 	return setmetatable({ turns = {} }, Sheet)

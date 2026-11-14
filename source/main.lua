@@ -35,6 +35,7 @@ import "scenes/title"
 import "scenes/throw"
 import "scenes/match"
 import "scenes/names"
+import "core/save"
 import "benchscreen"
 import "autobench"
 import "selftest/runner"
@@ -44,6 +45,7 @@ import "selftest/settle"
 import "selftest/settle-resign"
 import "selftest/settle-crank"
 import "selftest/names"
+import "selftest/resume"
 import "selftest/aim-center"
 import "selftest/aim-walk-swivel"
 import "selftest/loft"
@@ -101,7 +103,7 @@ else
 	local showReadout = false        -- System Menu "Readout": off in normal play
 	local benchRun = nil
 	local pending = nil              -- a scene to open on the next frame (from a menu callback)
-	local open
+	local open, savedMatch
 
 	tw.recorder.on = true
 	tw.framelog.on = true
@@ -154,6 +156,15 @@ else
 		end
 	end
 
+	-- A line about the match saved in progress ("ASH V BIRCH, TURN 7"), or
+	-- nil when there is none (or it cannot be read back).
+	function savedMatch()
+		local d = playdate.datastore.read("match")
+		if not tw.save.unpack(d) then return nil end
+		local t = d.game.teams
+		return string.upper(t.A.name .. " V " .. t.B.name) .. ", TURN " .. d.game.turn
+	end
+
 	function open(which)
 		kind = which
 		-- a scene left during the king burst's flash must not leave the
@@ -172,9 +183,16 @@ else
 			kind = "match"
 			current = match.new(device, lastMatch)
 			match.enter()
+		elseif which == "resume" and savedMatch() then
+			-- the match saved in progress (core/save), on from where it was left
+			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
+			lastMatch = { vs = opts.vs, names = opts.names }
+			kind = "match"
+			current = match.new(device, { vs = opts.vs, names = opts.names, resume = m })
+			match.enter()
 		else
 			kind = "title"
-			current = title.new(device)
+			current = title.new(device, savedMatch())
 			title.enter()
 		end
 		local ts = throwScene()

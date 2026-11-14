@@ -46,6 +46,11 @@ the board's words over the brief's POW / BAM (2026-11-13).
 `nolock` is in the game's Data folder on Jamie's Playdate so it stays awake for unattended
 testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testing is done.
 
+## Resume
+
+A match in progress is saved before every throw and comes back from the title (B RESUME),
+also after the Playdate is switched off (AGENTS.md "Match", `core/save.lua`).
+
 ## Team names
 
 Entered before each match with the Playdate's keyboard and saved for next time (AGENTS.md
@@ -73,10 +78,12 @@ crank in a 3D close-up) and places punishment kubbs itself (AGENTS.md "Match", `
   the crank raise feels (270 degrees from lying to standing).
 - VS PLAYDATE: how strong it plays, and whether its think pause feels right.
 - Name entry with the real system keyboard (only scripted in the Simulator self-tests).
+- Resume after a real restart, and what a save costs on the device (one datastore write
+  per throw, at the frame that already sets the next throw up).
 
 ## Not built yet
 
-1. Saved games and resume, practice drills.
+1. The games list and score sheets (the Games board), practice drills.
 2. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
    2026-11-13): build after the bursts, measure its cost on the device.
 
