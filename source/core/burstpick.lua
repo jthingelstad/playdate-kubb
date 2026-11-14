@@ -30,11 +30,17 @@ burstpick.tune = {
 	fallV = 0.5,      -- m/s
 	fallW = 5,        -- rad/s
 	judgeFor = 0.5,   -- s after the strike the speeds are read (later, the topple or the rest decides)
+	grazeFor = 1.0,   -- s: a topple this long after the first touch was a later blow (a slow tip
+	                  -- from a hit takes well under a second), so the topple is the moment
 }
 
--- The moment a body was struck (its topple when nothing recorded a touch).
+-- The moment a body was struck: its first touch, unless it toppled more
+-- than grazeFor after that (a graze, then a later blow that felled it: the
+-- topple is the moment), or nothing recorded a touch.
 local function hitTime(b)
-	return b.touchT or b.toppleT
+	local t, tt = b.touchT, b.toppleT
+	if not t or (tt and tt - t > burstpick.tune.grazeFor) then return tt end
+	return t
 end
 burstpick.hitTime = hitTime
 
@@ -45,6 +51,10 @@ local function falling(b, w)
 	if b.kind ~= "kubb" and b.kind ~= "king" then return false end
 	if b.toppleT then return true, true end
 	if b.toppled then return false end          -- down before this throw
+	-- the king only once it has toppled: its burst inverts the screen and
+	-- plays the game's end, so a king merely pushed must never get it (its
+	-- burst may come up to the physics' lead late; Jamie can weigh that)
+	if b.kind == "king" then return false end
 	local ht = b.touchT
 	if not ht or w.time - ht > burstpick.tune.judgeFor or not b.awake then return false end
 	local t = burstpick.tune
