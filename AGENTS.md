@@ -562,7 +562,8 @@ and ending, frames over 100 and 200 ms, the slowest frames with the phase and th
 memory after a full collection before and after and the most seen, and the save checks;
 then a summary and `soak done` (about 10 minutes a match). Each slow frame listed says
 where its time went: the update (of it the physics and its steps), the draw, the bodies
-awake and the memory the collector gave back that frame. Self-test `soak` (one short
+awake and how much the heap grew that frame (`mem`, net of anything the collector freed;
+the `gc` figures in `telemetry/2026-11-14/soak/run2` and `run3` are the same number). Self-test `soak` (one short
 match).
 
 For hours of testing over USB (benches and installs with nobody at the device), put an

@@ -80,9 +80,11 @@ soaks' long matches (16 turns and more, 20 or so bodies on the pitch counting de
 0.2 to 0.4% of flight frames at 200 to 400 ms, a visible hitch. Broken down
 (`telemetry/2026-11-14/soak/run2-slow-frames.txt`): the update takes 180 to 350 ms of it
 with only the baton awake, the physics about 80 ms of that at about 8 ms a step (four
-times its usual), the draw about 30, and the collector ran in every such frame. Holding
-the collector off in flight changed nothing (`run3-collector-held.txt`), so it is not the
-collector alone. Next: time each part of the update in those frames. The hooks for that
+times its usual), the draw about 30, and the heap grew 15 to 28 KB in each: about ten
+times what a usual flight frame allocates. Holding the collector off in flight changed
+nothing (`run3-collector-held.txt`). So the lead is whatever allocates that much in those
+frames (on the device a new table costs about 54 us, and allocation also drives the
+collector's work). Next: time and measure each part of the update in those frames. The hooks for that
 are on branch `soak-profile` (not merged): the Playdate stopped answering USB during its
 first soak (below), so they wait until that is understood.
 

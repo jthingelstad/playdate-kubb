@@ -51,6 +51,6 @@ The overnight QA build, after midnight (US Central).
 | Soak file | Build |
 | --- | --- |
 | `run1-final-main.txt` | final `main`: three whole matches (16, 25 and 7 turns, 402 throws, 40 minutes), no error, 56 save checks good, memory steady at about 1.03 MB after collection; 223 flight frames over 200 ms (worst 302), all in the long matches |
-| `run2-slow-frames.txt` | the same matches' kind with each slow frame broken down: the update 180 to 350 ms where the physics took about 80 (only the baton awake, about 8 ms a step) and the draw about 30; the collector ran in every one (15 to 28 KB freed) |
-| `run3-collector-held.txt` | a try at holding the collector off in flight and catching up in the rest hold (not merged): no better, the slow frames unchanged |
+| `run2-slow-frames.txt` | the same matches' kind with each slow frame broken down: the update 180 to 350 ms where the physics took about 80 (only the baton awake, about 8 ms a step) and the draw about 30; the heap grew 15 to 28 KB in each (its `gc +N KB` is the net growth, not memory freed: the label was wrong), about ten times a usual flight frame |
+| `run3-collector-held.txt` | a try at holding the collector off in flight and catching up in the rest hold (not merged): no better, the slow frames unchanged (`gc` as in run2: net growth) |
 
