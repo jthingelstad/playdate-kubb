@@ -804,8 +804,10 @@ on it, with a knock.
 
 - `core/world` stamps each piece it topples with `toppleT` (simulated seconds; pieces down
   before the throw have none). `core/burstpick.pick(w, showTime)` (pure, tested) says which
-  burst and when: the king among the toppled is `king`, a second kubb down within `window`
-  (0.4 s) of the first is `double`, else `clean`; nothing for a miss or a touch that leaves
+  burst and when: the king toppled within `window` (0.4 s) of the first topple, or by the
+  time on screen, is `king` (a king that falls later replaces the burst showing, from its
+  start, with the king's knock); a second kubb down within the window is `double`, else
+  `clean`; nothing for a miss or a touch that leaves
   the kubb standing, and nothing for kubb tosses or drills.
 - `render/burst.lua`: three images per kind, `images/burst/<kind>-1..3` (flash, burst with
   the word, break-up) from `tools/art/build.py` (`BURST_*`; 2-bit PNGs with a clear

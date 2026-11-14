@@ -107,22 +107,31 @@ end
 
 -- Once a frame while a throw plays (flight and rest): starts the burst when
 -- the picture reaches the first topple, then ages it by dt (real seconds).
-function burst.update(B, s, dt)
-	if B.done or not burst.tune.on then return end
-	local pb = s.pb
-	if not B.kind then
-		if not pb or s.projectile ~= "baton" then return end
-		local kind = classify(B, pb, s.showTime)
-		if not kind then return end
-		B.age = 0
-		tw.sound.hit(KNOCK[kind])
-		return
+-- Has the king fallen by this time on screen? (A plain scan, no tables.)
+local function kingDown(w, t)
+	local bodies = w.bodies
+	for i = 1, w.n do
+		local b = bodies[i]
+		if b.kind == "king" then return b.toppleT ~= nil and b.toppleT <= t end
 	end
-	if B.provisional and pb then
+	return false
+end
+
+function burst.update(B, s, dt)
+	if not burst.tune.on then return end
+	local pb = s.pb
+	if pb and s.projectile == "baton" and B.kind ~= "king"
+		and (not B.kind or B.provisional or kingDown(pb.w, s.showTime)) then
 		local was = B.kind
 		local kind = classify(B, pb, s.showTime)
-		if kind == "king" and was ~= "king" then tw.sound.hit("king") end
+		if kind and kind ~= was and (not was or kind == "king") then
+			-- a new burst, or the king's replacing whatever showed: from the start
+			B.age, B.done, B.knocked2 = 0, false, false
+			tw.sound.hit(KNOCK[kind])
+			return
+		end
 	end
+	if B.done or not B.kind then return end
 	B.age = B.age + dt
 	if B.kind == "double" and not B.knocked2 and B.age >= burst.tune.second then
 		B.knocked2 = true
