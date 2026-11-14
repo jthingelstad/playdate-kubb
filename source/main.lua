@@ -18,7 +18,8 @@
 --              (back to throwing batons) / grass, sand, snow (the surface) / bench (the physics benchmark of core/bench plus the
 --              scene's draw time; shows the figures and appends a line to
 --              bench.txt) / title (back to the title)
---   "Match"    match only: play (nothing) / resign (the team on turn gives
+--   "Match"    match only: play (nothing) / sheet (the score sheet so far,
+--              once nothing is in the air; B back) / resign (the team on turn gives
 --              up, once nothing is in the air) / title (leave: the match is
 --              dropped and no game file is written)
 --   "Drill"    drills only: play (nothing) / menu (leave the run part way,
@@ -83,6 +84,7 @@ import "selftest/bench"
 import "selftest/match-opening"
 import "selftest/match-toss"
 import "selftest/match-whole"
+import "selftest/match-sheet"
 import "selftest/match-vs"
 import "selftest/match-debris"
 import "selftest/drill"
@@ -178,8 +180,10 @@ else
 				item:setValue("play")
 			end)
 		elseif kind == "match" then
-			item = menu:addOptionsMenuItem("Match", { "play", "resign", "title" }, "play", function(v)
-				if v == "resign" then
+			item = menu:addOptionsMenuItem("Match", { "play", "sheet", "resign", "title" }, "play", function(v)
+				if v == "sheet" then
+					match.showSheet(current)
+				elseif v == "resign" then
 					match.resign(current)
 				elseif v == "title" then
 					pending = "title"

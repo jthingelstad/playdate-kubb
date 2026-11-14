@@ -60,7 +60,7 @@ tw.selftest.scenarios.games = {
 			if s.view ~= "sheet" then error("A did not open the score sheet") end
 			ctx:capture()
 		elseif f == 15 then
-			if s.sheetY <= 0 then error("the crank did not scroll") end
+			if not s.sheet or s.sheet.y <= 0 then error("the crank did not scroll") end
 			ctx:capture()
 		elseif f == 17 then
 			if s.view ~= "list" then error("B did not go back to the list") end

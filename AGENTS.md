@@ -987,7 +987,7 @@ own item). Practice is the throw scene exactly as before.
   crown on the winner, turns and minutes; the chosen row is black; the footer gives its
   baton hit rates and the baton the king fell to. Crank (`crankRow` degrees a row) or
   up/down moves; A shows the score sheet (the game file as written, scrolled by the crank
-  or up/down; B back); B goes to the title. Files are read and parsed only as their rows
+  or up/down; B back; the same viewer as the match's, `scenes/sheet`); B goes to the title. Files are read and parsed only as their rows
   come on screen; each screen is one image redrawn only on a change. Self-test `games`.
 - VS PLAYDATE (`scenes/match` with `opts.vs = "B"`; `main.lua` opens it as `"vs"`, and a
   rematch keeps it): the player is Team A (the name entered, "You" by default), the
@@ -1023,7 +1023,12 @@ own item). Practice is the throw scene exactly as before.
   kubbs, else the king) and looks `camera.tune.aim.lookBeyond` past the nearest of them
   (`camera.lookDistFor`, never nearer than `lookMin`); base kubbs on the far baseline give
   the practice framing.
-- System Menu "Match": resign (the team on turn gives up, `G`; it waits until nothing is in
+- System Menu "Match": sheet (Jamie, 2026-11-14: "see the scoresheet for a game in
+  progress"; `scene.showSheet`): once nothing is in the air, the game file so far
+  (`match.file`, no `End`) on `scenes/sheet`, opened at its last line, the rail with the
+  teams, the turn and the surface; the crank or up/down scrolls, B goes back. The match
+  waits under it (a throw, the Playdate's think, a card) and carries on where it was.
+  Self-test `match-sheet`. Resign (the team on turn gives up, `G`; it waits until nothing is in
   the air, and is dropped if that throw ended the team's turn; chosen while the defender
   settles, it is the defender's, which holds the Playdate then, and waits for the
   defender's own turn: self-test `settle-resign`) or title (leave: the match is dropped and no file is written). A game file whose name is taken

@@ -13,9 +13,10 @@ import "CoreLibs/graphics"
 import "core/tw"
 import "core/gamefile"
 import "render/ui"
+import "scenes/sheet"
 
 local gfx <const> = playdate.graphics
-local gamefile, ui = tw.gamefile, tw.render.ui
+local gamefile, ui, sheet = tw.gamefile, tw.render.ui, tw.scenes.sheet
 local floor, max, min = math.floor, math.max, math.min
 local BLACK <const>, WHITE <const> = gfx.kColorBlack, gfx.kColorWhite
 
@@ -28,8 +29,6 @@ scene.tune = {
 	listTop = 14,       -- under the rail
 	footY = 190,        -- the black footer
 	crankRow = 30,      -- degrees of crank a row
-	lineH = 14,         -- px a score sheet line
-	crankPx = 1.2,      -- px of score sheet a degree of crank
 	nameX = 76,         -- px where the teams start (after the widest date)
 	statGap = 10,       -- px kept clear between the teams and the turns and minutes
 	dir = "games",
@@ -60,7 +59,7 @@ function scene.new(provider, opts)
 	opts = opts or {}
 	local dir = opts.dir or scene.tune.dir
 	return { input = provider, dir = dir, files = listFiles(dir), cache = {}, sel = 1, top = 1,
-		view = "list", sheetY = 0, crankAcc = 0, img = nil, exit = nil }
+		view = "list", sheet = nil, crankAcc = 0, img = nil, exit = nil }
 end
 
 -- the chosen file's summary (parsed once)
@@ -79,13 +78,7 @@ local function crown(x, y, white)
 	gfx.fillPolygon(x, y + 8, x, y + 1, x + 3, y + 4, x + 6, y, x + 9, y + 4, x + 12, y + 1, x + 12, y + 8)
 end
 
-local function rail(left, right)
-	local f = ui.label()
-	gfx.setColor(BLACK)
-	gfx.fillRect(0, 0, 400, 14)
-	ui.text(f, left, 6, 2, true)
-	if right then ui.textDots(f, right, 394, 2, true, "right") end
-end
+local rail = sheet.rail
 
 local function renderList(s)
 	local t = scene.tune
@@ -174,46 +167,6 @@ local function renderList(s)
 	if n > 1 then ui.text(label, "CRANK TO SCROLL", 390, t.footY + 27, true, "right") end
 end
 
-local function renderSheet(s)
-	local t = scene.tune
-	local g = summary(s, s.sel)
-	local label = ui.label()
-	gfx.clear(WHITE)
-	if not s.sheetImg then
-		-- long lines wrap at a space, the rest indented (the sheet only scrolls
-		-- up and down)
-		local lines = {}
-		local maxW = 384
-		for _, line in ipairs(g and g.lines or { "(this game file could not be read)" }) do
-			local cur, indent = "", ""
-			for word in line:gmatch("%S+") do
-				local try = (cur == "") and (indent .. word) or (cur .. " " .. word)
-				if cur ~= "" and label:getTextWidth(try) > maxW then
-					lines[#lines + 1] = cur
-					cur, indent = "    " .. word, "    "
-				else
-					cur = try
-				end
-			end
-			lines[#lines + 1] = cur
-		end
-		local h = 8 + #lines * t.lineH
-		local img = gfx.image.new(400, h, WHITE)
-		gfx.pushContext(img)
-		gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-		for i, line in ipairs(lines) do label:drawText(line, 8, 4 + (i - 1) * t.lineH) end
-		gfx.setImageDrawMode(gfx.kDrawModeCopy)
-		gfx.popContext()
-		s.sheetImg, s.sheetH = img, h
-	end
-	s.sheetImg:draw(0, 14 - s.sheetY)
-	rail(g and (string.upper(g.a) .. " V " .. string.upper(g.b)) or "SCORESHEET", g and { g.date, g.turns .. " TURNS" } or nil)
-	gfx.setColor(BLACK)
-	gfx.fillRect(0, 214, 400, 26)
-	ui.button("B", "BACK", 10, 217, true)
-	ui.text(label, "CRANK TO SCROLL", 390, 220, true, "right")
-end
-
 local function moveTo(s, sel)
 	local n, rows = #s.files, scene.tune.rows
 	sel = max(1, min(n, sel))
@@ -237,27 +190,27 @@ function scene.update(s)
 		while s.crankAcc <= -t.crankRow do s.crankAcc = s.crankAcc + t.crankRow; step = step - 1 end
 		if step ~= 0 and #s.files > 0 then moveTo(s, s.sel + step) end
 		if p:pressed("a") and #s.files > 0 then
-			s.view, s.sheetY, s.sheetImg, s.img = "sheet", 0, nil, nil
+			-- the chosen game's score sheet (scenes/sheet)
+			local g = summary(s, s.sel)
+			s.sheet = sheet.new(p, g and g.lines or { "(this game file could not be read)" },
+				g and (string.upper(g.a) .. " V " .. string.upper(g.b)) or "SCORESHEET",
+				g and { g.date, g.turns .. " TURNS" } or nil)
+			s.view, s.img = "sheet", nil
 		elseif p:pressed("b") then
 			s.exit = "title"
 		end
 	else
-		local dy = p:crank() * t.crankPx
-		if p:held("down") then dy = dy + 6 elseif p:held("up") then dy = dy - 6 end
-		if dy ~= 0 then
-			local maxY = max(0, (s.sheetH or 0) - 200)
-			local y = max(0, min(maxY, s.sheetY + dy))
-			if y ~= s.sheetY then s.sheetY = y; s.img = nil end
-		end
-		if p:pressed("b") then s.view, s.img = "list", nil end
+		sheet.update(s.sheet, false)
+		if s.sheet.done then s.view, s.sheet, s.img = "list", nil, nil end
 	end
 end
 
 function scene.draw(s)
+	if s.view == "sheet" then return sheet.draw(s.sheet) end
 	if not s.img then
 		s.img = gfx.image.new(400, 240, WHITE)
 		gfx.pushContext(s.img)
-		if s.view == "list" then renderList(s) else renderSheet(s) end
+		renderList(s)
 		gfx.popContext()
 	end
 	s.img:draw(0, 0)

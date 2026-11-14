@@ -31,7 +31,9 @@
 -- The cards are full screen and drawn once into an image (render/cards);
 -- while one shows, the pitch is not drawn.
 --
--- System Menu "Match": resign (the team on turn gives up: G on its own turn;
+-- System Menu "Match": sheet (the score sheet so far, scenes/sheet, over the
+-- match once no throw is in the air; B goes back to the match as it was),
+-- resign (the team on turn gives up: G on its own turn;
 -- it waits until no throw is in the air; chosen while the defender settles,
 -- it is the defender's and waits for its turn) or title (leave: the match is
 -- dropped, no file written).
@@ -56,12 +58,13 @@ import "render/cards"
 import "scenes/settle"
 import "core/names"
 import "core/save"
+import "scenes/sheet"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
 local throw, hud = tw.scenes.throw, tw.render.hud
 local cards, rcards = tw.cards, tw.render.cards
-local settle = tw.scenes.settle
+local settle, sheet = tw.scenes.settle, tw.scenes.sheet
 
 tw.scenes = tw.scenes or {}
 local scene = {}
@@ -225,6 +228,8 @@ function scene.new(provider, opts)
 		resolved = false,        -- the current throw has been given to the engine
 		result = nil,            -- what the last throw did (the HUD's second line)
 		resignWanted = false,
+		sheetWanted = false,     -- System Menu "Match: sheet", waiting for nothing in the air
+		sheet = nil,             -- the score sheet on screen (scenes/sheet)
 		exit = nil,              -- "title" or "match" (a rematch) when the scene is done
 		throws = 0,
 		cpuThrows = 0,           -- the Playdate's throws (VS PLAYDATE)
@@ -245,6 +250,24 @@ function scene.new(provider, opts)
 	s.ts.sceneName = "match"
 	nextThrow(s)
 	return s
+end
+
+-- System Menu "Match: sheet" (Jamie, 2026-11-14: "an option to see the
+-- scoresheet for a game in progress"): the game file so far, shown once
+-- nothing is in the air. The match waits under it (a throw, the Playdate's
+-- think, a card) and carries on where it was after B.
+function scene.showSheet(s)
+	if s.m then s.sheetWanted = true end
+end
+
+local function openSheet(s)
+	local m = s.m
+	local g = m.game
+	local text = cmatch.file(m, nil, scene.version)
+	local right = { "TURN " .. g.turn, string.upper(g.surface or "") }
+	if g.winner then right[1] = string.upper(cmatch.teamName(g.winner, g)) .. " WON" end
+	s.sheet = sheet.new(s.input, sheet.split(text),
+		string.upper(cmatch.teamName("A", g) .. " V " .. cmatch.teamName("B", g)), right, true)
 end
 
 -- System Menu "Match: resign": the team holding the Playdate resigns once
@@ -270,6 +293,16 @@ end
 
 function scene.update(s)
 	local ts = s.ts
+	if s.sheet then
+		sheet.update(s.sheet)
+		if s.sheet.done then s.sheet = nil end
+		return
+	end
+	if s.sheetWanted and (s.phase ~= "play" or ts.mode == "aim" or ts.mode == "done") then
+		s.sheetWanted = false
+		openSheet(s)
+		return
+	end
 	if s.resignWanted and (s.phase == "handoff" or ts.mode == "aim" or ts.mode == "done") then
 		s.resignWanted = false
 		if not s.resolved and ts.mode == "done" then
@@ -352,6 +385,7 @@ function scene.update(s)
 end
 
 function scene.draw(s)
+	if s.sheet then return sheet.draw(s.sheet) end
 	s.ts.covered = (s.phase ~= "play")
 	if s.phase == "over" or s.phase == "handoff" then
 		-- a full-screen card, built once
