@@ -147,7 +147,13 @@ function burst.update(B, s, dt)
 		if B.first.toppleT then
 			B.sure = true
 		elseif pick.stoodUp(B.first, pb.done) then
-			B.done, B.takenBack = true, true
+			if B.kind == "double" and B.second then
+				-- the second kubb is still down (or may be): a clean burst on it
+				B.kind, B.first, B.sure, B.second, B.sure2 = "clean", B.second, B.sure2, nil, false
+				B.x1, B.y1, B.z1 = B.x2, B.y2, B.z2
+			else
+				B.done, B.takenBack = true, true
+			end
 		end
 	end
 	-- likewise a double's second kubb: left standing, the double is a clean
