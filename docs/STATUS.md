@@ -89,6 +89,16 @@ If so, the cost is a pause of a few tenths of a second before the result flag on
 picture, not a hitch in the flight. The per-part hooks are on branch `soak-profile` (not
 merged).
 
+## The ground's texture (2026-11-14)
+
+Grass is no longer a perfectly flat, even plane: patches vary in friction, bounce and how
+far a landing digs in, steep landings are turned a little off line, a baton on grass
+stops instead of creeping, and nothing slides along on an end (AGENTS.md "Physics", "The
+ground's texture"). Over 400 scripted throws: on-end sliding 0.050 to 0.008 s a throw, the
+slide after touching down 2.1 to 1.4 m. Next: sand and snow as their own textures, and the
+Playdate opponent aiming for the surface (it aims short and counts on a skid that grass no
+longer gives).
+
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 
 - PASS + PLAY: a card passes the Playdate to the defending team before it raises kubbs

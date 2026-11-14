@@ -36,6 +36,7 @@ import "core/pitch"
 
 local quat, body, collide = tw.quat, tw.body, tw.collide
 local sqrt, abs, min, max, sin, cos, rad, exp = math.sqrt, math.abs, math.min, math.max, math.sin, math.cos, math.rad, math.exp
+local floor = math.floor
 
 local world = {}
 
@@ -82,11 +83,30 @@ world.tune = {
 --   digLever    m; rolling resistance lever (per unit dig) a dug-in body gets
 --   digTime     s; how fast that lever fades
 --   roll        m; rolling resistance lever for the round baton at all times
+--   texture     (optional) what a flat plane leaves out (Jamie, 2026-11-14:
+--               "in a real game there is always random stuff because of the
+--               surface"). The ground is cut into `cell`-sized patches, each
+--               with its own values from a hash of the patch and the throw's
+--               seed (world.groundSeed), read only when a contact is new:
+--     muVar, eVar, digVar  a patch's friction, bounce and dig vary by up to
+--               this share either way (clumps, bare spots, soft ground)
+--     bump      a steep landing (approach faster than bumpSpeed m/s) is turned
+--               sideways by up to bump times its approach speed, as off a patch
+--               tilted a few degrees (its travel only, no spin)
+--     drag      1/s: a lying piece or a baton touching the ground loses this
+--               share of its ground speed a second (the blades hold it)
+--     grip, gripSpeed  1/s and m/s: and this much more a second below
+--               gripSpeed, so it stops instead of creeping
+--     trip      rad/s^2 per m/s: a baton sliding upright on an end (within
+--               30 degrees) faster than tripSpeed is tipped toward the way it
+--               is going, as its foot catches
 world.surfaces = {
 	grass = {
 		name = "grass", mu = 0.7, e = 0.15,
 		dig = 1.0, digSpeed = 0.3, digRamp = 1.5, digLever = 0.006, digTime = 0.15,
 		roll = 0.01,
+		texture = { cell = 0.25, muVar = 0.3, eVar = 0.5, digVar = 0.5, bump = 0.12, bumpSpeed = 0.8,
+			drag = 2.5, grip = 12, gripSpeed = 0.5, trip = 60, tripSpeed = 0.15 },
 	},
 	sand = {
 		name = "sand", mu = 0.9, e = 0.03,
@@ -125,6 +145,14 @@ function world.new(opts)
 	opts = opts or {}
 	local surf = opts.surface or "grass"
 	if type(surf) == "string" then surf = assert(world.surfaces[surf], "unknown surface " .. surf) end
+	-- opts.texture = false: the surface as a flat plane (tests of one piece of
+	-- mechanics; tools/groundstats --flat)
+	if opts.texture == false and surf.texture then
+		local flat = {}
+		for k, v in pairs(surf) do flat[k] = v end
+		flat.texture = nil
+		surf = flat
+	end
 	local w = {
 		bodies = {}, n = 0, byId = {},
 		surface = surf,
@@ -134,6 +162,8 @@ function world.new(opts)
 		firstHit = nil,       -- its first contact with another body: same fields
 		contacts = 0,         -- contacts in the last step (for the bench)
 		awakeCount = 0,       -- awake bodies in the last step
+		groundSeed = opts.groundSeed or 0,   -- the ground texture's seed (world.launch sets it
+		groundSeedFixed = opts.groundSeed ~= nil,   -- from the throw unless one is given here)
 	}
 	if opts.stakes ~= false then world.addStakes(w) end
 	for _, p in ipairs(opts.pieces or {}) do world.addPiece(w, p) end
@@ -204,10 +234,22 @@ world.wake = wake
 
 -- Launch a projectile body (baton or kubb) with a full pose and velocity.
 -- Angular velocity is in the world frame.
+-- The ground texture's seed for a throw: from the launch itself, so the same
+-- throw meets the same ground (replays, tests) and every other throw its own.
+local function seedFrom(...)
+	local h = 0x2545F491
+	for _, v in ipairs { ... } do
+		h = (h ~ math.floor(v * 4096)) * 0x9E3779B1 & 0x7fffffff
+	end
+	return h
+end
+world.seedFrom = seedFrom
+
 function world.launch(w, kind, id, x, y, z, qw, qx, qy, qz, vx, vy, vz, wx, wy, wz)
 	local b = world.addBody(w, kind, id)
 	body.setPose(b, x, y, z, qw, qx, qy, qz)
 	body.setVelocity(b, vx, vy, vz, wx, wy, wz)
+	if not w.groundSeedFixed then w.groundSeed = seedFrom(x, y, vx, vy, vz, wx, wy, wz) end
 	wake(b)
 	b.touched = true
 	w.projectile = b
@@ -584,6 +626,7 @@ local groundBox, groundCapsule = collide.groundBox, collide.groundCapsule
 -- the forces from above and keeps loneSlack (m) in hand for rounding.
 world.loneFlight = true
 local LONE_SLACK <const> = 0.001
+local COS_END <const> = 0.866   -- cos 30 degrees: within this of upright is "on an end"
 
 local function loneRefresh(w)
 	local bodies = w.bodies
@@ -884,6 +927,38 @@ function world.step(w)
 				else
 					-- a new contact: how steeply and how fast did it arrive?
 					dig = 0
+					-- the ground texture: this patch's values (a hash of the
+					-- patch and the throw's seed; five numbers in -1..1)
+					local tex = surf.texture
+					local u1, u2, u3, u4, u5 = 0, 0, 0, 0, 0
+					if tex then
+						-- (math.floor: a true integer; // leaves a float, which the
+						-- device's 32-bit Lua will not take into & and >>)
+						local cx, cy = floor(px / tex.cell), floor(py / tex.cell)
+						local hh = (cx * 0x1B873593 + cy * 0x5BD1E995 + w.groundSeed) & 0xffffffff
+						hh = ((hh ~ (hh >> 15)) * 0x2C1B3C6D) & 0xffffffff
+						hh = ((hh ~ (hh >> 12)) * 0x297A2D39) & 0xffffffff
+						hh = hh ~ (hh >> 15)
+						local h2 = ((hh * 0x85EBCA6B) & 0xffffffff) ~ (hh >> 13)
+						u1, u2, u3 = (hh & 1023) / 511.5 - 1, ((hh >> 10) & 1023) / 511.5 - 1, ((hh >> 20) & 1023) / 511.5 - 1
+						u4, u5 = (h2 & 1023) / 511.5 - 1, ((h2 >> 10) & 1023) / 511.5 - 1
+						a.gMf[k], a.gEf[k] = 1 + tex.muVar * u1, 1 + tex.eVar * u2
+						-- a bump: a steep landing is turned a little sideways, as off a
+						-- patch tilted a few degrees (the travel only: applied at the
+						-- contact point it gave an edge landing a wild spin)
+						-- (scaled by how steeply it comes in: a low skidding drill is
+						-- barely turned, a baton dropping end first is)
+						if v0 < -tex.bumpSpeed then
+							local vt1 = avx + awy * raz - awz * ray
+							local vt2 = avy + awz * rax - awx * raz
+							local steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
+							local k = -v0 * tex.bump * steep * steep
+							avx, avy = avx + k * u4, avy + k * u5
+							a.vx, a.vy = avx, avy
+						end
+					else
+						a.gMf[k], a.gEf[k] = 1, 1
+					end
 					if v0 < -surf.digSpeed and surf.dig > 0 then
 						local vt1 = avx + awy * raz - awz * ray
 						local vt2 = avy + awz * rax - awx * raz
@@ -891,15 +966,16 @@ function world.step(w)
 						local ramp = (-v0 - surf.digSpeed) / surf.digRamp
 						if ramp > 1 then ramp = 1 end
 						dig = surf.dig * steep * ramp * pointed(a) * a.digGain
+						if tex then dig = dig * (1 + tex.digVar * u3) end
 						local lever = surf.digLever * min(1, dig)
 						if lever > a.dig then a.dig = lever end
 					end
 				end
 				a.gDig[k] = dig
-				r[K_MU] = mu * (1 + dig)
+				r[K_MU] = mu * (1 + dig) * a.gMf[k]
 				local ef = 1 - dig
 				if ef < 0 then ef = 0 end
-				r[K_E] = e * ef
+				r[K_E] = e * ef * a.gEf[k]
 				r[K_LN], r[K_LT1], r[K_LT2] = ln, l1, l2
 				-- warm start (n = +z, t1 = +x, t2 = +y)
 				if ln > 0 or l1 ~= 0 or l2 ~= 0 then
@@ -1127,6 +1203,32 @@ function world.step(w)
 				local lever = b.dig
 				if b.shape == 2 then lever = lever + surf.roll end
 				rollResist(b, lever, gi)
+				local tex = surf.texture
+				if tex then
+					local r33 = b.r33
+					if r33 < 0 then r33 = -r33 end
+					local vx, vy = b.vx, b.vy
+					local v2 = vx * vx + vy * vy
+					if v2 > 1e-8 then
+						if r33 > COS_END then
+							-- upright on an end and sliding: a baton's foot catches and it
+							-- tips toward the way it is going (axis z x v)
+							if b.shape == 2 and v2 > tex.tripSpeed * tex.tripSpeed then
+								local k = tex.trip * dt
+								b.wx, b.wy = b.wx - k * vy, b.wy + k * vx
+							end
+						elseif b.shape == 2 or r33 < 0.5 then
+							-- a baton or a lying piece on grass: the blades hold it,
+							-- harder once it is slow, so it stops instead of creeping
+							local f = tex.drag
+							if v2 < tex.gripSpeed * tex.gripSpeed then f = f + tex.grip end
+							f = 1 - f * dt
+							if f < 0 then f = 0 end
+							b.vx, b.vy = vx * f, vy * f
+							b.wx, b.wy, b.wz = b.wx * f, b.wy * f, b.wz * f
+						end
+					end
+				end
 			end
 			if b.dig > 0 then
 				b.dig = b.dig * exp(-dt / surf.digTime)

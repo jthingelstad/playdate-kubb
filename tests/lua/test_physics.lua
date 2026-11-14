@@ -11,7 +11,7 @@ local function tiltDeg(b) return math.deg(math.acos(math.min(1, math.abs(b.r33))
 -- A standing kubb (or king) at the origin, woken with a horizontal impulse J
 -- (N s, toward +y) at the middle of its top face.
 local function topImpulse(kind, J, surface)
-	local w = world.new{ surface = surface, pieces = { { id = "k", kind = kind, x = 0, y = 0 } } }
+	local w = world.new{ texture = false, surface = surface, pieces = { { id = "k", kind = kind, x = 0, y = 0 } } }
 	local b = w.byId.k
 	world.wake(b)
 	b.vy = J / b.m
@@ -26,7 +26,7 @@ local function kubbLanding(surface, land, v, spin)
 	local e = math.rad(land)
 	local zx, zy, zz = 0, math.cos(e), -math.sin(e)
 	local qw, qx, qy, qz = quat.fromAxes(1, 0, 0, 0, -zz, zy, zx, zy, zz)
-	local w = world.new{ surface = surface }
+	local w = world.new{ texture = false, surface = surface }
 	local b = world.launch(w, "kubb", "p", 0, 0, 0.25, qw, qx, qy, qz,
 		0, v * math.cos(e), -v * math.sin(e), spin * zx, spin * zy, spin * zz)
 	local before, after
@@ -43,7 +43,7 @@ end
 
 test("a kubb dropped flat lands, stands, sleeps and stays put for 10 s", function()
 	for _, kind in ipairs { "kubb", "king" } do
-		local w = world.new{}
+		local w = world.new{ texture = false,}
 		local k = body.kinds[kind]
 		world.launch(w, kind, "k", 0.3, 2, k.hz + 0.10, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 		local b = w.byId.k
@@ -63,7 +63,7 @@ end)
 
 test("energy never grows: free flight, a tumbling landing, and at rest", function()
 	-- a kubb tumbling about all three axes, high in the air for 0.3 s
-	local w = world.new{}
+	local w = world.new{ texture = false,}
 	world.launch(w, "kubb", "k", 0, 0, 3, quat.normalize(0.9, 0.2, 0.3, 0.1), 1, 2, 3, 5, -7, 9)
 	local e0 = world.energy(w)
 	for _ = 1, 72 do
@@ -82,7 +82,7 @@ test("energy never grows: free flight, a tumbling landing, and at rest", functio
 	expect.truthy(not b.awake, "came to rest")
 	expect.truthy(body.lowestZ(b) > -0.002, "not sunk: lowest " .. body.lowestZ(b))
 	-- a baton lying on the ground keeps exactly its rest energy
-	local w2 = world.new{ pieces = { { id = "b", kind = "baton", x = 0, y = 3, yaw = 0.4 } } }
+	local w2 = world.new{ texture = false, pieces = { { id = "b", kind = "baton", x = 0, y = 3, yaw = 0.4 } } }
 	world.wake(w2.byId.b)
 	local rest = world.energy(w2)
 	for _ = 1, 240 do
@@ -153,7 +153,7 @@ test("a three-kubb domino line falls in order", function()
 	local sp = 0.17
 	local pieces = {}
 	for i = 1, 3 do pieces[i] = { id = "k" .. i, kind = "kubb", x = 0, y = (i - 1) * sp } end
-	local w = world.new{ pieces = pieces }
+	local w = world.new{ texture = false, pieces = pieces }
 	local a = w.byId.k1
 	world.wake(a)
 	local om = 12
@@ -173,7 +173,7 @@ test("a three-kubb domino line falls in order", function()
 end)
 
 local function batonThrow(surface, x, speed, pieces, rate)
-	local w = world.new{ surface = surface, pieces = pieces }
+	local w = world.new{ texture = false, surface = surface, pieces = pieces }
 	local b = world.launchBaton(w, x, 0, 0, 35, speed, rate or 7, 0)
 	local w0 = math.sqrt(b.wx ^ 2 + b.wy ^ 2 + b.wz ^ 2)
 	local wc
@@ -269,7 +269,7 @@ end)
 
 test("playback poses equal the stepped poses", function()
 	local function build()
-		local w = world.new{ pieces = { { id = "k", kind = "kubb", x = 0, y = 8 }, { id = "f", kind = "kubb", x = 1, y = 4 } } }
+		local w = world.new{ texture = false, pieces = { { id = "k", kind = "kubb", x = 0, y = 8 }, { id = "f", kind = "kubb", x = 1, y = 4 } } }
 		world.launchBaton(w, 0, 0, 0, 35, 8.5, 7, 0)
 		return w
 	end
@@ -327,7 +327,7 @@ end)
 test("a baton thrown at a corner stake deflects off it", function()
 	-- along the right sideline at the far corner stake (2.5, 8)
 	local function land(stakes)
-		local w = world.new{ stakes = stakes }
+		local w = world.new{ texture = false, stakes = stakes }
 		local b = world.launchBaton(w, 2.5, 0, 0, 35, 8.5, 7, 0)
 		world.run(w)
 		return b, world.result(w), w
@@ -344,7 +344,7 @@ end)
 
 test("a sliding kubb stops against a stake", function()
 	local function slide(stakes)
-		local w = world.new{ stakes = stakes }
+		local w = world.new{ texture = false, stakes = stakes }
 		-- lying across the pitch line, sliding up the sideline at 3 m/s
 		local qw, qx, qy, qz = quat.fromAxisAngle(0, 1, 0, math.pi / 2)
 		local b = world.launch(w, "kubb", "k", 2.5, 3.5, 0.035, qw, qx, qy, qz, 0, 3, 0, 0, 0, 0)
@@ -366,7 +366,7 @@ test("would-fall: a kubb goes past about 25 degrees, the king past about 17", fu
 		local qw, qx, qy, qz
 		if about == "x" then qw, qx, qy, qz = quat.fromAxisAngle(1, 0, 0, math.rad(deg))
 		else qw, qx, qy, qz = quat.fromAxisAngle(0, 1, 0, math.rad(deg)) end
-		local w = world.new{ pieces = { { id = "k", kind = kind, x = 0, y = 0, qw = qw, qx = qx, qy = qy, qz = qz } } }
+		local w = world.new{ texture = false, pieces = { { id = "k", kind = kind, x = 0, y = 0, qw = qw, qx = qx, qy = qy, qz = qz } } }
 		return w.byId.k
 	end
 	for _, about in ipairs { "x", "y" } do
@@ -385,7 +385,7 @@ end)
 
 test("a kubb that comes to rest leaning on a fallen kubb is down", function()
 	local lw, lx, ly, lz = quat.fromAxisAngle(0, 1, 0, math.pi / 2)
-	local w = world.new{ pieces = {
+	local w = world.new{ texture = false, pieces = {
 		{ id = "k", kind = "kubb", x = 0, y = 0 },
 		{ id = "prop", kind = "kubb", x = 0, y = 0.20, qw = lw, qx = lx, qy = ly, qz = lz },
 	} }

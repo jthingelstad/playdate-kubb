@@ -147,7 +147,8 @@ function auto.matchCase(y, label, tune, prof)
 	end
 	local lines = { "match case " .. (label or "") .. " (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):" }
 	local saved = {}
-	local tables = { throw.tune, render.tune, tw.playback.paceTune, tw.render.burst.tune, tw.camera.tune.impact }
+	local tables = { throw.tune, render.tune, tw.playback.paceTune, tw.render.burst.tune, tw.camera.tune.impact,
+		tw.world.surfaces.grass }
 	for k, v in pairs(tune or {}) do
 		for _, T in ipairs(tables) do
 			if T[k] ~= nil then saved[#saved + 1] = { T, k, T[k] }; T[k] = v end
@@ -336,6 +337,8 @@ local function body()
 
 	-- the match case
 	out(auto.matchCase(y, "(defaults)"))
+	y()
+	out(auto.matchCase(y, "(flat grass: no ground texture)", { texture = false }))
 	y()
 	out(auto.matchCase(y, "(framePeriod 50 ms)", { framePeriod = 0.050 }))
 	y()
