@@ -314,8 +314,9 @@ matches (about a minute; `--quick` about 10 s).
   long second name drawn smaller); a name with no letter is refused, B goes back, and the
   names become the match's teams.
 - `settle`: raising a kubb and placing a punishment kubb by hand, on an engine driven to
-  turn 3 (frames: the raise view, the other end chosen, the placement view, a spot
-  refused by the king); the check reads the engine after A places it.
+  turn 3 (frames: the raise view, the view turned and zoomed out by the d-pad, the
+  placement view, a spot refused by the king); the check reads the engine after A places
+  it, and that the d-pad turned and zoomed without changing the end.
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
   right-hand end); all the way up must stand it on that end's footprint.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
@@ -840,11 +841,16 @@ own item). Practice is the throw scene exactly as before.
   on the rail. In PASS + PLAY a card comes first (Jamie, 2026-11-14; `core/cards.settle`,
   `render/cards.settle`, `s.settleCard`): PASS THE PLAYDATE TO the defender, how many
   kubbs it raises and punishment kubbs it places, THEN HAND IT BACK TO the attacker, A to
-  start; none against the Playdate, whose player holds it already, and none after. Raise: a 3D close-up of the lying kubb (`render/world` with its own camera,
-  in the defender's view frame, behind and above it; the pieces within `raiseNear`), each
+  start; none against the Playdate, whose player holds it already, and none after. Raise: a 3D view of the lying kubb (`render/world` with its own camera,
+  in the defender's view frame, behind and above it, far enough back to show the pitch
+  round it; the pieces within `raiseNear`), each
   end the engine allows drawn on the ground as its 7 x 7 footprint, the chosen one dotted
-  with STANDS HERE (MOVED CLEAR when II.D.5 slid it); left/right choose, A raises
-  (`g:raise(choice)`); the highlight starts on the engine's own choice. The crank (Jamie,
+  with STANDS HERE (MOVED CLEAR when II.D.5 slid it). The d-pad looks (Jamie, 2026-11-14):
+  left/right turn the view round the kubb (`lookTurn` degrees a second), up/down zoom in
+  and out (`lookZoom`, between `zoomMin` and `zoomMax` of the starting distance); which
+  end is on the right is read again whenever the kubb lies flat. A raises the highlighted
+  end (`g:raise(choice)`), which starts on the engine's own choice; only the crank picks
+  the other end (Jamie, 2026-11-14). The crank (Jamie,
   2026-11-13) tips it: forward onto its right-hand end on screen, backward onto its left,
   `crankPerRaise` (270) degrees from lying to standing (`raising.tipPose`, pure and
   tested: it pivots on that end's bottom edge onto the footprint), and all the way up

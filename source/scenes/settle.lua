@@ -46,12 +46,18 @@ tw.scenes = tw.scenes or {}
 local settle = {}
 
 settle.tune = {
-	raiseBack = 0.95,     -- m the raise camera stands behind the kubb (toward the baseline),
-	raiseUp = 0.62,       -- above the ground,
-	raiseSide = -0.25,    -- and to the left (the light comes from the far left: lit faces)
-	raiseLens = 760,      -- px focal length
-	raiseCY = 104,        -- screen y the kubb's centre is put at
-	raiseNear = 1.6,      -- m: other pieces this near are drawn
+	-- the raise view's camera (Jamie, 2026-11-14: further out than the first
+	-- close-up, so more than the kubb shows; the d-pad turns and zooms it)
+	raiseBack = 2.0,      -- m the raise camera stands behind the kubb (toward the baseline),
+	raiseUp = 0.75,       -- above the ground,
+	raiseSide = -0.5,     -- and to the left (the light comes from the far left: lit faces)
+	raiseLens = 680,      -- px focal length
+	raiseCY = 140,        -- screen y the kubb's centre is put at
+	raiseNear = 4.0,      -- m: other pieces this near are drawn
+	lookTurn = 100,       -- degrees a second left/right turns the view round the kubb
+	lookZoom = 1.8,       -- up/down: the camera's distance changes by this factor a second
+	zoomMin = 0.5,        -- the nearest, as a fraction of the starting distance
+	zoomMax = 2.4,        -- the farthest
 	crankPerRaise = 270,  -- degrees of crank from lying to standing
 	punishScale = 40,     -- px per metre in the placement view
 	punishLeft = 100,     -- screen x of the half's left sideline
@@ -155,7 +161,7 @@ end
 
 -- ---------- state ----------
 
-local set3D   -- (the raising section below)
+local set3D, raiseCamera   -- (the raising section below)
 
 -- The next thing to do, from the engine: a raise, a punishment kubb, or done.
 local function begin(s)
@@ -263,15 +269,32 @@ set3D = function(s)
 	n = n + 1
 	items[n] = s.it
 	s.items, s.nitems = items, n
-	local c = s.cam or camera.new()
-	s.cam = c
-	camera.lookAt(c, vx + t.raiseSide, vy - t.raiseBack, t.raiseUp, vx, vy, SIDE / 2)
-	c.f, c.cy = t.raiseLens, t.raiseCY
-	local a = s.vpose.angle
-	local e1 = camera.project(c, vx + cos(a) * LONG / 2, vy + sin(a) * LONG / 2, SIDE / 2) or 0
-	local e2 = camera.project(c, vx - cos(a) * LONG / 2, vy - sin(a) * LONG / 2, SIDE / 2) or 0
-	s.rightEnd = (e1 >= e2) and 1 or 2
+	s.cam = s.cam or camera.new()
+	s.yaw, s.zoom = 0, 1
+	raiseCamera(s)
 	tipTo(s, 0)
+end
+
+-- The raise camera from the look (s.yaw: turned round the kubb, s.zoom: its
+-- distance), and which end of the kubb shows on the right (the crank tips
+-- forward onto that one). The ends are read again only while the kubb lies
+-- flat, so a turn mid-tip does not swap the end being tipped.
+raiseCamera = function(s)
+	local t = settle.tune
+	local c = s.cam
+	local vx, vy = s.vpose.x, s.vpose.y
+	local cy, sy = cos(s.yaw), sin(s.yaw)
+	local ox, oy = t.raiseSide * s.zoom, -t.raiseBack * s.zoom
+	ox, oy = ox * cy - oy * sy, ox * sy + oy * cy
+	camera.lookAt(c, vx + ox, vy + oy, t.raiseUp * s.zoom, vx, vy, SIDE / 2)
+	c.f, c.cy = t.raiseLens, t.raiseCY
+	if not s.tip or s.tip == 0 then
+		local a = s.vpose.angle
+		local e1 = camera.project(c, vx + cos(a) * LONG / 2, vy + sin(a) * LONG / 2, SIDE / 2) or 0
+		local e2 = camera.project(c, vx - cos(a) * LONG / 2, vy - sin(a) * LONG / 2, SIDE / 2) or 0
+		s.rightEnd = (e1 >= e2) and 1 or 2
+	end
+	s.img = nil
 end
 
 local function raiseView(s)
@@ -317,9 +340,9 @@ local function raiseView(s)
 	local done = s.raised
 	rail(s.name(side), "RAISE " .. (done + 1) .. " OF " .. max(s.raiseTotal, done + 1), nil)
 	local x = 6
-	if #s.dec.choices > 1 then x = x + hint("lr", "CHOOSE END", x, 212) + 8 end
+	x = x + hint("plus", "LOOK", x, 212) + 8
 	x = x + buttonPlaque("A", "RAISE", x, 212) + 8
-	ui.text(f, "OR CRANK IT UP", 394, 216, false, "right")
+	ui.text(f, (#s.dec.choices > 1) and "OR CRANK EITHER END UP" or "OR CRANK IT UP", 394, 216, false, "right")
 end
 
 -- ---------- punishment ----------
@@ -425,11 +448,15 @@ function settle.update(s)
 	p:advance()
 	if s.done then return end
 	if s.mode == "raise" then
-		local n = #s.dec.choices
-		if n > 1 and (p:pressed("left") or p:pressed("right")) then
-			s.choice = s.choice % n + 1
-			s.blocked = nil
-			tipTo(s, 0)
+		-- the d-pad looks (Jamie, 2026-11-14): left/right turn the view round
+		-- the kubb, up/down zoom in and out; the end is the crank's choice
+		local turn = (p:held("right") and 1 or 0) - (p:held("left") and 1 or 0)
+		local zoom = (p:held("down") and 1 or 0) - (p:held("up") and 1 or 0)
+		if turn ~= 0 or zoom ~= 0 then
+			local t, dt = settle.tune, p:dt()
+			s.yaw = s.yaw + turn * math.rad(t.lookTurn) * dt
+			s.zoom = max(t.zoomMin, min(t.zoomMax, s.zoom * t.lookZoom ^ (zoom * dt)))
+			raiseCamera(s)
 		end
 		-- the crank tips it: forward toward the right-hand end, back the left
 		local d = p:crank() * swing.tune.forwardSign
