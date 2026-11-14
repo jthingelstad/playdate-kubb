@@ -270,7 +270,9 @@ set3D = function(s)
 	items[n] = s.it
 	s.items, s.nitems = items, n
 	s.cam = s.cam or camera.new()
-	s.yaw, s.zoom = 0, 1
+	-- a new kubb lies flat: its ends are read afresh (the last one may have
+	-- been raised mid-tip)
+	s.yaw, s.zoom, s.tip = 0, 1, 0
 	raiseCamera(s)
 	tipTo(s, 0)
 end
