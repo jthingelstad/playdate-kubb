@@ -53,8 +53,6 @@ hud.tune = {
 	prompt = { x = 316, y = 158, w = 70, h = 15 },
 	gauge = { x = 346, y = 205, r = 27, halo = 2, track = 22, arcW = 6, arm = 21, knob = 4, hub = 3,
 		bandIn = 12, tickOut = 6, notchIn = 9, stopIn = 6, stopR = 3 },
-	-- HOW TO THROW (hud.howto): the three little dials' centres and radius
-	howto = { dialY = 104, dialR = 28, xs = { 70, 200, 330 }, target = 35 },
 	plaque = { x = 250, y = 199, w = 62, h = 34 },
 	cutFlag = { x = 250, y = 182, w = 62, h = 15 },
 	chip = { x = 318, y = 203, w = 76, h = 32 },
@@ -872,89 +870,6 @@ function hud.gauge(phase, angle, backswing, fullDeg, crank, band, half, target, 
 	end
 	if behind then return "CRANK DOWN", false end
 	return band and "WIND TO BAND" or "WIND BACK", false
-end
-
--- HOW TO THROW (Jamie, 2026-11-14: "maybe we need a 'how to' that shows
--- people how the throw works"; no lesson): one full-screen card, three
--- little dials (wind back to the back notch, flick, stop on the front
--- notch) and what each does. Drawn once into an image and copied.
-local howtoImg = nil
-local function miniDial(cx, cy, r, fullDeg, target, arm, stopDot)
-	gfx.setColor(BLACK)
-	gfx.fillCircleAtPoint(cx, cy, r)
-	gfx.setColor(WHITE)
-	gfx.setLineWidth(3)
-	for _, d in ipairs { fullDeg, -target } do
-		local x0, y0 = onDial(cx, cy, r - 9, d)
-		local x1, y1 = onDial(cx, cy, r - 1, d)
-		gfx.drawLine(x0, y0, x1, y1)
-	end
-	local kx, ky = onDial(cx, cy, r - 7, arm)
-	gfx.drawLine(cx, cy, kx, ky)
-	gfx.setLineWidth(1)
-	gfx.fillCircleAtPoint(kx, ky, 3)
-	gfx.fillCircleAtPoint(cx, cy, 2)
-	if stopDot then
-		gfx.setColor(BLACK)
-		gfx.drawCircleAtPoint(kx, ky, 3)
-	end
-	gfx.setColor(BLACK)
-end
-
-local function centred(f, text, x, y)
-	f:drawText(text, floor(x - f:getTextWidth(text) / 2), y)
-end
-
-function hud.howto()
-	if not howtoImg then
-		local t = hud.tune.howto
-		local full = 120
-		howtoImg = gfx.image.new(400, 240, WHITE)
-		gfx.pushContext(howtoImg)
-		gfx.setColor(BLACK)
-		gfx.setLineWidth(2)
-		gfx.drawRect(4, 4, 392, 232)
-		gfx.setLineWidth(1)
-		local big = font("fonts/ThrowingWoodDisplay-32")
-		centred(big, "HOW TO THROW", 200, 16)
-		local lf = hud.labelFont()
-		local x1, x2, x3 = t.xs[1], t.xs[2], t.xs[3]
-		local y, r = t.dialY, t.dialR
-		miniDial(x1, y, r, full, t.target, full, false)
-		miniDial(x2, y, r, full, t.target, 0, false)
-		miniDial(x3, y, r, full, t.target, -t.target, true)
-		-- the flick: an arrow round the middle dial from the back to the front
-		gfx.setLineWidth(2)
-		local px, py = onDial(x2, y, r + 6, 100)
-		for d = 90, -30, -10 do
-			local qx, qy = onDial(x2, y, r + 6, d)
-			gfx.drawLine(px, py, qx, qy)
-			px, py = qx, qy
-		end
-		local ax, ay = onDial(x2, y, r + 1, -40)
-		local bx, by = onDial(x2, y, r + 11, -40)
-		local tx, ty = onDial(x2, y, r + 6, -52)
-		gfx.fillPolygon(ax, ay, bx, by, tx, ty)
-		gfx.setLineWidth(1)
-		local cy = y + r + 14
-		centred(lf, "1  WIND BACK", x1, cy)
-		centred(lf, "TO THE NOTCH", x1, cy + 14)
-		centred(lf, "2  FLICK", x2, cy)
-		centred(lf, "FORWARD, HARD", x2, cy + 14)
-		centred(lf, "3  STOP", x3, cy)
-		centred(lf, "ON THE NOTCH", x3, cy + 14)
-		centred(lf, "HOW FAR BACK: POWER.  WHERE IT STOPS: ANGLE.", 200, 184)
-		centred(lf, "EARLY: LOW, LATE: HIGH.  A + CRANK MOVES THE NOTCH.", 200, 198)
-		-- A to go on
-		local bw = 120
-		gfx.fillCircleAtPoint(200 - bw / 2 + 8, 222, 7)
-		gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-		centred(lf, "A", 200 - bw / 2 + 8, 216)
-		gfx.setImageDrawMode(gfx.kDrawModeCopy)
-		lf:drawText("GOT IT", 200 - bw / 2 + 20, 216)
-		gfx.popContext()
-	end
-	howtoImg:draw(0, 0)
 end
 
 -- A card in the middle of the screen over the world: a title line and up to

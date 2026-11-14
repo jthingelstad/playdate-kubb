@@ -41,6 +41,8 @@ import "framelog"
 import "core/frametel"
 import "core/drill"
 import "sound"
+import "core/howto"
+import "render/howto"
 
 local gfx <const> = playdate.graphics
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
@@ -885,13 +887,13 @@ local function flightUpdate(s, dt)
 	if pb.done and s.showTime >= have then landed(s) end
 end
 
--- HOW TO THROW (hud.howto) over the scene until A or B: from the System
--- Menu's "how to", and once by itself the first time a player aims a baton
+-- HOW TO THROW (core/howto, render/howto) over the scene until it ends: from
+-- the System Menu's "how to", and once by itself the first time a player aims a baton
 -- (throw.howtoFirst, set by main.lua for a player's own runs; the device
 -- remembers it in the datastore "howto").
 throw.howtoFirst = false
 function throw.showHowTo(s)
-	s.howto = true
+	s.howto = tw.howto.new(s.loftDeg)
 end
 
 local function firstHowTo(s)
@@ -900,15 +902,22 @@ local function firstHowTo(s)
 	local seen = playdate.datastore.read("howto")
 	if seen and seen.seen then return end
 	playdate.datastore.write({ seen = true }, "howto")
-	s.howto = true
+	throw.showHowTo(s)
 end
 
 function throw.update(s)
 	local p = s.input
 	p:advance()
-	-- HOW TO THROW over the scene: A or B puts it away; nothing else moves
+	-- HOW TO THROW over the scene (core/howto: the crank walks through the
+	-- throw); nothing else moves. When it ends the crank must arm afresh, so
+	-- its turns there throw nothing here.
 	if s.howto then
-		if p:pressed("a") or p:pressed("b") then s.howto = false end
+		if tw.howto.update(s.howto, p, p:dt()) == "close" then
+			s.howto = nil
+			s.arm, s.armed = nil, false
+			swing.reset(s.swing)
+			s.swing.backswing = 0
+		end
 		return
 	end
 	local dt = p:dt()
@@ -1218,7 +1227,7 @@ end
 
 function throw.draw(s)
 	if s.howto then
-		hud.howto()
+		tw.render.howto.draw(s.howto, s.input:docked())
 		return true
 	end
 	-- (render/world is shared: the scene's own set, a no-op when unchanged)
