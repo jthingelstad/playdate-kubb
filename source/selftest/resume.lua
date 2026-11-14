@@ -69,6 +69,10 @@ tw.selftest.scenarios.resume = {
 			ctx.ms2 = scene.new(tw.input.scripted { { n = 2 }, { press = { "a" } }, { n = 4 } },
 				{ names = { A = "Ash", B = "Birch" }, resume = m })
 			if ctx.ms2.phase ~= "settle" then error("resumed into " .. ctx.ms2.phase .. ", not the raise") end
+			-- resign in a match resumed mid-raise is the defender's, kept for its turn
+			tw.scenes.match.resign(ctx.ms2)
+			if not ctx.ms2.resignWanted or ctx.ms2.resignSide ~= "B" then error("resign in the resumed raise was dropped") end
+			ctx.ms2.resignWanted = false   -- (not carried out here: the raise below is the test)
 			ctx.first = ctx.ms2.settle.kubb
 			return false
 		end
