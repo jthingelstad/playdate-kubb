@@ -911,22 +911,28 @@ slowing because the physics fell behind shows nothing. The `hit` self-test check
 
 ## Hit bursts
 
-`docs/design/README.md` "Hit effects". When the picture reaches the first kubb or king a
-baton toppled, a pre-drawn burst is put up and to the left of the hit, its long spike's tip
+`docs/design/README.md` "Hit effects". When the picture reaches the impact on the first kubb
+or king a baton toppled (the moment it was struck, not once it is down: Jamie,
+2026-11-13), a pre-drawn burst is put up and to the left of the hit, its long spike's tip
 on it, with a knock.
 
-- `core/world` stamps each piece it topples with `toppleT` (simulated seconds; pieces down
-  before the throw have none). `core/burstpick.pick(w, showTime)` (pure, tested) says which
-  burst and when: the king toppled within `window` (0.4 s) of the first topple, or by the
-  time on screen, is `king` (a king that falls later replaces the burst showing, from its
-  start, with the king's knock); a second kubb down within the window is `double`, else
-  `clean`; nothing for a miss or a touch that leaves
+- `core/world` stamps each body with `touchT`, the first time anything struck it (in the
+  contact store, one test a contact, no arithmetic), and each piece it topples with
+  `toppleT` (pieces down before the throw have none). `core/burstpick.pick(w, showTime)`
+  (pure, tested) says which burst and when, by the toppled pieces' impact times
+  (`burstpick.hitTime`: `touchT`, else `toppleT`): the burst starts once the picture
+  reaches the first one's impact (and the physics has run past its topple, which the slow
+  motion gives it time to do; `render/burst` keeps how late it started, `B.gap`, and the
+  autobench reports it). The king toppled within `window` (0.4 s) of the first impact, or
+  struck by the time on screen, is `king` (a king that falls later replaces the burst showing, from its
+  start, with the king's knock); a second toppled kubb struck within the window is
+  `double`, else `clean`; nothing for a miss or a touch that leaves
   the kubb standing, and nothing for kubb tosses or drills.
 - `render/burst.lua`: three images per kind, `images/burst/<kind>-1..3` (flash, burst with
   the word, break-up) from `tools/art/build.py` (`BURST_*`; 2-bit PNGs with a clear
   ground). Phases run on real seconds (2, 12 and 4 frames at 30 fps), not the slowed throw
   time. The anchor is the baton's first contact point when that was the toppled piece,
-  else the piece's pose at its topple, lifted `lift`; it is projected each frame and the
+  else the piece's pose at its impact, lifted `lift`; it is projected each frame and the
   image kept on screen below the rail. Double: KLAK (first kubb) and KLAK! (second, 3
   frames later, with a second knock). King: the whole screen inverts for the flash
   (`playdate.display.setInverted`), the burst wears the crown. The break-up adds six
@@ -941,7 +947,8 @@ on it, with a knock.
   or any burst the king's. `throw.reset`, `throw.prepare` and a scene change (`main.lua`
   `open`) clear the burst and the screen inversion.
 - Self-tests: `burst` (the hit throw: flash, TOK!, break-up, then aiming again with the
-  burst cleared), `burst-reset` (Pitch reset while the burst is up) and `bursts` (every
+  burst cleared; the burst must start within one shown frame of the impact: 5.8 ms of
+  shown time on the Simulator), `burst-reset` (Pitch reset while the burst is up) and `bursts` (every
   burst image on white, for review).
 
 ## Frame-time log

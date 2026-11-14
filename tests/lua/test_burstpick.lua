@@ -54,6 +54,21 @@ test("burstpick: a king that falls after the window is the king burst once it is
 	expect.eq(a.id, "king")
 end)
 
+test("burstpick: the burst comes at the impact, not when the piece is down", function()
+	-- b3 struck at 1.00 s, down at 1.35 s
+	local w = fake { { kind = "baton" }, { kind = "kubb", id = "b3", touchT = 1.0, toppleT = 1.35 } }
+	expect.eq((pick.pick(w, 0.99)), nil)
+	expect.eq((pick.pick(w, 1.0)), "clean", "on screen at the impact")
+	-- a kubb struck but still standing gets nothing
+	local w2 = fake { { kind = "kubb", id = "b2", touchT = 1.0 } }
+	expect.eq((pick.pick(w2, 5)), nil)
+	-- the double's window runs from impact to impact
+	local w3 = fake { { kind = "kubb", id = "b3", touchT = 1.0, toppleT = 1.3 },
+		{ kind = "kubb", id = "b4", touchT = 1.3, toppleT = 1.9 } }
+	local kind, a, b = pick.pick(w3, 1.0)
+	expect.eq(kind, "double"); expect.eq(a.id, "b3"); expect.eq(b.id, "b4")
+end)
+
 test("burstpick: the physics times a topple (world bodies carry toppleT)", function()
 	-- core/bench's scenario: a baton into five field kubbs (it topples one)
 	local w = tw.bench.world()
@@ -64,6 +79,7 @@ test("burstpick: the physics times a topple (world bodies carry toppleT)", funct
 		if b.toppled and b.kind == "kubb" then
 			down = down + 1
 			expect.truthy(b.toppleT and b.toppleT > 0, b.id .. " has a topple time")
+			expect.truthy(b.touchT and b.touchT <= b.toppleT, b.id .. " was struck before it fell")
 			expect.truthy(w.firstHit and b.toppleT >= w.firstHit.t, b.id .. " topples after the first hit")
 		end
 	end

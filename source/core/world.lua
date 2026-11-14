@@ -1102,6 +1102,10 @@ function world.step(w)
 			local other = cB[idx]
 			local first = cA[idx]
 			first.touched, other.touched = true, true
+			-- the first moment each body is struck (render/burst: the burst and
+			-- knock come at the impact); one test a contact, no arithmetic
+			if not first.touchT then first.touchT = w.time end
+			if not other.touchT then other.touchT = w.time end
 			if proj and not w.firstHit and (first == proj or other == proj) then
 				noteContact(w, proj, (first == proj) and other or first, cPx[idx], cPy[idx], cPz[idx])
 			end

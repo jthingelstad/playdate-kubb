@@ -2,8 +2,12 @@
 -- effects"). Pure: reads a core/world (its bodies' kind, toppleT and index)
 -- and the time on screen.
 --
--- A burst starts when the picture reaches the first kubb or king the throw
--- toppled (world bodies carry toppleT, the simulated time they went down).
+-- A burst starts when the picture reaches the moment the first kubb or king
+-- the throw toppled was struck (world bodies carry touchT, the first time
+-- something struck them, and toppleT, the time they went down; Jamie: the
+-- burst and its knock at the impact, not once the piece is down). The
+-- topple is known only once the physics has run past it, which the slow
+-- motion around the hit gives it time to do.
 -- What kind: the king toppled within `window` s of the first topple, or by
 -- now (whenever it fell), is "king" (the winning hit or the losing one); two
 -- or more kubbs down within `window` s of the first is "double"; one is
@@ -19,27 +23,36 @@ burstpick.tune = {
 	window = 0.4,   -- s after the first topple that a second one makes it a double
 }
 
--- Returns nil before the first topple is on screen (or when there is none),
--- else kind, first body, second body (the double's second kubb) or nil.
--- No tables are made.
+-- The moment a toppled body was struck (its topple when nothing recorded a
+-- touch).
+local function hitTime(b)
+	return b.touchT or b.toppleT
+end
+burstpick.hitTime = hitTime
+
+-- Returns nil before the first toppled piece's impact is on screen (or when
+-- nothing toppled), else kind, first body, second body (the double's second
+-- kubb) or nil. No tables are made.
 function burstpick.pick(w, showTime)
 	local bodies, n = w.bodies, w.n
 	local first, ft = nil, nil
 	for i = 1, n do
 		local b = bodies[i]
-		local tt = b.toppleT
-		if tt and (b.kind == "kubb" or b.kind == "king") and (not ft or tt < ft) then first, ft = b, tt end
+		if b.toppleT and (b.kind == "kubb" or b.kind == "king") then
+			local ht = hitTime(b)
+			if not ft or ht < ft then first, ft = b, ht end
+		end
 	end
 	if not first or ft > showTime then return nil end
 	local limit = ft + burstpick.tune.window
 	local second, king = nil, first.kind == "king" and first or nil
 	for i = 1, n do
 		local b = bodies[i]
-		local tt = b.toppleT
-		if b ~= first and tt then
+		if b ~= first and b.toppleT then
+			local ht = hitTime(b)
 			if b.kind == "king" then
-				if tt <= limit or tt <= showTime then king = b end
-			elseif b.kind == "kubb" and tt <= limit and (not second or tt < second.toppleT) then
+				if ht <= limit or ht <= showTime then king = b end
+			elseif b.kind == "kubb" and ht <= limit and (not second or ht < hitTime(second)) then
 				second = b
 			end
 		end
