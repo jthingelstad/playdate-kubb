@@ -95,8 +95,9 @@ world.tune = {
 	-- the kubb set (Jamie, 2026-11-14: painted sets; world.sets below): the
 	-- name of the one in play, "classic" bare wood. world.setSet changes it.
 	set = "classic",
-	setBandsFrom = 20,  -- px tall: all of a set's bands and its fill from here (farther, one
-	                    -- plain black head band: game play first, Jamie 2026-11-14)
+	setFrom = 20,       -- px tall: a set's paint from here; farther, a piece draws as classic
+	                    -- (game play first, Jamie 2026-11-14: every kubb seen from the
+	                    -- throwing line is under it)
 	setDetailFrom = 30, -- px tall: a set's stars, crosses and waves from here
 	cache = true,     -- reuse the last frame's world image when nothing changed
 	layer = true,     -- keep the pieces that hold still in a background image while the camera does
@@ -707,7 +708,7 @@ local function drawKing(p, FN, tall)
 			local F = FACES[fi]
 			local a, b = F[1], F[2]
 			local shade = FN[o + 7]
-			local paint = (shade ~= 3 and SET and SET.crown) and SET.fill or nil
+			local paint = (shade ~= 3 and SET and SET.crown and tall >= t.setFrom) and SET.fill or nil
 			kingFace(a, b, shade, false, paint)
 			if shade ~= 3 then
 				-- the collar (black on a light face; a black face needs none)
@@ -775,21 +776,17 @@ end
 
 -- One lit side face of a kubb: its head bands, and near, the set's detail.
 -- a, b the face's foot corners, d above a and c above b (screen, SX/SY).
--- Black on entry (the face's outline colour) and on exit. A far kubb gets
--- its head band only (setBandsFrom): every call counts in flight.
+-- Black on entry (the face's outline colour) and on exit. Called only from
+-- setFrom px tall (drawBox): every call counts in flight.
 local function paintKubbFace(set, a, b, c, d, tall)
 	local t = world.tune
 	local ax, ay, bx, by = SX[a], SY[a], SX[b], SY[b]
 	local lx, ly, rx, ry = SX[d] - ax, SY[d] - ay, SX[c] - bx, SY[c] - by
 	local bands = set.bands
-	-- far: the head band alone, plain black (Jamie, 2026-11-14: the styling
-	-- must never cost the game play)
-	local far = tall < t.setBandsFrom
-	local nb = far and 1 or #bands
 	local cur = "black"
-	for i = 1, nb do
+	for i = 1, #bands do
 		local band = bands[i]
-		local u0, u1, fill = band[1], band[2], far and "black" or (band[3] or set.fill)
+		local u0, u1, fill = band[1], band[2], band[3] or set.fill
 		if fill ~= cur then fillOn(fill); cur = fill end
 		fillPolygon(ax + lx * u0, ay + ly * u0, bx + rx * u0, by + ry * u0,
 			bx + rx * u1, by + ry * u1, ax + lx * u1, ay + ly * u1)
@@ -873,11 +870,14 @@ local function drawBox(p)
 				if shade == 1 then setColor(WHITE) end
 				fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
 				if shade ~= 3 then setColor(BLACK) end
-				if set and shade == 1 then
+				-- painted near only (setFrom): a far kubb draws exactly as classic
+				-- (Jamie, 2026-11-14: game play first; on the device a black head
+				-- band on every kubb cost a tenth of the shown speed)
+				if set and shade == 1 and tall >= t.setFrom then
 					if fi <= 4 then
 						paintKubbFace(set, a, b, cc, d, tall)
-					elseif fi == 6 and tall >= t.setBandsFrom then
-						-- the head's end (near only: far, a sliver the band already reads as)
+					elseif fi == 6 then
+						-- the head's end
 						if set.fill ~= "black" then fillOn(set.fill) end
 						fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
 						if set.fill ~= "black" then setColor(BLACK) end

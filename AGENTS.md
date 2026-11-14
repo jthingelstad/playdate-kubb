@@ -416,7 +416,7 @@ Every number that is a guess lives in one table per module, with a comment:
   `stakeThick` at their true size, `stakeMinPx` the thinnest; no shadow), the baton's
   bands, the king's drawing (`kingCrown`, `kingCollar`, `kingCollarTop`, `kingRing`,
   `kingDiamond`, `kingDetailFrom`: drawing only, the physics king stays a plain box; the
-  `king` scenario shows it), the kubb set (`set`, `setBandsFrom`, `setDetailFrom`; the
+  `king` scenario shows it), the kubb set (`set`, `setFrom`, `setDetailFrom`; the
   sets themselves are `render.world.sets`, see "Kubb sets"), HUD fonts (`labelFont`, `displayFont`) and every HUD box
   (`rail`, `prompt`, `gauge`, `plaque`, `chip`, `flag`, `slow`, `callout`, ...), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
@@ -619,9 +619,17 @@ The autobench measures a build on the Playdate with nobody pressing anything:
 4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
    touch `traces.jsonl` (crank recordings), `frames.jsonl` or `games/`.
 
+Know when a run is over without a timer (Jamie, 2026-11-14): the autobench and the soak
+also `print` every line they write, and on the device `print` goes to the USB serial port.
+After `pdutil <port> run`, wait with `python3 tools/devwatch.py <port> <log> "autobench
+done"` (or `"soak done"`; run it in the background): it reads the port raw, with no echo,
+and exits when the line comes. Then mount the disk; mounting stops the game, so never
+mount to look. A plain `cat <port>` does not do: the tty echoed the device's output back
+to it, and the read stalled after 4 KB.
+
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
-autobench), at a player's real pace through `scenes/match` (playback, slow motion, camera,
+autobench; each with the next kubb set of `soak.tune.sets`: classic, USA, Wisconsin), at a player's real pace through `scenes/match` (playback, slow motion, camera,
 bursts, raising and punishment by the engine's policies), bounded at `maxTurns` (24). It
 saves the match before every throw under its own key (`soak-match`, match option `saveKey`)
 and every `saveCheck` throws reads it back and unpacks it against the live engine; it
@@ -1068,12 +1076,14 @@ A kubb's head is its local +z end: one raised the other way up wears its paint a
 as a real one would. `render.world.setSet(name)` changes the set and drops the caches only
 when it changes; the throw scene owns its set (`throw.setSet`, `s.set`) and sets it at
 every draw (render/world is shared with the settle view). Game play first (Jamie, 2026-11-14:
-"keep the Kubb set styling simple enough that it doesn't destroy game play"): a far kubb
-(under `setBandsFrom`, 20 px, which is every kubb from the thrower's line) gets one plain
-black head band whatever the set, black needs no colour change (the outline's colour), the
-set's other bands and the cheese come from 20 px, and the stars, crosses and waves from
-`setDetailFrom` (30 px): the impact camera's close views. The
-`drawcalls` self-test with the USA set: 154 calls a flight frame against 134 classic, 183 an
+"keep the Kubb set styling simple enough that it doesn't destroy game play"): a piece under
+`setFrom` (20 px tall, which is every kubb seen from the throwing line) draws exactly as
+classic; nearer, the set's bands, cheese and crown, and from `setDetailFrom` (30 px) the
+stars, crosses and waves: the impact camera's close views and the raise view. A first
+version gave every far kubb a plain black head band: on the device that cost about a tenth
+of the shown speed (the three match-case throws 13.5 s with USA against 12.0 and 12.3
+classic, `telemetry/2026-11-14/bench/run8`), so it was cut. Black paint needs no colour
+change (the outline's colour). The `drawcalls` self-test with the USA set: 154 calls a flight frame against 134 classic, 183 an
 impact frame against 158 (2026-11-14). Self-test `sets` draws every set up close and from
 the baseline (frames 1 to 6); the autobench has USA and Wisconsin variants.
 
