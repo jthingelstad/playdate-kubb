@@ -57,6 +57,14 @@ world.tune = {
 	-- dashes on an 8 px grid (pattern bits: 1 = white, 0 = black), never on
 	-- the pitch. Its phase follows the ground (see drawPitch).
 	roughPattern = { 0xFF, 0x9F, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF, 0xFF },
+	-- each surface's rough (world.setSurface sets roughPattern from these):
+	-- grass the short dashes above, sand a denser stipple, snow a sparse
+	-- sprinkle on white
+	roughBySurface = {
+		grass = { 0xFF, 0x9F, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF, 0xFF },
+		sand = { 0xFF, 0xDF, 0xFF, 0xFB, 0xFF, 0x7F, 0xFF, 0xF7 },
+		snow = { 0xFF, 0xFF, 0xFF, 0xEF, 0xFF, 0xFF, 0xFF, 0xFF },
+	},
 	rough = true,       -- false leaves the rough white (the autobench measures it)
 	outsideFrom = -20,  -- m (y) where the strips beside the pitch start, behind the thrower
 	roughFar = 200,     -- m (y) how far past the far baseline the rough goes (the horizon)
@@ -138,6 +146,16 @@ function world.poseVersion() return poseVersion end
 local cacheReady = false
 local layerReady = false
 local generation = 0
+-- The ground's look for a surface (core/world's name: grass, sand, snow).
+-- Changes the rough and drops the caches only when it is a different one.
+function world.setSurface(name)
+	local p = world.tune.roughBySurface[name]
+	if p and world.tune.roughPattern ~= p then
+		world.tune.roughPattern = p
+		world.invalidate()
+	end
+end
+
 function world.invalidate()
 	cacheReady = false
 	layerReady = false

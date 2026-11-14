@@ -310,6 +310,9 @@ end
 -- the middle of the baseline facing straight down the pitch.
 function throw.prepare(s, setup)
 	burst.reset(s.burst)
+	-- the match's surface (core/match setup.surface: grass, sand, snow)
+	if setup.surface then s.surface = setup.surface end
+	render.setSurface(s.surface)
 	throw.setPieces(s, setup.pieces, setup.debris)
 	s.lineY, s.forwardY, s.advY = setup.lineY, setup.forwardY or setup.lineY, setup.advY
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
@@ -524,6 +527,7 @@ local function launch(s, r)
 		pieces[i] = { id = it.id, kind = it.kind, x = it.x, y = it.y, z = it.z,
 			qw = it.qw, qx = it.qx, qy = it.qy, qz = it.qz, toppled = it.toppled }
 	end
+	render.setSurface(s.surface)
 	local w = phys.new { surface = s.surface, pieces = pieces }
 	for i = 1, s.nitems do s.bodyIndex[i] = w.byId[s.items[i].id].index end
 	local b
@@ -870,6 +874,13 @@ end
 -- Show a throw's aim before it is made (the Playdate's turn): where it stands,
 -- swivel and loft, and the aim camera on them. s.watching hides the
 -- player's controls (gauge, loft plaque) and prompts WATCH.
+-- The practice pitch's surface (System Menu "Pitch"): the next throw is on
+-- it, and the ground looks it at once.
+function throw.setSurface(s, name)
+	s.surface = name
+	render.setSurface(name)
+end
+
 function throw.showAim(s, a)
 	-- a lobbed kubb (the Playdate's tosses: no a.drill) is aimed like a baton,
 	-- so no drill marker is shown that the toss will not go to

@@ -89,15 +89,15 @@ If so, the cost is a pause of a few tenths of a second before the result flag on
 picture, not a hitch in the flight. The per-part hooks are on branch `soak-profile` (not
 merged).
 
-## The ground's texture (2026-11-14)
+## The ground's texture and surfaces (2026-11-14)
 
-Grass is no longer a perfectly flat, even plane: patches vary in friction, bounce and how
-far a landing digs in, steep landings are turned a little off line, a baton on grass
-stops instead of creeping, and nothing slides along on an end (AGENTS.md "Physics", "The
-ground's texture"). Over 400 scripted throws: on-end sliding 0.050 to 0.008 s a throw, the
-slide after touching down 2.1 to 1.4 m. Next: sand and snow as their own textures, and the
-Playdate opponent aiming for the surface (it aims short and counts on a skid that grass no
-longer gives).
+Grass, sand and snow each have a texture: patches vary in friction, bounce and how far a
+landing digs in, steep landings are turned a little off line, pieces stop instead of
+creeping, nothing slides along on an end, and snow ploughs (AGENTS.md "Physics", "The
+ground's texture"). Slide after touching down, over 400 scripted throws: grass 1.4 m, sand
+0.46, snow 1.85. Practice picks the surface in the System Menu; a match plays on its own
+surface. Next: the match options screen (surface, opening, raising by hand or automatic),
+then the Playdate opponent aiming for the surface.
 
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 

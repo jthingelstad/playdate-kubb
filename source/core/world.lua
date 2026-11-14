@@ -100,6 +100,9 @@ world.tune = {
 --     trip      rad/s^2 per m/s: a baton sliding upright on an end (within
 --               30 degrees) faster than tripSpeed is tipped toward the way it
 --               is going, as its foot catches
+--     plough    1/s per m (optional): the drag grows with the distance a piece
+--               has slid since it last left the ground (snow piles up in front
+--               of it), so a slide starts slick and ends heavy
 world.surfaces = {
 	grass = {
 		name = "grass", mu = 0.7, e = 0.15,
@@ -108,15 +111,34 @@ world.surfaces = {
 		texture = { cell = 0.25, muVar = 0.3, eVar = 0.5, digVar = 0.5, bump = 0.12, bumpSpeed = 0.8,
 			drag = 2.5, grip = 12, gripSpeed = 0.5, trip = 60, tripSpeed = 0.15 },
 	},
+	-- sand (DESIGN 5): very high dig, almost no bounce or slide; pieces plug where
+	-- they land, so placement is all in the air. Its texture: soft and packed
+	-- spots (dig varies a lot), ridges and footprints that turn a landing more
+	-- than grass does, and sand that drags hard and grabs.
 	sand = {
 		name = "sand", mu = 0.9, e = 0.03,
 		dig = 3.0, digSpeed = 0.2, digRamp = 1.0, digLever = 0.03, digTime = 0.5,
 		roll = 0.03,
+		texture = { cell = 0.2, muVar = 0.25, eVar = 0.4, digVar = 0.7, bump = 0.18, bumpSpeed = 0.6,
+			drag = 6, grip = 20, gripSpeed = 0.6, trip = 120, tripSpeed = 0.1 },
+	},
+	-- snow (Jamie, 2026-11-14): packed snow is slick to a fast piece, but soft:
+	-- a steep landing plugs, almost nothing bounces, and a sliding piece ploughs
+	-- snow ahead of it, so it starts fast and stops heavy. Icy and soft patches
+	-- (friction and dig vary most of all here).
+	snow = {
+		name = "snow", mu = 0.25, e = 0.02,
+		dig = 2.5, digSpeed = 0.3, digRamp = 1.2, digLever = 0.025, digTime = 0.4,
+		roll = 0.004,
+		texture = { cell = 0.3, muVar = 0.5, eVar = 0.3, digVar = 0.8, bump = 0.1, bumpSpeed = 0.8,
+			drag = 0.6, grip = 4, gripSpeed = 0.3, trip = 70, tripSpeed = 0.15, plough = 1.5 },
 	},
 	-- ICE (stage 7, not built): very low friction for the Minnesota slide,
 	-- something like mu = 0.05, e = 0.1, dig = 0, roll = 0.0005. Add it
-	-- here as a third parameter set; nothing else should need to change.
+	-- here as another parameter set; nothing else should need to change.
 }
+-- The surfaces a game can be played on, in the order they are offered.
+world.SURFACES = { "grass", "sand", "snow" }
 
 -- Optional profiling (the device autobench): set world.prof to a table
 -- from world.newProf(clock) and world.step adds the seconds of each phase
@@ -667,6 +689,7 @@ local function loneStep(w, b, t, P)
 	b.vz = vz - g * dt
 	if t.gyro then gyro(b, dt) end
 	b.groundImpulse = 0
+	b.plough = 0   -- in the air: as the full step does for a body off the ground
 	-- 2-4. no contacts
 	C.n = 0
 	w.contacts = 0
@@ -1199,6 +1222,7 @@ function world.step(w)
 		local b = bodies[i]
 		if b.awake then
 			local gi = b.groundImpulse
+			if gi <= 0 then b.plough = 0 end   -- off the ground: the ploughed snow is left behind
 			if gi > 0 then
 				local lever = b.dig
 				if b.shape == 2 then lever = lever + surf.roll end
@@ -1220,8 +1244,15 @@ function world.step(w)
 						elseif b.shape == 2 or r33 < 0.5 then
 							-- a baton or a lying piece on grass: the blades hold it,
 							-- harder once it is slow, so it stops instead of creeping
+							-- (in snow, harder the farther it has ploughed)
 							local f = tex.drag
 							if v2 < tex.gripSpeed * tex.gripSpeed then f = f + tex.grip end
+							local pl = tex.plough
+							if pl then
+								local d = b.plough + sqrt(v2) * dt
+								b.plough = d
+								f = f + pl * d
+							end
 							f = 1 - f * dt
 							if f < 0 then f = 0 end
 							b.vx, b.vy = vx * f, vy * f

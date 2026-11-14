@@ -73,6 +73,7 @@ function body.new(kind, id)
 		gStamp = {}, gN = {}, gT1 = {}, gT2 = {}, gDig = {}, gMf = {}, gEf = {},
 		groundImpulse = 0,   -- sum of ground normal impulses in this step
 		dig = 0,             -- extra rolling-resistance lever from digging in (m), decays
+		plough = 0,          -- m slid on the ground since it last left it (snow piles up)
 		digGain = 1,         -- how much harder than the surface's dig this body's new ground
 		                     -- contacts dig in (a drilled kubb's leading edge: world.launchDrill)
 		index = 0,
