@@ -12,17 +12,19 @@
 --   "Record"   append each swing's crank samples to traces.jsonl in the
 --              Data folder (replay with tools/replay_traces.lua). On by
 --              default while the throw is being tuned; self-tests leave it off.
---   "Pitch"    practice only: play (nothing) / reset (stand every piece back
+--   "Pitch"    practice only: play (nothing) / how to (the HOW TO THROW card,
+--              also on Match and Drill; shown once by itself before a
+--              player's first baton) / reset (stand every piece back
 --              up and clear the drilled kubbs) / drill (aim kubbs at the far
 --              half with a landing marker; they stay where they end) / batons
 --              (back to throwing batons) / grass, sand, snow (the surface) / bench (the physics benchmark of core/bench plus the
 --              scene's draw time; shows the figures and appends a line to
 --              bench.txt) / title (back to the title)
---   "Match"    match only: play (nothing) / sheet (the score sheet so far,
+--   "Match"    match only: play (nothing) / how to / sheet (the score sheet so far,
 --              once nothing is in the air; B back) / resign (the team on turn gives
 --              up, once nothing is in the air) / title (leave: the match is
 --              dropped and no game file is written)
---   "Drill"    drills only: play (nothing) / menu (leave the run part way,
+--   "Drill"    drills only: play (nothing) / how to / menu (leave the run part way,
 --              unrecorded, for the drills menu) / title
 
 import "CoreLibs/graphics"
@@ -70,6 +72,7 @@ import "selftest/gauge-ghost"
 import "selftest/rearm"
 import "selftest/hit"
 import "selftest/knocks"
+import "selftest/howto"
 import "selftest/burst"
 import "selftest/bursts"
 import "selftest/burst-reset"
@@ -156,9 +159,11 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			item = menu:addOptionsMenuItem("Pitch", { "play", "reset", "drill", "batons", "grass", "sand", "snow",
-				"bench", "title" }, "play", function(v)
-				if v == "grass" or v == "sand" or v == "snow" then
+			item = menu:addOptionsMenuItem("Pitch", { "play", "how to", "reset", "drill", "batons", "grass", "sand",
+				"snow", "bench", "title" }, "play", function(v)
+				if v == "how to" then
+					throw.showHowTo(current)
+				elseif v == "grass" or v == "sand" or v == "snow" then
 					throw.setSurface(current, v)
 				elseif v == "reset" then
 					throw.reset(current)
@@ -176,8 +181,11 @@ else
 			menu:addMenuItem("Games", function() pending = "games" end)
 		elseif kind == "drills" then
 			-- leave a run part way, unrecorded: for the drills menu or the title
-			item = menu:addOptionsMenuItem("Drill", { "play", "menu", "title" }, "play", function(v)
-				if v == "menu" then
+			item = menu:addOptionsMenuItem("Drill", { "play", "how to", "menu", "title" }, "play", function(v)
+				if v == "how to" then
+					local ts = throwScene()
+					if ts then throw.showHowTo(ts) end
+				elseif v == "menu" then
 					drillsScene.quit(current)
 				elseif v == "title" then
 					pending = "title"
@@ -185,8 +193,11 @@ else
 				item:setValue("play")
 			end)
 		elseif kind == "match" then
-			item = menu:addOptionsMenuItem("Match", { "play", "sheet", "resign", "title" }, "play", function(v)
-				if v == "sheet" then
+			item = menu:addOptionsMenuItem("Match", { "play", "how to", "sheet", "resign", "title" }, "play", function(v)
+				if v == "how to" then
+					local ts = throwScene()
+					if ts then throw.showHowTo(ts) end
+				elseif v == "sheet" then
 					match.showSheet(current)
 				elseif v == "resign" then
 					match.resign(current)
@@ -284,6 +295,9 @@ else
 	-- the device soak (soak.lua): a file named "soak" runs whole matches
 	-- unattended once, after any autobench
 	local soakWanted = playdate.file.exists(tw.soak.flag)
+	-- HOW TO THROW once by itself before a player's first baton (never in the
+	-- self-tests, the autobench or the soak)
+	throw.howtoFirst = not tw.selftestRun and not autoRun and not soakWanted
 	local soakRun = nil
 
 	function playdate.update()

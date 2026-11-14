@@ -266,6 +266,15 @@ function swing.releaseLoft(target, releaseAngle)
 	return a
 end
 
+-- Where a stop at arm angle `releaseAngle` fell against the notch (the loft
+-- set, `target`): 0 on it (within releaseTolDeg), -1 early (lower), 1 late
+-- (higher). The throw scene's verdict flag after a throw.
+function swing.releaseMiss(target, releaseAngle)
+	local miss, tol = releaseAngle - target, swing.tune.releaseTolDeg
+	if miss > tol then return 1 elseif miss < -tol then return -1 end
+	return 0
+end
+
 -- Run a recorded swing through a fresh state. `samples` is a flat array
 -- {dt1, delta1, dt2, delta2, ...}. Returns the first event ("release" or
 -- "letdown") and, for a release, the result table; or nil if the samples end

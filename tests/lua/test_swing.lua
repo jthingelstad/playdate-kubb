@@ -210,3 +210,13 @@ test("wound past the backswing cap, the release angle is still where the crank s
 	expect.near(r.backswing, swing.tune.backswingMaxDeg, 1e-9)
 	expect.near(r.releaseAngle, 30, 1e-6)
 end)
+
+test("releaseMiss: on the notch within the tolerance, early below it, late above", function()
+	local tol = swing.tune.releaseTolDeg
+	expect.eq(swing.releaseMiss(30, 30), 0)
+	expect.eq(swing.releaseMiss(30, 30 + tol), 0)
+	expect.eq(swing.releaseMiss(30, 30 - tol), 0)
+	expect.eq(swing.releaseMiss(30, 30 + tol + 1), 1)
+	expect.eq(swing.releaseMiss(30, -27), -1)
+	expect.eq(swing.releaseMiss(35, 137), 1)
+end)
