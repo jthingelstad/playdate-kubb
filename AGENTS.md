@@ -372,13 +372,14 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
   lying tossed kubb must stay to the one recorded at rest for that exact pose to be used.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction (also the light that
-  shades the faces), the tones (`awayBelow`, `lyingBelow`, `greyPattern`), outline and
-  grain sizes, the ground (`lineWidth`, `dash`/`dashGap`, `advDash`, `roughPattern`,
-  `outsideFrom`, `roughFar`, the tufts), stakes, the baton's bands, the king's drawing
-  (`kingCrown`, `kingCollar`, `kingCollarTop`, `kingRing`, `kingDiamond`, `kingDetailFrom`:
-  drawing only, the physics king stays a plain box; the `king` scenario shows it), the
-  speed lines (`speed*`), HUD fonts (`labelFont`, `displayFont`) and every HUD box
-  (`rail`, `prompt`, `gauge`, `plaque`, `chip`, `flag`, `callout`, ...), and `cache` in each (the
+  shades the faces), the tones (`awayBelow`; a piece is never grey and keeps its look
+  standing, falling or lying, with outline and detail sized by its length at its
+  distance), outline and grain sizes, the ground (`lineWidth`, `dash`/`dashGap`,
+  `advDash`, `roughPattern`, `rough`, `outsideFrom`, `roughFar`), stakes, the baton's
+  bands, the king's drawing (`kingCrown`, `kingCollar`, `kingCollarTop`, `kingRing`,
+  `kingDiamond`, `kingDetailFrom`: drawing only, the physics king stays a plain box; the
+  `king` scenario shows it), HUD fonts (`labelFont`, `displayFont`) and every HUD box
+  (`rail`, `prompt`, `gauge`, `plaque`, `chip`, `flag`, `slow`, `callout`, ...), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
   speed").
@@ -474,7 +475,9 @@ does so steadily. `source/scenes/throw.lua` and `source/core/playback.lua`:
 - In flight the display is unlocked (`flightRate` 0) and every frame takes `framePeriod`
   (0.040 s): the physics gets what is left after the update's own work, the draw and the
   display (each measured from the frames before, `drawEst` and `postEst`), at least
-  `minBudget`. Locked at 50 Hz, a frame that ran past 20 ms waited for the next 20 ms tick,
+  `minBudget`. The estimates rise by `estRise` (a quarter) of a step up and fall by a
+  quarter of a step down; jumping straight to the slowest frame left the physics 1.7 ms a
+  frame short of what the draw really took (0.38 against 0.45 of real time). Locked at 50 Hz, a frame that ran past 20 ms waited for the next 20 ms tick,
   so frames came at 40 or 60 ms by chance.
 - `playback.advance` stops before a step that would run more than half a step past its
   budget (judged by the last step's time), not after.
@@ -515,9 +518,18 @@ The autobench measures a build on the Playdate with nobody pressing anything:
    layer, layer built, full). The match case runs with the defaults and with variants
    (`auto.matchCase(y, label, tune)` overrides `throw.tune`, `render.world.tune` and
    `paceTune` and restores them), then `bench.matchPhysics` with lone flight off and on.
-   The last line is `autobench done`; then the game carries on.
+   One run is profiled (`auto.matchCase(y, label, nil, true)`): for every flight frame the
+   draw's mean and max split into `render/world` (by its own laps) and the HUD, the display
+   time, and the scene's estimate of the two (what the physics loses each frame). The
+   other variants switch one part of the look off, so each part's cost reads as shown
+   speed. The last line is `autobench done`; then the game carries on. Auto-lock is off
+   while the bench runs.
 4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
-   touch `traces.jsonl` (crank recordings).
+   touch `traces.jsonl` (crank recordings), `frames.jsonl` or `games/`.
+
+For hours of testing over USB (benches and installs with nobody at the device), put an
+empty file named `nolock` in the same Data folder: while it is there the game never
+auto-locks (`main.lua` reads it once at launch). Delete it when the testing is done.
 
 ## Drawing speed
 
@@ -562,13 +574,16 @@ and copying a full-screen image about 0.7 ms. So:
   while they wait.
 - The ground (`render/world`): the rough is a `setPattern` fill whose 8 x 8 phase follows
   the projected middle of the far baseline (64 shifted patterns made once), so it travels
-  with the pitch rather than sliding under a screen-fixed pattern; tufts are three
-  pre-drawn images (at most `tuftMax` a frame); all of it is inside the frame cache and the
-  layer. The speed lines are drawn after `render.world.draw` (three lines, outside the
-  caches).
+  with the pitch rather than sliding under a screen-fixed pattern. It is drawn as two fills
+  that stay on the screen: everything below the projected far edge (`roughFar`), then the
+  pitch's footprint white. The three ground quads 120 m wide it replaced cost 2.8 ms a
+  flight frame on the device, the two fills about 1.3. All of it is inside the frame cache
+  and the layer. There are no grass tufts (about 2 ms a flight frame) and no speed lines
+  (both dropped 2026-11-13, speed over niceties).
 - The `drawcalls` self-test counts graphics calls per frame by kind (aim, flight, impact,
-  rest). Before the Woodcut look: 45/126/99/16 mean; after: 41/150/110/17. Keep flight and
-  impact within about 30 of those.
+  rest). Before the Woodcut look: 45/126/99/16 mean; with it: 41/150/110/17; after the
+  speed fix (no tufts, no speed lines): 39/134/111/17. Keep flight and impact within about
+  30 of those.
 - A new part of the HUD that depends on something must put it in its layer's key, or the
   layer will show a stale image. `make selftest` frames compared pixel for pixel before
   and after (`cache = false` against `true`) catch this.
@@ -773,6 +788,10 @@ own item). Practice is the throw scene exactly as before.
 picture around the baton's first hit: the physics runs ahead of the screen, so the hit time
 is known before it is shown. The slow stretch also gives the physics time to catch up on
 the device.
+While it plays (`playback.speed` below 1, the ease back included) the throw scene sets
+`s.slowMo` and the HUD shows the SLOW MOTION flag (`hud.slow`, `hud.tune.slow`). The pace
+slowing because the physics fell behind shows nothing. The `hit` self-test checks the flag
+0.25 s after the hit (frames 2 and 3 show it).
 
 ## Frame-time log
 

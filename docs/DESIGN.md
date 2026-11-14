@@ -52,8 +52,8 @@ behind the thrower: 3 m behind the throwing line, 3.4 m up, long lens (focal len
   framing rule (farthest live target at least 12 px tall).
 - The pitch is not dithered (Jamie, 2026-11-13: it makes things hard to see). White ground,
   2 px black lines, stakes with shadows, a sparse rough outside the sidelines and past the
-  far baseline, and a few grass tufts for depth. Kubbs read by a black outline, a black
-  face away from the light and a solid black shadow; a piece lying down is grey. The look
+  far baseline. Kubbs read by a black outline, a black
+  face away from the light and a solid black shadow; a piece looks the same lying down. The look
   is "Woodcut" (`docs/design/README.md` and its boards). The mockups here predate it and
   still show a dithered pitch.
 - The raised viewpoint shows each kubb's top face and a hard black ground shadow, which is what

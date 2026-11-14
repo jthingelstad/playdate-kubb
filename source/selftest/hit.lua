@@ -2,10 +2,12 @@
 -- 30 degrees of loft (set by setup) lands on the middle far base kubb b3
 -- and knocks it over. Frames: 1 about 0.2 s before the hit, 2 the hit, 3 b3
 -- falling, 4 at rest with the readout, 5 aiming again with b3 still down.
+-- Frames 2 and 3 are in the slow motion: the HUD's SLOW MOTION flag shows.
 -- The check also stands everything back up with throw.reset.
 import "selftest/_throw"
 
 local st = tw.selftest
+local slowSeen = nil   -- s.slowMo 0.25 s after the hit
 
 st.scenarios.hit = st.throwScenario {
 	setup = function(s) s.loftDeg = 30 end,
@@ -19,7 +21,10 @@ st.scenarios.hit = st.throwScenario {
 	shots = {
 		function(s) local d = st.sinceHit(s); return d and d >= -0.2 end,
 		function(s) local d = st.sinceHit(s); return d and d >= 0 end,
-		function(s) local d = st.sinceHit(s); return d and d >= 0.25 end,
+		function(s)
+			local d = st.sinceHit(s)
+			if d and d >= 0.25 then slowSeen = s.slowMo; return true end
+		end,
 		st.restShot(30),
 		st.restShot(70),
 	},
@@ -32,6 +37,7 @@ st.scenarios.hit = st.throwScenario {
 		end
 		if #r.toppled ~= 1 or r.toppled[1] ~= "b3" then return "toppled " .. table.concat(r.toppled, ",") end
 		if s.mode ~= "aim" then return "mode " .. s.mode end
+		if not slowSeen then return "no slow motion flag 0.25 s after the hit" end
 		if not st.item(s, "b3").toppled then return "b3 stood back up" end
 		if s.last.down ~= 1 then return "readout down " .. tostring(s.last.down) end
 		tw.scenes.throw.reset(s)

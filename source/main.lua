@@ -162,6 +162,12 @@ else
 
 	open("title")
 
+	-- Testing on the device over hours (a bench, installs): a file named
+	-- "nolock" in the Data folder keeps the game from auto-locking. Read once
+	-- at launch; delete the file when the testing is done.
+	tw.noLock = playdate.file.exists("nolock")
+	if tw.noLock then playdate.setAutoLockDisabled(true) end
+
 	-- the device autobench (autobench.lua): a file named "autobench" in the
 	-- Data folder at launch runs it once before the game
 	local autoRun = playdate.file.exists(tw.autobench.flag) and tw.autobench.start() or nil

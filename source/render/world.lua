@@ -2,10 +2,11 @@
 -- The pitch is not dithered (Jamie, 2026-11-13; DESIGN 3, "Woodcut"): white
 -- ground, 2 px black lines, a dashed centerline (and advantage line), six
 -- stakes with shadows, a sparse rough outside the sidelines and past the far
--- baseline, a few grass tufts, white above the horizon. Pieces are true-size
+-- baseline, white above the horizon. Pieces are true-size
 -- 3D boxes in any orientation (standing, falling, lying): black outline,
--- faces white, grey (patterned) when lying, black when facing away from the
--- light, with wood grain and a king's collar and crown up close; and a solid
+-- faces white, black when facing away from the light (the same look
+-- standing, falling or lying), with wood grain and a king's collar and crown
+-- up close; and a solid
 -- black shadow cast along the light onto the ground.
 -- The shadow of a lying piece touches its ground edge, so it reads as on
 -- the ground (the contact shadow). Painter's order: shadows first (they lie
@@ -56,26 +57,16 @@ world.tune = {
 	-- dashes on an 8 px grid (pattern bits: 1 = white, 0 = black), never on
 	-- the pitch. Its phase follows the ground (see drawPitch).
 	roughPattern = { 0xFF, 0x9F, 0xFF, 0xFF, 0xFF, 0xF9, 0xFF, 0xFF },
+	rough = true,       -- false leaves the rough white (the autobench measures it)
 	outsideFrom = -20,  -- m (y) where the strips beside the pitch start, behind the thrower
 	roughFar = 200,     -- m (y) how far past the far baseline the rough goes (the horizon)
-	-- Grass tufts: a fixed scatter of `tufts` spots on and around the pitch;
-	-- a tuft is drawn 9 px where the ground is at least 2 tuftSize px per
-	-- meter, 5 px from tuftSize, 3 px from half of it, none farther; at most
-	-- tuftMax a frame (the design allows 24 in the impact camera, "check on
-	-- hardware").
-	tufts = 48,
-	tuftSize = 70,
-	tuftMax = 16,
 	-- Tones (docs/design "Tones"): a face is white unless it faces away from
 	-- the light (n.L at or below awayBelow, L toward the light from
 	-- shadowX/shadowY), then black. With the default light a standing kubb
 	-- shows a white top and white front, left and back faces and a black
-	-- right face. A piece lying down (its long axis within lyingBelow of
-	-- level: |up component| below it) is grey, the only grey on a piece,
-	-- with its away faces still black.
-	greyPattern = { 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55 },
+	-- right face. Pieces are never grey: a kubb or the king looks the same
+	-- standing, falling and lying (Jamie, 2026-11-13).
 	awayBelow = -0.35,
-	lyingBelow = 0.5,
 	thickFrom = 14,   -- px tall: outlines 2 px from here, 1 px below
 	grainFrom = 17,   -- px tall: one grain line on the front face from here,
 	grain2From = 30,  -- and two from here
@@ -92,20 +83,6 @@ world.tune = {
 	kingDiamondH = 0.07,
 	kingDetailFrom = 30, -- px tall: the ring and the diamond from here (the
 	                     -- far king keeps the crown points and the collar)
-	-- Speed lines (docs/design "Motion"): three 2 px lines behind a baton in
-	-- the air, along its screen motion over the last speedTrail s. None when
-	-- that motion is under speedMinPx. The middle line is speedLen of it
-	-- long (between speedShort and speedLong px), the outer ones shorter and
-	-- set back; they start speedGap px behind the baton's back end and stand
-	-- speedSpread px apart.
-	speedTrail = 0.06,
-	speedMinPx = 4,
-	speedLen = 0.8,
-	speedShort = 8,
-	speedLong = 26,
-	speedGap = 4,
-	speedSpread = 6,
-	speedWidth = 2,
 	cache = true,     -- reuse the last frame's world image when nothing changed
 	layer = true,     -- keep the pieces that hold still in a background image while the camera does
 }
@@ -220,6 +197,15 @@ local function projectGround(n, xs, ys)
 	return m
 end
 
+-- One ground point (z = 0) to the screen, or nil when it is behind the near
+-- plane.
+local function projectPoint(x, y)
+	local dx, dy, dz = x - CPX, y - CPY, -CPZ
+	local d = dx * CFX + dy * CFY + dz * CFZ
+	if d < NEAR then return nil end
+	return CCX + CF * (dx * CRX + dy * CRY + dz * CRZ) / d, CCY - CF * (dx * CUX + dy * CUY + dz * CUZ) / d
+end
+
 local function fillPoly(n)
 	if n >= 3 then fillPolygon(unpack(poly, 1, 2 * n)) end
 end
@@ -279,87 +265,6 @@ local function makeRough()
 	ROUGH.base = base
 end
 
--- Grass tufts (docs/design "Pieces": 9, 5 and 3 px): pre-drawn images, and
--- a fixed scatter of spots on and beside the pitch. Each frame every spot on
--- screen gets the image for its scale (tuftSize px per metre and up: 5 px;
--- twice that: 9 px; half: 3 px; smaller: none), at most tuftMax of them.
-local TUFT_IMG = {}
-local TUFT_W, TUFT_H = { 15, 7, 5 }, { 11, 7, 5 }
-local TX, TY = {}, {}
-local function makeTufts()
-	local t = world.tune
-	-- big (9 px, 2 px strokes): five blades from one root
-	for i = 1, 3 do
-		local w, h = TUFT_W[i], TUFT_H[i]
-		local img = gfx.image.new(w, h, gfx.kColorClear)
-		gfx.pushContext(img)
-		gfx.setColor(BLACK)
-		local cx, by = w // 2, h - 1
-		if i == 1 then
-			gfx.setLineWidth(2)
-			gfx.drawLine(cx, by, cx - 4, by - 7)
-			gfx.drawLine(cx, by, cx, by - 9)
-			gfx.drawLine(cx, by, cx + 4, by - 7)
-			gfx.drawLine(cx - 1, by, cx - 6, by - 3)
-			gfx.drawLine(cx + 1, by, cx + 6, by - 3)
-			gfx.setLineWidth(1)
-		elseif i == 2 then
-			gfx.drawLine(cx, by, cx - 2, by - 4)
-			gfx.drawLine(cx, by, cx, by - 5)
-			gfx.drawLine(cx, by, cx + 2, by - 4)
-		else
-			gfx.drawLine(cx, by, cx - 1, by - 2)
-			gfx.drawLine(cx, by, cx, by - 3)
-			gfx.drawLine(cx, by, cx + 1, by - 2)
-		end
-		gfx.popContext()
-		TUFT_IMG[i] = img
-	end
-	-- the spots: a fixed, even scatter (the R2 low-discrepancy sequence; no
-	-- integer arithmetic, which is 32-bit on the device), kept off the lines
-	-- so a tuft never sits on chalk
-	local n, i = 0, 0
-	while n < t.tufts do
-		i = i + 1
-		local u, v = (0.5 + i * 0.7548776662) % 1, (0.5 + i * 0.5698402910) % 1
-		local x, y = -4 + 8 * u, -1.5 + 11.5 * v
-		local ax = x < 0 and -x or x
-		local nearLine = (ax > 2.4 and ax < 2.6 and y > -0.1 and y < 8.1)
-			or ((y > -0.1 and y < 0.1) or (y > 3.9 and y < 4.1) or (y > 7.9 and y < 8.1)) and ax < 2.6
-		if not nearLine then
-			n = n + 1
-			TX[n], TY[n] = x, y
-		end
-	end
-end
-
-local function drawTufts()
-	local t = world.tune
-	local f, cx, cy, near = CF, CCX, CCY, NEAR
-	local cpx, cpy, cpz = CPX, CPY, CPZ
-	local h3, h5, h9 = t.tuftSize * 0.5, t.tuftSize, t.tuftSize * 2
-	local shown, cap = 0, t.tuftMax
-	for i = 1, t.tufts do
-		local dx, dy, dz = TX[i] - cpx, TY[i] - cpy, -cpz
-		local d = dx * CFX + dy * CFY + dz * CFZ
-		if d > near then
-			-- px per meter here, against the sizes: 9 px tufts near, 3 px far
-			local s = f / d
-			local k = (s >= h9) and 1 or ((s >= h5) and 2 or ((s >= h3) and 3 or nil))
-			if k then
-				local sx = cx + s * (dx * CRX + dy * CRY + dz * CRZ)
-				local sy = cy - s * (dx * CUX + dy * CUY + dz * CUZ)
-				if sx > -8 and sx < 408 and sy > 0 and sy < 250 then
-					local w, h = TUFT_W[k], TUFT_H[k]
-					TUFT_IMG[k]:draw(floor(sx) - w // 2, floor(sy) - h + 1)
-					shown = shown + 1
-					if shown >= cap then return end
-				end
-			end
-		end
-	end
-end
-
 -- A dashed ground line from (x0, y) to (x1, y): `on` m drawn, `off` m gap.
 local function dashes(x0, x1, y, on, off)
 	local x = x0
@@ -374,7 +279,6 @@ end
 local function drawPitch()
 	local t = world.tune
 	if ROUGH.base ~= t.roughPattern then makeRough() end
-	if not TUFT_IMG[1] then makeTufts() end
 	-- the rough's phase: the far baseline's middle, projected
 	local phase = 1
 	do
@@ -387,15 +291,30 @@ local function drawPitch()
 			phase = (sy % 8) * 8 + (sx % 8) + 1
 		end
 	end
-	setPattern(ROUGH[phase])
-	local far = t.roughFar
-	fillPoly(groundQuad(-60, t.outsideFrom, -2.5, 8))
-	fillPoly(groundQuad(2.5, t.outsideFrom, 60, 8))
-	fillPoly(groundQuad(-60, 8, 60, far))
+	if t.rough then
+		setPattern(ROUGH[phase])
+		local far = t.roughFar
+		-- All the ground short of the far edge is rough but the pitch's own
+		-- footprint, so: fill the screen below the far edge (projected, a
+		-- straight line, tilted when the camera turns), then the footprint
+		-- white. Two fills that stay on the screen; three ground quads 120 m
+		-- wide cost twice as much on the device. The old quads are the
+		-- fallback if an end of the far edge is behind the camera.
+		local ax, ay = projectPoint(-60, far)
+		local bx, by = projectPoint(60, far)
+		if ax and bx and bx - ax > 1 then
+			local k = (by - ay) / (bx - ax)
+			fillPolygon(-1, ay + (-1 - ax) * k, 401, ay + (401 - ax) * k, 401, 241, -1, 241)
+			setColor(WHITE)
+			fillPoly(groundQuad(-2.5, t.outsideFrom, 2.5, 8))
+		else
+			fillPoly(groundQuad(-60, t.outsideFrom, -2.5, 8))
+			fillPoly(groundQuad(2.5, t.outsideFrom, 60, 8))
+			fillPoly(groundQuad(-60, 8, 60, far))
+		end
+	end
 	lap("outside")
 	setColor(BLACK)
-	drawTufts()
-	lap("tufts")
 	setLineWidth(t.lineWidth)
 	line(-2.5, 0, 0, -2.5, 8, 0)
 	line(2.5, 0, 0, 2.5, 8, 0)
@@ -511,8 +430,6 @@ local function prepare(p)
 	-- faces
 	local FN = p.FN
 	local away = t.awayBelow
-	local lying = (r33 < 0 and -r33 or r33) < t.lyingBelow
-	p.lying = lying
 	for f = 1, 6 do
 		local F = FACES[f]
 		local axis, sgn = F[5], F[6]
@@ -525,7 +442,7 @@ local function prepare(p)
 		FN[o + 1], FN[o + 2], FN[o + 3] = nx, ny, nz
 		FN[o + 4], FN[o + 5], FN[o + 6] = x + nx * h, y + ny * h, z + nz * h
 		local lit = nx * LX + ny * LY + nz * LZ
-		FN[o + 7] = (lit <= away) and 3 or (lying and 2 or 1)
+		FN[o + 7] = (lit <= away) and 3 or 1
 	end
 	p.stale = false
 	p.gen = generation
@@ -571,9 +488,7 @@ end
 -- 13..16 (the collar's foot), 17..20 (the collar's top, under the head) and
 -- 21..24 (the crown's floor).
 local function shadeOn(shade)
-	if shade == 1 then setColor(WHITE)
-	elseif shade == 2 then setPattern(world.tune.greyPattern)
-	else setColor(BLACK) end
+	if shade == 1 then setColor(WHITE) else setColor(BLACK) end
 end
 
 -- A cap: the ring at base L, in the order of face F.
@@ -649,7 +564,7 @@ local function drawKing(p, FN, tall)
 	else
 		kingCap(0, FACES[5], FN[35])
 	end
-	local detail = tall >= t.kingDetailFrom and not p.lying
+	local detail = tall >= t.kingDetailFrom
 	for fi = 1, 4 do
 		local o = 7 * fi - 7
 		if (cpx - FN[o + 4]) * FN[o + 1] + (cpy - FN[o + 5]) * FN[o + 2] + (cpz - FN[o + 6]) * FN[o + 3] > 0 then
@@ -736,8 +651,11 @@ local function drawBox(p)
 	local t = world.tune
 	local FN = p.FN
 	local cpx, cpy, cpz = CPX, CPY, CPZ
-	-- how tall it stands on screen decides the line weight and the detail
-	local tall = y1 - y0
+	-- its size on screen decides the line weight and the detail: its length
+	-- at its distance, so it is the same standing, falling or lying (a piece
+	-- never changes its look, Jamie 2026-11-13)
+	local dc = (p.x - CPX) * CFX + (p.y - CPY) * CFY + (p.z - CPZ) * CFZ
+	local tall = (dc > near) and f * 2 * p.hz / dc or y1 - y0
 	local thick = tall >= t.thickFrom
 	if thick then setLineWidth(2) end
 	if p.king then
@@ -751,17 +669,13 @@ local function drawBox(p)
 				local F = FACES[fi]
 				local a, b, cc, d = F[1], F[2], F[3], F[4]
 				local shade = FN[o + 7]
-				if shade == 1 then
-					setColor(WHITE)
-				elseif shade == 2 then
-					setPattern(t.greyPattern)
-				end
+				if shade == 1 then setColor(WHITE) end
 				fillPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
 				if shade ~= 3 then setColor(BLACK) end
 				drawPolygon(SX[a], SY[a], SX[b], SY[b], SX[cc], SY[cc], SX[d], SY[d])
 			end
 		end
-		if tall >= t.grainFrom and not p.lying then
+		if tall >= t.grainFrom then
 			if thick then setLineWidth(1) end
 			grain(p, FN, tall)
 			return
@@ -782,20 +696,17 @@ local function drawBaton(c, b)
 	setLineWidth(w + 2)
 	drawLine(a, bb, cc, d)
 	gfx.setLineCapStyle(gfx.kLineCapStyleButt)
-	-- a baton lying on the ground is black (docs/design "Pieces"); one in the
-	-- air (or tumbling) is white with two black bands
-	local lying = b.z < BATON_D and (b.az < 0.3 and b.az > -0.3)
-	if not lying then
-		setColor(WHITE)
-		setLineWidth(w)
-		drawLine(a, bb, cc, d)
-		setColor(BLACK)
-		local ex, ey = cc - a, d - bb
-		if ex * ex + ey * ey >= t.batonBandsFrom * t.batonBandsFrom then
-			local u0, u1 = t.batonBandAt, t.batonBandAt + t.batonBand
-			drawLine(a + ex * u0, bb + ey * u0, a + ex * u1, bb + ey * u1)
-			drawLine(cc - ex * u1, d - ey * u1, cc - ex * u0, d - ey * u0)
-		end
+	-- white with two black bands, in the air and at rest alike (a piece
+	-- never changes its look)
+	setColor(WHITE)
+	setLineWidth(w)
+	drawLine(a, bb, cc, d)
+	setColor(BLACK)
+	local ex, ey = cc - a, d - bb
+	if ex * ex + ey * ey >= t.batonBandsFrom * t.batonBandsFrom then
+		local u0, u1 = t.batonBandAt, t.batonBandAt + t.batonBand
+		drawLine(a + ex * u0, bb + ey * u0, a + ex * u1, bb + ey * u1)
+		drawLine(cc - ex * u1, d - ey * u1, cc - ex * u0, d - ey * u0)
 	end
 	setLineWidth(1)
 end
@@ -1165,44 +1076,6 @@ function world.draw(c, items, n, baton)
 	lastVersion = poseVersion
 	world.count.full = world.count.full + 1
 	drawAll(c, items, n, baton)
-end
-
--- Speed lines behind a flying baton (see the tune): the baton's centre now
--- (x1, y1, z1) with long axis (ax, ay, az), and where it was speedTrail s ago
--- (x0, y0, z0). Drawn over the world, so they are never in its caches.
--- Returns the number of lines drawn. No tables are made.
-local SPEED_K <const> = { 0.7, 1, 0.5 }   -- each line's length, of the middle one's
-local SPEED_B <const> = { 5, 0, 10 }      -- and how far it is set back, px
-function world.speedLines(c, x0, y0, z0, x1, y1, z1, ax, ay, az)
-	local t = world.tune
-	local bx, by = project(c, x1, y1, z1)
-	if not bx then return 0 end
-	local px, py = project(c, x0, y0, z0)
-	if not px then return 0 end
-	local dx, dy = bx - px, by - py
-	local L = sqrt(dx * dx + dy * dy)
-	if L < t.speedMinPx then return 0 end
-	local ux, uy = dx / L, dy / L
-	-- the baton's reach back along its motion: its half length, projected
-	local hl = BATON_L / 2
-	local reach = 0
-	local ex, ey = project(c, x1 + ax * hl, y1 + ay * hl, z1 + az * hl)
-	if ex then
-		reach = (ex - bx) * ux + (ey - by) * uy
-		if reach < 0 then reach = -reach end
-	end
-	local len = L * t.speedLen
-	if len < t.speedShort then len = t.speedShort elseif len > t.speedLong then len = t.speedLong end
-	local nx, ny = -uy, ux
-	setColor(BLACK)
-	setLineWidth(t.speedWidth)
-	for i = 1, 3 do
-		local o, back, l = (i - 2) * t.speedSpread, reach + t.speedGap + SPEED_B[i], len * SPEED_K[i]
-		local sx, sy = bx - ux * back + nx * o, by - uy * back + ny * o
-		drawLine(floor(sx + 0.5), floor(sy + 0.5), floor(sx - ux * l + 0.5), floor(sy - uy * l + 0.5))
-	end
-	setLineWidth(1)
-	return 3
 end
 
 tw.render.world = world
