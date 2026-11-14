@@ -1,5 +1,6 @@
--- Scenario "soak": the device soak (soak.lua) for one short match (turn 1,
--- then the team on turn 2 resigns), the save read back after every throw.
+-- Scenario "soak": the device soak (soak.lua) for one short match (turns 1
+-- and 2, the inkast and its raising among them, then the team on turn 3
+-- resigns), the save read back after every throw.
 -- The check: soak.txt ends with "soak done", the match finished without an
 -- error and every save check passed. Frame: the title it returns to.
 import "core/tw"
@@ -11,7 +12,7 @@ local st, done = nil, false
 tw.selftest.scenarios.soak = {
 	step = function(ctx)
 		if not st then
-			soak.tune.matches, soak.tune.maxTurns, soak.tune.saveCheck = 1, 1, 1
+			soak.tune.matches, soak.tune.maxTurns, soak.tune.saveCheck = 1, 2, 1
 			playdate.file.delete("soak.txt")
 			st = soak.start()
 			return false
