@@ -147,7 +147,7 @@ function auto.matchCase(y, label, tune, prof)
 	end
 	local lines = { "match case " .. (label or "") .. " (per throw: shown frames, s, mean/max frame ms, starved, stall ms, steps, phys ms, shown speed x real time):" }
 	local saved = {}
-	local tables = { throw.tune, render.tune, tw.playback.paceTune, tw.render.burst.tune }
+	local tables = { throw.tune, render.tune, tw.playback.paceTune, tw.render.burst.tune, tw.camera.tune.impact }
 	for k, v in pairs(tune or {}) do
 		for _, T in ipairs(tables) do
 			if T[k] ~= nil then saved[#saved + 1] = { T, k, T[k] }; T[k] = v end
@@ -339,8 +339,6 @@ local function body()
 	y()
 	out(auto.matchCase(y, "(framePeriod 50 ms)", { framePeriod = 0.050 }))
 	y()
-	out(auto.matchCase(y, "(framePeriod 33 ms)", { framePeriod = 0.033 }))
-	y()
 	out(auto.matchCase(y, "(no layer)", { layer = false }))
 	y()
 	out(auto.matchCase(y, "(camera holds on the impact: frameRadius 0)", { frameRadius = 0 }))
@@ -353,11 +351,9 @@ local function body()
 	y()
 	out(auto.matchCase(y, "(no camera half circle: swingDeg 0)", { swingDeg = 0 }))
 	y()
+	out(auto.matchCase(y, "(half circle at 40 ms a frame)", { swingPeriod = 0.040 }))
+	y()
 	out(auto.matchCase(y, "(no rough)", { rough = false }))
-	y()
-	out(auto.matchCase(y, "(estimates jump to the slowest frame)", { estRise = 1 }))
-	y()
-	out(auto.matchCase(y, "(1 px pitch lines and outlines)", { lineWidth = 1, stakeWidth = 1, thickFrom = 100000 }))
 	y()
 	-- its physics alone, with the lone flight off and on
 	local lone = tw.world.loneFlight

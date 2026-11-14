@@ -592,7 +592,9 @@ and copying a full-screen image about 0.7 ms. So:
   the projected middle of the far baseline (64 shifted patterns made once), so it travels
   with the pitch rather than sliding under a screen-fixed pattern. It is drawn as two fills
   that stay on the screen: everything below the projected far edge (`roughFar`), then the
-  pitch's footprint white. The three ground quads 120 m wide it replaced cost 2.8 ms a
+  pitch's footprint white. The far edge is `roughFar` out along the camera's own heading,
+  so the two fills hold whichever way it looks (the half circle looks back down the
+  pitch). The three ground quads 120 m wide it replaced cost 2.8 ms a
   flight frame on the device, the two fills about 1.3. All of it is inside the frame cache
   and the layer. There are no grass tufts (about 2 ms a flight frame) and no speed lines
   (both dropped 2026-11-13, speed over niceties).
@@ -908,6 +910,25 @@ While it plays (`playback.speed` below 1, the ease back included) the throw scen
 `s.slowMo` and the HUD shows the SLOW MOTION flag (`hud.slow`, `hud.tune.slow`). The pace
 slowing because the physics fell behind shows nothing. The `hit` self-test checks the flag
 0.25 s after the hit (frames 2 and 3 show it).
+
+The camera's half circle (Jamie, 2026-11-13): once a hit burst fires (baton throws only),
+the impact camera orbits the struck piece by `throw.tune.swingDeg` (180) over `swingTime`
+(0.8 s of shown time from that piece's impact, `camera.smooth`), the same way it was
+already turned off the line of flight, and opens to a higher, wider view by the end
+(`camera.tune.impact` `openHeight`, `openDist`, `openF`; `camera.impact`'s `orbit` and
+`open`), so the slow motion shows the piece fall and the pitch round it; it stays there
+through the rest. It runs on shown time (`s.swingFrom`, reset at launch), so it holds when
+the picture holds (the calm tail; when the tail ends inside the turn the camera jumps to
+where the turn has got to). While it turns the
+camera moves, so those frames are full draws, not the layer, and they take
+`swingPeriod` (60 ms) instead of `framePeriod`, leaving the physics its time: on the device
+the match case's hit took 6.7 s from release to rest with the half circle at 40 ms a frame,
+4.7 s at 60 ms and 4.2 s without it (shown speed over the three throws 0.34, 0.40, 0.42;
+the open view costs nothing measurable; 2026-11-14). It goes round the piece its burst is
+for (`s.burst.x1, y1`), not the first thing hit, and a burst taken back stops it where it
+is (`s.swingStop`). `swingDeg = 0`
+turns it off (the `layer` self-test does, to test the layer with a still camera; the
+autobench has a variant without it). The `burst` self-test checks it starts at the impact.
 
 ## Hit bursts
 

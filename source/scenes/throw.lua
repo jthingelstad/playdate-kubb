@@ -90,6 +90,11 @@ throw.tune = {
 	-- the rest. 0 turns it off.
 	swingDeg = 180,
 	swingTime = 0.8,      -- about the slow motion's hold and ease (playback.slow)
+	-- s per flight frame while the camera turns: every one is a full draw (the
+	-- layer needs a still camera), so fewer frames leave the physics its time.
+	-- On the device a hit took 6.7 s release to rest at 40 ms, 4.7 at 60, 4.2
+	-- with no half circle (2026-11-14); in slow motion 60 ms still reads smooth.
+	swingPeriod = 0.060,
 	tossTumble = 0.5,     -- a lobbed kubb turns end over end at this fraction of the swing's
 	                      -- tumble rate (guess: it is heavier and thrown softer than a baton)
 	instantHold = 0.1,    -- s the rest hold lasts in instant mode (self-tests)
@@ -542,7 +547,7 @@ local function launch(s, r)
 	s.result = nil
 	s.focusX, s.focusY = fl.lx, fl.ly
 	s.side = (fl.lx > 0) and 1 or -1
-	s.swingFrom = nil
+	s.swingFrom, s.swinging, s.swingStop = nil, false, nil
 	camera.impact(s.impactCam, fl.lx, fl.ly, fl.dx, fl.dy, s.side)
 	s.last = s.last or {}
 	local l = s.last
@@ -710,7 +715,9 @@ local function flightUpdate(s, dt)
 	-- this update has taken so far and the draw and the display to come
 	local budget = t.physicsBudget
 	if s.input.raw then
-		budget = (tail and t.tailPeriod or t.framePeriod) - (s.clock() - s.frameStart) - s.drawEst - s.postEst
+		local period = t.framePeriod
+		if s.swinging then period = t.swingPeriod end
+		budget = (tail and t.tailPeriod or period) - (s.clock() - s.frameStart) - s.drawEst - s.postEst
 		if budget < t.minBudget then budget = t.minBudget end
 	end
 	-- (no look-ahead cap in the tail: the picture is held, so the cap would
@@ -746,6 +753,9 @@ local function flightUpdate(s, dt)
 	local tx, ty = fl.lx, fl.ly
 	local hit = w.firstHit
 	if hit then tx, ty = hit.x, hit.y end
+	-- the half circle goes round the piece its burst is for (the first hit may
+	-- have been a stake, or a kubb that stayed up)
+	if s.swingFrom and s.burst.x1 then tx, ty = s.burst.x1, s.burst.y1 end
 	local dx, dy = tx - s.focusX, ty - s.focusY
 	local d, step = sqrt(dx * dx + dy * dy), t.focusSpeed * dt
 	if d > step then dx, dy = dx * step / d, dy * step / d end
@@ -758,9 +768,13 @@ local function flightUpdate(s, dt)
 		s.swingFrom = B.first and burstpick.hitTime(B.first) or s.showTime
 	end
 	local orbit, open = 0, 0
+	s.swinging = false
 	if s.swingFrom then
-		open = camera.smooth((s.showTime - s.swingFrom) / t.swingTime)
+		-- a burst taken back (the piece stood after all) stops the turn where it is
+		if B.takenBack and not s.swingStop then s.swingStop = s.showTime end
+		open = camera.smooth(((s.swingStop or s.showTime) - s.swingFrom) / t.swingTime)
 		orbit = rad(t.swingDeg) * open
+		s.swinging = open < 1 and not s.swingStop
 	end
 	camera.impact(s.impactCam, s.focusX, s.focusY, fl.dx, fl.dy, s.side, orbit, open)
 	if pb.done and s.showTime >= have then landed(s) end
