@@ -64,12 +64,12 @@ local CHIP_C, CHIP_S = {}, {}
 for i = 1, 6 do CHIP_C[i], CHIP_S[i] = cos(CHIP_A[i]), sin(CHIP_A[i]) end
 
 function burst.new()
-	return { kind = nil, done = false, age = 0, inverted = false, knocked2 = false }
+	return { kind = nil, done = false, age = 0, inverted = false, knocked2 = false, provisional = false }
 end
 
 -- A new throw (or none): clears the burst and the screen inversion.
 function burst.reset(B)
-	B.kind, B.done, B.age, B.knocked2 = nil, false, 0, false
+	B.kind, B.done, B.age, B.knocked2, B.provisional = nil, false, 0, false, false
 	if B.inverted then
 		playdate.display.setInverted(false)
 		B.inverted = false
@@ -81,29 +81,47 @@ local function length(B)
 	return t.flash + t.burst + t.breakup + ((B.kind == "double") and t.second or 0)
 end
 
+local KNOCK <const> = { clean = "tok", double = "klak", king = "king" }
+
+-- The kind and anchors from core/burstpick. Until the physics has computed
+-- the whole window after the first topple the kind is provisional: a later
+-- topple can still make a clean burst a double, or any burst the king's.
+local function classify(B, pb, showTime)
+	local kind, a, b = pick.pick(pb.w, showTime)
+	if not kind then return nil end
+	B.kind = kind
+	local fh = pb.w.firstHit
+	if fh and fh.with == a.id then
+		B.x1, B.y1, B.z1 = fh.x, fh.y, fh.z
+	else
+		local x, y, z = playback.poseAt(pb, a.index, a.toppleT)
+		B.x1, B.y1, B.z1 = x, y, z + burst.tune.lift
+	end
+	if b then
+		local x, y, z = playback.poseAt(pb, b.index, b.toppleT)
+		B.x2, B.y2, B.z2 = x, y, z + burst.tune.lift
+	end
+	B.provisional = not pb.done and pb.w.time < showTime + pick.tune.window
+	return kind
+end
+
 -- Once a frame while a throw plays (flight and rest): starts the burst when
 -- the picture reaches the first topple, then ages it by dt (real seconds).
 function burst.update(B, s, dt)
 	if B.done or not burst.tune.on then return end
+	local pb = s.pb
 	if not B.kind then
-		local pb = s.pb
 		if not pb or s.projectile ~= "baton" then return end
-		local kind, a, b = pick.pick(pb.w, s.showTime)
+		local kind = classify(B, pb, s.showTime)
 		if not kind then return end
-		B.kind, B.age = kind, 0
-		local fh = pb.w.firstHit
-		if fh and fh.with == a.id then
-			B.x1, B.y1, B.z1 = fh.x, fh.y, fh.z
-		else
-			local x, y, z = playback.poseAt(pb, a.index, a.toppleT)
-			B.x1, B.y1, B.z1 = x, y, z + burst.tune.lift
-		end
-		if b then
-			local x, y, z = playback.poseAt(pb, b.index, b.toppleT)
-			B.x2, B.y2, B.z2 = x, y, z + burst.tune.lift
-		end
-		tw.sound.hit(kind == "king" and "king" or (kind == "double" and "klak" or "tok"))
+		B.age = 0
+		tw.sound.hit(KNOCK[kind])
 		return
+	end
+	if B.provisional and pb then
+		local was = B.kind
+		local kind = classify(B, pb, s.showTime)
+		if kind == "king" and was ~= "king" then tw.sound.hit("king") end
 	end
 	B.age = B.age + dt
 	if B.kind == "double" and not B.knocked2 and B.age >= burst.tune.second then

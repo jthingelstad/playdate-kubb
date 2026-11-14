@@ -821,8 +821,13 @@ on it, with a knock.
   self-tests. The words are `BURST_WORDS` in `tools/art/build.py` (rerun it to change them).
 - The throw scene keeps the state in `s.burst` (`burst.new`, `reset` at each launch and
   back at aim, `update` in flight and rest, `draw` after the world).
+- Until the physics has computed the whole window after the first topple, the kind is
+  provisional and re-read each frame: a later topple can still make a clean burst a double,
+  or any burst the king's. `throw.reset`, `throw.prepare` and a scene change (`main.lua`
+  `open`) clear the burst and the screen inversion.
 - Self-tests: `burst` (the hit throw: flash, TOK!, break-up, then aiming again with the
-  burst cleared) and `bursts` (every burst image on white, for review).
+  burst cleared), `burst-reset` (Pitch reset while the burst is up) and `bursts` (every
+  burst image on white, for review).
 
 ## Frame-time log
 

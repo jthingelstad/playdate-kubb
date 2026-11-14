@@ -295,6 +295,7 @@ end
 -- frame): its pieces and debris, projectile, lines and targets. The thrower starts in
 -- the middle of the baseline facing straight down the pitch.
 function throw.prepare(s, setup)
+	burst.reset(s.burst)
 	throw.setPieces(s, setup.pieces, setup.debris)
 	s.lineY, s.forwardY, s.advY = setup.lineY, setup.forwardY or setup.lineY, setup.advY
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
@@ -359,6 +360,7 @@ function throw.reset(s)
 	s.mode = "aim"
 	s.pb = nil
 	s.readout = nil
+	burst.reset(s.burst)     -- a burst (or the king's inverted flash) must not outlive the throw
 	swing.reset(s.swing)
 	s.swing.backswing = 0
 end
