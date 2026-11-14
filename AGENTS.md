@@ -793,7 +793,9 @@ own item). Practice is the throw scene exactly as before.
   (`camera.lookDistFor`, never nearer than `lookMin`); base kubbs on the far baseline give
   the practice framing.
 - System Menu "Match": resign (the team on turn gives up, `G`; it waits until nothing is in
-  the air, and is dropped if that throw ended the team's turn) or title (leave: the match is dropped and no file is written). A game file whose name is taken
+  the air, and is dropped if that throw ended the team's turn; chosen while the defender
+  settles, it is the defender's, which holds the Playdate then, and waits for the
+  defender's own turn: self-test `settle-resign`) or title (leave: the match is dropped and no file is written). A game file whose name is taken
   gets `-2`, `-3`, ... before `.txt`. Pass and play
   has one Playdate, so the team on turn is whoever holds it.
 - The match tells the throw scene what the HUD shows: the rail (`throw.setRail`: team,

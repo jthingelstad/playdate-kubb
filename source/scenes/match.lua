@@ -31,7 +31,8 @@
 -- while one shows, the pitch is not drawn.
 --
 -- System Menu "Match": resign (the team on turn gives up: G on its own turn;
--- it waits until no throw is in the air) or title (leave: the match is
+-- it waits until no throw is in the air; chosen while the defender settles,
+-- it is the defender's and waits for its turn) or title (leave: the match is
 -- dropped, no file written).
 --
 -- Self-test options (scenes/match.new opts): seed (throws come from
@@ -173,7 +174,10 @@ end
 function scene.resign(s)
 	if s.phase ~= "over" and s.setup then
 		s.resignWanted = true
-		s.resignSide = s.setup.side
+		-- while the defender raises it holds the Playdate: the resign is
+		-- theirs, and waits for their own turn (the rules allow no other)
+		s.resignSide = (s.phase == "settle") and s.settle.side or s.setup.side
+		s.resignWait = s.phase == "settle"
 	end
 end
 
@@ -186,8 +190,11 @@ function scene.update(s)
 		end
 		if cmatch.over(s.m) then return over(s) end
 		if s.m.game.attacker == s.resignSide then
+			s.resignWait = false
 			cmatch.resign(s.m)
 			return over(s)
+		elseif s.resignWait then
+			s.resignWanted = true   -- the defender's: wait for its turn
 		end
 	end
 	if s.phase == "handoff" then
