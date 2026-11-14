@@ -35,6 +35,7 @@ soak.tune = {
 	saveCheck = 7,      -- read the save back every this many throws
 	slowest = 6,        -- slowest frames listed per match
 	key = "soak-match", -- its own resume key
+	sets = { "classic", "usa", "wisconsin" }, -- the kubb set of match 1, 2, 3, ... (render/world sets)
 }
 
 local match = tw.scenes.match
@@ -42,7 +43,9 @@ local match = tw.scenes.match
 local function out(lines)
 	local f = playdate.file.open("soak.txt", playdate.file.kFileAppend)
 	if not f then return end
-	for _, l in ipairs(lines) do f:write(l .. "\n") end
+	-- each line also to the console (the USB serial port), so a run's end
+	-- can be seen without stopping the game to mount its disk
+	for _, l in ipairs(lines) do f:write(l .. "\n"); print(l) end
 	f:close()
 end
 
@@ -79,8 +82,10 @@ local function newMatch(st)
 	st.info = { update = 0, draw = 0, phys = 0, steps = 0, awake = 0, bodies = 0, mem = 0 }
 	st.checks, st.checkFails, st.lastChecked = 0, {}, 0
 	st.seed = playdate.getSecondsSinceEpoch() + st.n
+	local sets = soak.tune.sets
+	st.set = sets[(st.n - 1) % #sets + 1]
 	st.ms = match.new(st.input, { seed = st.seed, skipHandoff = true, noFile = true, saveKey = soak.tune.key,
-		maxTurns = soak.tune.maxTurns })
+		maxTurns = soak.tune.maxTurns, set = st.set })
 	match.enter()
 	st.last = nil
 end
@@ -103,8 +108,8 @@ local function endMatch(st, why)
 	local g = ms.m.game
 	collectgarbage("collect")
 	local lines = {
-		string.format("match %d (seed %d): %s; turn %d, throws %d, winner %s (%s)", st.n, st.seed, why, g.turn,
-			ms.throws, tostring(g.winner), tostring(g.how)),
+		string.format("match %d (seed %d, %s set): %s; turn %d, throws %d, winner %s (%s)", st.n, st.seed,
+			tostring(st.set), why, g.turn, ms.throws, tostring(g.winner), tostring(g.how)),
 		string.format("  frames %d, over 100 ms %d, over 200 ms %d; memory %.0f KB -> %.0f KB after collection, most %.0f KB",
 			st.frames, st.over100, st.over200, st.memStart, kb(), st.memMax),
 		string.format("  save checks %d, failed %d", st.checks, #st.checkFails),

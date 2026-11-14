@@ -32,7 +32,9 @@ auto.flag = "autobench"
 local function out(lines)
 	local f = playdate.file.open("bench.txt", playdate.file.kFileAppend)
 	if not f then return end
-	for _, l in ipairs(lines) do f:write(l .. "\n") end
+	-- each line also to the console (the USB serial port), so a run's end
+	-- can be seen without stopping the game to mount its disk
+	for _, l in ipairs(lines) do f:write(l .. "\n"); print(l) end
 	f:close()
 end
 
