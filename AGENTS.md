@@ -253,8 +253,8 @@ so games have kubbs knocked in before the round is judged; `make games` prints
 stand, swivel, loft, launch speed and tumble (seeded scatter, `autothrow.tune`), aiming
 batons at the nearest live target (from the advantage line, but never nearer than
 `minRange`, 2 m: a slow lofted baton under 2 m nearly always missed) and tosses at the
-kitchen (Jamie, 2026-11-14): the corner of the far half nearest the centre line by a
-sideline (`kitchenX`, `kitchenY`), the one that already has more field kubbs near it, so a
+basket (Jamie, 2026-11-14): the corner of the far half nearest the centre line by a
+sideline (`basketX`, `basketY`), the one that already has more field kubbs near it, so a
 turn's kubbs group and one that runs goes out for a rethrow. Over 30 physics matches (seed
 7) against the old random spot: 18.9 turns a game against 23.5, 3 resigned at the turn
 limit against 5, a rethrow in 20% of inkasts against 18%, advantage lines 2.4 m on average

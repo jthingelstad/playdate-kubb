@@ -117,7 +117,7 @@ for the surface.
 - Stay put: a team's batons after its first of a turn start where the last was thrown
   from, with its swivel and loft, as a real player stands in one spot until they choose
   to move (2026-11-14). A new turn and every kubb start from the middle.
-- VS PLAYDATE: the Playdate tosses its kubbs into the kitchen, the corner nearest the
+- VS PLAYDATE: the Playdate tosses its kubbs into the basket, the corner nearest the
   centre line by a sideline, grouping a turn's kubbs in one corner (2026-11-14).
 
 - A piece never changes its look: no grey fallen kubbs, no black resting batons. The light
