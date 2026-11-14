@@ -620,8 +620,10 @@ hit rate (records in `playdate.datastore` "drills").
   run ends when all five are down). THE HOUSE: six batons at five field kubbs standing
   close at 4.3 m. KING SHOTS: six batons at the king alone (a point each time it falls; it
   is stood back up). BLAST: six kubbs drilled to the marker (a point for resting within
-  `blastCm`, 50 cm). AROUND THE PITCH: five batons, each from in front of the next base
-  kubb.
+  `blastCm`, 50 cm) to a marker fixed at `blastMarkerY` (6 m, as the menu map draws it:
+  the setup's `markerY`, `throw` keeps it still, `s.markerFixed`), so bests compare.
+  AROUND THE PITCH: five batons, each from in front of the next base kubb. An illegal
+  throw (a helicopter) scores nothing.
 - A run goes through the throw scene one throw at a time, like the match
   (`drills.setup` -> `throw.prepare`, `s.auto = false`; `drills.tally` on the throw's
   `result.toppled` and `last.restCm` once it is `done`); the rail counts throws and the
@@ -842,9 +844,10 @@ own item). Practice is the throw scene exactly as before.
   labels and the game file use them. `main.lua`: title -> `names` -> `play`; the winner
   card's A is `rematch`, the same options again with no names screen. Self-test `names`
   (scripted, no keyboard: `names.type`, `ok`, `back`).
-- Saved games and resume (`core/save.lua`, pure and tested): before every throw and settle
-  step and after every raise and punishment kubb placed by hand the match scene saves the
-  match in progress (`scene.persist` to `playdate.datastore` "match"); a finished match
+- Saved games and resume (`core/save.lua`, pure and tested): as soon as each throw is
+  ruled on (at rest, so leaving for the title during the rest hold cannot give the throw
+  back), before every settle step and after every raise and punishment kubb placed by hand
+  the match scene saves the match in progress (`scene.persist` to `playdate.datastore` "match"); a finished match
   deletes it; leaving for the title keeps it. Scripted matches (`seed`, `instant`,
   `noSave`) never save, and self-test runs (`tw.selftestRun`) save under their own key
   (`scene.saveKey()`, "selftest-match"), so they never touch a player's saved match.
@@ -857,7 +860,8 @@ own item). Practice is the throw scene exactly as before.
   `notation.Sheet` metatables back.
   `tests/lua/test_save.lua` plays 40 seeded games saved and restored every 7th action
   and needs the same game file as straight through. With a save, the title shows `B
-  RESUME <A> V <B>, TURN n` beside A START; `main.lua` opens `resume` from it (the match
+  RESUME <A> V <B>, TURN n` beside A START (a save that does not read back is ignored,
+  never a crash at launch); `main.lua` opens `resume` from it (the match
   scene's `opts.resume`, its names and VS kept for a rematch). Self-test `resume`.
 - Games list (`scenes/games.lua`, board `Games.png`; `core/gamefile.lua` pure and tested
   over every fixture): the title's System Menu "Games" opens it. Every finished game in
@@ -874,7 +878,9 @@ own item). Practice is the throw scene exactly as before.
   Its throws come from `core/autothrow` (`choose(setup, rng, scale)`, scatter times
   `scene.tune.cpuScatter`, seeded from the clock): it chooses as its turn comes up, the
   scene shows that stance and aim (`throw.showAim`, `s.watching`: the gauge and loft
-  plaque give way to a WATCH prompt) for `cpuThink` s, then `throw.autoLaunch`. It raises
+  plaque give way to a WATCH prompt; its kubb tosses are lobs aimed like a baton, so
+  `showAim` turns the drill marker off for them) for `cpuThink` s, then
+  `throw.autoLaunch`. It raises
   and places punishment kubbs with the engine's policies (no settle screen); the player
   settles by hand. No hand-off card before the Playdate's turn. The System Menu resign is
   always the player's and waits for the player's turn. Self-test `match-vs` (a whole

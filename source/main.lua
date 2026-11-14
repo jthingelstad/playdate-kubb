@@ -180,11 +180,18 @@ else
 
 	-- A line about the match saved in progress ("ASH V BIRCH, TURN 7"), or
 	-- nil when there is none (or it cannot be read back).
-	function savedMatch()
+	-- A save that does not read back as expected (a damaged file) is no
+	-- save: nothing here may stop the game launching.
+	local function savedLine()
 		local d = playdate.datastore.read("match")
 		if not tw.save.unpack(d) then return nil end
 		local t = d.game.teams
 		return string.upper(t.A.name .. " V " .. t.B.name) .. ", TURN " .. d.game.turn
+	end
+	function savedMatch()
+		local ok, line = pcall(savedLine)
+		if ok and type(line) == "string" then return line end
+		return nil
 	end
 
 	function open(which)

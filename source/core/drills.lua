@@ -38,6 +38,7 @@ drills.list = {
 
 drills.tune = {
 	blastCm = 50,          -- a drilled kubb resting this near the marker scores
+	blastMarkerY = 6,      -- m from the baseline: BLAST's marker, fixed (scores stay comparable)
 	house = { { 0.00, 4.20 }, { 0.10, 4.30 }, { -0.10, 4.32 }, { 0.03, 4.42 }, { -0.06, 4.52 } },
 	lastN = 10,            -- the scores kept for LAST TEN
 }
@@ -85,6 +86,7 @@ function drills.setup(d, run)
 	s.targets = targets
 	if d.kind == "blast" then
 		s.kind, s.projectile, s.kubb, s.targets = "toss", "kubb", "d1", nil
+		s.markerX, s.markerY = 0, drills.tune.blastMarkerY   -- fixed: the d-pad does not move it
 	elseif d.kind == "around" then
 		-- from in front of the kubb whose turn it is (the next standing one)
 		s.playerX = BASE_X[run.n + 1]

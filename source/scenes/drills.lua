@@ -197,6 +197,8 @@ function scene.update(s)
 		throw.update(ts)
 		if ts.mode == "done" then
 			local res = { toppled = ts.result and ts.result.toppled or {}, restCm = ts.last and ts.last.restCm }
+			-- an illegal throw (a helicopter, II.B.1) scores nothing
+			if ts.last and ts.last.legal == false then res.toppled, res.restCm = {}, nil end
 			if drills.tally(s.drill, s.run, res) then
 				finishRun(s)
 			else

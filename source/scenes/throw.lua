@@ -283,7 +283,7 @@ function throw.new(provider)
 		ftInfo = {},             -- the rest of its log line, filled once at rest
 		drill = false,           -- aim kubbs with the drill marker
 		thisDrill = false,       -- the throw in the air (or at rest) was drilled
-		markerX = 0, markerY = 0, markerHeld = 0, markerSide = nil,
+		markerX = 0, markerY = 0, markerHeld = 0, markerSide = nil, markerFixed = false,
 		cut = 0,                 -- drill.CUT_NONE / CUT_A / CUT_B, from A or B held
 		drillSol = {},           -- core/drill solution for the marker (reused)
 		drillLaunch = {},        -- core/drill launch of the last drill (reused)
@@ -318,9 +318,15 @@ function throw.prepare(s, setup)
 	s.playerX, s.playerY, s.swivel = 0, setup.lineY, 0
 	s.loftDeg = flight.tune.loftDefaultDeg
 	-- a kubb is drilled; the marker stays where the team left it last throw
+	-- (setup.markerY, a drill's own marker from the thrower's line: fixed there)
 	local drilling = setup.projectile == "kubb"
+	s.markerFixed = false
 	if drilling then
-		if not (s.drill and s.markerSide == setup.side) then markerHome(s) end
+		if setup.markerY then
+			s.markerX, s.markerY, s.markerFixed = setup.markerX or 0, setup.lineY + setup.markerY, true
+		elseif not (s.drill and s.markerSide == setup.side) then
+			markerHome(s)
+		end
 		s.markerSide = setup.side
 		s.drill = true
 		solveDrill(s)
@@ -349,6 +355,7 @@ function throw.setDrill(s, on)
 		return false
 	end
 	s.pendingDrill = nil
+	s.markerFixed = false
 	s.drill = on and true or false
 	s.projectile = on and "kubb" or "baton"
 	s.projectileId = nil
@@ -396,7 +403,8 @@ local function aimInput(s, dt)
 	local sw = s.swing
 	if s.drill then
 		-- d-pad: the marker, across and along, faster the longer it is held
-		if dx ~= 0 or dy ~= 0 then
+		-- (not a drill's fixed marker)
+		if (dx ~= 0 or dy ~= 0) and not s.markerFixed then
 			local dtn = drill.tune
 			s.markerHeld = s.markerHeld + dt
 			local v = min(dtn.markerSpeedMax, dtn.markerSpeed + dtn.markerAccel * s.markerHeld)
@@ -863,6 +871,9 @@ end
 -- swivel and loft, and the aim camera on them. s.watching hides the
 -- player's controls (gauge, loft plaque) and prompts WATCH.
 function throw.showAim(s, a)
+	-- a lobbed kubb (the Playdate's tosses: no a.drill) is aimed like a baton,
+	-- so no drill marker is shown that the toss will not go to
+	if s.projectile == "kubb" and not a.drill then s.drill = false end
 	s.playerX, s.playerY, s.swivel, s.loftDeg = a.x, a.y, a.swivel, a.loftDeg
 	aimCamera(s)
 end
