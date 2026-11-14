@@ -20,7 +20,7 @@ Three tones, hard shadows, a white pitch.
 | --- | --- |
 | White | The pitch, standing kubbs, the king, a baton in the air. |
 | Black | Outlines, the side face away from the light, ground shadows, batons at rest, the top rail, cards. |
-| Grey (50% checker) | The only grey. The drill band, nothing else (never a piece). Always inside a black outline so it holds in dim light. |
+| Grey (50% checker) | The only grey. The drill band and the punishment view's keep-out circles, nothing else (never a piece). Always inside a black outline so it holds in dim light. |
 | Rough (2 x 1 dashes on an 8 px grid) | Outside the sidelines and past the far baseline. Never on the pitch. |
 
 Light comes from the far left. Front and top faces are white, the right face black, and the
@@ -132,4 +132,5 @@ title screen without its menu. All three are pure black and white with no grey.
 - The title menu shows VS PLAYDATE and a GRASS · 2-4-6 line. Neither the computer opponent nor
   those options exist yet; show only what works.
 - The team names on the boards (ASH, BIRCH) are placeholders until name entry exists.
-- Raising, punishment, names, saved games and drills are sketches for stages not built yet.
+- Raising and punishment are built from their sketches (`scenes/settle`; AGENTS.md "Match").
+  Names, saved games and drills are still sketches for stages not built yet.

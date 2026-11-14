@@ -299,6 +299,9 @@ matches (about a minute; `--quick` about 10 s).
   bodies in its `FAIL` line.
 - `title`: the title with PASS + PLAY chosen (frame 1), PRACTICE after a right press
   (frame 2), and A must leave with `practice`.
+- `settle`: raising a kubb and placing a punishment kubb by hand, on an engine driven to
+  turn 3 (frames: the raise view, the other end chosen, the placement view, a spot
+  refused by the king); the check reads the engine after A places it.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
   group of field kubbs), `skid` and `skid-sand` (the kick after landing on each surface),
   `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
@@ -725,7 +728,7 @@ own item). Practice is the throw scene exactly as before.
   `label` such as "Team B  baton 2 of 6"); `match.resolve(m, res, illegal)` applies a
   finished throw and sets `m.text` (the result line); `match.resign`, `match.file`.
 - `scenes/match.lua`: phases handoff (the full-screen hand-off card before each team's turn,
-  A to play), play (the throw scene set up by `throw.prepare`: pieces, lines, projectile,
+  A to play), settle (below), play (the throw scene set up by `throw.prepare`: pieces, lines, projectile,
   targets; `s.auto = false` stops it in mode `done` after the rest hold) and over (the
   winner card; the game file was written to `games/` in the Data folder, DESIGN 7; A is a
   rematch, B the title). The
@@ -764,6 +767,21 @@ own item). Practice is the throw scene exactly as before.
   six lying batons and ten downed kubbs asleep (about +16% per step on the desktop over the
   whole run, +9% in the collision phase; all of it in the pair loop's sphere checks between
   awake bodies and the sleeping debris); a sleeping body costs nothing else until woken.
+- Raising and punishment kubbs by hand (`scenes/settle.lua`, boards `Raising.png` and
+  `Punish.png`, which were sketches): when the engine's next need is a raise or a
+  punishment kubb, the match's phase is `settle` and the defending team does it, its name
+  on the rail. Raise: a top-down close-up of the lying kubb in the defender's view frame,
+  each end the engine allows drawn as its 7 x 7 footprint, the chosen one dotted with
+  STANDS HERE (MOVED CLEAR when II.D.5 slid it); left/right choose, A raises
+  (`g:raise(choice)`); the highlight starts on the engine's own choice. Punish: the
+  defender's half from above (40 px a metre), grey keep-out circles a baton length from
+  the stakes and the king, the kubbs on it, and a cursor kubb the d-pad moves (faster the
+  longer it is held); `raising.punishmentCheck` runs as it moves, a refused spot shows why
+  (TOO NEAR A STAKE, TOO NEAR THE KING, ON A KUBB) and A there does nothing; A elsewhere
+  places it (`g:placePunishment`). The cursor starts at `raising.autoPunishment`'s spot. The
+  still parts are one image redrawn only on a change. Scripted matches (`seed`,
+  `instant`, or `autoSettle` in the scene's options) leave both to the engine
+  (`match.setup`). Self-test `settle`.
 - Kubb toss: the same aim, loft and crank swing as a baton, always from the baseline; the
   kubb is a real body (`world.launchKubb`) turning at `throw.tune.tossTumble` of the
   swing's tumble with no tilt (no helicopter), drawn as one more box item.

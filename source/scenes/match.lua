@@ -18,6 +18,10 @@
 --            thrown kubbs lie where they stopped, in or out, until their round
 --            is judged; out ones are then picked up for the rethrows, raised
 --            kubbs stand, punishment kubbs appear).
+--   settle   the defender raises the kubbs thrown in and places punishment
+--            kubbs by hand (scenes/settle), between the attacker's kubb
+--            tosses and its batons; scripted matches (seed, instant,
+--            autoSettle) leave it to the engine
 --   over     the winner card: who won and how, turns, minutes, the winner's
 --            baton hit rate, whether the game file was written to games/ in
 --            the Data folder (DESIGN 7). A: a new match (rematch), B: the
@@ -41,11 +45,13 @@ import "scenes/throw"
 import "render/hud"
 import "core/cards"
 import "render/cards"
+import "scenes/settle"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
 local throw, hud = tw.scenes.throw, tw.render.hud
 local cards, rcards = tw.cards, tw.render.cards
+local settle = tw.scenes.settle
 
 tw.scenes = tw.scenes or {}
 local scene = {}
@@ -91,6 +97,16 @@ end
 local function nextThrow(s)
 	local m = s.m
 	if s.opts.maxTurns and m.game.turn > s.opts.maxTurns and not cmatch.over(m) then cmatch.resign(m) end
+	-- the defender raises kubbs and places punishment kubbs by hand first
+	-- (scenes/settle); scripted matches leave it to the engine (match.setup)
+	if s.byHand and not cmatch.over(m) then
+		local k = m.game:need().kind
+		if k == "raise" or k == "punish" then
+			s.phase = "settle"
+			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side)) end, s.input)
+			return
+		end
+	end
 	local setup = (not cmatch.over(m)) and cmatch.setup(m) or nil
 	if not setup then return over(s) end
 	s.setup = setup
@@ -133,7 +149,7 @@ function scene.new(provider, opts)
 		opts = opts or {},
 		m = nil,
 		ts = throw.new(provider),
-		phase = "handoff",       -- "handoff" | "play" | "over"
+		phase = "handoff",       -- "handoff" | "play" | "settle" | "over"
 		side = nil,              -- the team the Playdate was last handed to
 		setup = nil,             -- the current throw (core/match setup)
 		resolved = false,        -- the current throw has been given to the engine
@@ -142,6 +158,8 @@ function scene.new(provider, opts)
 		exit = nil,              -- "title" or "match" (a rematch) when the scene is done
 		throws = 0,
 	}
+	-- raising and punishment kubbs by hand, except in scripted matches
+	s.byHand = not (s.opts.seed or s.opts.instant or s.opts.autoSettle)
 	s.m = cmatch.new { start = now(), surface = "Grass" }
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	s.ts.sceneName = "match"
@@ -175,6 +193,14 @@ function scene.update(s)
 	if s.phase == "handoff" then
 		s.input:advance()
 		if s.input:pressed("a") then s.phase = "play" end
+		return
+	end
+	if s.phase == "settle" then
+		settle.update(s.settle)
+		if s.settle.done then
+			s.settle = nil
+			nextThrow(s)
+		end
 		return
 	end
 	if s.phase == "over" then
@@ -215,6 +241,10 @@ function scene.draw(s)
 		return
 	end
 	s.card = nil
+	if s.phase == "settle" then
+		settle.draw(s.settle)
+		return
+	end
 	throw.draw(s.ts)
 end
 
