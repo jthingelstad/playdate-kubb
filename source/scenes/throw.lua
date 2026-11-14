@@ -112,6 +112,7 @@ throw.tune = {
 	arcSide = 6,          -- px: and inside the screen's sides by this much
 	arcMinF = 380,        -- px: but never wider than this lens
 	arcMaxCy = 158,       -- px: before widening, the camera looks up as far as this principal row
+	arcBottom = 230,      -- px: and the landing ring stays above this row (a low throw lands near)
 	                      -- (the ground point it aims at moves down the screen; the kubbs keep
 	                      -- their size)
 }
@@ -987,12 +988,15 @@ local function arcShown(s)
 	return throw.tune.arc and not s.drill and s.projectile ~= "kubb"
 end
 
--- Fit the whole full-power arc (the largest; a wind-up's arc is smaller) on
--- screen below arcTop and inside arcSide: from the crane over the thrower's
--- shoulder its top would otherwise leave the long lens's frame. The camera
--- first looks up (principal row down to arcMaxCy), then widens its lens
--- (offsets from the principal point scale with it) no wider than arcMinF.
--- Every aim frame (24 projections, no tables).
+-- Fit the full-power arc (the one drawArc shows) on screen below arcTop and
+-- inside arcSide, and its landing above arcBottom: from the crane over the
+-- thrower's shoulder a high arc's top would otherwise leave the long lens's
+-- frame, and a low hard throw's landing (it first touches down about 4 m out)
+-- falls under its lower edge (Codex on #74). The arc may rise in from the
+-- lower edge; where it lands always shows. The camera first looks up
+-- (principal row down to arcMaxCy), then widens its lens (offsets from the
+-- principal point scale with it) no wider than arcMinF.
+-- Every aim frame (25 projections, no tables).
 fitArc = function(s, c)
 	if s.watching or not arcShown(s) then return end
 	local t = throw.tune
@@ -1011,6 +1015,10 @@ fitArc = function(s, c)
 			if w > side then side = w end
 		end
 	end
+	-- where it lands, in px below the principal point
+	local down = 0
+	local lsx, lsy = camera.project(c, x0 + vx * T, y0 + vy * T, 0)
+	if lsx then down = lsy - c.cy end
 	-- first look up (the principal point lower: the kubbs keep their size),
 	-- then widen the lens for what is still over
 	local cy = c.cy
@@ -1018,6 +1026,8 @@ fitArc = function(s, c)
 	c.cy = cy
 	local k = up / (cy - t.arcTop)
 	if side > k then k = side end
+	local kd = down / (t.arcBottom - cy)
+	if kd > k then k = kd end
 	if k > 1 then
 		local f = c.f / k
 		if f < t.arcMinF then f = t.arcMinF end
@@ -1026,17 +1036,17 @@ fitArc = function(s, c)
 end
 
 -- The baton's arc while aiming (Jamie and Tyler, 2026-11-14): where a clean
--- throw at the loft set goes from where the player stands and points. Full
--- power while idle; while winding, the power the backswing allows so far, so
--- the arc grows as the crank goes back. It shows the aim, not the throw: the
--- flick and where the crank stops still decide it. A dashed line of
--- arcPoints projected points (every other gap drawn) and a small ring where it
--- lands. Drawn over the world each aim frame, outside its caches; no tables.
+-- full-power throw at the loft set goes from where the player stands and
+-- points: the farthest this aim reaches, the arc the camera is framed for
+-- (fitArc). It shows the aim, not the throw: the flick's speed and where the
+-- crank stops still decide it. (It once shrank with the backswing while
+-- winding; a short arc lands under this view's lower edge, so it vanished:
+-- Codex on #74. The plaque's power fill shows the wind-up.) A dashed line of
+-- arcPoints projected points (every other gap drawn) and a small ring where
+-- it lands. Drawn over the world each aim frame, outside its caches; no tables.
 drawArc = function(s, c)
 	local t = throw.tune
-	local sw = s.swing
-	local cap = (sw.phase == "winding") and swing.powerCap(sw) or 1
-	local vx, vy, vz, T = arcLaunch(s, cap)
+	local vx, vy, vz, T = arcLaunch(s, 1)
 	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
 	local lx, ly = x0 + vx * T, y0 + vy * T
 	local n = t.arcPoints
@@ -1059,6 +1069,40 @@ drawArc = function(s, c)
 		if sx and qx then gfx.drawLine(qx, qy, sx, sy) end
 		qx, qy = sx, sy
 	end
+end
+
+-- (self-tests) the aim camera for this frame, then where drawArc's arc and
+-- ring fall on it: the ring's screen box (minX, minY, maxX, maxY), the box of
+-- the arc's points on screen, and how many of its points are on screen and
+-- in all. nil when no arc shows.
+function throw.arcBox(s)
+	if not arcShown(s) then return nil end
+	aimCamera(s)
+	local c, t = s.aimCam, throw.tune
+	local vx, vy, vz, T = arcLaunch(s, 1)
+	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+	local huge = math.huge
+	local ring = { huge, huge, -huge, -huge }
+	local arc = { huge, huge, -huge, -huge }
+	local function add(b, sx, sy)
+		if sx < b[1] then b[1] = sx end; if sx > b[3] then b[3] = sx end
+		if sy < b[2] then b[2] = sy end; if sy > b[4] then b[4] = sy end
+	end
+	local on, all = 0, 0
+	for i = t.arcSkip, t.arcPoints do
+		local tt = T * i / t.arcPoints
+		local sx, sy = camera.project(c, x0 + vx * tt, y0 + vy * tt, h + vz * tt - 0.5 * g * tt * tt)
+		all = all + 1
+		if sx and sy <= 240 then on = on + 1; add(arc, sx, sy) end
+	end
+	local lx, ly = x0 + vx * T, y0 + vy * T
+	for k = 1, 8 do
+		local a = k * math.pi / 4
+		local sx, sy = camera.project(c, lx + 0.12 * math.cos(a), ly + 0.12 * math.sin(a), 0)
+		if not sx then return ring, arc, on, all, true end
+		add(ring, sx, sy)
+	end
+	return ring, arc, on, all
 end
 
 drawMarker = function(s, c)

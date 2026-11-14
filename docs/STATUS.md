@@ -120,8 +120,8 @@ for the surface.
   has its own direction and speed, each throw a gust of it; it pushes batons and kubbs in
   the air; an arrow on the minimap and WIND n M/S show it. The Playdate does not allow for
   it yet.
-- The aim arc: a dashed 3D arc of the throw at the loft set and a ring where it lands,
-  growing with the backswing, seen over the thrower's shoulder (Jamie and Tyler,
+- The aim arc: a dashed 3D arc of a full-power throw at the loft set and a ring where it
+  lands, always on screen, seen over the thrower's shoulder (Jamie and Tyler,
   2026-11-14).
 - The release where the crank stops (Jamie and Tyler, 2026-11-14): the launch angle is
   the crank's angle past the bottom of the turn where it stops; the loft set is the target,

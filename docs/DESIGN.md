@@ -339,7 +339,7 @@ design sessions):
   mid-flight.
 - The aim preview: the line on the minimap, and on the pitch a dashed 3D arc of a clean
   throw at the loft set with a ring where it lands (Jamie and Tyler, 2026-11-14: "like
-  billiards on a computer"), at full power while idle and growing with the backswing. So
+  billiards on a computer"), at full power: the farthest the aim reaches. So
   the arc reads as an arc, the aim crane stands 1 m to the thrower's right, over the
   shoulder, and looks up (or widens, for a high loft) until the whole arc is on screen.
 - The low, hard throw (Jamie, 2026-11-14: a field kubb near the baseline is hit low and
