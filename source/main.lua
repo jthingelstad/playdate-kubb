@@ -36,6 +36,7 @@ import "scenes/throw"
 import "scenes/match"
 import "scenes/names"
 import "core/save"
+import "scenes/games"
 import "benchscreen"
 import "autobench"
 import "selftest/runner"
@@ -46,6 +47,7 @@ import "selftest/settle-resign"
 import "selftest/settle-crank"
 import "selftest/names"
 import "selftest/resume"
+import "selftest/games"
 import "selftest/aim-center"
 import "selftest/aim-walk-swivel"
 import "selftest/loft"
@@ -97,7 +99,7 @@ if args.selftest then
 	end
 else
 	local throw, match, title = tw.scenes.throw, tw.scenes.match, tw.scenes.title
-	local names = tw.scenes.names
+	local names, games = tw.scenes.names, tw.scenes.games
 	local lastMatch = nil            -- the options of the last match (a rematch plays them again)
 	local device = tw.input.device()
 	local current, kind = nil, nil   -- the scene and which: "title" | "practice" | "match"
@@ -145,6 +147,8 @@ else
 				end
 				item:setValue("play")
 			end)
+		elseif kind == "title" then
+			menu:addMenuItem("Games", function() pending = "games" end)
 		elseif kind == "match" then
 			item = menu:addOptionsMenuItem("Match", { "play", "resign", "title" }, "play", function(v)
 				if v == "resign" then
@@ -179,6 +183,11 @@ else
 			kind = "names"
 			current = names.new(device, which)
 			names.enter(current)
+		elseif which == "games" then
+			-- the games list and score sheets (scenes/games)
+			kind = "games"
+			current = games.new(device)
+			games.enter()
 		elseif which == "play" or which == "rematch" then
 			-- the match itself: the names just entered, or the last match's again
 			kind = "match"
@@ -234,6 +243,10 @@ else
 			match.update(current)
 			if current.exit then return open(current.exit) end
 			match.draw(current)
+		elseif kind == "games" then
+			games.update(current)
+			if current.exit then return open(current.exit) end
+			games.draw(current)
 		elseif kind == "names" then
 			names.update(current)
 			if current.done then

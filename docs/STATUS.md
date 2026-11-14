@@ -51,6 +51,11 @@ testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testi
 A match in progress is saved before every throw and comes back from the title (B RESUME),
 also after the Playdate is switched off (AGENTS.md "Match", `core/save.lua`).
 
+## Games list
+
+Every finished game, newest first, with its score sheet: the title's System Menu "Games"
+(AGENTS.md "Match", `scenes/games.lua`).
+
 ## Team names
 
 Entered before each match with the Playdate's keyboard and saved for next time (AGENTS.md
@@ -83,7 +88,7 @@ crank in a 3D close-up) and places punishment kubbs itself (AGENTS.md "Match", `
 
 ## Not built yet
 
-1. The games list and score sheets (the Games board), practice drills.
+1. Practice drills.
 2. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
    2026-11-13): build after the bursts, measure its cost on the device.
 
