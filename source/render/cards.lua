@@ -5,6 +5,8 @@
 -- so no text is drawn while a card waits for a button.
 --
 --   rcards.handoff(c)               c = core/cards.handoff
+--   rcards.settle(c)                c = core/cards.settle (the pass card before
+--                                   the defender raises, PASS + PLAY)
 --   rcards.winner(c, how, saved)    c = core/cards.winner; how = the
 --                                   sentence (core/match.howText); saved =
 --                                   the game file was written
@@ -143,6 +145,44 @@ function rcards.handoff(c)
 
 	ui.button("A", "ready", t.left, t.buttonY, true)
 	drawMap(c)
+	gfx.popContext()
+	return img
+end
+
+-- The pass card before the defender raises kubbs and places punishment
+-- kubbs (PASS + PLAY): the hand-off card's look, with what the defender does
+-- and who it hands the Playdate back to.
+function rcards.settle(c)
+	local t = rcards.tune
+	local img = gfx.image.new(400, 240, gfx.kColorBlack)
+	local label, d16, d32 = ui.label(), ui.display(16), ui.display(32)
+	gfx.pushContext(img)
+	ui.text(label, "PASS THE PLAYDATE TO", t.left, 18, true)
+	ui.text(d32, c.toName, t.left - 1, t.nameTop - 1, true)
+	white()
+	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
+	ui.text(label, "you raise", t.left, t.tookY, true)
+	local lines = {}
+	if c.raise > 0 then
+		lines[#lines + 1] = { n = c.raise, text = plural(c.raise, "kubb", "kubbs") .. " up" }
+	end
+	if c.punish > 0 then
+		lines[#lines + 1] = { n = c.punish, text = (c.raise > 0 and "and " or "") .. "place "
+			.. plural(c.punish, "punishment kubb", "punishment kubbs") }
+	end
+	local pip = t.kubbPip
+	for i, l in ipairs(lines) do
+		local y = t.tookY + 24 + (i - 1) * 24
+		local x = t.left
+		white()
+		for _ = 1, l.n do
+			gfx.fillRect(x, y, pip.w, pip.h)
+			x = x + pip.step
+		end
+		ui.text(d16, l.text, x + 6, y - 1, true)
+	end
+	ui.text(label, "then hand it back to " .. c.backName, t.left, t.tookY + 24 + #lines * 24 + 4, true)
+	ui.button("A", "ready", t.left, t.buttonY, true)
 	gfx.popContext()
 	return img
 end

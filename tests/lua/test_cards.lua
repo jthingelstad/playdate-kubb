@@ -91,3 +91,24 @@ test("cards: the winner card counts turns, minutes and the winner's hit rate", f
 	m.start = nil
 	expect.eq(cards.winner(m, { year = 2026, month = 11, day = 14, hour = 0, min = 5 }).minutes, nil)
 end)
+
+test("cards: the pass card before the defender raises counts its kubbs and punishment kubbs", function()
+	-- as the settle-resign self-test: turn 3, two kubbs of A's half thrown in
+	-- by B (a1 lands in, a2 out twice: a punishment kubb), B to raise
+	local m = match.new { start = { year = 2026, month = 11, day = 13, hour = 20, min = 50 } }
+	local g = m.game
+	local MISS = {}
+	local function topple(id) return { toppled = { id } } end
+	local function land(x, y, a) return { rest = { x = x, y = y, standing = false, angle = a }, moved = {} } end
+	g:throwBaton(MISS); g:throwBaton(MISS)
+	g:throwBaton(topple("a1")); g:throwBaton(topple("a2")); g:throwBaton(MISS); g:throwBaton(MISS)
+	g:toss(land(0.6, 6.0, 0.4)); g:toss(land(2.7, 6.0, math.pi / 2)); g:toss(land(2.8, 5.5, 0))
+	local n = g:need()
+	expect.eq(n.kind, "raise")
+	local c = cards.settle(g)
+	expect.eq(c.side, g.defender)
+	expect.eq(c.toName, "Team " .. g.defender)
+	expect.eq(c.backName, "Team " .. g.attacker)
+	expect.eq(c.raise, 1)
+	expect.eq(c.punish, 1)
+end)

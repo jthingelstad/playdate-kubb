@@ -18,7 +18,8 @@
 --            thrown kubbs lie where they stopped, in or out, until their round
 --            is judged; out ones are then picked up for the rethrows, raised
 --            kubbs stand, punishment kubbs appear).
---   settle   the defender raises the kubbs thrown in and places punishment
+--   settle   (PASS + PLAY: after a card that passes the Playdate to the
+--            defender, A to start) the defender raises the kubbs thrown in and places punishment
 --            kubbs by hand (scenes/settle), between the attacker's kubb
 --            tosses and its batons; scripted matches (seed, instant,
 --            autoSettle) leave it to the engine
@@ -165,6 +166,11 @@ local function nextThrow(s)
 		if (n.kind == "raise" or n.kind == "punish") and n.side ~= s.cpu then
 			s.phase = "settle"
 			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side, m.game)) end, s.input)
+			-- PASS + PLAY: the attacker hands the Playdate to the defender
+			-- first (a card, A to start); against the Playdate the player
+			-- holds it already
+			s.settleCard = (not s.cpu) and cards.settle(m.game) or nil
+			s.settleImg = nil
 			return
 		end
 	end
@@ -284,6 +290,11 @@ function scene.update(s)
 		return
 	end
 	if s.phase == "settle" then
+		if s.settleCard then
+			s.input:advance()
+			if s.input:pressed("a") then s.settleCard, s.settleImg = nil, nil end
+			return
+		end
 		local before = s.settle.raised + s.settle.placed
 		settle.update(s.settle)
 		-- each raise and placement is saved as it is made
@@ -356,6 +367,12 @@ function scene.draw(s)
 	end
 	s.card = nil
 	if s.phase == "settle" then
+		if s.settleCard then
+			-- the pass card, built once
+			s.settleImg = s.settleImg or rcards.settle(s.settleCard)
+			s.settleImg:draw(0, 0)
+			return
+		end
 		settle.draw(s.settle)
 		return
 	end

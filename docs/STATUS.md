@@ -91,6 +91,9 @@ merged).
 
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 
+- PASS + PLAY: a card passes the Playdate to the defending team before it raises kubbs
+  and places punishment kubbs (2026-11-14).
+
 - A piece never changes its look: no grey fallen kubbs, no black resting batons. The light
   on the faces stays.
 - No speed lines (they did not follow the baton's turn).
@@ -124,10 +127,7 @@ the game; nothing in its crash log). Jamie reset it by hand; `main` is installed
 
 Jamie's to make, one at a time; each has a recommendation.
 
-1. **PASS + PLAY has no "pass the Playdate" card around raising.** When the defending team
-   raises or places punishment kubbs, only the rail's team name says who should hold the
-   Playdate. Recommendation: a short card before the defender's settle ("RAISE: <TEAM>, A
-   to start") and none after.
+None.
 
 ## Licence
 
