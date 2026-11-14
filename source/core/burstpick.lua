@@ -90,7 +90,10 @@ function burstpick.pick(w, showTime)
 		if king ~= first then local _, ks = falling(king, w); sure = ks end
 		return "king", king, nil, sure
 	end
-	if second then return "double", first, second, sure end
+	if second then
+		local _, s2 = falling(second, w)
+		return "double", first, second, sure, s2
+	end
 	return "clean", first, nil, sure
 end
 
