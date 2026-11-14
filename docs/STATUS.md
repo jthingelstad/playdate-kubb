@@ -78,8 +78,8 @@ crank in a 3D close-up) and places punishment kubbs itself (AGENTS.md "Match", `
   the crank raise feels (270 degrees from lying to standing).
 - VS PLAYDATE: how strong it plays, and whether its think pause feels right.
 - Name entry with the real system keyboard (only scripted in the Simulator self-tests).
-- Resume after a real restart, and what a save costs on the device (one datastore write
-  per throw, at the frame that already sets the next throw up).
+- Resume after a real restart (a save costs 68 ms on the device, at the frame that already
+  sets the next throw up).
 
 ## Not built yet
 

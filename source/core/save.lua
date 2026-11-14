@@ -40,26 +40,34 @@ local function plain(v, seen, path)
 end
 save.plain = function(v) return plain(v, {}, "") end
 
--- What a resume needs of match `m`, plus `opts` (the match scene's options:
--- names, vs), as plain data.
-function save.pack(m, opts)
-	-- the score sheet's current turn is also its last entry in turns: kept as
-	-- an index, the one table the engine reaches two ways
+-- Hands writer(d) what a resume needs of match `m`, plus `opts` (the match
+-- scene's options: names, vs): the live tables, not a copy (copying the game
+-- cost 43 ms on the device at turn 4), so writer must write it at once
+-- (playdate.datastore.write). The score sheet's current turn is also its
+-- last entry in turns, the one table the engine reaches two ways: it is
+-- detached for the write and kept as an index.
+function save.write(m, opts, writer)
 	local sheet = m.game.sheet
 	local cur, ci = sheet and sheet.current, nil
 	if cur then
 		for i, t in ipairs(sheet.turns) do if t == cur then ci = i end end
 		sheet.current = nil
 	end
-	local ok, d = pcall(save.plain, {
-		v = save.version,
+	local ok, err = pcall(writer, {
+		v = save.version, currentIndex = ci,
 		game = m.game, start = m.start, mode = m.mode, turn = m.turn, tossed = m.tossed,
 		text = m.text, debris = m.debris,
 		opts = { vs = opts and opts.vs, names = opts and opts.names },
 	})
 	if sheet then sheet.current = cur end
-	if not ok then error(d, 0) end
-	if ci then d.game.sheet.currentIndex = ci end
+	if not ok then error(err, 0) end
+end
+
+-- A plain copy of what save.write would write (tests; save.plain refuses
+-- anything JSON could not keep).
+function save.pack(m, opts)
+	local d
+	save.write(m, opts, function(t) d = save.plain(t) end)
 	return d
 end
 
@@ -72,7 +80,8 @@ function save.unpack(d)
 	local sheet = g.sheet
 	if sheet then
 		setmetatable(sheet, notation.Sheet)
-		if sheet.currentIndex then sheet.current = sheet.turns[sheet.currentIndex] end
+		local ci = d.currentIndex or sheet.currentIndex
+		if ci then sheet.current = sheet.turns[ci] end
 		sheet.currentIndex = nil
 	end
 	local m = { game = g, start = d.start, mode = d.mode, turn = d.turn, tossed = d.tossed, text = d.text,
