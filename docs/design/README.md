@@ -127,8 +127,8 @@ title screen without its menu. All three are pure black and white with no grey.
 
 ## Open details
 
-- Hit words: the boards say TOK, KLAK and KING. Jamie first asked for POW and BAM; the words
-  are his call.
+- Hit words: TOK, KLAK and KING, as the boards have them (Jamie, 2026-11-13, over the brief's
+  POW and BAM).
 - The title menu shows VS PLAYDATE (built: the computer opponent) and a GRASS · 2-4-6 line
   (those options do not exist yet; show only what works).
 - Team names are entered before each match (`scenes/names`, from the Names board); ASH and

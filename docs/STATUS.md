@@ -31,8 +31,8 @@ quarter of a step (`throw.tune.estRise`).
 
 ## Hit bursts
 
-TOK!, KLAK KLAK! and KING! with synthesized knocks (AGENTS.md "Hit bursts"). The words
-are still the board's, pending Jamie's call (Open calls).
+TOK!, KLAK KLAK! and KING! with synthesized knocks (AGENTS.md "Hit bursts"). Jamie kept
+the board's words over the brief's POW / BAM (2026-11-13).
 
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 
@@ -58,8 +58,8 @@ A match against the computer from the title (AGENTS.md "Match"). One level so fa
 
 ## Raising and punishment by hand
 
-The defending team raises each kubb thrown in (choosing the end) and places punishment
-kubbs itself (AGENTS.md "Match", `scenes/settle.lua`).
+The defending team raises each kubb thrown in (choosing the end, or tipping it up with the
+crank in a 3D close-up) and places punishment kubbs itself (AGENTS.md "Match", `scenes/settle.lua`).
 
 ## Not checked on hardware yet
 
@@ -69,7 +69,8 @@ kubbs itself (AGENTS.md "Match", `scenes/settle.lua`).
 - The hit bursts and their knocks (how they look and sound at full speed; the king's
   screen flash).
 - The hand-cut M, N, W and 8 in the 16 px display font; Roobert loading for labels.
-- Raising and punishment by hand: how the two screens read and how the cursor moves.
+- Raising and punishment by hand: how the two screens read, how the cursor moves, and how
+  the crank raise feels (270 degrees from lying to standing).
 - VS PLAYDATE: how strong it plays, and whether its think pause feels right.
 - Name entry with the real system keyboard (only scripted in the Simulator self-tests).
 
@@ -81,5 +82,4 @@ kubbs itself (AGENTS.md "Match", `scenes/settle.lua`).
 
 ## Open calls
 
-- Hit words: the design uses TOK / KLAK / KING; the brief asked for POW / BAM.
 - A licence, before the repo goes public.
