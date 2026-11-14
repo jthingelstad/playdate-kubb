@@ -21,13 +21,21 @@ local autothrow = {}
 autothrow.tune = {
 	batonLoft = 30,          -- degrees
 	batonShort = 0.15,       -- m the baton is aimed short of the target's center
+	minRange = 2.0,          -- m: never stands nearer its target than this, even with the
+	                         -- advantage line further up (a slow lofted baton under 2 m
+	                         -- hit 2 to 7 in 40; at 2 to 3 m about half)
 	batonScatter = { 0.07, 0.15 }, -- m, sd across and along the throw (with none every baton
 	                         -- hits and a game never ends: every field kubb comes straight back)
 	kingScatter = { 0.10, 0.20 },
 	tossLoft = 40,
-	tossSpot = { 4.8, 6.2 }, -- m from the baseline: where tossed kubbs are aimed (view y)
-	tossX = 1.6,             -- m either side of the middle
-	kingClear = 0.5,         -- m; tosses are not aimed closer to the middle than this
+	-- The kitchen (Jamie, 2026-11-14): real throwers put their kubbs in one of
+	-- the two corners of the far half nearest the centre line, by a sideline,
+	-- so a kubb that runs goes out (a rethrow) rather than somewhere bad. A
+	-- turn's kubbs go to the corner that already has more field kubbs in it
+	-- (either when it is a tie), so they group.
+	kitchenX = 1.9,          -- m from the middle: just inside the sideline's middle stake
+	kitchenY = 4.75,         -- m from the baseline (view y): just past the centre line
+	kitchenNear = 1.5,       -- m: field kubbs within this of a kitchen count for it
 	tossRoll = 0.35,         -- m a lobbed kubb travels after it lands (aimed short by this)
 	tossScatter = { 0.25, 0.3 },
 	tumble = 5.5,            -- rad/s: a clean end-over-end baton
@@ -77,20 +85,37 @@ local function aimAt(a, px, py, tx, ty, loft)
 	return a
 end
 
+-- Which kitchen a toss goes to: -1 (left, view frame) or 1 (right), the one
+-- with more field kubbs of the far half within kitchenNear of it.
+function autothrow.kitchen(s, r)
+	local t = autothrow.tune
+	local left, right = 0, 0
+	local ky = s.lineY + t.kitchenY
+	local near2 = t.kitchenNear * t.kitchenNear
+	for _, p in ipairs(s.pieces) do
+		if p.role == "field" and p.half ~= s.side then
+			local dy = p.y - ky
+			local dl, dr = p.x + t.kitchenX, p.x - t.kitchenX
+			if dl * dl + dy * dy < near2 then left = left + 1 end
+			if dr * dr + dy * dy < near2 then right = right + 1 end
+		end
+	end
+	if left > right then return -1 elseif right > left then return 1 end
+	return (r.next() < 0.5) and -1 or 1
+end
+
 -- A throw for match setup `s` (view frame). Batons: stand in line with the
 -- first target (as far forward as allowed) and throw at it; the king from
--- the baseline. Tosses: a random spot in the far half.
+-- the baseline. Tosses: the kitchen (autothrow.kitchen).
 -- scale (default 1) multiplies every scatter: below 1 a steadier thrower.
 function autothrow.choose(s, r, scale)
 	scale = scale or 1
 	local t = autothrow.tune
 	local a = { tumbleRate = t.tumble, tilt = 0, legal = true }
 	if s.kind == "toss" then
-		local tx = r.uniform(-t.tossX, t.tossX)
-		local ty = r.uniform(t.tossSpot[1], t.tossSpot[2])
-		-- keep clear of the king (a toss that topples it loses the game)
-		if tx > -t.kingClear and tx < t.kingClear then tx = (tx < 0) and -t.kingClear or t.kingClear end
-		tx, ty = tx + r.normal(t.tossScatter[1] * scale), ty + r.normal(t.tossScatter[2] * scale) - t.tossRoll
+		local side = autothrow.kitchen(s, r)
+		local tx = side * t.kitchenX + r.normal(t.tossScatter[1] * scale)
+		local ty = s.lineY + t.kitchenY + r.normal(t.tossScatter[2] * scale) - t.tossRoll
 		return aimAt(a, 0, s.lineY, tx, ty, t.tossLoft)
 	end
 	local pos = {}
@@ -105,6 +130,8 @@ function autothrow.choose(s, r, scale)
 	local px = target.x
 	if px > 2.4 then px = 2.4 elseif px < -2.4 then px = -2.4 end
 	local py = s.forwardY or s.lineY
+	if py > target.y - t.minRange then py = target.y - t.minRange end
+	if py < s.lineY then py = s.lineY end
 	local tx = target.x + r.normal(sc[1] * scale)
 	local ty = target.y - t.batonShort + r.normal(sc[2] * scale)
 	return aimAt(a, px, py, tx, ty, t.batonLoft)
