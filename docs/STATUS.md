@@ -1,6 +1,6 @@
 # Status
 
-Where the work stands, for whoever picks it up next. Updated 2026-11-13.
+Where the work stands, for whoever picks it up next. Updated 2026-11-13 (evening).
 
 ## On `main`
 
@@ -9,29 +9,43 @@ Everything built is merged; no branch holds unmerged work.
 - Pass-and-play match and practice, with the rules engine, notation and saved game files.
 - Smooth playback of throws (`AGENTS.md`, "Playback").
 - The Woodcut look (`docs/design/README.md`): title, hand-off and winner cards, display
-  font, launcher card, and the play screen (HUD, piece tones, ground, speed lines).
+  font, launcher card, and the play screen (HUD, piece tones, ground).
 
-## Open problem: the Woodcut play screen slowed throws on the device
+## Fixed: the Woodcut play screen had slowed throws on the device
 
-Measured with the autobench (`AGENTS.md`, "Measuring on the device"), the same three throws:
+The autobench match case (the same three throws), on the device:
 
-| | Before the play screen | With it |
-| --- | --- | --- |
-| Total time | 11.2 s | 16.3 s |
-| Shown speed (1.0 = real time) | 0.41 | 0.28 |
-| Mean frame | 42.5 ms | 43.4 ms |
-| Starved frames | 2 | 1 |
+| | Before the play screen | With it | Now |
+| --- | --- | --- | --- |
+| Total time | 11.2 s | 16.3 s | 10.5 s |
+| Shown speed (1.0 = real time) | 0.41 | 0.28 | 0.44 |
+| Flight draw (full throw) | 18.0 ms | 23.5 ms | 19.1 ms |
 
-Physics cost per step is unchanged, and more frames take the full redraw path, so the
-extra time is in drawing. Which part is not known: the run was cut short before the
-per-part `render/world` breakdown. Next step: run the whole autobench, read that
-breakdown for flight and impact, and cut the cost (suspects: the rough pattern fill,
-tufts, 2 px outlines, the HUD plates during flight).
+Physics never changed; the draw took the physics' share of each 40 ms frame. Where it went
+(`telemetry/2026-11-13/bench/run4` to `run7`): the rough's far quad (+1.8 ms), the grass
+tufts (+2.4 ms), and the scene's draw estimate, which jumped to the slowest frame and so
+took 1.7 ms a frame more than the draw needed. The 2 px outlines cost next to nothing.
+Fixed by drawing the rough as two fills that stay on the screen, dropping the tufts and the
+speed lines (speed over niceties, Jamie 2026-11-13), and letting the estimate rise by a
+quarter of a step (`throw.tune.estRise`).
+
+## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
+
+- A piece never changes its look: no grey fallen kubbs, no black resting batons. The light
+  on the faces stays.
+- No speed lines (they did not follow the baton's turn).
+- A SLOW MOTION flag while the slow motion around a hit plays.
+
+## Device testing
+
+`nolock` is in the game's Data folder on Jamie's Playdate so it stays awake for unattended
+testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testing is done.
 
 ## Not checked on hardware yet
 
 - The punishment kubb fix (the search that used to trip the watchdog).
-- The rough shimmering when the camera zooms or turns; speed lines during camera moves.
+- The rough shimmering when the camera zooms or turns.
+- The SLOW MOTION flag, the one-look pieces and the new rough, as played.
 - The hand-cut M, N, W and 8 in the 16 px display font; Roobert loading for labels.
 
 ## Not built yet
@@ -40,6 +54,8 @@ tufts, 2 px outlines, the HUD plates during flight).
 2. Raising kubbs and placing a punishment kubb by hand.
 3. A computer opponent.
 4. Name entry, saved games and resume, practice drills.
+5. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
+   2026-11-13): build after the bursts, measure its cost on the device.
 
 ## Open calls
 

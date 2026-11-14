@@ -70,6 +70,12 @@ throw.tune = {
 	framePeriod = 0.040,  -- s per flight frame (25 fps): the physics gets the rest of it
 	tailPeriod = 0.100,   -- s per frame while the picture holds still for the calm tail
 	minBudget = 0.003,    -- s the physics always gets in a flight frame
+	-- the draw and display estimates follow a slower frame by this share of
+	-- the step up and a faster one by a quarter of the step down. 1 (straight
+	-- up to the worst frame) left the physics 1.7 ms a frame short of what
+	-- the draw really took; a quarter gave 0.45 of real time against 0.38 on
+	-- the device with the frame spread unchanged (2026-11-13).
+	estRise = 0.25,
 	physicsBudget = 0.012,-- s per frame when the frame clock is not the device's (scripted input)
 	ahead = 50,           -- frames the physics may record ahead of the screen (1 s)
 	focusSpeed = 4,       -- m/s the impact camera's aim point slews toward the first hit
@@ -307,6 +313,7 @@ function throw.prepare(s, setup)
 	s.thisDrill = false
 	s.mode = "aim"
 	s.pb, s.result, s.readout, s.last, s.flagText = nil, nil, nil, nil, nil
+	s.slowMo = false
 	s.arm, s.armed = nil, false
 	swing.reset(s.swing)
 	s.swing.backswing = 0
@@ -701,6 +708,7 @@ local function flightUpdate(s, dt)
 	-- picture never has to stop and wait), never past what is recorded
 	local hitAt = pb.w.firstHit and pb.w.firstHit.t or nil
 	local slow = playback.speed(s.showTime, hitAt)
+	s.slowMo = slow < 1     -- the HUD's slow motion flag
 	local pace = playback.pace(pb, s.showTime, dt)
 	local speed = min(slow, pace)
 	local have = pb.frames * pb.frameDt
@@ -742,9 +750,10 @@ function throw.update(s)
 	if p.raw and s.drawEnd then
 		local post = p.raw - s.drawEnd
 		if post < 0 then post = 0 end
-		s.postEst = (post > s.postEst) and post or s.postEst + (post - s.postEst) * 0.25
+		local up = throw.tune.estRise
+		s.postEst = s.postEst + (post - s.postEst) * ((post > s.postEst) and up or 0.25)
 		local d = s.drawEnd - s.drawStart
-		s.drawEst = (d > s.drawEst) and d or s.drawEst + (d - s.drawEst) * 0.25
+		s.drawEst = s.drawEst + (d - s.drawEst) * ((d > s.drawEst) and up or 0.25)
 	end
 	s.drawEnd = nil
 	local t = throw.tune
@@ -886,17 +895,6 @@ function throw.drawFrame(s)
 	render.advantageY = s.advY
 	local cam = s.viewCam or s.aimCam
 	render.draw(cam, s.items, n, b)
-	-- speed lines while the baton is in the air (to its first touch)
-	local pb = s.pb
-	if b and s.mode == "flight" and pb then
-		local fc, t = pb.w.firstContact, s.showTime
-		if t > 0 and not (fc and t >= fc.t) then
-			local t0 = t - render.tune.speedTrail
-			if t0 < 0 then t0 = 0 end
-			local x0, y0, z0 = playback.poseAt(pb, s.batonIndex, t0)
-			render.speedLines(cam, x0, y0, z0, b.x, b.y, b.z, b.ax, b.ay, b.az)
-		end
-	end
 	local marker = s.drill and (s.mode == "aim" or s.thisDrill)
 	if marker then drawMarker(s, cam) end
 
@@ -945,6 +943,7 @@ function throw.drawFrame(s)
 		-- drilled kubb stops, how near the band it was
 		hud.chip(l.power, l.drill and l.band or nil, half)
 		hud.flag(s.flagText)
+		if s.mode == "flight" and s.slowMo then hud.slow() end
 		if l.drill and l.restCm and s.mode ~= "flight" then
 			hud.callout(l.verdict, (l.power or 0) - l.band, half, l.restCm)
 		end

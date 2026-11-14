@@ -22,5 +22,9 @@ installed.
 | `run1-before-smoothing.txt`, `run1-frames.jsonl` | before the playback smoothing work |
 | `run2-smoothing.txt` | with smoothing; the full run with the per-part draw costs |
 | `run3-woodcut-play-screen.txt` | with the Woodcut play screen; cut short, match cases only |
+| `run4-woodcut-full.txt` | the same build three minutes later, run to the end: the per-part draw costs (found on the device afterwards) |
+| `run5-draw-split.txt` | the same play screen with the profiled match case: each flight frame's draw split, and one variant per suspect (outlines, tufts, rough, speed lines) |
+| `run6-cheaper-rough.txt` | the rough as two on-screen fills, no speed lines; variants for tufts (16, 8, 0) and the draw estimate |
+| `run7-speed-fix.txt` | the fix: no tufts, the estimate rising by a quarter; 0.44 of real time |
 
 `watchdog-reset.txt` is the reset caused by the slow punishment kubb search, since fixed.

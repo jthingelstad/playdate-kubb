@@ -20,7 +20,7 @@ Three tones, hard shadows, a white pitch.
 | --- | --- |
 | White | The pitch, standing kubbs, the king, a baton in the air. |
 | Black | Outlines, the side face away from the light, ground shadows, batons at rest, the top rail, cards. |
-| Grey (50% checker) | The only grey. Fallen kubbs and the drill band, nothing else. Always inside a black outline so it holds in dim light. |
+| Grey (50% checker) | The only grey. The drill band, nothing else (never a piece). Always inside a black outline so it holds in dim light. |
 | Rough (2 x 1 dashes on an 8 px grid) | Outside the sidelines and past the far baseline. Never on the pitch. |
 
 Light comes from the far left. Front and top faces are white, the right face black, and the
@@ -37,13 +37,18 @@ shadow is solid black to the right.
 
 - Kubbs at near 35 px, middle 17 px, far 12 px. Base and field kubbs share one drawing, and so
   do the two teams. Grain lines only at 17 px and taller.
-- A fallen kubb is grey and low.
-- A baton in the air is white with two black bands. A baton at rest is black, on its shadow.
+- A piece never changes its look (Jamie, 2026-11-13, on the device): a kubb or the king is
+  drawn the same standing, falling and lying, and a baton is white with two black bands in
+  the air and at rest. Only the light changes a face (white, or black facing away), and
+  detail and line weight go by the piece's size at its distance, not by its pose. A fallen
+  kubb reads as down by lying low on its shadow.
+- The boards drew a fallen kubb grey and a baton at rest black; both were dropped.
 - The king (70, 37, 26 px): a crown of four points cut into the top, a black collar, a thin
   ring, one diamond. The far size keeps the points and collar only.
-- Reading the pitch: tall and white is still to hit; low and grey is down this turn; thin and
-  black is a thrown baton.
-- Ground cues: grass tufts at 9, 5 and 3 px; stakes with a shadow.
+- Reading the pitch: standing is still to hit; lying low is down; thin with bands is a
+  baton.
+- Ground cues: stakes with a shadow. The grass tufts were dropped (2026-11-13): about 2 ms
+  a flight frame on the device, and speed comes before niceties.
 
 ## HUD (`boards/HUD.png`)
 
@@ -67,6 +72,10 @@ x y w h in screen pixels.
 8. **Result callout** 59 185 234 48, after a drilled kubb stops. After any release the gauge
    and loft plaque give way to a power chip at 318 203 76 32 and a result flag at
    318 185 76 15.
+9. **Slow motion flag** from 318 166, 15 high, as wide as SLOW MOTION needs (it widens to
+   the left), white on black, while the slow motion around a hit plays (ease back
+   included). Added 2026-11-13 at Jamie's request: a deliberate slow-down must read apart
+   from the device falling behind, which shows nothing.
 
 Gone: the prompt box in the middle of the pitch, the debug readout along the top, the throw
 label box at the top left. The readout stays in the System Menu.
@@ -101,15 +110,14 @@ effect. A miss gets nothing.
 
 ## Frame budget
 
-- Cached once per aim view: pitch lines, rough, stakes, aim-view tufts, the rail, every
+- Cached once per aim view: pitch lines, rough, stakes, the rail, every
   plaque. Rail and plaque text is drawn into its image only when the value changes. No text
   call in a normal frame.
-- Impact camera tufts: up to 24 pre-drawn tuft images at three sizes, projected each frame.
-  Check on hardware; drop to 12 if needed.
 - Gauge: one disc image, one arc, one line, one knob.
 - Bursts: pre-drawn images, one call per frame, plus up to 6 chip rectangles.
 - King burst: one full-screen invert for 2 frames. Nothing else is full-screen during play.
-- Speed lines: 3 lines behind the baton while it is in the air.
+- No speed lines (Jamie, 2026-11-13: drawn along the screen motion, they did not follow the
+  baton's turn, so they read as wrong; dropped).
 
 ## Launcher (`boards/Launcher.png`)
 

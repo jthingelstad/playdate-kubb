@@ -57,6 +57,10 @@ hud.tune = {
 	cutFlag = { x = 250, y = 182, w = 62, h = 15 },
 	chip = { x = 318, y = 203, w = 76, h = 32 },
 	flag = { x = 318, y = 185, w = 76, h = 15 },
+	-- while the slow motion around a hit plays (playback.speed below 1): an
+	-- inverted flag over the result flag, so a deliberate slow-down reads
+	-- apart from the physics falling behind (which shows nothing)
+	slow = { x = 318, y = 166, w = 76, h = 15, text = "SLOW MOTION" },
 	callout = { x = 59, y = 185, w = 234, h = 48, block = 66, rulerW = 144, rulerBands = 3 },
 	readoutX = 4, readoutY = 17,  -- the System Menu "Readout" line, just under the rail
 	cardPad = 10, cardGap = 6, cardRise = 20,              -- hand-off and winner card: padding,
@@ -422,7 +426,7 @@ end
 
 -- ---------- after the release: the power chip and the result flag ----------
 
-local chipPlate, flagPlate
+local chipPlate, flagPlate, slowPlate
 -- power: the throw's power (0..1); band, half: a drill's band or nil.
 function hud.chip(power, band, half)
 	local t = hud.tune.chip
@@ -453,6 +457,24 @@ function hud.chip(power, band, half)
 end
 
 -- s: the result in 12 characters or fewer (hud.short), or nil.
+-- The slow motion flag (hud.tune.slow): one cached image.
+function hud.slow()
+	local t = hud.tune.slow
+	local sh = hud.tune.shadow
+	local P = slowPlate
+	if not P then
+		-- as wide as the word needs, widening to the left
+		local w = max(t.w, hud.labelFont():getTextWidth(t.text) + 10)
+		P = newPlate(min(t.x, 398 - sh - w), t.y, w + sh, t.h + sh)
+		slowPlate = P
+	end
+	if plateBegin(P, t.text) then
+		flagIn(0, 0, P.w - sh, t.h, t.text, true)
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
+end
+
 function hud.flag(s)
 	if not s then return end
 	local t = hud.tune.flag

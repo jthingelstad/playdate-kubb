@@ -106,7 +106,34 @@ end
 -- Besides the log's figures each throw reports the flight frames' dt spread
 -- (sd), the calm frames held, the lowest pace, the frames drawn from the
 -- layer, the cache or from scratch, and the seconds from release to rest.
-function auto.matchCase(y, label, tune)
+--
+-- prof (optional) also splits every flight frame's cost: the draw's mean and
+-- max and its parts (render/world by its own laps and the HUD functions), the display (from the end of the draw to the next frame), and
+-- the scene's estimate of the two (drawEst + postEst), which is what the
+-- physics loses from each 40 ms frame. Timing these costs a few clock calls a
+-- frame, so a profiled run is a little slower than a plain one.
+local function wrapTimed(D, list)
+	local saved, depth = {}, 0
+	for _, w in ipairs(list) do
+		local T, k, slot = w[1], w[2], w[3]
+		local f = T[k]
+		saved[#saved + 1] = { T, k, f }
+		T[k] = function(...)
+			if depth > 0 or not D.on then return f(...) end
+			depth = 1
+			local t0 = clock()
+			local a, b, c = f(...)
+			D[slot] = D[slot] + clock() - t0
+			depth = 0
+			return a, b, c
+		end
+	end
+	return function()
+		for i = #saved, 1, -1 do local e = saved[i]; e[1][e[2]] = e[3] end
+	end
+end
+
+function auto.matchCase(y, label, tune, prof)
 	local fl, ft = tw.framelog, tw.frametel
 	local write = fl.write
 	local got = {}
@@ -122,6 +149,19 @@ function auto.matchCase(y, label, tune)
 		for _, T in ipairs(tables) do
 			if T[k] ~= nil then saved[#saved + 1] = { T, k, T[k] }; T[k] = v end
 		end
+	end
+	render.invalidate()
+	-- the profiled run's per-frame split (flight frames only)
+	local D = { on = false }
+	local unwrap
+	if prof then
+		local list = { { render, "draw", "world" } }
+		for k, v in pairs(hud) do
+			if type(v) == "function" and k ~= "short" and k ~= "readoutText" and k ~= "drillReadoutText" then
+				list[#list + 1] = { hud, k, "hud" }
+			end
+		end
+		unwrap = wrapTimed(D, list)
 	end
 	local ok, err = pcall(function()
 		local s = throw.new(tw.input.device())
@@ -139,6 +179,10 @@ function auto.matchCase(y, label, tune)
 			local C = render.count
 			C.cached, C.layer, C.built, C.full = 0, 0, 0, 0
 			local sum, sum2, nf, minPace, wall, restAt = 0, 0, 0, 1, 0, nil
+			D.world, D.hud, D.n, D.draw, D.drawMax, D.post, D.postMax, D.np, D.est =
+				0, 0, 0, 0, 0, 0, 0, 0, 0
+			local RPm = prof and { clock = clock } or nil
+			local lastEnd, lastFlying = nil, false
 			while s.mode ~= "done" and n < 3000 do
 				local flying = s.mode == "flight"
 				throw.update(s)
@@ -148,8 +192,28 @@ function auto.matchCase(y, label, tune)
 					nf, sum, sum2 = nf + 1, sum + raw, sum2 + raw * raw
 					if s.pb and s.pb.v < minPace then minPace = s.pb.v end
 				end
+				if prof and lastFlying and lastEnd then
+					local post = raw - lastEnd
+					if post < 0 then post = 0 end
+					D.np, D.post = D.np + 1, D.post + post
+					if post > D.postMax then D.postMax = post end
+				end
 				if s.mode == "rest" and not restAt then restAt = n end
+				local profThis = prof and flying and s.mode == "flight"
+				if profThis then
+					D.est = D.est + s.drawEst + s.postEst
+					D.on = true
+					render.prof = RPm
+				end
 				throw.draw(s)
+				render.prof = nil
+				D.on = false
+				if profThis then
+					local d = (s.drawEnd or 0) - (s.drawStart or 0)
+					D.n, D.draw = D.n + 1, D.draw + d
+					if d > D.drawMax then D.drawMax = d end
+				end
+				lastEnd, lastFlying = s.drawEnd, profThis
 				y()
 				n = n + 1
 			end
@@ -171,6 +235,14 @@ function auto.matchCase(y, label, tune)
 				lines[#lines + 1] = string.format("    release to rest %.2f s; flight frames %d, dt sd %.1f ms; held %d; min pace %.2f; draws: %s",
 					wall, nf, sd * 1000, held, minPace, counts)
 				lines[#lines + 1] = "    " .. got.line
+				if prof and D.n > 0 then
+					local k = 1000 / D.n
+					lines[#lines + 1] = string.format("    flight frames %d: draw mean %.1f ms (max %.1f) = world %.1f + hud %.1f + other %.1f; display mean %.1f ms (max %.1f); estimate taken from the physics mean %.1f ms",
+						D.n, D.draw * k, D.drawMax * 1000, D.world * k, D.hud * k,
+						(D.draw - D.world - D.hud) * k, D.np > 0 and D.post * 1000 / D.np or 0,
+						D.postMax * 1000, D.est * k)
+					lines[#lines + 1] = profLines(RPm, D.n, "  render/world")
+				end
 				tot.frames, tot.secs, tot.starved = tot.frames + frames, tot.secs + secs, tot.starved + T.starved
 				tot.steps, tot.phys, tot.sim = tot.steps + I.steps, tot.phys + I.phys, tot.sim + sim
 				if mx > tot.max then tot.max = mx end
@@ -183,7 +255,10 @@ function auto.matchCase(y, label, tune)
 		end
 	end)
 	fl.write = write
+	render.prof = nil
+	if unwrap then unwrap() end
 	for i = #saved, 1, -1 do local e = saved[i]; e[1][e[2]] = e[3] end
+	render.invalidate()
 	if not ok then lines[#lines + 1] = "  match case error: " .. tostring(err) end
 	return lines
 end
@@ -236,6 +311,16 @@ local function body()
 	out(auto.matchCase(y, "(no layer)", { layer = false }))
 	y()
 	out(auto.matchCase(y, "(camera holds on the impact: frameRadius 0)", { frameRadius = 0 }))
+	y()
+	-- where the draw goes, and what each part of the Woodcut ground costs in
+	-- shown speed (each variant switches one part off)
+	out(auto.matchCase(y, "(defaults, profiled)", nil, true))
+	y()
+	out(auto.matchCase(y, "(no rough)", { rough = false }))
+	y()
+	out(auto.matchCase(y, "(estimates jump to the slowest frame)", { estRise = 1 }))
+	y()
+	out(auto.matchCase(y, "(1 px pitch lines and outlines)", { lineWidth = 1, stakeWidth = 1, thickFrom = 100000 }))
 	y()
 	-- its physics alone, with the lone flight off and on
 	local lone = tw.world.loneFlight
@@ -295,6 +380,8 @@ local function body()
 	local timg = gfx.image.new(tw_, th_, gfx.kColorClear)
 	gfx.pushContext(timg); gfx.drawText(txt, 0, 0); gfx.popContext()
 	local pat = render.tune.roughPattern
+	local tuft = gfx.image.new(15, 11, gfx.kColorClear)
+	gfx.pushContext(tuft); gfx.setLineWidth(2); gfx.drawLine(7, 10, 3, 3); gfx.drawLine(7, 10, 7, 1); gfx.drawLine(7, 10, 11, 3); gfx.setLineWidth(1); gfx.popContext()
 	l[#l + 1] = "  primitives (ms): " .. table.concat({
 		each("clear", function() gfx.clear(gfx.kColorWhite) end),
 		each("image 400x240 draw", function() img:draw(0, 0) end),
@@ -310,6 +397,11 @@ local function body()
 		each("100 drawPolygon 8px quad", function() for i = 1, 100 do gfx.drawPolygon(i, 50, i + 8, 50, i + 8, 58, i, 58) end end),
 		each("100 fillRect 8px", function() for i = 1, 100 do gfx.fillRect(i, 50, 8, 8) end end),
 		each("100 drawLine", function() for i = 1, 100 do gfx.drawLine(i, 50, i + 30, 80) end end),
+		each("100 drawLine 2px", function() gfx.setLineWidth(2); for i = 1, 100 do gfx.drawLine(i, 50, i + 30, 80) end; gfx.setLineWidth(1) end),
+		each("100 drawPolygon 8px quad 2px", function() gfx.setLineWidth(2); for i = 1, 100 do gfx.drawPolygon(i, 50, i + 8, 50, i + 8, 58, i, 58) end; gfx.setLineWidth(1) end),
+		each("100 drawPolygon 30px quad 2px", function() gfx.setLineWidth(2); for i = 1, 100 do gfx.drawPolygon(i, 50, i + 12, 48, i + 14, 80, i, 82) end; gfx.setLineWidth(1) end),
+		each("100 drawPolygon 30px quad", function() for i = 1, 100 do gfx.drawPolygon(i, 50, i + 12, 48, i + 14, 80, i, 82) end end),
+		each("100 image 15x11 draw", function() for i = 1, 100 do tuft:draw(i, 60) end end),
 	}, ", ")
 	out(l)
 	y()
@@ -382,7 +474,7 @@ end
 
 -- The bench's scripted throws are not real swings: the crank recorder and
 -- the frame-time log are off while it runs and put back afterwards
--- (auto.update), error or not.
+-- (auto.update), error or not. Auto-lock is off for the run, on again after.
 function auto.start()
 	playdate.file.delete(auto.flag)
 	local rec = tw.recorder
@@ -390,6 +482,9 @@ function auto.start()
 	rec.on = false
 	rec.clear()
 	tw.framelog.on = false
+	-- a bench run is minutes with nobody pressing anything: no auto-lock
+	-- until it is done (finish turns it back on)
+	playdate.setAutoLockDisabled(true)
 	return a
 end
 
@@ -398,6 +493,7 @@ local function finish(a)
 	rec.clear()
 	rec.on = a.recOn
 	tw.framelog.on = a.logOn
+	playdate.setAutoLockDisabled(tw.noLock and true or false)   -- main.lua's "nolock"
 	return true
 end
 
