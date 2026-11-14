@@ -69,6 +69,13 @@ world.tune = {
 	                       -- stand centered on the baselines)
 	maxTime = 12,          -- s; a throw is called at rest after this long regardless
 	stakeHeight = 0.15,    -- m above the ground (6 inches, Jamie 2026-11-14); stakes are fixed posts of radius pitch.stakeRadius
+	-- wind (Jamie and Tyler, 2026-11-14): air drag per kind, 0.5 rho Cd A / m
+	-- (1/m), A the mean area a tumbling piece shows the air (end over end it
+	-- shows its narrow end part of the time), Cd about 1: a baton 0.30 x
+	-- 0.044 m, 0.25 kg; a lobbed kubb 0.07 x 0.15 m, 0.40 kg. A full 8 m
+	-- baton drifts about 0.16 m in a light (2.5 m/s) cross wind, 0.43 in a
+	-- strong (6 m/s) one, and loses about 0.95 m into a strong head wind
+	windK = { baton = 0.015, kubb = 0.0086 },
 }
 
 -- Ground surfaces: one parameter set each (DESIGN 5). All guesses, to be
@@ -186,6 +193,10 @@ function world.new(opts)
 		awakeCount = 0,       -- awake bodies in the last step
 		groundSeed = opts.groundSeed or 0,   -- the ground texture's seed (world.launch sets it
 		groundSeedFixed = opts.groundSeed ~= nil,   -- from the throw unless one is given here)
+		-- the wind (m/s, horizontal): it pushes the thrown piece until its
+		-- first contact (windForce); none, and nothing changes
+		windX = opts.windX or 0, windY = opts.windY or 0,
+		windOn = (opts.windX or 0) ~= 0 or (opts.windY or 0) ~= 0,
 	}
 	if opts.stakes ~= false then world.addStakes(w) end
 	for _, p in ipairs(opts.pieces or {}) do world.addPiece(w, p) end
@@ -275,6 +286,7 @@ function world.launch(w, kind, id, x, y, z, qw, qx, qy, qz, vx, vy, vz, wx, wy, 
 	wake(b)
 	b.touched = true
 	w.projectile = b
+	b.windK = world.tune.windK[kind] or 0
 	return b
 end
 
@@ -412,6 +424,26 @@ local BX, BY, BZ, BR, AW, SPD, NXT = {}, {}, {}, {}, {}, {}, {}
 -- Implicit gyroscopic step (Bullet's computeGyroscopicImpulseImplicit_Body):
 -- one Newton step of I w' = I w - dt w' x I w' in the body frame. Keeps a
 -- spinning baton or kubb precessing correctly without blowing up.
+-- The wind on the thrown piece in the air (Jamie and Tyler, 2026-11-14): its
+-- drag in the moving air less its drag in still air, k (|r| r + |v| v) with
+-- r = wind - v, so with no wind it is nothing at all (the throws are tuned
+-- in still air). Applied by world.step and the lone step alike, right after
+-- gravity, only to w.projectile until its first contact: once it lands, the
+-- wind's push is lost in the ground's.
+local function windForce(w, b, dt)
+	local k = b.windK
+	if not k or k == 0 then return end
+	local vx, vy, vz = b.vx, b.vy, b.vz
+	local rx, ry = w.windX - vx, w.windY - vy
+	local rel = sqrt(rx * rx + ry * ry + vz * vz)
+	local still = sqrt(vx * vx + vy * vy + vz * vz)
+	local kd = k * dt
+	b.vx = vx + kd * (rel * rx + still * vx)
+	b.vy = vy + kd * (rel * ry + still * vy)
+	b.vz = vz + kd * (still - rel) * vz
+end
+world.windForce = windForce
+
 local function gyro(b, dt)
 	local r11, r12, r13, r21, r22, r23, r31, r32, r33 =
 		b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33
@@ -687,6 +719,7 @@ local function loneStep(w, b, t, P)
 	-- 1. forces
 	w.awakeCount = 1
 	b.vz = vz - g * dt
+	if w.windOn and b == w.projectile and not w.firstContact then windForce(w, b, dt) end
 	if t.gyro then gyro(b, dt) end
 	b.groundImpulse = 0
 	b.plough = 0   -- in the air: as the full step does for a body off the ground
@@ -765,11 +798,14 @@ function world.step(w)
 	-- 1. forces
 	local awakeCount = 0
 	local useGyro = t.gyro
+	local windOn = w.windOn and not w.firstContact
+	local proj = w.projectile
 	for i = 1, nb do
 		local b = bodies[i]
 		if b.awake then
 			awakeCount = awakeCount + 1
 			b.vz = b.vz - g * dt
+			if windOn and b == proj then windForce(w, b, dt) end
 			if useGyro then gyro(b, dt) end
 			b.groundImpulse = 0
 		end

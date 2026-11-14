@@ -1,6 +1,6 @@
 -- The match options (Jamie, 2026-11-14): after the names, before every match
 -- (PASS + PLAY and VS PLAYDATE): the surface, the opening and who stands the
--- thrown-in kubbs up, and the kubb set. Rows from core/matchopts; up/down choose a row,
+-- thrown-in kubbs up, the kubb set and the wind. Rows from core/matchopts; up/down choose a row,
 -- left/right change its value, A starts the match, B goes back to the names.
 -- The choice is kept (playdate.datastore "matchopts") and offered next time.
 -- One image, redrawn only on a change.
@@ -18,12 +18,12 @@ local scene = {}
 
 scene.tune = {
 	key = "matchopts",   -- the datastore file
-	top = 22,            -- y of the first row
-	rowH = 36,           -- px a row
+	top = 20,            -- y of the first row
+	rowH = 30,           -- px a row
 	labelX = 16,         -- the row's label
 	valueX = 150,        -- the value (display 16), between arrows
 	arrowGap = 10,
-	noteY = 172,         -- the chosen row's line of explanation
+	noteY = 178,         -- the chosen row's line of explanation
 	buttonY = 214,
 }
 
@@ -33,6 +33,7 @@ scene.notes = {
 	opening = "2-4-6: TEAM A OPENS WITH 2, B WITH 4, THEN 6",
 	raising = "WHO STANDS UP THE KUBBS THROWN IN",
 	set = "THE KUBBS' PAINTED HEADS AND THE KING'S CROWN",
+	wind = "WIND PUSHES BATONS AND KUBBS IN THE AIR",
 }
 scene.openingSix = "SIX: SIX BATONS A TURN FROM THE START"
 
