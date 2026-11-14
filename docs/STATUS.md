@@ -108,6 +108,9 @@ for the surface.
   past the corners, so they are gone. The stakes are real ones, 3/4 inch thick and 6
   inches high (0.019 x 0.15 m), drawn as solid posts (never thinner than 3 px) and the
   same size in the physics, so a drilled kubb can roll into the middle stake (2026-11-14).
+- Stay put: a team's batons after its first of a turn start where the last was thrown
+  from, with its swivel and loft, as a real player stands in one spot until they choose
+  to move (2026-11-14). A new turn and every kubb start from the middle.
 
 - A piece never changes its look: no grey fallen kubbs, no black resting batons. The light
   on the faces stays.

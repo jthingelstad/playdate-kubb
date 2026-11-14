@@ -996,6 +996,11 @@ own item). Practice is the throw scene exactly as before.
 - Kubb toss: the same aim, loft and crank swing as a baton, always from the baseline; the
   kubb is a real body (`world.launchKubb`) turning at `throw.tune.tossTumble` of the
   swing's tumble with no tilt (no helicopter), drawn as one more box item.
+- Stay put (Jamie, 2026-11-14): in `throw.prepare` a team's batons after its first of a
+  turn keep the last baton's stance (`playerX`, `playerY`, swivel, loft; `s.stanceSide`,
+  `s.stanceKind`), clamped to where this baton may stand (a king shot pulls it back to
+  the baseline). The first baton of a turn and every kubb start from the middle of the
+  baseline. Self-test `match-opening` checks both.
 - Advantage line: the d-pad walks up past the baseline as far as `forwardY` (the engine's
   advantage line; king shots are from the baseline). It is drawn on the pitch (2 px, dashed
   2 on 2 off; the centerline is 6 on 4 off) and on the minimap.
