@@ -952,7 +952,10 @@ While it plays (`playback.speed` below 1, the ease back included) the throw scen
 slowing because the physics fell behind shows nothing. The `hit` self-test checks the flag
 0.1 s after the hit (frames 2 and 3 show it). It is short (Jamie, 2026-11-14: it is for the
 impact and must not hold the play up while the baton slides): `hold` 0.12 s after the hit,
-then back to real time over `ease` 0.15 s (it was 0.45 and 0.35).
+then back to real time over `ease` 0.15 s (it was 0.45 and 0.35). On the device a throw
+takes as long either way (the hit 6.20 s against 5.78 in the same run,
+`telemetry/2026-11-14/bench/run5`): after a hit the physics computes slower than real
+time, so the slide plays at the pace it allows with or without the slow motion.
 
 The camera's half circle (Jamie, 2026-11-13): once a hit burst fires (baton throws only),
 the impact camera orbits the struck piece by `throw.tune.swingDeg` (180) over `swingTime`

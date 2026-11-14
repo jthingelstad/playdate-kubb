@@ -45,6 +45,8 @@ The overnight QA build, after midnight (US Central).
 | `run1-half-circle-variants.txt` | the half circle's variants: at 40 ms a frame the hit takes 6.7 s, at 60 ms 4.7, without it 4.2 (0.34, 0.40, 0.42); the open view costs nothing measurable |
 | `run2-final-main.txt` | final `main` after the night's merges: 0.39 to 0.40 (0.41 without the half circle), the hit 4.6 to 4.8 s, nothing starved; bursts 4 to 12 ms after the impact |
 | `run3-collector-held.txt` | the collector held off in flight (not merged): 0.39, the same as without the hold (0.40) |
+| `run4-after-reset.txt` | the shorter slow motion, the first run after the Playdate's reset by hand: everything slower, the physics too (4.95 ms a step against 3.95), so not comparable with the runs before |
+| `run5-slow-motion-shorter.txt` | the shorter slow motion against the old one in the same run: the hit 6.20 s against 5.78, 0.30 against 0.31 of real time; the slide after a hit is bound by the physics either way |
 
 `soak/` holds the device soak's `soak.txt` (`AGENTS.md`, "Measuring on the device"):
 
