@@ -76,7 +76,7 @@ local function newMatch(st)
 	st.n = st.n + 1
 	st.memStart, st.memMax = kb(), kb()
 	st.frames, st.over100, st.over200, st.slow = 0, 0, 0, {}
-	st.info = { update = 0, draw = 0, phys = 0, steps = 0, awake = 0, bodies = 0, gc = 0 }
+	st.info = { update = 0, draw = 0, phys = 0, steps = 0, awake = 0, bodies = 0, mem = 0 }
 	st.checks, st.checkFails, st.lastChecked = 0, {}, 0
 	st.seed = playdate.getSecondsSinceEpoch() + st.n
 	st.ms = match.new(st.input, { seed = st.seed, skipHandoff = true, noFile = true, saveKey = soak.tune.key,
@@ -155,8 +155,8 @@ local function finish(st)
 end
 
 -- One frame, and where its time went: the update (of it the physics,
--- playback.busy, and its steps), the draw, the bodies awake and the memory
--- the collector gave back. Numbers only: a label is made only for a frame
+-- playback.busy, and its steps), the draw, the bodies awake and how much
+-- the heap grew (allocation less whatever the collector freed in the frame). Numbers only: a label is made only for a frame
 -- slow enough to list.
 local clockMs = playdate.getCurrentTimeMilliseconds
 local function frame(st)
@@ -177,7 +177,7 @@ local function frame(st)
 	else
 		f.phys, f.steps, f.awake, f.bodies = 0, 0, 0, 0
 	end
-	f.gc = m0 - collectgarbage("count")   -- > 0: the collector ran this frame
+	f.mem = collectgarbage("count") - m0  -- KB the heap grew this frame (net)
 end
 
 -- One frame. Returns true when finished.
@@ -193,8 +193,8 @@ function soak.update(st)
 		local list = st.slow
 		if #list < soak.tune.slowest or dt > list[#list][1] then
 			local f = st.info
-			noteFrame(st, dt, string.format("%s (update %.0f, phys %.0f in %.0f steps, draw %.0f; awake %.0f of %.0f; gc %+.0f KB)",
-				st.what or "?", f.update, f.phys, f.steps, f.draw, f.awake, f.bodies, -f.gc))
+			noteFrame(st, dt, string.format("%s (update %.0f, phys %.0f in %.0f steps, draw %.0f; awake %.0f of %.0f; mem %+.0f KB)",
+				st.what or "?", f.update, f.phys, f.steps, f.draw, f.awake, f.bodies, f.mem))
 		end
 	end
 	st.last = now
