@@ -37,6 +37,7 @@ import "scenes/match"
 import "scenes/names"
 import "core/save"
 import "scenes/games"
+import "scenes/drills"
 import "benchscreen"
 import "autobench"
 import "selftest/runner"
@@ -48,6 +49,7 @@ import "selftest/settle-crank"
 import "selftest/names"
 import "selftest/resume"
 import "selftest/games"
+import "selftest/drills"
 import "selftest/aim-center"
 import "selftest/aim-walk-swivel"
 import "selftest/loft"
@@ -99,7 +101,7 @@ if args.selftest then
 	end
 else
 	local throw, match, title = tw.scenes.throw, tw.scenes.match, tw.scenes.title
-	local names, games = tw.scenes.names, tw.scenes.games
+	local names, games, drillsScene = tw.scenes.names, tw.scenes.games, tw.scenes.drills
 	local lastMatch = nil            -- the options of the last match (a rematch plays them again)
 	local device = tw.input.device()
 	local current, kind = nil, nil   -- the scene and which: "title" | "practice" | "match"
@@ -176,6 +178,12 @@ else
 		-- screen inverted (render/burst)
 		playdate.display.setInverted(false)
 		if which == "practice" then
+			-- PRACTICE: the drills menu (scenes/drills); its OPEN PITCH is "pitch"
+			kind = "drills"
+			current = drillsScene.new(device)
+			drillsScene.enter()
+		elseif which == "pitch" then
+			kind = "practice"
 			current = throw.new(device)
 			throw.enter()
 		elseif which == "match" or which == "vs" then
@@ -243,6 +251,10 @@ else
 			match.update(current)
 			if current.exit then return open(current.exit) end
 			match.draw(current)
+		elseif kind == "drills" then
+			drillsScene.update(current)
+			if current.exit then return open(current.exit == "practice" and "pitch" or current.exit) end
+			drillsScene.draw(current)
 		elseif kind == "games" then
 			games.update(current)
 			if current.exit then return open(current.exit) end

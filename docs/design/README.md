@@ -135,4 +135,5 @@ title screen without its menu. All three are pure black and white with no grey.
   BIRCH on the boards were placeholders.
 - Raising and punishment are built from their sketches (`scenes/settle`; AGENTS.md "Match").
   Names and the games list are built from their sketches too (the list opens from the
-  title's System Menu: the menu row has no room). Drills are still a sketch.
+  title's System Menu: the menu row has no room). The drills are built from their sketch
+  as well (PRACTICE opens them; OPEN PITCH is the free practice pitch).

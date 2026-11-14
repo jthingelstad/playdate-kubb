@@ -604,6 +604,27 @@ and copying a full-screen image about 0.7 ms. So:
   layer will show a stale image. `make selftest` frames compared pixel for pixel before
   and after (`cache = false` against `true`) catch this.
 
+## Practice drills
+
+PRACTICE on the title opens the drills menu (`scenes/drills.lua`, board `Drills.png`; pure
+set-ups, scoring and records in `core/drills.lua`, tested). On the left OPEN PITCH (the
+practice pitch below, `main.lua` "pitch") and the drills; on the right the chosen drill's
+pitch from above, three lines on what it is, its best, its last ten runs as bars and its
+hit rate (records in `playdate.datastore` "drills").
+
+- 8 METERS: six batons at the five base kubbs from the baseline (a point a kubb down; the
+  run ends when all five are down). THE HOUSE: six batons at five field kubbs standing
+  close at 4.3 m. KING SHOTS: six batons at the king alone (a point each time it falls; it
+  is stood back up). BLAST: six kubbs drilled to the marker (a point for resting within
+  `blastCm`, 50 cm). AROUND THE PITCH: five batons, each from in front of the next base
+  kubb.
+- A run goes through the throw scene one throw at a time, like the match
+  (`drills.setup` -> `throw.prepare`, `s.auto = false`; `drills.tally` on the throw's
+  `result.toppled` and `last.restCm` once it is `done`); the rail counts throws and the
+  score. A card gives the score and any new best; A runs it again, B goes back to the menu.
+- Self-test `drills`: the menu, a whole KING SHOTS run with straight scripted batons, the
+  result card and the record it leaves.
+
 ## Throw scene practice
 
 Toppled kubbs stay down between throws at their rest poses (the scene's item list, the
@@ -716,7 +737,8 @@ The look is `docs/design/` (README and boards). What is built of it here:
 ## Match
 
 The title (`scenes/title.lua`, Woodcut look below) offers "VS PLAYDATE" (a match against
-the computer), "PASS + PLAY" (the match) and "PRACTICE" (the practice pitch); `main.lua` opens one
+the computer), "PASS + PLAY" (the match) and "PRACTICE" (the drills menu, whose OPEN PITCH
+is the practice pitch); `main.lua` opens one
 scene at a time and rebuilds the System Menu for it (Readout, Record, then the scene's
 own item). Practice is the throw scene exactly as before.
 
