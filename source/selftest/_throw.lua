@@ -7,6 +7,8 @@
 --           should be captured; each fires once, in order
 --   check   optional fn(scene) -> nil or an error string, run at the end; a
 --           second return value is appended to the marker's note
+--   loftBoost  true: low throws are harder as in play (flight.loftBoost); off
+--           by default, so the older scenarios keep their throws
 --   setup   optional fn(scene), run once after the scene is made (a layout,
 --           a surface)
 -- The scenario ends when every shot is taken (or fails after maxFrames).
@@ -26,6 +28,10 @@ function tw.selftest.throwScenario(def)
 		step = function(ctx)
 			if not scene then
 				scene = throw.new(tw.input.scripted(def.script, nil, def.startPos))
+				-- these scenarios' crank throws were written for the launch
+				-- speeds before the low throw got harder (flight.loftBoost);
+				-- `loftBoost = true` opts in
+				scene.loftBoost = def.loftBoost or false
 				if def.setup then def.setup(scene) end
 				throw.enter()
 			end

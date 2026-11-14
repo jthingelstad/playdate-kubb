@@ -59,7 +59,7 @@ end
 -- The launch speed that lands the center at distance d (along the throw)
 -- from (x, y) at this loft, by bisection over the swing's speed range.
 function autothrow.speedFor(d, loftDeg)
-	local lo, hi = 0.5, swing.tune.launchMax * 1.2
+	local lo, hi = 0.5, swing.tune.launchMax * flight.loftBoost(loftDeg, swing.tune.launchMax) * 1.2
 	for _ = 1, 40 do
 		local mid = (lo + hi) / 2
 		local _, ly = flight.predict(0, 0, 0, loftDeg, mid)

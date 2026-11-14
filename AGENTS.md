@@ -327,7 +327,9 @@ matches (about a minute; `--quick` about 10 s).
   `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
   are the Mac's, not the device's). They set loft and position in `setup`, not through the
   controls. Strong throws use loft 30 or less: at full speed and 35 degrees the baton
-  lands past the far baseline.
+  lands past the far baseline. These throw scenes run with `loftBoost = false` (the speeds
+  they were written for); `low-hard` turns it on: a baton at 5 degrees, faster than the
+  swing's full speed, skids into field kubbs 6.5 m out, clear of the king.
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
   from `source/selftest/_match.lua`: `opts` are `scenes/match` options (`seed` for
   `core/autothrow` throws instead of the crank, `instant`, `skipHandoff`, `maxTurns`),
@@ -369,7 +371,9 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
   to flip if forward feels backwards on hardware), wind-up and swing thresholds, full power
   speed and backswing, launch speed and tumble ranges, smoothness and tilt.
-- `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range and step,
+- `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range (5 to 55) and step,
+  `boostBelowDeg` (under it a baton is thrown harder, `flight.loftBoost`: full power carries
+  as far as at that loft; the throw scene's own batons only, not the computer's),
   baton size, wobble.
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
   back the player may step, swivel and loft gearing, double-tap time, rest hold, practice

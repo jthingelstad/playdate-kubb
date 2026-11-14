@@ -19,10 +19,12 @@ flight.tune = {
 	handHeight = 0.6,      -- m; release height at the throwing line
 	batonLength = 0.30,    -- m (DESIGN 2)
 	batonRadius = 0.022,   -- m (4.4 cm diameter)
-	loftMinDeg = 15,       -- d-pad down limit: a low driving throw
+	loftMinDeg = 5,        -- d-pad down limit: a low, hard throw (Jamie, 2026-11-14: was 15)
 	loftMaxDeg = 55,       -- d-pad up limit: a high arc
 	loftStepDeg = 5,       -- one d-pad press
 	loftDefaultDeg = 35,   -- mid loft
+	boostBelowDeg = 35,    -- under this loft a throw is harder (flight.loftBoost): full
+	                       -- power carries as far as it does at this loft
 	startAngle = math.pi / 2, -- tumble angle at release: upright in the hand
 	wobbleAmp = 0.25,      -- the plane's tilt swings by this fraction of the tilt ...
 	wobblePerTurn = 0.6,   -- ... this many times per tumble turn
@@ -54,6 +56,30 @@ end
 function flight.aimPreview(x, lineY, swivel, loftDeg, fullSpeed)
 	local lx, ly = flight.predict(x, lineY, swivel, loftDeg, fullSpeed)
 	return lx, ly
+end
+
+-- How much harder a baton is thrown at this loft (Jamie, 2026-11-14: a field
+-- kubb near the baseline is hit low and hard, to roll it into others). Under
+-- boostBelowDeg the launch speed is multiplied so that a throw carries as far
+-- as the same power does at boostBelowDeg: full power (fullSpeed, the swing's
+-- launchMax) lands as far at 10 degrees as at 35, flatter and faster. 1 at and
+-- above boostBelowDeg. The speed that carries R from handHeight at loft e is
+-- sqrt(g R^2 / (2 cos^2 e (R tan e + h))). The last answer is kept (the aim
+-- preview asks every frame).
+local lastLoft, lastFull, lastBoost = nil, nil, 1
+function flight.loftBoost(loftDeg, fullSpeed)
+	local t = flight.tune
+	if loftDeg >= t.boostBelowDeg then return 1 end
+	if loftDeg == lastLoft and fullSpeed == lastFull then return lastBoost end
+	local _, R = flight.predict(0, 0, 0, t.boostBelowDeg, fullSpeed)
+	local h = t.handHeight
+	local function need(e)
+		local c = cos(e)
+		return sqrt(t.g * R * R / (2 * c * c * (R * math.tan(e) + h)))
+	end
+	lastLoft, lastFull = loftDeg, fullSpeed
+	lastBoost = max(1, need(rad(loftDeg)) / need(rad(t.boostBelowDeg)))
+	return lastBoost
 end
 
 function flight.new()

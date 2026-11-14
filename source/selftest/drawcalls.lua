@@ -25,6 +25,7 @@ st.scenarios.drawcalls = {
 				{ n = 300 },
 			})
 			ctx.scene.loftDeg = 30
+			ctx.scene.loftBoost = false   -- written for the speeds before flight.loftBoost
 			throw.enter()
 			ctx.sum, ctx.max, ctx.cnt, ctx.txt = {}, {}, {}, {}
 			for _, k in ipairs(KINDS) do ctx.sum[k], ctx.max[k], ctx.cnt[k], ctx.txt[k] = 0, 0, 0, 0 end
