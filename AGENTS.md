@@ -600,8 +600,10 @@ and copying a full-screen image about 0.7 ms. So:
   (both dropped 2026-11-13, speed over niceties).
 - The `drawcalls` self-test counts graphics calls per frame by kind (aim, flight, impact,
   rest). Before the Woodcut look: 45/126/99/16 mean; with it: 41/150/110/17; after the
-  speed fix (no tufts, no speed lines): 39/134/111/17. Keep flight and impact within about
-  30 of those.
+  speed fix (no tufts, no speed lines): 39/134/111/17; with the camera's half circle
+  (2026-11-14): 39/134/160/20, the impact frames full draws while the camera turns (paid
+  for by `swingPeriod`, measured on the device). Keep flight and impact within about 30 of
+  those.
 - A new part of the HUD that depends on something must put it in its layer's key, or the
   layer will show a stale image. `make selftest` frames compared pixel for pixel before
   and after (`cache = false` against `true`) catch this.
