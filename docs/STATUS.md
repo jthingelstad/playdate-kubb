@@ -6,7 +6,7 @@ Where the work stands, for whoever picks it up next. Updated 2026-11-14, early m
 ## On `main`
 
 Everything built is merged except the diagnostic timing hooks on branch `soak-profile` (see
-"Open problem").
+"Slow frames in the soaks").
 
 - Pass-and-play match, VS PLAYDATE (a match against the computer) and practice drills, with
   the rules engine, notation and saved game files.
@@ -73,20 +73,20 @@ Final `main` (`telemetry/2026-11-14/bench/run2-final-main.txt`): 0.39 to 0.40, t
   some scenarios, after the result is written; now and then the crash hangs it until the
   timeout. The Makefile now counts such a run by its marker.
 
-## Open problem: slow frames late in long matches
+## Slow frames in the soaks: most likely the throw's landing frame
 
-Jamie's own play (101 throws in `frames.jsonl`) never had a frame over 121 ms, but the
-soaks' long matches (16 turns and more, 20 or so bodies on the pitch counting debris) have
-0.2 to 0.4% of flight frames at 200 to 400 ms, a visible hitch. Broken down
-(`telemetry/2026-11-14/soak/run2-slow-frames.txt`): the update takes 180 to 350 ms of it
-with only the baton awake, the physics about 80 ms of that at about 8 ms a step (four
-times its usual), the draw about 30, and the heap grew 15 to 28 KB in each: about ten
-times what a usual flight frame allocates. Holding the collector off in flight changed
-nothing (`run3-collector-held.txt`). So the lead is whatever allocates that much in those
-frames (on the device a new table costs about 54 us, and allocation also drives the
-collector's work). Next: time and measure each part of the update in those frames. The hooks for that
-are on branch `soak-profile` (not merged): the Playdate stopped answering USB during its
-first soak (below), so they wait until that is understood.
+Jamie's own play (101 throws in `frames.jsonl`, flight frames only) never had a frame over
+121 ms, but the soaks list 0.2 to 0.4% of frames at 200 to 400 ms, about one per throw.
+Split by part (`telemetry/2026-11-14/soak/run4-profiled-stopped.txt`), the throw's flight
+takes 70 to 105 ms of such a frame (the physics), the bursts and camera almost nothing, and
+the match scene's own update 130 to 230 ms. That is the landing frame: the physics' last
+stretch of the calm tail (up to its 100 ms `tailPeriod`, the picture already still), then
+the engine rules on the throw and the match is saved (the datastore write alone is about 70
+ms, more with a full pitch). The soak labelled these frames by the mode they began in
+(flight), which hid it; it now writes `play/flight -> rest`, so the next soak will show it.
+If so, the cost is a pause of a few tenths of a second before the result flag on a still
+picture, not a hitch in the flight. The per-part hooks are on branch `soak-profile` (not
+merged).
 
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 
@@ -102,11 +102,9 @@ first soak (below), so they wait until that is understood.
 testing over USB (AGENTS.md "Measuring on the device"). **Delete it when the testing is
 done.**
 
-**The Playdate stopped answering over USB at about 5:00 this morning** (US Central), during
-a soak of the `soak-profile` build started at 04:15: the serial port is there, but it
-neither mounts its disk nor relaunches the game. It needs a reset by hand (hold LOCK, MENU
-and A together for about ten seconds), then `main` installed again (it has `soak-profile` on it now). Its `soak.txt`
-from that run may say what happened.
+The Playdate stopped answering over USB at about 5:00 on 2026-11-14 during a soak of the
+`soak-profile` build (the port was there, but it would neither mount its disk nor launch
+the game; nothing in its crash log). Jamie reset it by hand; `main` is installed again.
 
 ## To try on the device
 

@@ -193,14 +193,21 @@ function soak.update(st)
 		local list = st.slow
 		if #list < soak.tune.slowest or dt > list[#list][1] then
 			local f = st.info
+			local what = (st.p0 == "play") and ("play/" .. tostring(st.m0)) or tostring(st.p0)
+			if st.p1 ~= st.p0 or st.m1 ~= st.m0 then
+				what = what .. " -> " .. ((st.p1 == "play") and tostring(st.m1) or tostring(st.p1))
+			end
 			noteFrame(st, dt, string.format("%s (update %.0f, phys %.0f in %.0f steps, draw %.0f; awake %.0f of %.0f; mem %+.0f KB)",
-				st.what or "?", f.update, f.phys, f.steps, f.draw, f.awake, f.bodies, f.mem))
+				what, f.update, f.phys, f.steps, f.draw, f.awake, f.bodies, f.mem))
 		end
 	end
 	st.last = now
-	-- what this frame is doing, for the slowest-frames list
-	st.what = ms.phase == "play" and (ms.phase .. "/" .. tostring(ms.ts.mode)) or ms.phase
+	-- what this frame is doing, for the slowest-frames list: the phase and
+	-- throw mode at its start and at its end (a throw's landing frame reads
+	-- play/flight -> rest). No strings are made unless the frame is listed.
+	st.p0, st.m0 = ms.phase, ms.ts and ms.ts.mode
 	local ok, err = xpcall(frame, debug.traceback, st)
+	st.p1, st.m1 = ms.phase, ms.ts and ms.ts.mode
 	local m = kb()
 	if m > st.memMax then st.memMax = m end
 	if not ok then

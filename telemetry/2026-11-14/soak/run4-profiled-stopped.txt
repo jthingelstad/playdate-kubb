@@ -1,0 +1,21 @@
+soak 2026-11-14 04:15: 3 matches, max 24 turns; memory 1012 KB
+match 1 (seed 847966503): finished; turn 23, throws 202, winner A (king)
+  frames 29241, over 100 ms 518, over 200 ms 151; memory 865 KB -> 1010 KB after collection, most 1304 KB
+  save checks 28, failed 0
+  slowest ms:
+    337 play/flight (update 315 = flight 80 [advance 72, show 1] + burst 0 + camera 3 + match 232; phys 72 in 9 steps; draw 21; awake 1 of 16; gc +21 KB)
+    331 play/flight (update 299 = flight 100 [advance 89, show 2] + burst 1 + camera 1 + match 197; phys 89 in 8 steps; draw 31; awake 1 of 21; gc +29 KB)
+    315 play/flight (update 266 = flight 88 [advance 77, show 0] + burst 1 + camera 0 + match 177; phys 78 in 13 steps; draw 48; awake 1 of 20; gc +20 KB)
+    311 play/flight (update 288 = flight 95 [advance 87, show 1] + burst 0 + camera 3 + match 190; phys 87 in 11 steps; draw 21; awake 1 of 15; gc +20 KB)
+    309 play/flight (update 284 = flight 66 [advance 57, show 0] + burst 0 + camera 3 + match 215; phys 57 in 7 steps; draw 24; awake 1 of 17; gc +23 KB)
+    306 play/flight (update 260 = flight 77 [advance 66, show 1] + burst 1 + camera 0 + match 182; phys 66 in 11 steps; draw 45; awake 1 of 22; gc +23 KB)
+match 2 (seed 847967735): finished; turn 25, throws 208, winner B (resigned)
+  frames 31232, over 100 ms 538, over 200 ms 149; memory 1009 KB -> 1025 KB after collection, most 1308 KB
+  save checks 29, failed 0
+  slowest ms:
+    314 play/flight (update 281 = flight 96 [advance 86, show 1] + burst 1 + camera 1 + match 183; phys 86 in 10 steps; draw 31; awake 1 of 22; gc +31 KB)
+    311 play/flight (update 256 = flight 86 [advance 77, show 1] + burst 1 + camera 1 + match 168; phys 77 in 13 steps; draw 54; awake 1 of 18; gc +31 KB)
+    298 play/flight (update 274 = flight 81 [advance 72, show 1] + burst 0 + camera 3 + match 190; phys 72 in 9 steps; draw 22; awake 1 of 17; gc +25 KB)
+    290 play/flight (update 263 = flight 91 [advance 81, show 0] + burst 0 + camera 3 + match 169; phys 81 in 14 steps; draw 26; awake 1 of 20; gc +24 KB)
+    289 play/flight (update 239 = flight 105 [advance 94, show 1] + burst 0 + camera 0 + match 134; phys 94 in 11 steps; draw 49; awake 1 of 21; gc +19 KB)
+    285 play/flight (update 251 = flight 99 [advance 88, show 1] + burst 1 + camera 0 + match 151; phys 88 in 9 steps; draw 33; awake 1 of 22; gc +25 KB)
