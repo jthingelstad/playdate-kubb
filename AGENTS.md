@@ -301,6 +301,9 @@ matches (about a minute; `--quick` about 10 s).
   (frame 2), and A must leave with `practice`.
 - `resume`: a match driven to turn 3, saved by the scene, read back through the
   datastore and resumed (frames: the title's B RESUME line, the resumed hand-off card).
+- `games`: the games list over three game files the test writes (frames: the list, the
+  second game chosen, its score sheet, scrolled by the crank); B twice goes back to the
+  title.
 - `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
   long second name drawn smaller); a name with no letter is refused, B goes back, and the
   names become the match's teams.
@@ -824,6 +827,14 @@ own item). Practice is the throw scene exactly as before.
   and needs the same game file as straight through. With a save, the title shows `B
   RESUME <A> V <B>, TURN n` beside A START; `main.lua` opens `resume` from it (the match
   scene's `opts.resume`, its names and VS kept for a rematch). Self-test `resume`.
+- Games list (`scenes/games.lua`, board `Games.png`; `core/gamefile.lua` pure and tested
+  over every fixture): the title's System Menu "Games" opens it. Every finished game in
+  `games/`, newest first (file names start with the date): the date, the teams with a
+  crown on the winner, turns and minutes; the chosen row is black; the footer gives its
+  baton hit rates and the baton the king fell to. Crank (`crankRow` degrees a row) or
+  up/down moves; A shows the score sheet (the game file as written, scrolled by the crank
+  or up/down; B back); B goes to the title. Files are read and parsed only as their rows
+  come on screen; each screen is one image redrawn only on a change. Self-test `games`.
 - VS PLAYDATE (`scenes/match` with `opts.vs = "B"`; `main.lua` opens it as `"vs"`, and a
   rematch keeps it): the player is Team A (the name entered, "You" by default), the
   Playdate Team B "Playdate" (the
