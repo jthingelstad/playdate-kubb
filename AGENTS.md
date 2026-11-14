@@ -39,6 +39,11 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   [--micro]` adds the per-phase profile of `world.step` and the micro benchmarks of
   `core/microbench`. See "Measuring on the device" for the device side.
 - `make clean`.
+- `make release`: a clean build zipped as `build/ThrowingWood-<version>.pdx.zip`, for
+  friends to sideload (play.date/account/sideload). Raise `version` and `buildNumber` in
+  `source/pdxinfo` for each one (a Playdate keeps the higher build). The zip is published
+  on files.thingelstad.com and linked from https://playdate.thingelstad.xyz/throwing-wood/
+  (that site's repository). 0.1.0 (build 2), 2026-11-14: the first for friends.
 
 Tools are called by full path: SDK at `~/Developer/PlaydateSDK` (no `PLAYDATE_SDK_PATH`),
 `/opt/homebrew/opt/lua@5.4/bin/lua5.4` (keg-only), `/opt/homebrew/bin/node`. Install
@@ -400,8 +405,8 @@ left for a stop short of the bottom, as for the old `"slowed"`). Trace lines car
 (`passRelease`: released as the arm passed the bottom, at the loft set). The throw-scene
 self-tests written before it keep the old rule (`throwScenario`'s `stopRelease = true` opts
 in; `burst-reset` and `drawcalls` set `passRelease`); `release-stop` (stopped on the
-target: 30 degrees, lands 8.4 m out) and `release-early` (20 short of the bottom: -20,
-lands 1.3 m out) test it.
+target: 30 degrees, lands 8.4 m out) and `release-early` (20 short of the bottom, 50
+short of the notch: about 17 degrees, lands 6.3 m out) test it.
 
 ## The aim arc
 
