@@ -13,7 +13,10 @@ Everything built is merged except the diagnostic timing hooks on branch `soak-pr
 - Team names before each match; raising kubbs and placing punishment kubbs by hand (the
   crank tips a kubb up in a 3D close-up); the match in progress saved and resumed from the
   title; the games list with score sheets.
-- Hit bursts (TOK!, KLAK KLAK!, KING!) with knocks, at the baton's impact; SLOW MOTION flag;
+- Recorded knocks (Jamie's recording, 2026-11-14): one for every kubb or king struck, as
+  it is struck on screen, overlapping when a baton takes two; nine takes, never the same
+  one twice running, each at a slightly different pitch.
+- Hit bursts (TOK!, KLAK KLAK!, KING!) at the baton's impact; SLOW MOTION flag;
   the camera's half circle round a hit in slow motion.
 - Smooth playback of throws (`AGENTS.md`, "Playback"); the Woodcut look
   (`docs/design/README.md`).
@@ -153,7 +156,8 @@ the game; nothing in its crash log). Jamie reset it by hand; `main` is installed
 
 ## To try on the device
 
-- The bursts and knocks at the impact; the king's flash (now only once the king is down).
+- The recorded knocks: loud enough, on time, two at once when a baton takes two kubbs.
+- The bursts at the impact; the king's flash (now only once the king is down).
 - The camera's half circle in slow motion: how it looks.
 - The punishment kubb fix (the search that used to trip the watchdog).
 - The rough shimmering when the camera zooms or turns; the hand-cut M, N, W and 8 in the

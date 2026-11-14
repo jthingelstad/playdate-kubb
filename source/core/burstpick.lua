@@ -64,6 +64,22 @@ local function falling(b, w)
 end
 burstpick.falling = falling
 
+-- The kubbs and the king first struck in world time (t0, t1], not the thrown
+-- piece itself (its own touch is the same blow): a knock each (sound.lua).
+-- Fills out[1..count] and returns the count. A plain scan, no tables.
+function burstpick.touches(w, t0, t1, out)
+	local n, bodies, proj = 0, w.bodies, w.projectile
+	for i = 1, w.n do
+		local b = bodies[i]
+		local t = b.touchT
+		if t and t > t0 and t <= t1 and b ~= proj and (b.kind == "kubb" or b.kind == "king") then
+			n = n + 1
+			out[n] = b
+		end
+	end
+	return n
+end
+
 -- Returns nil before the first falling piece's impact is on screen (or when
 -- nothing is falling), else kind, first body, second body (the double's
 -- second kubb) or nil, and whether the first is sure (toppled). No tables

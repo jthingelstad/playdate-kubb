@@ -154,3 +154,39 @@ test("burstpick: a double carries the second kubb's own certainty", function()
 	kind, a, b, sure, sure2 = pick.pick(w, 1.0)
 	expect.eq(sure2, true)
 end)
+
+test("burstpick: touches gives each kubb and king struck in the window, once, not the thrown piece", function()
+	local proj = { kind = "kubb", id = "d1", touchT = 1.0 }
+	local w = fake { proj, { kind = "baton", id = "baton1", touchT = 1.0 }, { kind = "kubb", id = "b3", touchT = 1.0 },
+		{ kind = "kubb", id = "b2", touchT = 1.2 }, { kind = "king", id = "king", touchT = 1.5 },
+		{ kind = "stake", id = "stake1", touchT = 1.1 }, { kind = "kubb", id = "b1" } }
+	w.projectile = proj
+	local out = {}
+	expect.eq(pick.touches(w, -1, 0.99, out), 0)
+	expect.eq(pick.touches(w, -1, 1.0, out), 1)
+	expect.eq(out[1].id, "b3")
+	expect.eq(pick.touches(w, 1.0, 1.4, out), 1)
+	expect.eq(out[1].id, "b2")
+	expect.eq(pick.touches(w, -1, 9, out), 3)
+	-- frame by frame, every struck kubb and the king exactly once
+	local seen, t0 = 0, -1
+	for f = 1, 100 do
+		local t1 = f * 0.02
+		seen = seen + pick.touches(w, t0, t1, out)
+		t0 = t1
+	end
+	expect.eq(seen, 3)
+end)
+
+test("burstpick: touches on a real throw: the kubbs it struck, none before the first hit", function()
+	local w = tw.bench.world()
+	world.run(w, tw.bench.seconds)
+	local out = {}
+	local n = pick.touches(w, -1, w.time, out)
+	expect.truthy(w.firstHit, "the bench throw hits")
+	expect.truthy(n >= 1, "struck kubbs: " .. n)
+	expect.eq(pick.touches(w, -1, w.firstHit.t - 1e-9, out), 0)
+	for i = 1, pick.touches(w, -1, w.time, out) do
+		expect.truthy(out[i].kind == "kubb" or out[i].kind == "king", out[i].kind)
+	end
+end)

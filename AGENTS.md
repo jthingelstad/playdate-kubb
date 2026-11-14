@@ -515,7 +515,8 @@ Every number that is a guess lives in one table per module, with a comment:
   speed").
 - `tw.render.burst.tune` (`source/render/burst.lua`): the hit bursts' phase lengths, the
   double's second star, the anchor lift, the chips; `tw.burstpick.tune` the double's window and the fall judged at the impact (`fallV`, `fallW`, `judgeFor`, `grazeFor`);
-  `tw.sound.tune` (`source/sound.lua`) the knocks' pitches, volumes and lengths.
+  `tw.sound.tune` (`source/sound.lua`) the knocks' volume and rate spread and the king's
+  chord ("Knocks"); `throw.tune.knockLate`.
 - `tw.playback.paceTune`, `tw.playback.calm`, `tw.playback.slow` (`source/core/playback.lua`):
   the pace of the picture, the calm tail and the slow motion ("Playback", "Slow motion").
 - `tw.scenes.title.tune`, `tw.render.cards.tune`, `tw.render.ui.tune`: where the title's
@@ -1210,7 +1211,7 @@ autobench has a variant without it). The `burst` self-test checks it starts at t
 `docs/design/README.md` "Hit effects". When the picture reaches the impact on the first kubb
 or king a baton toppled (the moment it was struck, not once it is down: Jamie,
 2026-11-13), a pre-drawn burst is put up and to the left of the hit, its long spike's tip
-on it, with a knock.
+on it (every piece struck has its own knock: "Knocks" below).
 
 - `core/world` stamps each body with `touchT`, the first time anything struck it (in the
   contact store, one test a contact, no arithmetic), and each piece it topples with
@@ -1230,7 +1231,7 @@ on it, with a knock.
   `B.gap`, and the autobench prints it: 2 to 6 ms of shown time on the device (2026-11-13),
   within one slow-motion frame. The king falling within `window` (0.4 s) of the first
   impact, or struck by the time on screen, is `king` (a king that falls later replaces the
-  burst showing, from its start, with the king's knock); a second falling kubb struck
+  burst showing, from its start, with the king's chord); a second falling kubb struck
   within the window is `double`, else `clean`; nothing for a miss or a touch that leaves
   the kubb standing, and nothing for kubb tosses or drills.
 - `render/burst.lua`: three images per kind, `images/burst/<kind>-1..3` (flash, burst with
@@ -1239,12 +1240,11 @@ on it, with a knock.
   time. The anchor is the baton's first contact point when that was the toppled piece,
   else the piece's pose at its impact, lifted `lift`; it is projected each frame and the
   image kept on screen below the rail. Double: KLAK (first kubb) and KLAK! (second, 3
-  frames later, with a second knock). King: the whole screen inverts for the flash
+  frames later). King: the whole screen inverts for the flash
   (`playdate.display.setInverted`), the burst wears the crown. The break-up adds six
   `fillRect` chips. Drawn after `render.world.draw`, outside its caches.
-- `sound.lua` (`tw.sound`): knocks made by synths at run time (no sample files): TOK a dry
-  sine knock and a noise click, KLAK lower, KING a deep knock and a short C-G chord. Off in
-  self-tests. The words are `BURST_WORDS` in `tools/art/build.py` (rerun it to change them).
+- The king's burst adds a short C-G chord made by the synths at its flash (`sound.king`).
+  The words are `BURST_WORDS` in `tools/art/build.py` (rerun it to change them).
 - The throw scene keeps the state in `s.burst` (`burst.new`, `reset` at each launch and
   back at aim, `update` in flight and rest, `draw` after the world).
 - Until the physics has computed the whole window after the first topple, the kind is
@@ -1255,6 +1255,33 @@ on it, with a knock.
   burst cleared; the burst must start within one shown frame of the impact: 5.8 ms of
   shown time on the Simulator), `burst-reset` (Pitch reset while the burst is up) and `bursts` (every
   burst image on white, for review).
+
+## Knocks
+
+Jamie (2026-11-14): "an audio recording of a Kubb hit. There are multiple to use so they
+are not all the same ... if the baton hits multiple kubbs you could play multiple
+overlapping files". `source/sounds/knock-1..9.wav`: nine takes of a baton hitting a kubb,
+cut from Jamie's recording by `tools/sounds.py` (needs ffmpeg; the raw take stays out of
+the repo): the rumble under the take (wind and handling, below about 300 Hz) filtered
+out, each hit cut 4 ms before its onset for 0.36 s with its tail faded to silence, the
+levels matched (the same RMS over the first 80 ms, the loudest peak -1 dBFS), mono 22050
+Hz 16-bit (about 16 KB each). A rumble the filters let through is dropped by level.
+
+- **When.** A knock for every kubb and the king struck, as the picture reaches the moment
+  (`touchT`, the first touch by anything: the baton, another kubb, debris), in practice,
+  matches and drills, batons and kubbs alike, whether it falls or not. The throw scene's
+  `knocks` (flight and rest, every frame once the thrown piece's first hit is on screen;
+  before it nothing else is awake to touch) asks `burstpick.touches(w, t0, t1, out)` (pure,
+  tested) for those first touched since the last frame's shown time; the thrown piece
+  itself is left out (its touch is the same blow). A knock more than `knockLate` (0.15 s)
+  behind the picture is not played (the jump at the end of the calm tail).
+- **Which.** `sound.knock()`: a random take, never the last one played and, when it can,
+  not one still playing, so knocks that come together (a baton through two kubbs, a
+  domino) overlap as different takes; each at a rate of 1 +-`knockRate` (0.06), so no two
+  sound alike. One `sampleplayer` per take, made at the first knock.
+- `tw.sound.tune`: `knocks` (9), `knockVol`, `knockRate`, `king` (the chord). Sound is off
+  in self-tests; self-test `knocks` turns it on at volume 0 over the hit throw: every take
+  loads, one knock per piece struck, none before the hit.
 
 ## Frame-time log
 
