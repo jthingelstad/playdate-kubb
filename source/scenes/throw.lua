@@ -538,8 +538,9 @@ end
 
 -- Launch the throw `r` (the swing's result: launchSpeed, tumbleRate, tilt,
 -- power, smoothness, legal) from where the player stands and aims.
--- A knock for every kubb or king struck, as the picture reaches the moment
--- (sound.lua; Jamie, 2026-11-14): those first touched since the last frame's
+-- A knock for every piece struck (wood on wood: kubbs, the king, lying
+-- batons, stakes), as the picture reaches the moment (sound.lua; Jamie,
+-- 2026-11-14): those first touched since the last frame's
 -- shown time, nothing until the thrown piece's first hit is on screen
 -- (before it nothing else is awake to touch), and none more than knockLate
 -- behind the picture (a jump to the end of the calm tail plays no pile of

@@ -363,14 +363,19 @@ matches (about a minute; `--quick` about 10 s).
 Jamie and Tyler (2026-11-14, after play testing: hitting a base kubb was far too easy):
 "you stop the crank where you release the baton". `core/swing`: the wind-up (back) sets
 the power cap as before, the forward flick its speed; the baton is released where the
-crank stops (forward speed below `releaseDropFrac` of its peak, `how = "stopped"`), or at
-`releaseMaxDeg` past the bottom if it never stops (`"over"`). The power is the flick's
+crank stops (the forward speed over `speedWindow` frames below `releaseStopDps`, 150 deg/s:
+the crank all but halted, `how = "stopped"`), or at `releaseMaxDeg` past the bottom if it
+never stops (`"over"`). (It was below half the flick's peak: on the device that fired while
+Jamie's hand was still turning the crank at 300 deg/s, or well past the stop meant;
+`telemetry/2026-11-14/traces.jsonl`.) The power is the flick's
 peak (two-frame) speed. The crank is the throwing arm, and a hand swung on an arm leaves
 at right angles to it, so the arm's angle past the bottom of the turn at the stop
-(`result.releaseAngle`, forward degrees) is the launch angle: `swing.releaseLoft(target,
-angle)` = the loft set plus `releaseGain` (1) times the difference, within
-`releaseLoftMin`/`Max` (-30, 85). Stop early and the baton goes into the ground; late and
-it goes up. The loft set by A + crank is the target: the dial marks it (`hud.gauge`'s `target`:
+(`result.releaseAngle`, forward degrees) sets the launch angle, forgivingly (Jamie,
+2026-11-14: Jamie's first 13 swings left from -27 to 137 degrees against a 25 to 35 target, as
+the crank moves 20 to 30 degrees a frame in a flick): `swing.releaseLoft(target, angle)` is
+the loft set when the stop is within `releaseTolDeg` (10) of it, and beyond that the loft
+set plus `releaseGain` (1/3) of the rest of the miss, within `releaseLoftMin`/`Max` (-30,
+85). Stop early and the baton goes lower and shorter; late and it goes higher. The loft set by A + crank is the target: the dial marks it (`hud.gauge`'s `target`:
 a white notch on the forward side, drawn like the full-power notch at the back and a
 little longer, `notchIn`; Jamie: "a notch on the forward swing too ... this would be
 perfect"), and the readout gives `loft <launch>/<set>`. The throw
@@ -469,8 +474,8 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
   to flip if forward feels backwards on hardware), wind-up and swing thresholds, full power
   speed and backswing, launch speed and tumble ranges, smoothness and tilt, and the release
-  where the crank stops (`releaseDropFrac`, `releaseMaxDeg`, `releaseGain`,
-  `releaseLoftMin`/`Max`; "The release").
+  where the crank stops (`releaseStopDps`, `releaseMaxDeg`, `releaseTolDeg`, `releaseGain`,
+  `releaseLoftMin`/`Max`; "The release"; `releaseDropFrac` is the old release's).
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range (5 to 55) and step,
   `boostBelowDeg` (under it a baton is thrown harder, `flight.loftBoost`: full power carries
   as far as at that loft; the throw scene's own batons only, not the computer's),
@@ -1267,9 +1272,11 @@ out, each hit cut 4 ms before its onset for 0.36 s with its tail faded to silenc
 levels matched (the same RMS over the first 80 ms, the loudest peak -1 dBFS), mono 22050
 Hz 16-bit (about 16 KB each). A rumble the filters let through is dropped by level.
 
-- **When.** A knock for every kubb and the king struck, as the picture reaches the moment
-  (`touchT`, the first touch by anything: the baton, another kubb, debris), in practice,
-  matches and drills, batons and kubbs alike, whether it falls or not. The throw scene's
+- **When.** A knock for every piece struck, as the picture reaches the moment (`touchT`,
+  the first touch by anything): kubbs and the king, batons lying on the pitch and the
+  stakes (Jamie: "if wood hits wood play a sound"; the ground is not a body, so a landing
+  is silent), in practice, matches and drills, batons and kubbs alike, whether it falls or
+  not. The throw scene's
   `knocks` (flight and rest, every frame once the thrown piece's first hit is on screen;
   before it nothing else is awake to touch) asks `burstpick.touches(w, t0, t1, out)` (pure,
   tested) for those first touched since the last frame's shown time; the thrown piece

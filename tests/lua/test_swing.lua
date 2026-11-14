@@ -109,6 +109,16 @@ test("backswing caps power", function()
 	expect.near(s.backswing, swing.tune.backswingMaxDeg, 1e-9)
 end)
 
+test("still turning is not a stop: a flick that slows but keeps going", function()
+	-- Jamie's swing of 13:33:44 (2026-11-14): 16 then 8 then 15 degrees a
+	-- frame, still turning at 300 deg/s when the old rule (half the peak)
+	-- released it 27 short of the bottom
+	local ev, r = run(flick { 5, 10, 14, 16, 8, 15, 13, 8, 6, 6, 5, 4, 2, 1 })
+	expect.eq(ev, "release")
+	expect.eq(r.how, "stopped")
+	expect.truthy(r.releaseAngle > -27, "released at " .. r.releaseAngle)
+end)
+
 test("the release is where the crank stops, at the flick's speed", function()
 	local ev, r = run(flick { 10, 20, 24, 6, 2 })
 	expect.eq(ev, "release")
@@ -136,15 +146,28 @@ end)
 
 test("the launch angle: the arm's at the stop, the loft set the target", function()
 	local t = swing.tune
-	local g = t.releaseGain
-	t.releaseGain = 1
+	local g, tol = t.releaseGain, t.releaseTolDeg
+	t.releaseGain, t.releaseTolDeg = 1, 0
 	expect.near(swing.releaseLoft(35, 35), 35, 1e-9)
 	expect.near(swing.releaseLoft(35, 20), 20, 1e-9)
 	expect.eq(swing.releaseLoft(35, -80), t.releaseLoftMin)
 	expect.eq(swing.releaseLoft(35, 140), t.releaseLoftMax)
 	t.releaseGain = 0.5
 	expect.near(swing.releaseLoft(30, 50), 40, 1e-9)
-	t.releaseGain = g
+	-- the forgiving notch: within the tolerance is the loft set, beyond it a
+	-- share of the rest of the miss
+	t.releaseGain, t.releaseTolDeg = 1 / 3, 10
+	expect.near(swing.releaseLoft(30, 38), 30, 1e-9)
+	expect.near(swing.releaseLoft(30, 21), 30, 1e-9)
+	expect.near(swing.releaseLoft(30, 70), 40, 1e-9)
+	expect.near(swing.releaseLoft(30, -20), 30 - 40 / 3, 1e-9)
+	-- Jamie's 13 swings of 2026-11-14 (stops -27 to 137 against 25 to 35): none
+	-- into the ground with this rule
+	for _, c in ipairs { { 30, -27 }, { 35, -13 }, { 27, -9 }, { 35, 137 } } do
+		local a = swing.releaseLoft(c[1], c[2])
+		expect.truthy(a > 5 and a < 75, "launch " .. a)
+	end
+	t.releaseGain, t.releaseTolDeg = g, tol
 end)
 
 test("the old release (passRelease) still lets go as the arm passes the bottom", function()

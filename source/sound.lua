@@ -5,7 +5,8 @@
 -- multiple kubbs you could play multiple overlapping files"): nine takes of
 -- a baton hitting a kubb, cut from Jamie's recording by tools/sounds.py
 -- (rumble filtered out, tails faded, levels matched), sounds/knock-1..9. One
--- plays for every kubb or king struck, as the picture reaches the moment
+-- plays for every piece struck (a kubb, the king, a lying baton, a stake:
+-- "if wood hits wood play a sound"), as the picture reaches the moment
 -- (scenes/throw, core/burstpick.touches): a different take from the last,
 -- at a slightly different rate, each on its own player, so knocks that come
 -- together overlap.
