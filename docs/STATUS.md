@@ -44,7 +44,8 @@ Final `main` (`telemetry/2026-11-14/bench/run2-final-main.txt`): 0.39 to 0.40, t
   time late on the device), so a struck kubb is judged falling at its impact from how hard
   it was hit, and a burst for one that then stands is taken back (a double whose second
   kubb stands becomes a clean burst). Now 2 to 6 ms after the impact on the device. The
-  king is judged only once it has toppled (see Open calls).
+  king is judged only once it has toppled, so its burst can come a fraction of a second
+  after the hit; Jamie kept it so (2026-11-14).
 - **The camera's half circle** (Jamie's idea): in slow motion after a hit the camera goes
   half way round the struck piece and opens out to show the pitch round it. While it turns
   every frame is a full draw, so those frames take 60 ms instead of 40; that keeps its cost
@@ -123,11 +124,7 @@ the game; nothing in its crash log). Jamie reset it by hand; `main` is installed
 
 Jamie's to make, one at a time; each has a recommendation.
 
-1. **The king's burst waits until the king is down.** A king judged falling from the strike
-   alone could be a king merely pushed, and its flash and chord read as the game's end, so
-   the king's burst can come up to the physics' lead (a fraction of a second) after the hit
-   where a kubb's comes at it. Recommendation: keep it so.
-2. **PASS + PLAY has no "pass the Playdate" card around raising.** When the defending team
+1. **PASS + PLAY has no "pass the Playdate" card around raising.** When the defending team
    raises or places punishment kubbs, only the rail's team name says who should hold the
    Playdate. Recommendation: a short card before the defender's settle ("RAISE: <TEAM>, A
    to start") and none after.

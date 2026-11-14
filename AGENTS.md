@@ -979,7 +979,7 @@ on it, with a knock.
   (5 rad/s) or more (`burstpick.falling`, which also says whether it is `sure`, that is
   toppled). The king is judged only once it has toppled: its burst inverts the screen and
   plays the game's end, so a king merely pushed must never get it, at the price of a king
-  burst that can come up to the physics' lead late. A topple more than `grazeFor` (1 s)
+  burst that can come up to the physics' lead late (Jamie kept it so, 2026-11-14). A topple more than `grazeFor` (1 s)
   after the first touch was a later blow, so it is timed at the topple. The burst starts when the picture reaches the first falling piece's impact;
   one that was not sure and then comes to rest standing (`burstpick.stoodUp`) is taken back
   (`B.takenBack`: the burst ends at once). `render/burst` keeps how late it started,
