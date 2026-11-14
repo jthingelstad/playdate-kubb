@@ -51,6 +51,11 @@ testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testi
 A match in progress is saved before every throw and comes back from the title (B RESUME),
 also after the Playdate is switched off (AGENTS.md "Match", `core/save.lua`).
 
+## Practice drills
+
+PRACTICE opens five drills with bests, the last ten runs and hit rates (AGENTS.md
+"Practice drills"); OPEN PITCH is the free practice pitch as before.
+
 ## Games list
 
 Every finished game, newest first, with its score sheet: the title's System Menu "Games"
@@ -82,14 +87,14 @@ crank in a 3D close-up) and places punishment kubbs itself (AGENTS.md "Match", `
 - Raising and punishment by hand: how the two screens read, how the cursor moves, and how
   the crank raise feels (270 degrees from lying to standing).
 - VS PLAYDATE: how strong it plays, and whether its think pause feels right.
+- The drills played for real: whether the five feel right and how long a run takes.
 - Name entry with the real system keyboard (only scripted in the Simulator self-tests).
 - Resume after a real restart (a save costs 68 ms on the device, at the frame that already
   sets the next throw up).
 
 ## Not built yet
 
-1. Practice drills.
-2. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
+1. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
    2026-11-13): build after the bursts, measure its cost on the device.
 
 ## Licence
