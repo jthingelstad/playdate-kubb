@@ -602,6 +602,9 @@ local function launch(s, r)
 		local sol = s.drillSol
 		L = drill.launch(sol, r, s.cut, s.drillLaunch)
 		s.playerX, s.playerY, s.swivel, s.loftDeg = sol.x, s.lineY, L.swivel, L.loft
+		-- the prediction the follow camera uses flies at the drill's own
+		-- launch angle (Codex on #85: it kept the solved loft)
+		loft = L.loft
 		-- where the crank stopped against the drill's notch (its solved loft),
 		-- as for a baton: the flag and the dial's dot
 		if not s.scripted and r.releaseAngle and not s.swing.passRelease then
