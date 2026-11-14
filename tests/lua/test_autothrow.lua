@@ -1,4 +1,4 @@
--- core/autothrow: the kitchen inkast and the baton's nearest stance.
+-- core/autothrow: the basket inkast and the baton's nearest stance.
 import "core/tw"
 import "core/autothrow"
 
@@ -8,7 +8,7 @@ local function toss(pieces)
 	return { kind = "toss", side = "A", pieces = pieces or {}, lineY = 0, forwardY = 0 }
 end
 
-test("tosses go to the kitchen with more field kubbs near it", function()
+test("tosses go to the basket with more field kubbs near it", function()
 	local t = autothrow.tune
 	local s = toss {
 		{ id = "f1", kind = "kubb", role = "field", half = "B", x = 1.8, y = 4.9 },
@@ -18,7 +18,7 @@ test("tosses go to the kitchen with more field kubbs near it", function()
 		{ id = "f4", kind = "kubb", role = "field", half = "A", x = -1.9, y = 4.6 },
 		{ id = "f5", kind = "kubb", role = "field", half = "A", x = -1.7, y = 4.5 },
 	}
-	expect.eq(autothrow.kitchen(s, autothrow.rng(1)), 1)
+	expect.eq(autothrow.basket(s, autothrow.rng(1)), 1)
 	-- with no scatter the aim lands in that corner, past the centre line
 	local a = autothrow.choose(s, autothrow.rng(1), 0)
 	local lx = a.x + math.sin(a.swivel) * 1
@@ -27,23 +27,23 @@ test("tosses go to the kitchen with more field kubbs near it", function()
 	expect.near(a.loftDeg, t.tossLoft, 1e-9)
 end)
 
-test("an empty far half: either kitchen, about half each", function()
+test("an empty far half: either basket, about half each", function()
 	local r, right = autothrow.rng(7), 0
 	for _ = 1, 200 do
-		if autothrow.kitchen(toss(), r) == 1 then right = right + 1 end
+		if autothrow.basket(toss(), r) == 1 then right = right + 1 end
 	end
 	expect.truthy(right > 70 and right < 130, "right " .. right)
 end)
 
-test("kitchen tosses stay in the far half near a sideline", function()
+test("basket tosses stay in the far half near a sideline", function()
 	local t = autothrow.tune
 	local r = autothrow.rng(3)
 	for _ = 1, 100 do
 		local a = autothrow.choose(toss(), r, 0)
-		-- the aim point (scatter off): kitchenX across, kitchenY - tossRoll along
-		local d = (t.kitchenY - t.tossRoll)
+		-- the aim point (scatter off): basketX across, basketY - tossRoll along
+		local d = (t.basketY - t.tossRoll)
 		local ax = math.tan(a.swivel) * d
-		expect.near(math.abs(ax), t.kitchenX, 1e-6)
+		expect.near(math.abs(ax), t.basketX, 1e-6)
 	end
 end)
 

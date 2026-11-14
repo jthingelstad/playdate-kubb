@@ -28,14 +28,15 @@ autothrow.tune = {
 	                         -- hits and a game never ends: every field kubb comes straight back)
 	kingScatter = { 0.10, 0.20 },
 	tossLoft = 40,
-	-- The kitchen (Jamie, 2026-11-14): real throwers put their kubbs in one of
-	-- the two corners of the far half nearest the centre line, by a sideline,
+	-- The basket (Jamie, 2026-11-14; "basket" is the right term): real
+	-- throwers put their kubbs in one of the two corners of the far half
+	-- nearest the centre line, by a sideline,
 	-- so a kubb that runs goes out (a rethrow) rather than somewhere bad. A
 	-- turn's kubbs go to the corner that already has more field kubbs in it
 	-- (either when it is a tie), so they group.
-	kitchenX = 1.9,          -- m from the middle: just inside the sideline's middle stake
-	kitchenY = 4.75,         -- m from the baseline (view y): just past the centre line
-	kitchenNear = 1.5,       -- m: field kubbs within this of a kitchen count for it
+	basketX = 1.9,           -- m from the middle: just inside the sideline's middle stake
+	basketY = 4.75,          -- m from the baseline (view y): just past the centre line
+	basketNear = 1.5,        -- m: field kubbs within this of a basket count for it
 	tossRoll = 0.35,         -- m a lobbed kubb travels after it lands (aimed short by this)
 	tossScatter = { 0.25, 0.3 },
 	tumble = 5.5,            -- rad/s: a clean end-over-end baton
@@ -85,17 +86,17 @@ local function aimAt(a, px, py, tx, ty, loft)
 	return a
 end
 
--- Which kitchen a toss goes to: -1 (left, view frame) or 1 (right), the one
--- with more field kubbs of the far half within kitchenNear of it.
-function autothrow.kitchen(s, r)
+-- Which basket a toss goes to: -1 (left, view frame) or 1 (right), the one
+-- with more field kubbs of the far half within basketNear of it.
+function autothrow.basket(s, r)
 	local t = autothrow.tune
 	local left, right = 0, 0
-	local ky = s.lineY + t.kitchenY
-	local near2 = t.kitchenNear * t.kitchenNear
+	local ky = s.lineY + t.basketY
+	local near2 = t.basketNear * t.basketNear
 	for _, p in ipairs(s.pieces) do
 		if p.role == "field" and p.half ~= s.side then
 			local dy = p.y - ky
-			local dl, dr = p.x + t.kitchenX, p.x - t.kitchenX
+			local dl, dr = p.x + t.basketX, p.x - t.basketX
 			if dl * dl + dy * dy < near2 then left = left + 1 end
 			if dr * dr + dy * dy < near2 then right = right + 1 end
 		end
@@ -106,16 +107,16 @@ end
 
 -- A throw for match setup `s` (view frame). Batons: stand in line with the
 -- first target (as far forward as allowed) and throw at it; the king from
--- the baseline. Tosses: the kitchen (autothrow.kitchen).
+-- the baseline. Tosses: the basket (autothrow.basket).
 -- scale (default 1) multiplies every scatter: below 1 a steadier thrower.
 function autothrow.choose(s, r, scale)
 	scale = scale or 1
 	local t = autothrow.tune
 	local a = { tumbleRate = t.tumble, tilt = 0, legal = true }
 	if s.kind == "toss" then
-		local side = autothrow.kitchen(s, r)
-		local tx = side * t.kitchenX + r.normal(t.tossScatter[1] * scale)
-		local ty = s.lineY + t.kitchenY + r.normal(t.tossScatter[2] * scale) - t.tossRoll
+		local side = autothrow.basket(s, r)
+		local tx = side * t.basketX + r.normal(t.tossScatter[1] * scale)
+		local ty = s.lineY + t.basketY + r.normal(t.tossScatter[2] * scale) - t.tossRoll
 		return aimAt(a, 0, s.lineY, tx, ty, t.tossLoft)
 	end
 	local pos = {}
