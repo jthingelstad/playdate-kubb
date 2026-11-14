@@ -66,9 +66,11 @@ tw.selftest.scenarios.resume = {
 			g:toss({ rest = { x = 0.5, y = 6.0, standing = false, angle = 0.4 }, moved = {} })
 			g:toss({ rest = { x = -0.8, y = 5.5, standing = false, angle = 1.2 }, moved = {} })
 			if g.phase ~= "raise" then error("expected B's raise, got " .. g.phase) end
-			ctx.ms2 = scene.new(tw.input.scripted { { n = 2 }, { press = { "a" } }, { n = 4 } },
+			-- (the first A passes the card that hands the Playdate to B, the second raises)
+			ctx.ms2 = scene.new(tw.input.scripted { { n = 2 }, { press = { "a" } }, { n = 2 }, { press = { "a" } }, { n = 4 } },
 				{ names = { A = "Ash", B = "Birch" }, resume = m })
 			if ctx.ms2.phase ~= "settle" then error("resumed into " .. ctx.ms2.phase .. ", not the raise") end
+			if not ctx.ms2.settleCard then error("no pass card before the resumed raise") end
 			-- resign in a match resumed mid-raise is the defender's, kept for its turn
 			tw.scenes.match.resign(ctx.ms2)
 			if not ctx.ms2.resignWanted or ctx.ms2.resignSide ~= "B" then error("resign in the resumed raise was dropped") end

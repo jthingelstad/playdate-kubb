@@ -837,7 +837,10 @@ own item). Practice is the throw scene exactly as before.
 - Raising and punishment kubbs by hand (`scenes/settle.lua`, boards `Raising.png` and
   `Punish.png`, which were sketches): when the engine's next need is a raise or a
   punishment kubb, the match's phase is `settle` and the defending team does it, its name
-  on the rail. Raise: a 3D close-up of the lying kubb (`render/world` with its own camera,
+  on the rail. In PASS + PLAY a card comes first (Jamie, 2026-11-14; `core/cards.settle`,
+  `render/cards.settle`, `s.settleCard`): PASS THE PLAYDATE TO the defender, how many
+  kubbs it raises and punishment kubbs it places, THEN HAND IT BACK TO the attacker, A to
+  start; none against the Playdate, whose player holds it already, and none after. Raise: a 3D close-up of the lying kubb (`render/world` with its own camera,
   in the defender's view frame, behind and above it; the pieces within `raiseNear`), each
   end the engine allows drawn on the ground as its 7 x 7 footprint, the chosen one dotted
   with STANDS HERE (MOVED CLEAR when II.D.5 slid it); left/right choose, A raises

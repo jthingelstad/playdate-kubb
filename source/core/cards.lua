@@ -132,4 +132,18 @@ function cards.winner(m, finish)
 	return c
 end
 
+-- The pass card before the defender raises and places punishment kubbs by
+-- hand (PASS + PLAY): who takes the Playdate (the defender), how many kubbs
+-- it raises (its field kubbs lying), how many punishment kubbs it places,
+-- and who it hands the Playdate back to (the attacker, for its batons):
+--   side, toName, raise, punish, backName
+function cards.settle(g)
+	local raise = 0
+	for _, k in ipairs(g:fieldKubbs(g.defender)) do
+		if not k.pose.standing then raise = raise + 1 end
+	end
+	return { side = g.defender, toName = team(g.defender, g), raise = raise,
+		punish = #g.punishQueue, backName = team(g.attacker, g) }
+end
+
 tw.cards = cards

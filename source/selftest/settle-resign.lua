@@ -3,7 +3,9 @@
 -- "settle" (B raises a1 and places a2); resign is asked during the raise.
 -- It must not resign the attacker: B settles, A's batons are thrown (as
 -- misses, through the engine), and when B's own turn comes B resigns, so A
--- wins. Frame 1: the raise view at the resign.
+-- wins. First the pass card (PASS + PLAY: the Playdate goes to B, who raises
+-- 1 kubb and places 1 punishment kubb, then hands it back to Team A).
+-- Frame 1: the pass card, at the resign.
 import "selftest/_match"
 
 local st = tw.selftest
@@ -29,6 +31,10 @@ st.scenarios["settle-resign"] = st.matchScenario {
 			stage = 1
 		elseif stage == 1 then
 			if ms.phase ~= "settle" then error("expected the settle phase, got " .. ms.phase) end
+			local c = ms.settleCard
+			if not c or c.side ~= "B" or c.raise ~= 1 or c.punish ~= 1 then
+				error("expected the pass card to B: 1 to raise, 1 punishment kubb")
+			end
 			ctx:capture()
 			scene.resign(ms)
 			stage = 2
