@@ -31,6 +31,9 @@ camera.tune = {
 		                     -- the lens limit grows by stepBack / this when the player steps back
 		lookBeyond = 1.5,    -- m past the nearest live target the match camera looks (lookDistFor)
 		lookMin = 3.0,       -- m; lookDistFor never looks nearer than this
+		side = 1.0,          -- m the crane stands to the thrower's right, still looking at the
+		                     -- same ground point (over the shoulder, Jamie 2026-11-14: the
+		                     -- throw's arc is seen as an arc, not edge-on as from behind)
 	},
 	drill = {              -- the drill aim (a kubb aimed with a ground marker): higher and
 	                       -- looking down on the target half. It steps sideways with the
@@ -149,8 +152,9 @@ function camera.aim(c, playerX, lineY, swivel, targets, stepBack, lookDist)
 	local t = camera.tune.aim
 	local dx, dy = camera.aimDir(swivel)
 	local ld = lookDist or t.lookDist
+	local sd = t.side
 	camera.lookAt(c,
-		playerX - dx * t.back, lineY - dy * t.back, t.height,
+		playerX - dx * t.back + dy * sd, lineY - dy * t.back - dx * sd, t.height,
 		playerX + dx * ld, lineY + dy * ld, 0)
 	c.cx, c.cy = camera.SCREEN_W / 2, t.cy
 	c.f = 1

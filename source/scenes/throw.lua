@@ -102,6 +102,18 @@ throw.tune = {
 	drillKeep = 10,       -- drilled kubbs kept on the practice pitch; the oldest goes past this
 	markerRadius = 0.2,   -- m: the drill marker's ring on the ground
 	markerSegments = 12,  -- straight pieces the ring is drawn with
+	-- the throw's arc while aiming a baton (Jamie and Tyler, 2026-11-14: "like
+	-- billiards on a computer, lines that show you where it's going to go"):
+	arc = true,           -- false: no arc
+	arcPoints = 24,       -- points along the arc, release to landing (every other gap drawn: dashes)
+	arcSkip = 2,          -- the first points (at the hand, under the camera) are left out
+	arcWidth = 2,         -- px
+	arcTop = 22,          -- px: the aim camera widens until the full-power arc stays below this row
+	arcSide = 6,          -- px: and inside the screen's sides by this much
+	arcMinF = 380,        -- px: but never wider than this lens
+	arcMaxCy = 158,       -- px: before widening, the camera looks up as far as this principal row
+	                      -- (the ground point it aims at moves down the screen; the kubbs keep
+	                      -- their size)
 }
 
 -- The match (scenes/match) uses the same scene with these per-scene fields,
@@ -219,6 +231,8 @@ local function updateTargets(s)
 end
 
 -- The aim camera for this frame.
+local fitArc   -- (below, with drawArc)
+
 local function aimCamera(s)
 	if s.drill then
 		camera.drillAim(s.aimCam, s.lineY, s.playerX)
@@ -230,6 +244,7 @@ local function aimCamera(s)
 	local back = s.lineY - s.playerY
 	if back < 0 then back = 0 end
 	camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, tg, back, look)
+	fitArc(s, s.aimCam)
 end
 
 function throw.new(provider)
@@ -414,7 +429,7 @@ function throw.reset(s)
 	s.swing.backswing = 0
 end
 
-local swingInput, drawMarker, drawRail
+local swingInput, drawMarker, drawRail, drawArc
 
 local function aimInput(s, dt)
 	local t = throw.tune
@@ -956,6 +971,96 @@ end
 -- line to it from the thrower's spot on the baseline. Drawn over the world
 -- image each frame (a few lines), so moving it leaves the cached scenery be.
 local ringX, ringY = {}, {}
+-- The arc's launch: start, velocity and time to the ground for a clean throw
+-- at the loft set at power `cap` (0..1; the loft boost as in play).
+local function arcLaunch(s, cap)
+	local ft, st = flight.tune, swing.tune
+	local speed = st.launchMin + (st.launchMax - st.launchMin) * cap
+	if s.loftBoost ~= false then speed = speed * flight.loftBoost(s.loftDeg, st.launchMax) end
+	local e = rad(s.loftDeg)
+	local ce = math.cos(e)
+	local _, _, T = flight.predict(s.playerX, s.playerY, s.swivel, s.loftDeg, speed)
+	return speed * math.sin(s.swivel) * ce, speed * math.cos(s.swivel) * ce, speed * math.sin(e), T, speed
+end
+
+local function arcShown(s)
+	return throw.tune.arc and not s.drill and s.projectile ~= "kubb"
+end
+
+-- Fit the whole full-power arc (the largest; a wind-up's arc is smaller) on
+-- screen below arcTop and inside arcSide: from the crane over the thrower's
+-- shoulder its top would otherwise leave the long lens's frame. The camera
+-- first looks up (principal row down to arcMaxCy), then widens its lens
+-- (offsets from the principal point scale with it) no wider than arcMinF.
+-- Every aim frame (24 projections, no tables).
+fitArc = function(s, c)
+	if s.watching or not arcShown(s) then return end
+	local t = throw.tune
+	local vx, vy, vz, T = arcLaunch(s, 1)
+	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+	local n = t.arcPoints
+	-- the arc's highest point above the principal point, and its widest
+	-- across, in px at this lens
+	local up, side = 0, 0
+	for i = t.arcSkip, n do
+		local tt = T * i / n
+		local sx, sy = camera.project(c, x0 + vx * tt, y0 + vy * tt, h + vz * tt - 0.5 * g * tt * tt)
+		if sx then
+			local o, w = c.cy - sy, math.abs(sx - c.cx) / (c.cx - t.arcSide)
+			if o > up then up = o end
+			if w > side then side = w end
+		end
+	end
+	-- first look up (the principal point lower: the kubbs keep their size),
+	-- then widen the lens for what is still over
+	local cy = c.cy
+	if up > cy - t.arcTop then cy = min(t.arcMaxCy, t.arcTop + up) end
+	c.cy = cy
+	local k = up / (cy - t.arcTop)
+	if side > k then k = side end
+	if k > 1 then
+		local f = c.f / k
+		if f < t.arcMinF then f = t.arcMinF end
+		c.f = f
+	end
+end
+
+-- The baton's arc while aiming (Jamie and Tyler, 2026-11-14): where a clean
+-- throw at the loft set goes from where the player stands and points. Full
+-- power while idle; while winding, the power the backswing allows so far, so
+-- the arc grows as the crank goes back. It shows the aim, not the throw: the
+-- flick and where the crank stops still decide it. A dashed line of
+-- arcPoints projected points (every other gap drawn) and a small ring where it
+-- lands. Drawn over the world each aim frame, outside its caches; no tables.
+drawArc = function(s, c)
+	local t = throw.tune
+	local sw = s.swing
+	local cap = (sw.phase == "winding") and swing.powerCap(sw) or 1
+	local vx, vy, vz, T = arcLaunch(s, cap)
+	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+	local lx, ly = x0 + vx * T, y0 + vy * T
+	local n = t.arcPoints
+	gfx.setColor(gfx.kColorBlack)
+	gfx.setLineWidth(t.arcWidth)
+	local px, py = nil, nil
+	for i = t.arcSkip, n do
+		local tt = T * i / n
+		local sx, sy = camera.project(c, x0 + vx * tt, y0 + vy * tt, h + vz * tt - 0.5 * g * tt * tt)
+		if sx and px and i % 2 == 0 then gfx.drawLine(px, py, sx, sy) end
+		px, py = sx, sy
+	end
+	gfx.setLineWidth(1)
+	-- where it lands: a small flat ring, 8 pieces
+	local R = 0.12
+	local qx, qy = camera.project(c, lx + R, ly, 0)
+	for k = 1, 8 do
+		local a = k * math.pi / 4
+		local sx, sy = camera.project(c, lx + R * math.cos(a), ly + R * math.sin(a), 0)
+		if sx and qx then gfx.drawLine(qx, qy, sx, sy) end
+		qx, qy = sx, sy
+	end
+end
+
 drawMarker = function(s, c)
 	local t = throw.tune
 	local mx, my = s.markerX, s.markerY
@@ -1020,6 +1125,7 @@ function throw.drawFrame(s)
 	burst.draw(s.burst, cam)
 	local marker = s.drill and (s.mode == "aim" or s.thisDrill)
 	if marker then drawMarker(s, cam) end
+	if s.mode == "aim" and not s.watching and arcShown(s) then drawArc(s, cam) end
 
 	local hs = s.hudState
 	hs.playerX, hs.lineY = s.playerX, s.playerY
