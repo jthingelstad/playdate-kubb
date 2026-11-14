@@ -670,7 +670,7 @@ local function loneStep(w, b, t, P)
 		if b.dig < 1e-5 then b.dig = 0 end
 	end
 	local sinTopple = sin(rad(t.toppleDeg))
-	if b.shape == 1 and not b.toppled and r33 <= sinTopple and r33 >= -sinTopple then b.toppled = true end
+	if b.shape == 1 and not b.toppled and r33 <= sinTopple and r33 >= -sinTopple then b.toppled = true; b.toppleT = w.time end
 	local x, y = b.x, b.y
 	local half, len, om = t.pitchHalfWidth, t.pitchLength, t.outMargin
 	if x > half + om or x < -(half + om) or y < -om or y > len + om then b.leftPitch = true end
@@ -1129,7 +1129,7 @@ function world.step(w)
 				if b.dig < 1e-5 then b.dig = 0 end
 			end
 			local r33 = b.r33
-			if b.shape == 1 and not b.toppled and r33 <= sinTopple and r33 >= -sinTopple then b.toppled = true end
+			if b.shape == 1 and not b.toppled and r33 <= sinTopple and r33 >= -sinTopple then b.toppled = true; b.toppleT = w.time end
 			local x, y = b.x, b.y
 			if x > half + om or x < -(half + om) or y < -om or y > len + om then b.leftPitch = true end
 			local vx, vy, vz, wx, wy, wz = b.vx, b.vy, b.vz, b.wx, b.wy, b.wz
@@ -1142,7 +1142,7 @@ function world.step(w)
 					b.dig = 0
 					-- the leaner rule: a piece that comes to rest propped on another is
 					-- down if it would fall with the prop taken away
-					if b.shape == 1 and not b.toppled and body.wouldFall(b) then b.toppled = true end
+					if b.shape == 1 and not b.toppled and body.wouldFall(b) then b.toppled = true; b.toppleT = w.time end
 				end
 			else
 				b.sleepTime = 0
@@ -1204,7 +1204,7 @@ function world.result(w)
 	for i = 1, w.n do
 		local b = w.bodies[i]
 		-- a piece still moving when the throw ran out of time gets the leaner rule here
-		if b.shape == 1 and not b.static and not b.toppled and body.wouldFall(b) then b.toppled = true end
+		if b.shape == 1 and not b.static and not b.toppled and body.wouldFall(b) then b.toppled = true; b.toppleT = w.time end
 		local out = world.outside(b.x, b.y)
 		r.bodies[b.id] = {
 			kind = b.kind, x = b.x, y = b.y, z = b.z, qw = b.qw, qx = b.qx, qy = b.qy, qz = b.qz,

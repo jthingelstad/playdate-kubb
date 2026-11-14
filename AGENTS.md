@@ -383,6 +383,9 @@ Every number that is a guess lives in one table per module, with a comment:
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
   speed").
+- `tw.render.burst.tune` (`source/render/burst.lua`): the hit bursts' phase lengths, the
+  double's second star, the anchor lift, the chips; `tw.burstpick.tune` the double's window;
+  `tw.sound.tune` (`source/sound.lua`) the knocks' pitches, volumes and lengths.
 - `tw.playback.paceTune`, `tw.playback.calm`, `tw.playback.slow` (`source/core/playback.lua`):
   the pace of the picture, the calm tail and the slow motion ("Playback", "Slow motion").
 - `tw.scenes.title.tune`, `tw.render.cards.tune`, `tw.render.ui.tune`: where the title's
@@ -792,6 +795,34 @@ While it plays (`playback.speed` below 1, the ease back included) the throw scen
 `s.slowMo` and the HUD shows the SLOW MOTION flag (`hud.slow`, `hud.tune.slow`). The pace
 slowing because the physics fell behind shows nothing. The `hit` self-test checks the flag
 0.25 s after the hit (frames 2 and 3 show it).
+
+## Hit bursts
+
+`docs/design/README.md` "Hit effects". When the picture reaches the first kubb or king a
+baton toppled, a pre-drawn burst is put up and to the left of the hit, its long spike's tip
+on it, with a knock.
+
+- `core/world` stamps each piece it topples with `toppleT` (simulated seconds; pieces down
+  before the throw have none). `core/burstpick.pick(w, showTime)` (pure, tested) says which
+  burst and when: the king among the toppled is `king`, a second kubb down within `window`
+  (0.4 s) of the first is `double`, else `clean`; nothing for a miss or a touch that leaves
+  the kubb standing, and nothing for kubb tosses or drills.
+- `render/burst.lua`: three images per kind, `images/burst/<kind>-1..3` (flash, burst with
+  the word, break-up) from `tools/art/build.py` (`BURST_*`; 2-bit PNGs with a clear
+  ground). Phases run on real seconds (2, 12 and 4 frames at 30 fps), not the slowed throw
+  time. The anchor is the baton's first contact point when that was the toppled piece,
+  else the piece's pose at its topple, lifted `lift`; it is projected each frame and the
+  image kept on screen below the rail. Double: KLAK (first kubb) and KLAK! (second, 3
+  frames later, with a second knock). King: the whole screen inverts for the flash
+  (`playdate.display.setInverted`), the burst wears the crown. The break-up adds six
+  `fillRect` chips. Drawn after `render.world.draw`, outside its caches.
+- `sound.lua` (`tw.sound`): knocks made by synths at run time (no sample files): TOK a dry
+  sine knock and a noise click, KLAK lower, KING a deep knock and a short C-G chord. Off in
+  self-tests. The words are `BURST_WORDS` in `tools/art/build.py` (rerun it to change them).
+- The throw scene keeps the state in `s.burst` (`burst.new`, `reset` at each launch and
+  back at aim, `update` in flight and rest, `draw` after the world).
+- Self-tests: `burst` (the hit throw: flash, TOK!, break-up, then aiming again with the
+  burst cleared) and `bursts` (every burst image on white, for review).
 
 ## Frame-time log
 

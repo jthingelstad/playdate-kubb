@@ -29,6 +29,11 @@ Fixed by drawing the rough as two fills that stay on the screen, dropping the tu
 speed lines (speed over niceties, Jamie 2026-11-13), and letting the estimate rise by a
 quarter of a step (`throw.tune.estRise`).
 
+## Hit bursts
+
+TOK!, KLAK KLAK! and KING! with synthesized knocks (AGENTS.md "Hit bursts"). The words
+are still the board's, pending Jamie's call (Open calls).
+
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 
 - A piece never changes its look: no grey fallen kubbs, no black resting batons. The light
@@ -46,15 +51,16 @@ testing over USB (AGENTS.md "Measuring on the device"). Delete it when the testi
 - The punishment kubb fix (the search that used to trip the watchdog).
 - The rough shimmering when the camera zooms or turns.
 - The SLOW MOTION flag, the one-look pieces and the new rough, as played.
+- The hit bursts and their knocks (how they look and sound at full speed; the king's
+  screen flash).
 - The hand-cut M, N, W and 8 in the 16 px display font; Roobert loading for labels.
 
 ## Not built yet
 
-1. Hit bursts (TOK, KLAK, KING) with sound.
-2. Raising kubbs and placing a punishment kubb by hand.
-3. A computer opponent.
-4. Name entry, saved games and resume, practice drills.
-5. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
+1. Raising kubbs and placing a punishment kubb by hand.
+2. A computer opponent.
+3. Name entry, saved games and resume, practice drills.
+4. In the slow motion of a hit, the camera swings a half circle around it (Jamie's idea,
    2026-11-13): build after the bursts, measure its cost on the device.
 
 ## Open calls
