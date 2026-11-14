@@ -42,6 +42,7 @@ import "scenes/games"
 import "scenes/drills"
 import "benchscreen"
 import "autobench"
+import "soak"
 import "selftest/runner"
 import "selftest/hello"
 import "selftest/title"
@@ -50,6 +51,7 @@ import "selftest/settle-resign"
 import "selftest/settle-crank"
 import "selftest/names"
 import "selftest/resume"
+import "selftest/soak"
 import "selftest/games"
 import "selftest/drills"
 import "selftest/drills-blast"
@@ -252,10 +254,22 @@ else
 	-- the device autobench (autobench.lua): a file named "autobench" in the
 	-- Data folder at launch runs it once before the game
 	local autoRun = playdate.file.exists(tw.autobench.flag) and tw.autobench.start() or nil
+	-- the device soak (soak.lua): a file named "soak" runs whole matches
+	-- unattended once, after any autobench
+	local soakWanted = playdate.file.exists(tw.soak.flag)
+	local soakRun = nil
 
 	function playdate.update()
 		if autoRun then
 			if tw.autobench.update(autoRun) then autoRun = nil end
+			return
+		end
+		if soakWanted then
+			soakWanted = false
+			soakRun = tw.soak.start()
+		end
+		if soakRun then
+			if tw.soak.update(soakRun) then soakRun = nil; open("title") end
 			return
 		end
 		if benchRun then
