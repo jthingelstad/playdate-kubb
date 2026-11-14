@@ -602,6 +602,12 @@ local function launch(s, r)
 		local sol = s.drillSol
 		L = drill.launch(sol, r, s.cut, s.drillLaunch)
 		s.playerX, s.playerY, s.swivel, s.loftDeg = sol.x, s.lineY, L.swivel, L.loft
+		-- where the crank stopped against the drill's notch (its solved loft),
+		-- as for a baton: the flag and the dial's dot
+		if not s.scripted and r.releaseAngle and not s.swing.passRelease then
+			s.stopAngle = r.releaseAngle
+			s.stopText = STOP_TEXT[swing.releaseMiss(sol.loft, r.releaseAngle)]
+		end
 		speed, tumble = L.speed, 0
 		if not s.projectileId then
 			-- practice: each drilled kubb is a piece of its own
@@ -1294,17 +1300,24 @@ function throw.drawFrame(s)
 		local band = marker and s.drillSol.band or nil
 		hud.plaque(s.loftDeg, cap, band, half)
 		-- a baton's release target: the loft set (the crank stops there)
-		local target = (not marker and not sw.passRelease) and floor(s.loftDeg + 0.5) or nil
+		-- (a drill's: the loft that reaches the marker, the same throw)
+		local target = nil
+		if not sw.passRelease then
+			target = floor((marker and s.drillSol.loft or s.loftDeg) + 0.5)
+		end
 		-- the last throw's stop: a dot on the dial and its verdict, until the
 		-- next wind-up
 		local stop = (target and sw.phase == "idle" and s.stopAngle) and floor(s.stopAngle + 0.5) or nil
 		local prompt, inverted = hud.gauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
 			swing.tune.fullBackswingDeg, s.arm or 0, band, half, target, stop)
-		if stop and s.stopText then hud.cutFlag(s.stopText) end
 		hud.prompt(prompt, inverted)
 		s.promptText = prompt    -- (self-tests read it)
+		-- one flag in that place: a drill's cut while A or B is held, else the
+		-- last stop's verdict
 		if marker and s.cut ~= drill.CUT_NONE then
 			hud.cutFlag(s.cut == drill.CUT_A and "CUT RIGHT" or "CUT LEFT")
+		elseif stop and s.stopText then
+			hud.cutFlag(s.stopText)
 		end
 		if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout) end
 		if s.input:docked() then hud.crankPrompt() end

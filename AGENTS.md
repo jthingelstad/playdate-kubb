@@ -412,8 +412,9 @@ Playdate's think), and draws it, so everything waits under it (Codex on #81; sel
 the notch carrying 8.9 m, the notch moved); `release-stop` and `release-early` check the
 verdict and show the dot (frame 4). The throw
 scene launches the player's batons at that angle (the loft boost still goes by the loft
-set); the computer's throws and drilled kubbs are unchanged (a drill's push and wobble go
-left for a stop short of the bottom, as for the old `"slowed"`). Trace lines carry
+set), and drilled kubbs the same way (Jamie, 2026-11-14: "the player should only need to
+learn how the crank works for throwing once"; "Drilling"); the computer's throws are
+unchanged. Trace lines carry
 `"release":"stop"`, `releaseAngle` and `launchLoft`; older lines replay with the old rule
 (`passRelease`: released as the arm passed the bottom, at the loft set). The throw-scene
 self-tests written before it keep the old rule (`throwScenario`'s `stopRelease = true` opts
@@ -906,9 +907,15 @@ the throw scene with `s.drill` on.
   in `throw.draw` (`drawMarker`), and the minimap's aim line goes to the marker.
 - **Swing to launch** (`drill.launch`): the power error against the band is shrunk by
   `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower` per unit
-  (never under `speedMinFrac`). Smoothness under `cleanAbove` gives a nose-over wobble of up
+  (never under `speedMinFrac`). The angle is a baton's (Jamie, 2026-11-14: one throw to
+  learn, the band kept): the solved loft is the dial's notch, and where the crank stops
+  against it sets the launch angle by the same forgiving rule (`swing.releaseLoft`: within
+  10 degrees the solved loft, beyond it a third of the rest of the miss), with the same
+  flag (`ON THE NOTCH`, `EARLY: LOW`, `LATE: HIGH`) and dot; a swing under the old release
+  keeps the solved loft. Early (for the push and wobble below) is a stop before the
+  notch. Smoothness under `cleanAbove` gives a nose-over wobble of up
   to `wobbleRate` rad/s (its sign follows the swing's `how`). Tilt pushes the swivel by
-  `tiltPushDeg` per degree (right when the swing `passed`, left when it `slowed`). The cut is
+  `tiltPushDeg` per degree (right, left when early). The cut is
   `cutSpin` rad/s about the long axis.
 - **The body** (`world.drillLaunchState`): long axis along the horizontal line of flight, the
   nose `noseDownDeg` below the horizontal, spinning at the cut rate; the release roll is
@@ -940,7 +947,10 @@ the throw scene with `s.drill` on.
   lobbed one: short of the middle line or out when its round is judged is a rethrow, out
   twice a punishment kubb (tested in `test_drill.lua` with real physics).
 - **Self-test** `drill`: the practice pitch, marker moved, A held, a wind-up to the band and
-  a clean flick; its marker note gives power, band and the landing and rest distances.
+  a clean flick; its marker note gives power, band and the landing and rest distances (the
+  old release). `drill-stop`: the release where the crank stops, wound into the band and
+  stopped on the drill's notch: ON THE NOTCH, the solved loft, rests 0.19 m from the
+  marker.
 
 ## Woodcut type, title, cards and launcher
 

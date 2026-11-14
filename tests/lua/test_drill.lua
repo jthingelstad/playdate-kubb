@@ -204,3 +204,23 @@ test("drill: drilled kubbs that end short or out are rethrown, then punished", f
 	match.resolve(m, res, false)
 	expect.eq(m.text, "out twice: punishment kubb")
 end)
+
+test("drill: the stop on the notch sets the launch, as a baton's", function()
+	-- Jamie, 2026-11-14: one throw to learn. The solved loft is the notch.
+	local sol = drill.solve(0, 6, 0)
+	local base = { power = sol.band, smoothness = 1, tilt = 0, how = "stopped" }
+	local function at(angle)
+		local r = {}
+		for k, v in pairs(base) do r[k] = v end
+		r.releaseAngle = angle
+		return drill.launch(sol, r, 0)
+	end
+	expect.near(at(sol.loft).loft, sol.loft, 1e-9)
+	expect.near(at(sol.loft + 8).loft, sol.loft, 1e-9)             -- within the forgiving 10
+	expect.near(at(sol.loft - 40).loft, tw.swing.releaseLoft(sol.loft, sol.loft - 40), 1e-9)
+	expect.truthy(at(sol.loft - 40).loft < sol.loft, "early is lower")
+	expect.truthy(at(sol.loft + 40).loft > sol.loft, "late is higher")
+	-- the old release keeps the solved loft
+	local old = drill.launch(sol, { power = sol.band, smoothness = 1, tilt = 0, how = "passed", releaseAngle = 50 }, 0)
+	expect.near(old.loft, sol.loft, 1e-9)
+end)

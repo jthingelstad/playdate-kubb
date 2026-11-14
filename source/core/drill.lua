@@ -140,12 +140,17 @@ function drill.launch(sol, r, cut, out)
 	local e = drill.powerError(r.power or 0, sol.band)
 	out.speed = sol.speed * max(t.speedMinFrac, 1 + t.speedPerPower * e)
 	local push = rad(t.tiltPushDeg * (r.tilt or 0))
-	-- the hand that let go before the bottom of the turn: "slowed" under the
-	-- old release, a stop short of the bottom under the release at the stop
-	local early = r.how == "slowed" or (r.how == "stopped" and (r.releaseAngle or 0) < 0)
+	-- the release where the crank stops, as a baton's (Jamie, 2026-11-14: "the
+	-- player should only need to learn how the crank works for throwing
+	-- once"): the solved loft is the notch, and the stop against it sets the
+	-- launch angle by the same forgiving rule (swing.releaseLoft); early is a
+	-- stop before the notch. A swing under the old release ("passed",
+	-- "slowed") or with no release angle keeps the solved loft.
+	local stopRelease = r.releaseAngle and (r.how == "stopped" or r.how == "over")
+	local early = r.how == "slowed" or (stopRelease and swing.releaseMiss(sol.loft, r.releaseAngle) < 0)
 	if early then push = -push end
 	out.swivel = sol.swivel + push
-	out.loft = sol.loft
+	out.loft = stopRelease and swing.releaseLoft(sol.loft, r.releaseAngle) or sol.loft
 	out.noseDown = t.noseDownDeg
 	out.rollLand = t.rollLandDeg
 	-- positive spin about the forward long axis curves the kubb to the left

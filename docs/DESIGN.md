@@ -132,7 +132,10 @@ a football with the nose down. The kubb is aimed differently from the baton:
   far) and the speed that carries it there. The gauge and the power meter show the **band**:
   the power that distance needs (a farther marker needs more). Winding back to the band and
   flicking hard puts the power in it. Inside the band a power error barely moves the kubb;
-  outside it the kubb goes short or long. Smoothness decides the landing: a clean flick keeps
+  outside it the kubb goes short or long. The angle is a baton's (Jamie, 2026-11-14: one
+  throw to learn): the solved loft is the notch on the dial, and where the crank stops
+  sets the angle the same forgiving way (within 10 degrees the solved loft; beyond it,
+  early goes lower and late higher). Smoothness decides the landing: a clean flick keeps
   the nose down and the kubb dies near the marker; a jerky one wobbles it nose over tail and it
   runs on. The swing's tilt pushes the line a little sideways.
 - **Cut:** A or B held at the release (neither: straight). A cut is spin about the long axis,
