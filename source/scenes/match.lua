@@ -229,7 +229,9 @@ end
 -- nothing is in the air. If that throw was its last and the turn has passed
 -- by then, the request is dropped: a team resigns only on its own turn.
 function scene.resign(s)
-	if s.phase ~= "over" and s.setup then
+	-- (a match resumed mid-settle has no throw set up yet: its defender may
+	-- still resign)
+	if s.phase ~= "over" and (s.setup or s.phase == "settle") then
 		s.resignWanted = true
 		if s.cpu then
 			-- against the Playdate it is always the player who resigns, on
