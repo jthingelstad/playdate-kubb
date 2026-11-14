@@ -8,7 +8,8 @@
 -- up one throw at a time like the match (throw.prepare); the rail counts the
 -- throws and the score. At the end a card gives the score and any new best
 -- (records in playdate.datastore "drills"); A runs it again, B goes back to
--- the menu. Every screen but the throws is one image redrawn on a change.
+-- the menu. During a run the System Menu's "Drill" leaves it unrecorded, for
+-- the menu or the title (main.lua). Every screen but the throws is one image redrawn on a change.
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/drills"
@@ -154,6 +155,7 @@ local function startRun(s, d)
 	s.drill, s.run = d, drills.newRun(d)
 	s.ts = s.ts or throw.new(s.input)
 	s.ts.sceneName = "practice"
+	s.ts.showReadout = s.showReadout or false
 	throw.enter()
 	s.phase = "run"
 	nextThrow(s)
@@ -175,6 +177,16 @@ local function renderResult(s)
 	ui.text(label, s.newBest and "A NEW BEST" or ("BEST " .. s.records[d.id].best .. "/" .. d.of), 200, 132, true, "center")
 	ui.button("A", "AGAIN", 120, 200, true)
 	ui.button("B", "DRILLS", 220, 200, true)
+end
+
+-- Leaves a run part way (the System Menu's "Drill: menu"): back to the menu,
+-- nothing recorded. Safe from a menu callback: the throw scene is simply no
+-- longer updated, and the next run's throw.prepare sets it up afresh.
+function scene.quit(s)
+	if s.phase == "menu" then return end
+	playdate.display.setInverted(false)   -- a king burst's flash
+	s.phase, s.img = "menu", nil
+	scene.enter()
 end
 
 -- ---------- update and draw ----------

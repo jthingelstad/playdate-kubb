@@ -21,6 +21,8 @@
 --   "Match"    match only: play (nothing) / resign (the team on turn gives
 --              up, once nothing is in the air) / title (leave: the match is
 --              dropped and no game file is written)
+--   "Drill"    drills only: play (nothing) / menu (leave the run part way,
+--              unrecorded, for the drills menu) / title
 
 import "CoreLibs/graphics"
 
@@ -119,6 +121,7 @@ else
 	local function throwScene()
 		if kind == "practice" then return current end
 		if kind == "match" then return current.ts end
+		if kind == "drills" then return current.ts end
 		return nil
 	end
 
@@ -128,6 +131,7 @@ else
 		menu:removeAllMenuItems()
 		menu:addCheckmarkMenuItem("Readout", showReadout, function(on)
 			showReadout = on
+			if kind == "drills" then current.showReadout = on end
 			local ts = throwScene()
 			if ts then ts.showReadout = on end
 		end)
@@ -152,6 +156,16 @@ else
 			end)
 		elseif kind == "title" then
 			menu:addMenuItem("Games", function() pending = "games" end)
+		elseif kind == "drills" then
+			-- leave a run part way, unrecorded: for the drills menu or the title
+			item = menu:addOptionsMenuItem("Drill", { "play", "menu", "title" }, "play", function(v)
+				if v == "menu" then
+					drillsScene.quit(current)
+				elseif v == "title" then
+					pending = "title"
+				end
+				item:setValue("play")
+			end)
 		elseif kind == "match" then
 			item = menu:addOptionsMenuItem("Match", { "play", "resign", "title" }, "play", function(v)
 				if v == "resign" then
@@ -182,6 +196,7 @@ else
 			-- PRACTICE: the drills menu (scenes/drills); its OPEN PITCH is "pitch"
 			kind = "drills"
 			current = drillsScene.new(device)
+			current.showReadout = showReadout
 			drillsScene.enter()
 		elseif which == "pitch" then
 			kind = "practice"
