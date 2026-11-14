@@ -47,7 +47,9 @@ shadow is solid black to the right.
   ring, one diamond. The far size keeps the points and collar only.
 - Reading the pitch: standing is still to hit; lying low is down; thin with bands is a
   baton.
-- Ground cues: stakes with a shadow. The grass tufts were dropped (2026-11-13): about 2 ms
+- Ground cues: the stakes, solid posts at their real size (3/4 inch by 6 inches, never
+  under 3 px wide) with no shadow: a shadow line at a corner read as the pitch's lines
+  running on (Jamie, 2026-11-14). The grass tufts were dropped (2026-11-13): about 2 ms
   a flight frame on the device, and speed comes before niceties.
 
 ## HUD (`boards/HUD.png`)

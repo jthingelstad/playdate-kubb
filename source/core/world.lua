@@ -68,7 +68,7 @@ world.tune = {
 	outMargin = 0.04,      -- m beyond a pitch line before a center counts as out (base kubbs
 	                       -- stand centered on the baselines)
 	maxTime = 12,          -- s; a throw is called at rest after this long regardless
-	stakeHeight = 0.30,    -- m above the ground; stakes are fixed posts of radius pitch.stakeRadius
+	stakeHeight = 0.15,    -- m above the ground (6 inches, Jamie 2026-11-14); stakes are fixed posts of radius pitch.stakeRadius
 }
 
 -- Ground surfaces: one parameter set each (DESIGN 5). All guesses, to be

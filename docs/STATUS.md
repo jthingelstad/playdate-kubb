@@ -104,6 +104,10 @@ for the surface.
 
 - PASS + PLAY: a card passes the Playdate to the defending team before it raises kubbs
   and places punishment kubbs (2026-11-14).
+- The pitch is its bare rectangle: the stakes' shadow lines read as the lines running on
+  past the corners, so they are gone. The stakes are real ones, 3/4 inch thick and 6
+  inches high (0.019 x 0.15 m), drawn as solid posts (never thinner than 3 px) and the
+  same size in the physics, so a drilled kubb can roll into the middle stake (2026-11-14).
 
 - A piece never changes its look: no grey fallen kubbs, no black resting batons. The light
   on the faces stays.

@@ -387,7 +387,7 @@ Every number that is a guess lives in one table per module, with a comment:
   scatter.
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
   margin, bounce threshold and passes, wood-on-wood friction and bounce, sleep and wake
-  thresholds, topple angle, out margin, maximum throw time, stake height.
+  thresholds, topple angle, out margin, maximum throw time, stake height (0.15 m: a real stake, 6 inches out of the ground).
   `tw.world.surfaces`: one parameter set per ground (grass, sand, snow; ice is a marked
   placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
   (Physics, "The ground's texture"). `world.SURFACES` lists the playable ones in order.
@@ -399,7 +399,8 @@ Every number that is a guess lives in one table per module, with a comment:
   shades the faces), the tones (`awayBelow`; a piece is never grey and keeps its look
   standing, falling or lying, with outline and detail sized by its length at its
   distance), outline and grain sizes, the ground (`lineWidth`, `dash`/`dashGap`,
-  `advDash`, `roughPattern`, `rough`, `outsideFrom`, `roughFar`), stakes, the baton's
+  `advDash`, `roughPattern`, `rough`, `outsideFrom`, `roughFar`), stakes (`stakeHeight`,
+  `stakeThick` at their true size, `stakeMinPx` the thinnest; no shadow), the baton's
   bands, the king's drawing (`kingCrown`, `kingCollar`, `kingCollarTop`, `kingRing`,
   `kingDiamond`, `kingDetailFrom`: drawing only, the physics king stays a plain box; the
   `king` scenario shows it), HUD fonts (`labelFont`, `displayFont`) and every HUD box
