@@ -397,7 +397,7 @@ Every number that is a guess lives in one table per module, with a comment:
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
   speed").
 - `tw.render.burst.tune` (`source/render/burst.lua`): the hit bursts' phase lengths, the
-  double's second star, the anchor lift, the chips; `tw.burstpick.tune` the double's window;
+  double's second star, the anchor lift, the chips; `tw.burstpick.tune` the double's window and the fall judged at the impact (`fallV`, `fallW`, `judgeFor`);
   `tw.sound.tune` (`source/sound.lua`) the knocks' pitches, volumes and lengths.
 - `tw.playback.paceTune`, `tw.playback.calm`, `tw.playback.slow` (`source/core/playback.lua`):
   the pace of the picture, the calm tail and the slow motion ("Playback", "Slow motion").
