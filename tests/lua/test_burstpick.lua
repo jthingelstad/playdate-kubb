@@ -134,3 +134,20 @@ test("burstpick: a king struck after a toppled kubb carries its own certainty", 
 	expect.eq(kind, "king")
 	expect.eq(sure, true)
 end)
+
+test("burstpick: a double carries the second kubb's own certainty", function()
+	local w = fake {
+		{ kind = "kubb", id = "b3", toppleT = 1.0 },
+		{ kind = "kubb", id = "b2", touchT = 1.1, awake = true, vx = 1, vy = 0, vz = 0, wx = 0, wy = 0, wz = 0 },
+	}
+	w.time = 1.2
+	local kind, a, b, sure, sure2 = pick.pick(w, 1.0)
+	expect.eq(kind, "double")
+	expect.eq(a.id, "b3")
+	expect.eq(b.id, "b2")
+	expect.eq(sure, true)
+	expect.eq(sure2, false, "the second has not toppled")
+	w.bodies[2].toppleT = 1.15
+	kind, a, b, sure, sure2 = pick.pick(w, 1.0)
+	expect.eq(sure2, true)
+end)

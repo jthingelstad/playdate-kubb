@@ -72,6 +72,7 @@ end
 function burst.reset(B)
 	B.kind, B.done, B.age, B.knocked2, B.provisional, B.gap = nil, false, 0, false, false, nil
 	B.first, B.sure, B.takenBack = nil, false, false
+	B.second, B.sure2 = nil, false
 	if B.inverted then
 		playdate.display.setInverted(false)
 		B.inverted = false
@@ -89,9 +90,10 @@ local KNOCK <const> = { clean = "tok", double = "klak", king = "king" }
 -- the whole window after the first topple the kind is provisional: a later
 -- topple can still make a clean burst a double, or any burst the king's.
 local function classify(B, pb, showTime)
-	local kind, a, b, sure = pick.pick(pb.w, showTime)
+	local kind, a, b, sure, sure2 = pick.pick(pb.w, showTime)
 	if not kind then return nil end
 	B.kind, B.first, B.sure = kind, a, sure
+	B.second, B.sure2 = b, sure2 or false
 	local fh = pb.w.firstHit
 	if fh and fh.with == a.id then
 		B.x1, B.y1, B.z1 = fh.x, fh.y, fh.z
@@ -146,6 +148,15 @@ function burst.update(B, s, dt)
 			B.sure = true
 		elseif pick.stoodUp(B.first, pb.done) then
 			B.done, B.takenBack = true, true
+		end
+	end
+	-- likewise a double's second kubb: left standing, the double is a clean
+	-- burst (its second star and knock not played, or gone if they were)
+	if B.kind == "double" and not B.done and not B.sure2 and B.second and pb then
+		if B.second.toppleT then
+			B.sure2 = true
+		elseif pick.stoodUp(B.second, pb.done) then
+			B.kind, B.second = "clean", nil
 		end
 	end
 	if B.done or not B.kind then return end
