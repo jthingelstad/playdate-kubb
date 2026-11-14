@@ -950,7 +950,9 @@ the throw scene with `s.drill` on.
   a clean flick; its marker note gives power, band and the landing and rest distances (the
   old release). `drill-stop`: the release where the crank stops, wound into the band and
   stopped on the drill's notch: ON THE NOTCH, the solved loft, rests 0.19 m from the
-  marker.
+  marker. `drill-early`: stopped 40 degrees before it: EARLY: LOW, leaves at 17.6 against
+  27.6. Both check the flight the camera follows is the one thrown (Codex on #85: the
+  prediction kept the solved loft, so the camera looked 1 m past an early drill).
 
 ## Woodcut type, title, cards and launcher
 
