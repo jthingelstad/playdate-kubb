@@ -11,9 +11,9 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
 - `main` takes changes only through a pull request with a green `validate` check on a
   branch that is up to date with `main` (ruleset "main: pull requests on a green
   validate"). Merges are rebase merges; auto-merge is on; branches are deleted on merge.
-- `validate` (`.github/workflows/validate.yml`) runs the Lua tests only. Before opening a
-  pull request run `make test` and `make selftest` locally: the notation gate and the
-  Simulator cannot run on GitHub.
+- `validate` (`.github/workflows/validate.yml`) runs the Lua tests and the notation gate.
+  Before opening a pull request run `make test` and `make selftest` locally: the Simulator
+  cannot run on GitHub.
 - Codex reviews every pull request. Read its inline findings and fix or answer each one
   before calling the work done.
 - Other sessions share this checkout. Do side work in a `git worktree`, not by switching
@@ -73,11 +73,13 @@ outcomes with tolerances, never bit-exact.
   same winner as `[Win]`, and warnings fail unless `--allow-warnings` is passed. Player ids
   are letters and underscores only.
 
-## pk-kubb-score is read only
+## pk-kubb-score is vendored
 
-The gate loads `site/assets/notation-parser.js` and `site/assets/kubb.js` from
-`~/Projects/pk-kubb-score` (or `$PK_KUBB_SCORE`). Never write there, never run `npm install`
-there, never copy its files here.
+The gate loads `notation-parser.js` and `kubb.js` from `tests/vendor/pk-kubb-score/`, copies
+of pk-kubb-score's `site/assets` files (Jamie approved the copy 2026-11-13, so the gate runs
+on any machine and on GitHub). Never edit the copies; `make sync-notation` refreshes them
+from a checkout at `~/Projects/pk-kubb-score` (or `$PK_KUBB_SCORE`). The checkout itself is
+still read only: never write there and never run `npm install` there.
 
 ## Rules engine
 

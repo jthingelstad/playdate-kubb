@@ -1,10 +1,11 @@
 // The notation gate (DESIGN.md section 7). Runs every .txt game in a folder
-// through pk-kubb-score's strict grammar parser and kubb.js `analyze`.
+// through pk-kubb-score's strict grammar parser and kubb.js `analyze`
+// (the copies in tests/vendor/pk-kubb-score).
 //
 //   node tests/node/notation-gate.mjs [dir] [--allow-warnings]
 //
-// dir defaults to tests/fixtures/games. pk-kubb-score is found at
-// $PK_KUBB_SCORE, else ~/Projects/pk-kubb-score, and is only read.
+// dir defaults to tests/fixtures/games. Set $PK_KUBB_SCORE to a
+// pk-kubb-score checkout to try its site/assets files instead of the copies.
 //
 // A game fails on: a grammar error, no [Win] header, a kubb.js winner that
 // differs from the [Win] header (or that kubb.js only took from the header
@@ -13,19 +14,19 @@
 // --allow-warnings is passed. Exit 0 only when everything passes.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 export async function loadPkKubbScore() {
-  const root = process.env.PK_KUBB_SCORE || join(homedir(), 'Projects', 'pk-kubb-score');
-  const parserPath = join(root, 'site', 'assets', 'notation-parser.js');
-  const kubbPath = join(root, 'site', 'assets', 'kubb.js');
+  const override = process.env.PK_KUBB_SCORE;
+  const root = override ? join(override, 'site', 'assets') : join(here, '..', 'vendor', 'pk-kubb-score');
+  const parserPath = join(root, 'notation-parser.js');
+  const kubbPath = join(root, 'kubb.js');
   for (const p of [parserPath, kubbPath]) {
     if (!existsSync(p)) {
-      throw new Error(`pk-kubb-score not found: ${p} is missing. Set PK_KUBB_SCORE to its checkout.`);
+      throw new Error(`pk-kubb-score not found: ${p} is missing. `);
     }
   }
   const { parse } = await import(pathToFileURL(parserPath).href);
@@ -87,7 +88,7 @@ async function main(argv) {
     for (const e of errors) console.log(`     error: ${e}`);
     for (const w of warnings) console.log(`     warning: ${w}`);
   }
-  console.log(`gate: ${files.length} games, ${bad} failed, ${warned} with warnings (pk-kubb-score at ${pk.root})`);
+  console.log(`gate: ${files.length} games, ${bad} failed, ${warned} with warnings (pk-kubb-score: ${process.env.PK_KUBB_SCORE ? pk.root : 'vendored copy'})`);
   if (bad) return 1;
   if (warned && !allowWarnings) return 1;
   return 0;

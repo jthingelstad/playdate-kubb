@@ -1,5 +1,5 @@
 // Checks that the notation gate rejects what it must: every game in
-// tests/fixtures/bad fails, and a missing pk-kubb-score fails loudly.
+// tests/fixtures/bad fails, and a $PK_KUBB_SCORE that points nowhere fails loudly.
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';

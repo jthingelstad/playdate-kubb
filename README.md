@@ -12,7 +12,8 @@ make selftest   # scripted Simulator runs, frames in build/selftest/
 ```
 
 Needs the Playdate SDK 3.1.2 at `~/Developer/PlaydateSDK`, Lua 5.4 from Homebrew
-(`lua@5.4`), Node, and a checkout of pk-kubb-score at `~/Projects/pk-kubb-score`.
+(`lua@5.4`) and Node. The notation parser the tests use is vendored in
+`tests/vendor/pk-kubb-score/`.
 
 Status: stage 1, camera and throw feel. An endless practice loop from the baseline: walk,
 swivel, loft, wind up and flick the crank; the baton flies a plain arc (no collisions yet).

@@ -5,11 +5,10 @@ name: validate
 # IS the required check's name in the main ruleset: rename them together or
 # merges stop.
 #
-# What runs here: the pure-Lua tests for source/core on Lua 5.4. What does
-# not: the pdc build and the Simulator self-tests (they need the Playdate SDK
-# and a Mac), and the notation gate (it reads pk-kubb-score, which is not on
-# GitHub). Those run locally with `make test` and `make selftest` before a
-# pull request is opened.
+# What runs here: the pure-Lua tests for source/core on Lua 5.4 and the
+# notation gate on the runner's Node. What does not: the pdc build and the
+# Simulator self-tests (they need the Playdate SDK and a Mac). Those run
+# locally with `make selftest` before a pull request is opened.
 on:
   push:
     branches: [main]
@@ -39,3 +38,5 @@ jobs:
         run: sudo apt-get update -q && sudo apt-get install -y -q lua5.4
       - name: Lua tests
         run: make test-lua LUA=lua5.4
+      - name: Notation gate
+        run: make test-node NODE=node
