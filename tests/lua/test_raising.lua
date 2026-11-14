@@ -203,3 +203,24 @@ test("autoPunishment: same spot as the candidate list, little garbage", function
 		expect.truthy(made < 400, "garbage " .. made .. " KB")
 	end
 end)
+
+test("raising: tipPose goes from lying to standing on that end's footprint", function()
+	local raising, pitch, quat = tw.raising, tw.pitch, tw.quat
+	local p = raising.pose(0.4, 5.6, false, 0.7)
+	local fps = raising.footprints(p)
+	for which = 1, 2 do
+		local x, y, z, qw, qx, qy, qz = raising.tipPose(p, which, 0)
+		expect.near(x, p.x, 1e-9); expect.near(y, p.y, 1e-9); expect.near(z, pitch.kubbSide / 2, 1e-9)
+		local ax, ay, az = quat.rotate(qw, qx, qy, qz, 0, 0, 1)
+		expect.near(az, 0, 1e-9, "lying: long axis level")
+		expect.near(math.abs(ax * math.cos(0.7) + ay * math.sin(0.7)), 1, 1e-9, "along the kubb's angle")
+		x, y, z, qw, qx, qy, qz = raising.tipPose(p, which, 1)
+		expect.near(x, fps[which].x, 1e-9); expect.near(y, fps[which].y, 1e-9)
+		expect.near(z, pitch.kubbLong / 2, 1e-9)
+		ax, ay, az = quat.rotate(qw, qx, qy, qz, 0, 0, 1)
+		expect.near(math.abs(az), 1, 1e-9, "standing: long axis upright")
+		-- half way: the far end higher than the pivot end
+		x, y, z = raising.tipPose(p, which, 0.5)
+		expect.truthy(z > pitch.kubbSide / 2 and z < pitch.kubbLong / 2 + 0.03, "half way up")
+	end
+end)

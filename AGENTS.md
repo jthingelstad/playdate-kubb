@@ -305,6 +305,8 @@ matches (about a minute; `--quick` about 10 s).
 - `settle`: raising a kubb and placing a punishment kubb by hand, on an engine driven to
   turn 3 (frames: the raise view, the other end chosen, the placement view, a spot
   refused by the king); the check reads the engine after A places it.
+- `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
+  right-hand end); all the way up must stand it on that end's footprint.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
   group of field kubbs), `skid` and `skid-sand` (the kick after landing on each surface),
   `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
@@ -773,10 +775,16 @@ own item). Practice is the throw scene exactly as before.
 - Raising and punishment kubbs by hand (`scenes/settle.lua`, boards `Raising.png` and
   `Punish.png`, which were sketches): when the engine's next need is a raise or a
   punishment kubb, the match's phase is `settle` and the defending team does it, its name
-  on the rail. Raise: a top-down close-up of the lying kubb in the defender's view frame,
-  each end the engine allows drawn as its 7 x 7 footprint, the chosen one dotted with
-  STANDS HERE (MOVED CLEAR when II.D.5 slid it); left/right choose, A raises
-  (`g:raise(choice)`); the highlight starts on the engine's own choice. Punish: the
+  on the rail. Raise: a 3D close-up of the lying kubb (`render/world` with its own camera,
+  in the defender's view frame, behind and above it; the pieces within `raiseNear`), each
+  end the engine allows drawn on the ground as its 7 x 7 footprint, the chosen one dotted
+  with STANDS HERE (MOVED CLEAR when II.D.5 slid it); left/right choose, A raises
+  (`g:raise(choice)`); the highlight starts on the engine's own choice. The crank (Jamie,
+  2026-11-13) tips it: forward onto its right-hand end on screen, backward onto its left,
+  `crankPerRaise` (270) degrees from lying to standing (`raising.tipPose`, pure and
+  tested: it pivots on that end's bottom edge onto the footprint), and all the way up
+  raises it on that end; an end the engine does not allow will not tip and its flag says
+  why (THAT END IS OUT, THAT END IS BLOCKED). Punish: the
   defender's half from above (40 px a metre), grey keep-out circles a baton length from
   the stakes and the king, the kubbs on it, and a cursor kubb the d-pad moves (faster the
   longer it is held); `raising.punishmentCheck` runs as it moves, a refused spot shows why
@@ -784,7 +792,7 @@ own item). Practice is the throw scene exactly as before.
   places it (`g:placePunishment`). The cursor starts at `raising.autoPunishment`'s spot. The
   still parts are one image redrawn only on a change. Scripted matches (`seed`,
   `instant`, or `autoSettle` in the scene's options) leave both to the engine
-  (`match.setup`). Self-test `settle`.
+  (`match.setup`). Self-tests `settle` and `settle-crank`.
 - Names (`scenes/names.lua`, board `Names.png`; pure rules in `core/names.lua`, tested):
   PASS + PLAY asks for both teams' names, VS PLAYDATE for the player's, on the board's
   black panel beside the Playdate's system keyboard (`playdate.keyboard`): whose name it

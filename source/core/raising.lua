@@ -21,6 +21,7 @@
 import "core/tw"
 import "core/pitch"
 import "core/rect"
+import "core/quat"
 
 local pitch, rect = tw.pitch, tw.rect
 local cos, sin, pi, sqrt, huge, floor = math.cos, math.sin, math.pi, math.sqrt, math.huge, math.floor
@@ -65,6 +66,29 @@ function raising.footprints(p)
 		{ x = p.x + c * FOOT_OFFSET, y = p.y + s * FOOT_OFFSET, standing = true, angle = a },
 		{ x = p.x - c * FOOT_OFFSET, y = p.y - s * FOOT_OFFSET, standing = true, angle = a },
 	}
+end
+
+-- A lying kubb part way up onto end `which` (1 = +axis, 2 = -axis): it
+-- pivots on that end's bottom edge (II.D.1), t = 0 lying, t = 1 standing on
+-- that end's footprint. Returns its centre and orientation, x, y, z, qw, qx,
+-- qy, qz (the long axis is the body's local z, as core/body has it), for
+-- drawing the crank raise. Pure numbers, no tables.
+function raising.tipPose(p, which, t)
+	local a = p.angle or 0
+	local ux, uy = cos(a), sin(a)
+	if which == 2 then ux, uy = -ux, -uy end
+	local L, S = pitch.kubbLong, pitch.kubbSide
+	local th = t * pi / 2
+	local c, sn = cos(th), sin(th)
+	-- the pivot (the end's bottom edge) and the centre around it, in the plane
+	-- of the axis and up
+	local px, py = p.x + ux * L / 2, p.y + uy * L / 2
+	local along, up = -L / 2 * c + S / 2 * sn, L / 2 * sn + S / 2 * c
+	-- the orientation: the long axis turned from up to along the ground (a
+	-- quarter turn about the horizontal normal), then on by th toward down
+	local nx, ny = -uy, ux
+	local qw, qx, qy, qz = tw.quat.fromAxisAngle(nx, ny, 0, pi / 2 + th)
+	return px + ux * along, py + uy * along, up, qw, qx, qy, qz
 end
 
 -- A standing pose is in bounds when its center is in the half (50% in is in).
