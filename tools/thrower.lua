@@ -283,7 +283,9 @@ end
 
 -- Plays one game to the end. Returns the game and the thrower (its stats).
 -- `check(g)` is called after every action when given (for invariant tests).
-function thrower.playGame(seed, check)
+-- check(g) runs after every action; swap(g), if given, may return a game
+-- to carry on with instead (tests: a game saved and restored mid-match).
+function thrower.playGame(seed, check, swap)
 	local t = thrower.new(seed)
 	local r = t.r
 	local g = rules.new(thrower.options(r))
@@ -322,6 +324,7 @@ function thrower.playGame(seed, check)
 			end
 		end
 		if check then check(g) end
+		if swap then g = swap(g) or g end
 	end
 	t:count("winBy_" .. g.how)
 	return g, t

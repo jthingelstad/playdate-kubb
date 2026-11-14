@@ -1,0 +1,83 @@
+-- A match in progress as plain data, and back (resume). Pure: no playdate.*.
+--
+-- core/match's table `m` is plain tables but for two metatables, the engine
+-- game's (rules.Game) and its score sheet's (notation.Sheet), and the
+-- current throw's setup, which match.setup builds again from the engine.
+-- save.pack copies what a resume needs into tables of numbers, strings and
+-- booleans only (as playdate.datastore writes JSON); save.unpack gives a
+-- match table again with the metatables put back. A table met twice, a
+-- function or a table with both list and named keys is an error: JSON could
+-- not keep it.
+import "core/tw"
+import "core/rules"
+import "core/notation"
+
+local rules, notation = tw.rules, tw.notation
+
+local save = {}
+
+save.version = 1
+
+local function plain(v, seen, path)
+	local t = type(v)
+	if t == "number" or t == "string" or t == "boolean" or t == "nil" then return v end
+	if t ~= "table" then error("save: a " .. t .. " at " .. path) end
+	if seen[v] then error("save: a table met twice at " .. path) end
+	seen[v] = true
+	local n, keys = #v, 0
+	for _ in pairs(v) do keys = keys + 1 end
+	local out = {}
+	if n > 0 then
+		if keys ~= n then error("save: a list with named keys at " .. path) end
+		for i = 1, n do out[i] = plain(v[i], seen, path .. "[" .. i .. "]") end
+	else
+		for k, x in pairs(v) do
+			if type(k) ~= "string" then error("save: a " .. type(k) .. " key at " .. path) end
+			out[k] = plain(x, seen, path .. "." .. k)
+		end
+	end
+	return out
+end
+save.plain = function(v) return plain(v, {}, "") end
+
+-- What a resume needs of match `m`, plus `opts` (the match scene's options:
+-- names, vs), as plain data.
+function save.pack(m, opts)
+	-- the score sheet's current turn is also its last entry in turns: kept as
+	-- an index, the one table the engine reaches two ways
+	local sheet = m.game.sheet
+	local cur, ci = sheet and sheet.current, nil
+	if cur then
+		for i, t in ipairs(sheet.turns) do if t == cur then ci = i end end
+		sheet.current = nil
+	end
+	local ok, d = pcall(save.plain, {
+		v = save.version,
+		game = m.game, start = m.start, mode = m.mode, turn = m.turn, tossed = m.tossed,
+		text = m.text, debris = m.debris,
+		opts = { vs = opts and opts.vs, names = opts and opts.names },
+	})
+	if sheet then sheet.current = cur end
+	if not ok then error(d, 0) end
+	if ci then d.game.sheet.currentIndex = ci end
+	return d
+end
+
+-- The match table again (and the options), or nil and why.
+function save.unpack(d)
+	if type(d) ~= "table" or d.v ~= save.version or type(d.game) ~= "table" then
+		return nil, "not a saved match of this version"
+	end
+	local g = setmetatable(d.game, rules.Game)
+	local sheet = g.sheet
+	if sheet then
+		setmetatable(sheet, notation.Sheet)
+		if sheet.currentIndex then sheet.current = sheet.turns[sheet.currentIndex] end
+		sheet.currentIndex = nil
+	end
+	local m = { game = g, start = d.start, mode = d.mode, turn = d.turn, tossed = d.tossed, text = d.text,
+		settled = nil, setup = nil, debris = d.debris }
+	return m, d.opts or {}
+end
+
+tw.save = save

@@ -28,8 +28,10 @@ title.tune = {
 	startY = 218,
 }
 
-function title.new(provider)
-	return { input = provider, choice = 1, exit = nil, images = {} }
+-- saved: a line about the match in progress ("ASH V BIRCH, TURN 7"), or
+-- nil; with it, B resumes that match.
+function title.new(provider, saved)
+	return { input = provider, choice = 1, exit = nil, images = {}, saved = saved }
 end
 
 function title.update(s)
@@ -39,11 +41,12 @@ function title.update(s)
 	if p:pressed("up") or p:pressed("left") then s.choice = (s.choice - 2) % n + 1 end
 	if p:pressed("down") or p:pressed("right") then s.choice = s.choice % n + 1 end
 	if p:pressed("a") then s.exit = title.choices[s.choice].id end
+	if s.saved and p:pressed("b") then s.exit = "resume" end
 end
 
 local background = nil
 
-local function render(choice)
+local function render(choice, saved)
 	local t = title.tune
 	background = background or gfx.image.new("images/title")
 	local img = gfx.image.new(400, 240, gfx.kColorBlack)
@@ -68,6 +71,7 @@ local function render(choice)
 		x = x + bw + t.gap
 	end
 	ui.button("A", "START", t.startRight - ui.buttonWidth("START"), t.startY, true)
+	if saved then ui.button("B", "RESUME " .. saved, 12, t.startY, true) end
 	gfx.popContext()
 	return img
 end
@@ -75,7 +79,7 @@ end
 function title.draw(s)
 	local img = s.images[s.choice]
 	if not img then
-		img = render(s.choice)
+		img = render(s.choice, s.saved)
 		s.images[s.choice] = img
 	end
 	img:draw(0, 0)

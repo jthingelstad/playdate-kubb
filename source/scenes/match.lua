@@ -54,6 +54,7 @@ import "core/cards"
 import "render/cards"
 import "scenes/settle"
 import "core/names"
+import "core/save"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
@@ -104,7 +105,21 @@ local function writeFile(s, finish)
 	return path
 end
 
+-- The match in progress, saved for a resume (core/save, playdate.datastore
+-- "match") before every throw and settle step; a finished match deletes it.
+-- Scripted matches (self-tests) never touch it.
+local function persist(s)
+	if s.opts.seed or s.opts.instant or s.opts.noSave then return end
+	if cmatch.over(s.m) then
+		playdate.datastore.delete("match")
+	else
+		playdate.datastore.write(tw.save.pack(s.m, { vs = s.opts.vs, names = s.opts.names }), "match")
+	end
+end
+scene.persist = persist
+
 local function over(s)
+	persist(s)
 	s.phase = "over"
 	s.setup = nil
 	s.ts.readout = nil
@@ -119,6 +134,7 @@ end
 local function nextThrow(s)
 	local m = s.m
 	if s.opts.maxTurns and m.game.turn > s.opts.maxTurns and not cmatch.over(m) then cmatch.resign(m) end
+	if not cmatch.over(m) then persist(s) end
 	-- the defender raises kubbs and places punishment kubbs by hand first
 	-- (scenes/settle); scripted matches leave it to the engine (match.setup)
 	if s.byHand and not cmatch.over(m) then
@@ -187,9 +203,12 @@ function scene.new(provider, opts)
 	-- raising and punishment kubbs by hand, except in scripted matches
 	s.byHand = not (s.opts.seed or s.opts.instant or s.opts.autoSettle)
 	s.cpu = s.opts.vs        -- the Playdate's side, or nil
-	if s.cpu then
+	if s.cpu then s.cpuRng = autothrow.rng(s.opts.cpuSeed or playdate.getSecondsSinceEpoch()) end
+	if s.opts.resume then
+		-- a saved match (core/save.unpack): on from where it was left
+		s.m = s.opts.resume
+	elseif s.cpu then
 		s.m = cmatch.new { start = now(), surface = "Grass", teams = teams(s.opts), mode = "Vs Playdate" }
-		s.cpuRng = autothrow.rng(s.opts.cpuSeed or playdate.getSecondsSinceEpoch())
 	else
 		s.m = cmatch.new { start = now(), surface = "Grass", teams = teams(s.opts) }
 	end

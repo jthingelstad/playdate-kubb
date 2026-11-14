@@ -299,6 +299,8 @@ matches (about a minute; `--quick` about 10 s).
   bodies in its `FAIL` line.
 - `title`: the title with VS PLAYDATE chosen (frame 1), PRACTICE after two right presses
   (frame 2), and A must leave with `practice`.
+- `resume`: a match driven to turn 3, saved by the scene, read back through the
+  datastore and resumed (frames: the title's B RESUME line, the resumed hand-off card).
 - `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
   long second name drawn smaller); a name with no letter is refused, B goes back, and the
   names become the match's teams.
@@ -805,6 +807,18 @@ own item). Practice is the throw scene exactly as before.
   labels and the game file use them. `main.lua`: title -> `names` -> `play`; the winner
   card's A is `rematch`, the same options again with no names screen. Self-test `names`
   (scripted, no keyboard: `names.type`, `ok`, `back`).
+- Saved games and resume (`core/save.lua`, pure and tested): before every throw and settle
+  step the match scene saves the match in progress (`scene.persist`: `save.pack(m, {vs,
+  names})` to `playdate.datastore` "match"); a finished match deletes it; leaving for the
+  title keeps it. Scripted matches (`seed`, `instant`, `noSave`) never touch it.
+  `save.pack` copies the engine game, the sheet, the debris and the clock into plain data
+  (no shared tables, functions or mixed tables: `save.plain` refuses them; the sheet's
+  `current` turn, the one table reached two ways, is kept as `currentIndex`);
+  `save.unpack` puts the `rules.Game` and `notation.Sheet` metatables back.
+  `tests/lua/test_save.lua` plays 40 seeded games saved and restored every 7th action
+  and needs the same game file as straight through. With a save, the title shows `B
+  RESUME <A> V <B>, TURN n` beside A START; `main.lua` opens `resume` from it (the match
+  scene's `opts.resume`, its names and VS kept for a rematch). Self-test `resume`.
 - VS PLAYDATE (`scenes/match` with `opts.vs = "B"`; `main.lua` opens it as `"vs"`, and a
   rematch keeps it): the player is Team A (the name entered, "You" by default), the
   Playdate Team B "Playdate" (the

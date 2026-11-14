@@ -28,6 +28,7 @@ local rules = {}
 
 local Game = {}
 Game.__index = Game
+rules.Game = Game        -- (core/save restores a saved game with it)
 rules.Game = Game
 
 local function fail(msg) error("rules: " .. msg, 3) end
