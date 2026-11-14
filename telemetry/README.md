@@ -27,5 +27,30 @@ installed.
 | `run6-cheaper-rough.txt` | the rough as two on-screen fills, no speed lines; variants for tufts (16, 8, 0) and the draw estimate |
 | `run7-speed-fix.txt` | the fix: no tufts, the estimate rising by a quarter; 0.44 of real time |
 | `run8-bursts.txt` | with the hit bursts: 0.44 (0.45 without them); the first burst's image loading made a 173 ms frame, since moved to launch |
+| `run9-resume-save-cut-short.txt` | the resume save timed (pack 42 ms, write 68, read 20); cut short by mounting the disk |
+| `run10-resume-save.txt` | the same, run to the end |
+| `run11-save-no-copy-cut-short.txt`, `run12-save-no-copy-cut-short.txt` | the save handing the datastore the live tables (pack 0.5 ms); cut short |
+| `run13-bursts-at-touch.txt` | bursts timed by the first touch: still 250 to 320 ms of shown time late, the physics not yet at the topple |
+| `run14-bursts-predicted.txt` | the fall judged at the impact: bursts 2 to 6 ms after it; 0.43 |
+| `run15-camera-half-circle.txt` | the camera's half circle at 40 ms a frame: 0.36 against 0.42 without it, the hit 6.4 s against 4.2 |
 
 `watchdog-reset.txt` is the reset caused by the slow punishment kubb search, since fixed.
+
+## 2026-11-14
+
+The overnight QA build, after midnight (US Central).
+
+| Bench file | Build |
+| --- | --- |
+| `run1-half-circle-variants.txt` | the half circle's variants: at 40 ms a frame the hit takes 6.7 s, at 60 ms 4.7, without it 4.2 (0.34, 0.40, 0.42); the open view costs nothing measurable |
+| `run2-final-main.txt` | final `main` after the night's merges: 0.39 to 0.40 (0.41 without the half circle), the hit 4.6 to 4.8 s, nothing starved; bursts 4 to 12 ms after the impact |
+| `run3-collector-held.txt` | the collector held off in flight (not merged): 0.39, the same as without the hold (0.40) |
+
+`soak/` holds the device soak's `soak.txt` (`AGENTS.md`, "Measuring on the device"):
+
+| Soak file | Build |
+| --- | --- |
+| `run1-final-main.txt` | final `main`: three whole matches (16, 25 and 7 turns, 402 throws, 40 minutes), no error, 56 save checks good, memory steady at about 1.03 MB after collection; 223 flight frames over 200 ms (worst 302), all in the long matches |
+| `run2-slow-frames.txt` | the same matches' kind with each slow frame broken down: the update 180 to 350 ms where the physics took about 80 (only the baton awake, about 8 ms a step) and the draw about 30; the collector ran in every one (15 to 28 KB freed) |
+| `run3-collector-held.txt` | a try at holding the collector off in flight and catching up in the rest hold (not merged): no better, the slow frames unchanged |
+

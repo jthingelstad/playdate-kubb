@@ -560,7 +560,9 @@ writes no game file (option `noFile`) and turns the recorder and frame log off, 
 an error ends that match with its traceback. `soak.txt` gets per match the turns, throws
 and ending, frames over 100 and 200 ms, the slowest frames with the phase and throw mode,
 memory after a full collection before and after and the most seen, and the save checks;
-then a summary and `soak done` (about 10 minutes a match). Self-test `soak` (one short
+then a summary and `soak done` (about 10 minutes a match). Each slow frame listed says
+where its time went: the update (of it the physics and its steps), the draw, the bodies
+awake and the memory the collector gave back that frame. Self-test `soak` (one short
 match).
 
 For hours of testing over USB (benches and installs with nobody at the device), put an

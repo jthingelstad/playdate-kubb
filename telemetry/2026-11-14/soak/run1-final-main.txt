@@ -1,0 +1,16 @@
+
+soak 2026-11-14 01:09: 3 matches, max 24 turns; memory 1035 KB
+match 1 (seed 847955368): finished; turn 16, throws 137, winner B (king)
+  frames 19919, over 100 ms 360, over 200 ms 63; memory 926 KB -> 1026 KB after collection, most 1418 KB
+  save checks 19, failed 0
+  slowest ms: 272 play/flight, 272 play/flight, 270 play/flight, 264 play/flight, 264 play/flight, 263 play/flight
+match 2 (seed 847956201): finished; turn 25, throws 219, winner B (resigned)
+  frames 31362, over 100 ms 566, over 200 ms 150; memory 1026 KB -> 1033 KB after collection, most 1395 KB
+  save checks 31, failed 0
+  slowest ms: 302 play/flight, 299 play/flight, 298 play/flight, 296 play/flight, 293 play/flight, 290 play/flight
+match 3 (seed 847957506): finished; turn 7, throws 46, winner A (king)
+  frames 6504, over 100 ms 119, over 200 ms 10; memory 1033 KB -> 1014 KB after collection, most 1200 KB
+  save checks 6, failed 0
+  slowest ms: 229 play/flight, 219 play/flight, 218 play/flight, 215 play/flight, 210 play/flight, 209 play/flight
+soak summary: 3 matches, 0 ended by an error, 57785 frames, 223 over 200 ms, 40.0 min
+soak done
