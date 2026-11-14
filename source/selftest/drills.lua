@@ -2,7 +2,8 @@
 -- three times to KING SHOTS (frame 1: the menu on it), A starts; each throw is
 -- a straight baton at the king (throw.autoLaunch) shown at rest at once.
 -- Frame 2: the result card; B back to the menu (frame 3: its BEST and LAST
--- TEN). The check: six throws were tallied, the record holds the run.
+-- TEN). The check: six throws were tallied, the record holds the run, and a
+-- second run left part way (scene.quit) goes back to the menu unrecorded.
 import "core/tw"
 import "core/autothrow"
 import "scenes/drills"
@@ -47,6 +48,11 @@ tw.selftest.scenarios.drills = {
 		elseif ctx.done1 then
 			local r = s.records.king
 			if not r or r.runs ~= 1 or r.best ~= s.run.score then error("record") end
+			-- the System Menu's "Drill: menu" leaves a run part way, unrecorded
+			scene.startRun(s, s.drill)
+			scene.quit(s)
+			if s.phase ~= "menu" or s.records.king.runs ~= 1 then error("quit: " .. s.phase) end
+			scene.draw(s)
 			ctx:capture()
 			return true
 		end
