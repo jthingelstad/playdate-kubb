@@ -54,13 +54,42 @@ test("burstpick: a king that falls after the window is the king burst once it is
 	expect.eq(a.id, "king")
 end)
 
+local function mover(id, touchT, v, extra)
+	local b = { kind = "kubb", id = id, touchT = touchT, awake = true, vx = v, vy = 0, vz = 0, wx = 0, wy = 0, wz = 0 }
+	for k, x in pairs(extra or {}) do b[k] = x end
+	return b
+end
+
+test("burstpick: a hard strike is falling at its impact, before the topple is computed", function()
+	-- the physics has run to 1.02 s: b3 struck at 1.00 s at 2 m/s, not yet down
+	local w = fake { { kind = "baton" }, mover("b3", 1.0, 2.0) }
+	w.time = 1.02
+	local kind, a, _, sure = pick.pick(w, 1.0)
+	expect.eq(kind, "clean"); expect.eq(a.id, "b3"); expect.eq(sure, false)
+	-- a soft touch (0.2 m/s) waits for the topple
+	local w2 = fake { mover("b3", 1.0, 0.2) }
+	w2.time = 1.02
+	expect.eq((pick.pick(w2, 1.0)), nil)
+	-- a piece already down before the throw never counts, however hard it is hit
+	local w3 = fake { mover("d1", 1.0, 3.0, { toppled = true }) }
+	w3.time = 1.02
+	expect.eq((pick.pick(w3, 1.0)), nil)
+	-- once down it is sure; left standing (asleep, no topple) its burst is taken back
+	local b = mover("b3", 1.0, 2.0, { toppleT = 1.3 })
+	w = fake { b }; w.time = 1.4
+	expect.eq(select(4, pick.pick(w, 1.0)), true)
+	expect.eq(pick.stoodUp(mover("b3", 1.0, 0, { awake = false }), false), true)
+	expect.eq(pick.stoodUp(mover("b3", 1.0, 2.0), false), false)
+end)
+
 test("burstpick: the burst comes at the impact, not when the piece is down", function()
 	-- b3 struck at 1.00 s, down at 1.35 s
 	local w = fake { { kind = "baton" }, { kind = "kubb", id = "b3", touchT = 1.0, toppleT = 1.35 } }
 	expect.eq((pick.pick(w, 0.99)), nil)
 	expect.eq((pick.pick(w, 1.0)), "clean", "on screen at the impact")
-	-- a kubb struck but still standing gets nothing
-	local w2 = fake { { kind = "kubb", id = "b2", touchT = 1.0 } }
+	-- a kubb struck but still standing (and still) gets nothing
+	local w2 = fake { { kind = "kubb", id = "b2", touchT = 1.0, awake = false } }
+	w2.time = 5
 	expect.eq((pick.pick(w2, 5)), nil)
 	-- the double's window runs from impact to impact
 	local w3 = fake { { kind = "kubb", id = "b3", touchT = 1.0, toppleT = 1.3 },

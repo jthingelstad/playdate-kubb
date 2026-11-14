@@ -919,14 +919,20 @@ on it, with a knock.
 - `core/world` stamps each body with `touchT`, the first time anything struck it (in the
   contact store, one test a contact, no arithmetic), and each piece it topples with
   `toppleT` (pieces down before the throw have none). `core/burstpick.pick(w, showTime)`
-  (pure, tested) says which burst and when, by the toppled pieces' impact times
-  (`burstpick.hitTime`: `touchT`, else `toppleT`): the burst starts once the picture
-  reaches the first one's impact (and the physics has run past its topple, which the slow
-  motion gives it time to do; `render/burst` keeps how late it started, `B.gap`, and the
-  autobench reports it). The king toppled within `window` (0.4 s) of the first impact, or
-  struck by the time on screen, is `king` (a king that falls later replaces the burst showing, from its
-  start, with the king's knock); a second toppled kubb struck within the window is
-  `double`, else `clean`; nothing for a miss or a touch that leaves
+  (pure, tested) says which burst and when, by the struck pieces' impact times
+  (`burstpick.hitTime`: `touchT`, else `toppleT`). The physics cannot reach a topple
+  before the picture reaches the impact (the device ran 262 ms of shown time late that
+  way), so a kubb or king is judged falling at its impact: toppled already, or struck
+  within `judgeFor` (0.5 s) and moving at `fallV` (0.5 m/s) or turning at `fallW`
+  (5 rad/s) or more (`burstpick.falling`, which also says whether it is `sure`, that is
+  toppled). The burst starts when the picture reaches the first falling piece's impact;
+  one that was not sure and then comes to rest standing (`burstpick.stoodUp`) is taken back
+  (`B.takenBack`: the burst ends at once). `render/burst` keeps how late it started,
+  `B.gap`, and the autobench prints it: 2 to 6 ms of shown time on the device (2026-11-13),
+  within one slow-motion frame. The king falling within `window` (0.4 s) of the first
+  impact, or struck by the time on screen, is `king` (a king that falls later replaces the
+  burst showing, from its start, with the king's knock); a second falling kubb struck
+  within the window is `double`, else `clean`; nothing for a miss or a touch that leaves
   the kubb standing, and nothing for kubb tosses or drills.
 - `render/burst.lua`: three images per kind, `images/burst/<kind>-1..3` (flash, burst with
   the word, break-up) from `tools/art/build.py` (`BURST_*`; 2-bit PNGs with a clear

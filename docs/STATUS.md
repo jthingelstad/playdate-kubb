@@ -32,7 +32,10 @@ quarter of a step (`throw.tune.estRise`).
 ## Hit bursts
 
 TOK!, KLAK KLAK! and KING! with synthesized knocks (AGENTS.md "Hit bursts"). Jamie kept
-the board's words over the brief's POW / BAM (2026-11-13).
+the board's words over the brief's POW / BAM (2026-11-13). The burst and its knock start
+at the baton's impact, not once the piece is down (Jamie, 2026-11-13): the piece is judged
+falling from how hard it was struck, and a burst for one that stands back up is taken back.
+On the device the burst now starts 2 to 6 ms of shown time after the impact (it was 262).
 
 ## Changed from the boards on Jamie's word (2026-11-13, playing on the device)
 
