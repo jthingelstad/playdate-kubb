@@ -286,7 +286,11 @@ power) except `softChance` 5% between 850 and 1000 (short), shake even between 0
 average, 3% out. Over 40 physics matches (seed 2): 25.3 turns a game, batons hit a base
 kubb 45% and a field kubb 59% of the time, 1% helicopters, 2% of drilled kubbs rethrown,
 30 won on the king and 10 resigned at the turn limit (the old lobbing thrower over 20:
-5 resigned). `tools/physmatch.lua` prints these counts after its games.
+5 resigned). `tools/physmatch.lua` prints these counts after its games. After the baton
+hits pass ("Physics", "Baton hits"; `tools/batonprobe.lua --rates 400`, its own set-ups):
+base kubbs 44% -> 48%, a field kubb 2 to 5 m out 64% -> 71%, the king 51% either way;
+40 physics matches (seed 2) 20.4 -> 25.9 turns, base 42% -> 48%, field 58% -> 61% (more
+kubbs knocked down means more come back as field kubbs, so games run longer).
 `tools/physmatch.lua [--n --seed --out --maxturns -v]` plays whole matches through
 `core/match` with every throw run by `core/world` to rest (the match scene's path without
 the screen; about 0.7 s a match on a Mac) and writes the game files. Team sizes go round
@@ -817,6 +821,9 @@ Every number that is a guess lives in one table per module, with a comment:
   `tw.world.surfaces`: one parameter set per ground (grass, sand, snow; ice is a marked
   placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
   (Physics, "The ground's texture"). `world.SURFACES` lists the playable ones in order.
+- `tw.collide.tune` (`source/core/collide.lua`): `batonRound`, how rounded a box's edges are
+  to a baton ("Physics", "Baton hits"). `world.tune.batonTurnHold` and `rollCap`: how the
+  ground holds a baton's spin.
 - `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds,
   and `bench.debris`, the lying batons and kubbs of a full turn).
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
@@ -942,6 +949,8 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     landing plugs, almost no bounce, icy and soft patches, and it ploughs. Over 400 scripted
     batons (`tools/groundstats.lua --surface`): the slide after touching down is 1.39 m on
     grass, 0.46 on sand, 1.85 on snow; a kubb toppled in 11.5%, 6.0% and 11.8% of throws.
+    Since the baton hits pass (below; 300 throws each): 1.76, 0.64 and 1.98 m (1.39, 0.45
+    and 1.88 before in the same run); toppled 11.7%, 8.0% and 13.7% (11.7, 6.7, 13.0).
     Physics matches (20 each, seed 7, `tools/physmatch.lua --surface`): 21.1, 29.6 and
     21.6 turns; on sand a baton has to land on its kubb.
   - **Nothing slides on an end.** A baton within 30 degrees of upright, touching the
@@ -968,6 +977,54 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     Simulator self-tests catch it). Tests: `test_ground.lua`.
   - This changed every throw on grass on purpose, so dumps after a scenario are not
     identical to before; the lone flight is untouched (no ground in the air).
+- **Baton hits** (Tyler's play test, 2026-11-15: "a baton phased through a kubb", "a fast
+  baton barely moved a kubb", "hit twice hard and did not fall", "kubbs feel like they
+  glide"). `lua5.4 tools/batonprobe.lua [--quick] [--tyler traces.jsonl] [--rates n]
+  [--set name=value]` measures them: a sweep of batons from the baseline at one kubb 8 m
+  out (lofts 8 to 50, carries 0.6 m short to 0.35 m long, three grounds), end-first
+  landings, a traces file's batons replayed, and the computer's hit rates. No baton passes
+  through a kubb (replays of Tyler's 76 batons, with and without wind and debris); three
+  things were wrong:
+  - **Square edges.** A baton that clipped a kubb's top edge met the top face, normal
+    straight up, and pressed the kubb into the grass (it could not tip it with friction
+    alone), so it seemed to pass through. `collide.tune.batonRound` (0.01 m): a capsule meets
+    a box (a kubb, the king) as a box of half sides 0.01 smaller swept by a 0.01 ball, so an
+    edge gives a normal between its faces (`sphereBox`; the contact point stays on the
+    baton). Stakes meet boxes square (THE WALL's measurements stand). Boxes meet the ground
+    and each other as before.
+  - **The bounce.** The restitution passes act on the contacts that bounce and nothing else,
+    so a baton's bounce off a standing kubb was applied with nothing holding the kubb's
+    footing: part of it drove the kubb into the grass and the ground threw it up the next
+    step. Keeping every ground contact in the passes (target 0) fixed that but let a kubb
+    tipping onto a lying one sink into it (`test_physics`, the leaner), so it was not kept;
+    `pairE` (wood on wood) went from 0.35 to 0.2 instead, which shrinks the bounce that
+    escapes.
+  - **A baton's spin on the ground** was held as one vector by `rollResist`: the angular
+    impulse that stops a spin along its own direction. A baton turns most easily about its
+    long axis, so any part of its spin along it made that impulse tiny, and a baton landing
+    on an end lost all of its spin in the one hard step of the landing and went on without
+    turning. Now its spin is held in two parts, each never past stopping: the end-over-end
+    turn by the plug (`b.dig`) and `batonTurnHold` (1) of the rolling resistance
+    (`surf.roll`), its roll about the long axis by the plug and all of it; the rolling
+    resistance takes the ground's impulse only up to `rollCap` (4) times the baton's weight
+    a step (the turf giving under its weight, not a landing's spike). Boxes keep
+    `rollResist`.
+  - **Measured** (the sweep, 747 to 757 throws that touched the kubb; before -> after):
+    toppled 90% -> 90%; fast (over 6 m/s at the touch) and left standing 44 -> 29;
+    tilted past 25 degrees and back up 8 -> 3; the kubb off the ground (its lowest point
+    over 1 cm) 67% -> 65%, for 0.2 s or more 168 -> 140; end-first landings that lost
+    three quarters of their spin within 0.05 s 139 of 391 (36%) -> 55 (14%). Tyler's 76
+    batons toppled something 42 -> 45 times. A touched king falls 66% either way. Over
+    `tools/compound.lua --quick` two kubbs side by side 3 cm apart both fall 5% -> 10%,
+    three 11% -> 16%, two in line 30 cm apart 47% -> 32%. Batons keep turning, so they go
+    farther on the ground (grass 1.39 -> 1.76 m, `tools/groundstats.lua`) and slide on an
+    end as little as before (0.007 -> 0.008 s a throw).
+  - **Cost** (`make bench`, desktop): the match case's steps cost the same (lone 0.001,
+    ground 0.010 to 0.011, multi 0.014 to 0.016 ms); the bench throw now wakes six bodies
+    instead of four (513 collision steps instead of 187), so its own per-step figure reads
+    higher for that reason. Not bit-identical: every throw with a baton touching a box or
+    the ground, and every wood-on-wood bounce. Box-only scenarios without a bounce over
+    0.4 m/s and the lone flight are unchanged (`test_loneflight` holds).
 - Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
   tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
   would save about 8% of a collision step but changes the feel, so it was not applied.

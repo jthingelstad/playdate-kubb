@@ -237,9 +237,11 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
 - **Kubbs and king:** boxes. Ground contact at the eight corners with friction and low
   restitution. Tipping about an edge, rocking back upright, and falling are all the same
   contact solver, not a state machine. A standing kubb sleeps until something touches it.
-- **Collisions:** capsule against box (closest point on the segment to the box), box against
-  box (corners of each inside the other, which misses pure edge-on-edge contact; acceptable at
-  this scale and revisited if dominoes look wrong).
+- **Collisions:** capsule against box (closest point on the segment to the box, the box's
+  edges rounded by a centimetre: wood is never a knife edge, and a baton that clips a kubb's
+  top edge tips it rather than pressing it into the grass; Tyler's play test, 2026-11-15),
+  box against box (corners of each inside the other, which misses pure edge-on-edge contact;
+  acceptable at this scale and revisited if dominoes look wrong).
 - **Ground:** the surface is a game option chosen per game (Jamie, 2026-11-13: "Kubb plays
   very different based on the surface"), and each surface is one set of contact parameters:
   friction, bounce, and a "dig" term that takes extra energy when a corner or edge arrives
