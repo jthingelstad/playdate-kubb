@@ -71,3 +71,20 @@ and every degree off the notch counted in full. Fixed by calling the stop only w
 crank all but halts (`releaseStopDps`) and the forgiving notch (`releaseTolDeg`,
 `releaseGain`). These lines end at the old release, so they replay as unfinished under the
 new rule.
+
+## 2026-11-15
+
+The first play test of the clock throw (PR #91), practice at Club level, about 9:00 to 9:20
+(US Central). `traces.jsonl` is the device's whole file; its 24 `"release":"clock"` lines
+are the new throw (13 batons, 9 drilled kubbs, some thrown badly on purpose). What they
+showed:
+
+- The power verdict ignored the flick: the first throw had its backswing on the target and
+  a 534 deg/s flick, went 2.6 m of 8 and said ON (now SLOW).
+- Flicks ran 830 to 1620 deg/s, most past `fullFlickDps` (1000); every swing measured steady
+  (shake 0.06 to 0.13).
+- Baton stops ran late against 3 o'clock: for a 90 degree plan they stopped at 84 to 120,
+  median about 106, so throws went high and long (8 to 10.8 m for 8). Drills stopped on
+  their half past 1 plan (median about 135).
+- Drills at 3 taps of spin moved 4 to 22 cm sideways after landing, nowhere near what a
+  spun kubb does.
