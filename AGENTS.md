@@ -647,7 +647,7 @@ self-test draws every card. `scenes/howtoplay.lua` keeps each card's image once 
    thrown again, out twice and you pick the spot. 4. FIELD KUBBS FIRST: a base kubb hit too
    soon is stood back up; field kubbs left standing let the other team step up to the one
    nearest the middle. 5. THE KING LAST: from your baseline once all their kubbs are down;
-   too early and you lose, or if a kubb thrown in hits him. 6. THE SCORE SHEET: every game
+   too early and you lose, or if a kubb thrown in knocks him over. 6. THE SCORE SHEET: every game
    in Planet Kubb Notation, under the title's System Menu "Games"; A: HOW TO THROW.
 
 ## HOW TO THROW
