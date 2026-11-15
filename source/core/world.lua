@@ -58,9 +58,18 @@ world.tune = {
 	margin = 0.002,        -- m; contacts are made this far before touching, plus the distance
 	                       -- the pieces can close in one step (speculative contacts)
 	restitutionSpeed = 0.4,-- m/s; slower impacts do not bounce
+	batonTurnHold = 1,     -- share of the ground's rolling resistance (surf.roll) that also holds a
+	                       -- baton's end-over-end turn on the ground (all of it holds its roll
+	                       -- about the long axis; the plug, dig, holds both)
+	rollCap = 4,           -- a baton's rolling resistance takes the ground's impulse up to this
+	                       -- many times its weight a step (a landing's one hard step is far more)
 	restitutionIterations = 4, -- bounce passes (one pass over a flat landing's corners overshoots)
 	pairMu = 0.4,          -- wood on wood friction (guess; dry wood 0.25 to 0.5)
-	pairE = 0.35,          -- wood on wood bounce (guess)
+	pairE = 0.2,           -- wood on wood bounce (guess; 0.35 until 2026-11-15: a baton's bounce off a
+	                       -- standing kubb is applied with nothing holding the kubb's footing, so
+	                       -- part of it drove the kubb down and the ground threw it up; at 0.2,
+	                       -- over tools/batonprobe.lua's sweep, half the bounce-backs and a sixth
+	                       -- fewer kubbs off the ground for 0.2 s or more)
 	warm = 0.9,            -- fraction of last step's ground impulses applied up front
 	gyro = true,           -- gyroscopic term (torque-free precession; implicit, stable)
 	sleepLin = 0.03,       -- m/s: below this ...
@@ -1344,10 +1353,53 @@ function world.step(w)
 						end
 					end
 					b.wx, b.wy, b.wz = wx, wy, wz
+				elseif b.shape == 2 then
+					-- a baton: its spin taken in two parts, each held by an angular
+					-- impulse (lever times the ground's impulse), never past stopping
+					-- that part: its end-over-end turn by the plug (dig) and
+					-- batonTurnHold of the rolling resistance (surf.roll), its roll
+					-- about the long axis by the plug and all of it. As one vector
+					-- (rollResist) a spin with any part along the long axis, where
+					-- the baton turns most easily, read as nearly stopped, and a
+					-- baton landing on an end lost all of its spin in that step and
+					-- went on without turning (Tyler's play test, 2026-11-15:
+					-- "gliding"; tools/batonprobe.lua)
+					local ux, uy, uz = b.r13, b.r23, b.r33
+					local wx, wy, wz = b.wx, b.wy, b.wz
+					local wu = wx * ux + wy * uy + wz * uz
+					local px, py, pz = wx - wu * ux, wy - wu * uy, wz - wu * uz
+					local i11, i12, i13, i22, i23, i33 = b.i11, b.i12, b.i13, b.i22, b.i23, b.i33
+					-- (rolling resistance is the turf giving under its weight: it takes
+					-- the ground's impulse up to rollCap times the weight a step, so the
+					-- one hard step of a landing does not stop a turn the plug lets go)
+					local gr = t.rollCap * b.m * t.g * dt
+					if gi < gr then gr = gi end
+					local L = b.dig * gi + t.batonTurnHold * surf.roll * gr
+					local p2 = px * px + py * py + pz * pz
+					if L > 0 and p2 > 1e-12 then
+						local pn = sqrt(p2)
+						local ex, ey, ez = px / pn, py / pn, pz / pn
+						local ix = i11 * ex + i12 * ey + i13 * ez
+						local iy = i12 * ex + i22 * ey + i23 * ez
+						local iz = i13 * ex + i23 * ey + i33 * ez
+						local stop = pn / (ex * ix + ey * iy + ez * iz)
+						if L > stop then L = stop end
+						wx, wy, wz = wx - L * ix, wy - L * iy, wz - L * iz
+					end
+					L = b.dig * gi + surf.roll * gr
+					if L > 0 and (wu > 1e-9 or wu < -1e-9) then
+						local ix = i11 * ux + i12 * uy + i13 * uz
+						local iy = i12 * ux + i22 * uy + i23 * uz
+						local iz = i13 * ux + i23 * uy + i33 * uz
+						local stop = wu / (ux * ix + uy * iy + uz * iz)
+						if stop < 0 then stop = -stop end
+						if L > stop then L = stop end
+						if wu < 0 then L = -L end
+						wx, wy, wz = wx - L * ix, wy - L * iy, wz - L * iz
+					end
+					b.wx, b.wy, b.wz = wx, wy, wz
 				else
-					local lever = b.dig
-					if b.shape == 2 then lever = lever + surf.roll end
-					rollResist(b, lever, gi)
+					rollResist(b, b.dig, gi)
 				end
 				local tex = surf.texture
 				if tex then

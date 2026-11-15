@@ -321,8 +321,21 @@ function collide.boxBox(A, B, margin)
 	cornersInto(B, A, margin, -nx, -ny, -nz)
 end
 
+-- How a baton meets a kubb or the king: the box's edges and corners rounded
+-- to this radius (m). The box is met as one of half sides less this, swept
+-- by a ball of this radius, so a baton that catches an edge gets a normal
+-- between the two faces instead of the top face's straight up (Tyler's play
+-- test, 2026-11-15: a baton clipping a kubb's top edge pressed it down
+-- instead of tipping it, and seemed to pass through it). Wood is never a
+-- knife edge; boxes still meet the ground and each other square.
+collide.tune = {
+	batonRound = 0.01,
+}
+local ROUND = collide.tune
+
 -- Sphere (center c, radius r) belonging to capsule A against box B
--- (pointBox written out).
+-- (pointBox written out), B's edges rounded by ROUND.batonRound (not for a
+-- stake). The contact point is on the sphere, as before.
 local function sphereBox(A, B, cx, cy, cz, r, margin)
 	local Bx, By, Bz = B.x, B.y, B.z
 	local dx, dy, dz = cx - Bx, cy - By, cz - Bz
@@ -331,7 +344,11 @@ local function sphereBox(A, B, cx, cy, cz, r, margin)
 	local lx = r11 * dx + r21 * dy + r31 * dz
 	local ly = r12 * dx + r22 * dy + r32 * dz
 	local lz = r13 * dx + r23 * dy + r33 * dz
-	local hx, hy, hz = B.hx, B.hy, B.hz
+	-- (a stake is a capsule too: it meets boxes square, so a wall of drilled
+	-- kubbs against it is as measured)
+	local br = ROUND.batonRound
+	if A.static then br = 0 end
+	local hx, hy, hz = B.hx - br, B.hy - br, B.hz - br
 	local qx = lx > hx and hx or (lx < -hx and -hx or lx)
 	local qy = ly > hy and hy or (ly < -hy and -hy or ly)
 	local qz = lz > hz and hz or (lz < -hz and -hz or lz)
@@ -355,7 +372,7 @@ local function sphereBox(A, B, cx, cy, cz, r, margin)
 			lnx, lny, lnz, d = 0, 0, (lz >= 0) and 1 or -1, -pz_
 		end
 	end
-	local sep = d - r
+	local sep = d - r - br
 	if sep < margin then
 		local nx = r11 * lnx + r12 * lny + r13 * lnz
 		local ny = r21 * lnx + r22 * lny + r23 * lnz
