@@ -1,7 +1,9 @@
 -- Crank trace recorder: appends one JSON line per swing to traces.jsonl in
--- the game's Data folder (format in core/trace.lua). Turned on from the
--- System Menu ("Record crank"); tools/replay_traces.lua replays the file.
+-- the game's Data folder (format in core/trace.lua). On by default; the
+-- System Menu's "Record" turns it off. logcap keeps the file to about 1 MB
+-- (older lines in traces-1.jsonl). tools/replay_traces.lua replays the file.
 import "core/tw"
+import "logcap"
 import "core/trace"
 import "core/swing"
 
@@ -35,6 +37,7 @@ end
 function recorder.write(event, result)
 	if not recorder.on or recorder.n == 0 then return end
 	local line = tw.trace.encode(recorder.samples, recorder.n, event, result, tw.swing.tune.forwardSign, now())
+	tw.logcap.check(recorder.path)
 	local f = playdate.file.open(recorder.path, playdate.file.kFileAppend)
 	if f then
 		f:write(line .. "\n")

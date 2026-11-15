@@ -98,6 +98,7 @@ import "selftest/match-wind"
 import "selftest/match-vs"
 import "selftest/match-debris"
 import "selftest/cards"
+import "selftest/cards-fit"
 import "selftest/drawcalls"
 import "selftest/clock-gauge"
 import "selftest/clock-throw"
@@ -144,6 +145,9 @@ else
 
 	tw.recorder.on = true
 	tw.framelog.on = true
+	-- "debug" in the Data folder shows the developer's items (the practice
+	-- pitch's "Pitch: readout" and "bench"). Read once at launch.
+	tw.debug = playdate.file.exists("debug")
 	local menu = playdate.getSystemMenu()
 
 	-- The throw scene of the current scene (the match keeps one inside).
@@ -185,8 +189,12 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			item = menu:addOptionsMenuItem("Pitch", { "play", "how to", "reset", "readout", "drill", "batons", "grass",
-				"sand", "snow", "bench", "title" }, "play", function(v)
+			local pitchItems = { "play", "how to", "reset", "drill", "batons", "grass", "sand", "snow", "title" }
+			if tw.debug then
+				table.insert(pitchItems, 4, "readout")
+				table.insert(pitchItems, #pitchItems, "bench")
+			end
+			item = menu:addOptionsMenuItem("Pitch", pitchItems, "play", function(v)
 				if v == "how to" then
 					if current.howto then throw.stopHowTo(current) else throw.showHowTo(current) end
 				elseif v == "readout" then
@@ -314,7 +322,7 @@ else
 			match.enter()
 		else
 			kind = "title"
-			current = title.new(device, savedMatch())
+			current = title.new(device, savedMatch(), not drillsScene.howtoSeen())
 			title.enter()
 		end
 		local ts = throwScene()

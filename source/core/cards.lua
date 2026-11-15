@@ -78,6 +78,9 @@ end
 --   turn              the turn number
 --   base              { top, bottom } standing base kubbs: `from`'s half
 --                     (the far end), then `to`'s
+--   baseText          the card's line for them, the receiving team's own
+--                     first: "YOUR BASE 4 · THEIRS 5" ("BASE 5 V 4" read the
+--                     wrong way round: the RC review of 2026-11-15)
 --   pieces            the pitch in `to`'s view frame (it throws from y = 0,
 --                     the bottom): { x, y, kind = "base"|"field"|"king",
 --                     down }: the ten base slots (down = that base kubb is
@@ -102,6 +105,7 @@ function cards.handoff(m, setup)
 		c.took = cards.took(g, g.turn - 1)
 	end
 	c.base = { #g:baseKubbs(from), #g:baseKubbs(to) }
+	c.baseText = { "YOUR BASE " .. c.base[2], "THEIRS " .. c.base[1] }
 	local pieces = {}
 	-- the ten base slots: standing, or empty (down) once that base kubb is
 	-- knocked; then every field kubb on the pitch

@@ -77,7 +77,7 @@ hud.tune = {
 	-- After a throw (hud.verdicts): power, release, steadiness as one plate of
 	-- three cells, a miss white on black. Below the clear area, right of the
 	-- minimap.
-	verdicts = { x = 73, y = 222, w = 158, h = 15 },
+	verdicts = { x = 73, y = 222, w = 180, h = 15 },   -- w: STEADY needs room in its third (it touched at 158)
 	-- While aiming (hud.planChip): the tilt or spin B has set, in the cut
 	-- flag's place (widening to the left)
 	planChip = { x = 250, y = 182, w = 62, h = 15 },
@@ -501,16 +501,18 @@ function hud.flag(s)
 	P.img:draw(P.x, P.y)
 end
 
--- The match's result line (core/match m.text) as a flag: its first part,
--- 12 characters or fewer. Once per throw, not per frame.
+-- The match's result line (core/match m.text) as a flag: its first part, in
+-- words a newcomer can read (the RC review of 2026-11-15: KING EARLY and
+-- PUT BACK did not say what happened; the flag widens to the left, up to
+-- about 180 px). Once per throw, not per frame.
 local SHORT = {
-	{ "^king down early", "KING EARLY" }, { "^king down", "KING DOWN" }, { "^resigned", "RESIGNED" },
-	{ "^missed the king", "KING STANDS" }, { "^missed", "MISS" }, { "^helicopter", "HELICOPTER" },
-	{ "^own%-half kubb hit", "PUT BACK" }, { "^own half hit", "OWN HALF" },
+	{ "^king down early", "KING TOO EARLY: GAME OVER" }, { "^king down", "KING DOWN" }, { "^resigned", "RESIGNED" },
+	{ "^missed the king", "KING STANDS" }, { "^missed", "MISS" }, { "^helicopter", "HELICOPTER: DOESN'T COUNT" },
+	{ "^own%-half kubb hit", "OWN HALF HIT: PUT BACK" }, { "^own half hit", "OWN HALF HIT: KUBB OUT" },
 	{ "^kubb in for now", "IN FOR NOW" }, { "^kubb out for now", "OUT FOR NOW" },
-	{ "^kubb in", "IN" }, { "^all in", "ALL IN" }, { "^kubb out: rethrown", "RETHROW" },
-	{ "^(%d+) out: rethrown", "%1 RETHROWS" }, { "^out twice", "PUNISHMENT" },
-	{ "^(%d+) punishment", "%1 PUNISHED" }, { "^on a kubb", "LOWERED" }, { "rescue", "RESCUE" },
+	{ "^kubb in", "IN" }, { "^all in", "ALL IN" }, { "^kubb out: rethrown", "OUT: THROW AGAIN" },
+	{ "^(%d+) out: rethrown", "%1 OUT: THROW AGAIN" }, { "^out twice", "OUT TWICE: PUNISHMENT" },
+	{ "^(%d+) punishment", "%1 PUNISHMENT KUBBS" }, { "^on a kubb", "ON A KUBB: LOWERED" }, { "rescue", "RESCUE" },
 }
 function hud.short(s)
 	if not s then return nil end

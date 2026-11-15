@@ -61,6 +61,21 @@ function lineup.add(L, side, e)
 	return true
 end
 
+-- A player just made on the teams screen (+ PLAYER or + GUEST) takes an
+-- empty team's place at once, so a first match needs no trip through the
+-- bench (the RC review of 2026-11-15): Team A when it is empty, else Team B
+-- when it is empty and not the Playdate's. Returns the side, or nil when both
+-- teams have players already (the player waits on the bench as before).
+function lineup.seatNew(L, e)
+	for _, side in ipairs { "A", "B" } do
+		if #L[side] == 0 and not (L.vs and side == "B") then
+			if lineup.add(L, side, e) then return side end
+			return nil
+		end
+	end
+	return nil
+end
+
 -- Take player i off `side` (back to the bench); returns the entry.
 function lineup.remove(L, side, i)
 	return table.remove(L[side], i)

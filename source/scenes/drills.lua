@@ -44,7 +44,7 @@ scene.tune = {
 	recordsKey = "drills",
 }
 
-local OPEN <const> = { id = "open", name = "OPEN PITCH", lines = { "THE PRACTICE PITCH", "THROW AS YOU LIKE", "SYSTEM MENU: PITCH" } }
+local OPEN <const> = { id = "open", name = "OPEN PITCH", lines = { "THROW AS YOU LIKE", "SYSTEM MENU, PITCH:", "RESET, SURFACE, KUBBS" } }
 -- HOW TO THROW (core/howto over the practice pitch), last on the list; the
 -- menu starts on it until it has been seen once (datastore "howto", seen = 2:
 -- the clock throw's; 0.2.0's walkthrough wrote seen = true)
@@ -188,17 +188,21 @@ local function renderMenu(s)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, "PRACTICE", 6, 2, true)
 	-- who is practising (left/right), and at what level
-	ui.text(label, s.player and (s.player.name .. "  " .. s.player.level .. "  < >") or "NO PLAYER  < >",
+	-- ("PLAYER:" says what left/right change: who is practising, for their level and records)
+	ui.text(label, "PLAYER: " .. (s.player and (s.player.name .. "  " .. s.player.level) or "NO ONE") .. "  < >",
 		394, 2, true, "right")
 	-- rows a little closer together when the list would run into the buttons
 	local n = #s.items
 	local rowH = math.min(t.itemH, floor((t.listBottom - t.itemY) / n))
-	local boxH = math.min(28, rowH)
+	-- the box round the chosen row is centred on its caps, as tall as the row
+	-- allows without touching the rows either side (6 px each way at most)
+	local pad = math.min(6, floor((rowH - 16) / 2) - 1)
 	for i, d in ipairs(s.items) do
 		local y = t.itemY + (i - 1) * rowH
 		if i == s.choice then
 			gfx.setColor(WHITE)
-			gfx.fillRect(8, y - floor(boxH * 6 / 28), t.panelW - 16, boxH)
+			local by, bh = ui.capBox(y, pad)
+			gfx.fillRect(8, by, t.panelW - 16, bh)
 		end
 		-- a name too wide for the panel at cap 16 goes in the label font
 		local f = (big:getTextWidth(d.name) <= t.panelW - 28) and big or label

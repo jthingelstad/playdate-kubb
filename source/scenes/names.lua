@@ -172,7 +172,7 @@ local function render(s)
 	ui.text(label, s.why and (scene.WHY[s.why] or "TRY ANOTHER NAME") or ("UP TO " .. cnames.max .. " LETTERS"),
 		x, t.upToY, true)
 	-- the id in lower case, as the file has it (ui.text would capitalise it)
-	local pre = "GAME FILE ID: "
+	local pre = "ON THE SCORE SHEET: "
 	local pw = ui.text(label, pre, x, t.idY, true)
 	gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
 	label:drawText(cnames.id(s.text ~= "" and s.text or "p"), x + pw, t.idY)

@@ -277,7 +277,8 @@ local function renderList(s)
 		local on = i == s.choice
 		if on then
 			gfx.setColor(WHITE)
-			gfx.fillRect(8, y - 3, t.panelW - 16, t.rowH - 2)
+			local by, bh = ui.capBox(y, 2)   -- centred on the caps (it cut their foot)
+			gfx.fillRect(8, by, t.panelW - 16, bh)
 		end
 		if i == 1 then
 			ui.text(big, "+ NEW PLAYER", 16, y, not on)
@@ -312,7 +313,7 @@ local function renderPlayer(s)
 	gfx.clear(WHITE)
 	gfx.setColor(BLACK)
 	gfx.fillRect(0, 0, t.panelW, 240)
-	rail(label, "PLAYERS", "GAME FILE ID " .. string.upper(s.player.id))
+	rail(label, "PLAYERS", "SCORE SHEET: " .. string.upper(s.player.id))
 	local p = s.player
 	for i, row in ipairs(ROWS) do
 		local y = t.itemY + (i - 1) * 40
