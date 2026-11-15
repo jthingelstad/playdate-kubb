@@ -7,7 +7,9 @@
 -- wholly on screen and the far base kubb at least 12 px tall; in the plan
 -- view (B held: camera.shoulder) the circle on screen, the arc under the top
 -- of the fit box and inside the sides, and at least its last few points
--- showing (its first rise may come in from the lower edge).
+-- showing (its first rise may come in from the lower edge). Then the same
+-- for drills: circles across the area the d-pad allows, the arc down to
+-- where the kubb lands.
 import "selftest/_throw"
 
 local throw = tw.scenes.throw
@@ -68,6 +70,28 @@ tw.selftest.scenarios["aim-arc"] = tw.selftest.throwScenario {
 				end
 			end
 		end
-		return nil, "aims=" .. n
+		-- a drill's arc (down to where the kubb lands, short of its circle),
+		-- circles across the area the d-pad allows (drill.clampMarker)
+		local nb = n
+		throw.setDrill(s, true)
+		for _, tx in ipairs({ 0, -3, 3 }) do
+			for _, ty in ipairs({ 3.5, 6, 8.6 }) do
+				for _, px in ipairs({ false, -2.5, 2.5 }) do
+					for rel = pt.releaseMinDeg, pt.releaseMaxDeg, pt.arcStepDeg do
+						s.stanceSet = false
+						throw.aimAt(s, tx, ty)
+						if px then throw.setStance(s, px, 0) end
+						throw.setArc(s, rel)
+						local why = check(s)
+						if why then
+							return string.format("drill circle %.1f %.1f stance %s release %d: %s", tx, ty,
+								px and tostring(px) or "behind", rel, why)
+						end
+						n = n + 1
+					end
+				end
+			end
+		end
+		return nil, "aims=" .. nb .. " drills=" .. (n - nb)
 	end,
 }

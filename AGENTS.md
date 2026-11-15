@@ -485,10 +485,12 @@ throw).
 ## The aim arc
 
 Jamie and Tyler (2026-11-14): "the player should visually see the arc of the baton throw
-... like a game of billiards on a computer". While a player aims a baton (not a drill, not
-the Playdate's throw), `throw.drawFrame` draws the plan's clean throw over the world
+... like a game of billiards on a computer". While a player aims a baton or a drilled kubb
+(not the Playdate's throw), `throw.drawFrame` draws the plan's clean throw over the world
 (`drawArc`, outside its caches, no tables): from where the player stands, at the plan's
-loft and speed (`arcLaunch`, `s.sol`), onto the target circle; dashed (`arcPoints` 24,
+loft and speed (`arcLaunch`, `s.sol`), onto the target circle (a drill's, 2026-11-15, down
+to where the kubb lands just short of its circle: `drill.solveAt`'s flight time `sol.T`,
+its centre at `drill.tune.landZ`; the circle and the dotted line stay); dashed (`arcPoints` 24,
 every other gap drawn, the first `arcSkip` left out, `arcWidth` 2 px). It shows the plan,
 not the throw: the backswing, the flick and where the crank stops still decide it (and the
 wind will not show in it).
@@ -532,12 +534,14 @@ out to see more of the pitch". The same for batons and drilled kubbs (`aimCamera
   from the camera as it is (the follow camera blends its principal point too). `fire` and
   `throw.prepare` put the mix back to 0. While the camera moves every aim frame redraws the
   world (the frame cache keys on the camera): `camera-swing` counts about 48 graphics calls
-  an aim frame with the camera still and about 168 while it moves (a flight frame's
+  an aim frame with the camera still and about 168 while it moves on batons (a flight frame's
   number), only during the 0.4 s swings and the refit after a tap (`drawcalls`' aim mean,
-  no B held, is unchanged: 54.7 before, 54.8 after).
+  no B held, is unchanged: 54.7 before, 54.8 after). With a drill's arc drawn too the
+  `camera-swing` means are about 54 still and 173 moving.
 - Self-tests: `aim-arc` (first person: the circle on screen and the far base kubb 12 px or
   more; the plan view: the circle on screen and the arc in its box, for targets across the
-  half, every release, three stances), `camera-swing` (first person, half way out, the plan
+  half, every release, three stances; then the same for drill circles across the d-pad's
+  area), `camera-swing` (first person, half way out, the plan
   view, a tap's re-fit, half way back, first person again, exactly the first frame's
   camera; then a drill's).
 
@@ -1060,8 +1064,8 @@ the throw scene with `s.drill` on.
   edge `drill.slideFor` short of the circle); `plan.launch` judges the swing and gives the
   body through `drill.body` (noseDown, rollLand, spin, wobble, digGain). The aim camera is
   the baton's ("The aim camera": first person behind the thrower, looking past the circle,
-  and the plan view while B is held; it replaced `camera.drillAim`, the fixed high drill
-  view, 2026-11-15); the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
+  and the plan view while B is held, with the drill's planned arc; it replaced
+  `camera.drillAim`, the fixed high drill view, 2026-11-15); the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
   and the minimap's aim line goes to the circle. Self-test `clock-drill` (a drill at half
   past 1 rests 0.04 m from the circle on the Simulator).
 - **The band launch** (`drill.launch`, `drill.solve`): the power error against the band is
