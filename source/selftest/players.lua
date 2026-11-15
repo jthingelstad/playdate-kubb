@@ -1,7 +1,8 @@
 -- Scenario "players": the PLAYERS screens (scenes/players) driven by hand,
 -- the keyboard scripted. From an empty self-test roster: Kim made (+ NEW
--- PLAYER, typed, straight to LEVEL, right: pro), Max made, a third "kim"
--- refused as taken, Max renamed to Maxine, then removed.
+-- PLAYER, typed, straight to LEVEL, right: pro), Max and Montgomery (a long
+-- name beside its level) made, a "kim" refused as taken, Max renamed to
+-- Maxine, then removed.
 -- Frames: 1 the keyboard step with "kim" refused, 2 the list (Kim chosen),
 -- 3 Kim's page on LEVEL, 4 the remove card. The check: the roster saved
 -- and read back has Kim at pro and no Maxine, and the scene went to the
@@ -49,6 +50,9 @@ tw.selftest.scenarios.players = {
 				function() names.type(s.sub, "Max"); names.ok(s.sub) end,
 				function() inp.want = "b" end,
 				function() s.choice = 1; s.img = nil; inp.want = "a" end,
+				function() names.type(s.sub, "Montgomery"); names.ok(s.sub) end,   -- a long name beside its level
+				function() inp.want = "b" end,
+				function() s.choice = 1; s.img = nil; inp.want = "a" end,
 				function()
 					names.type(s.sub, "kim")
 					if names.ok(s.sub) then return "a second kim was taken" end
@@ -57,7 +61,7 @@ tw.selftest.scenarios.players = {
 				"capture3",
 				function() names.back(s.sub) end,
 				function() if s.mode ~= "list" then return "back from the keyboard: " .. s.mode end
-					if names_(s.list) ~= "Kim,Max" then return "list " .. names_(s.list) end
+					if names_(s.list) ~= "Kim,Max,Montgomery" then return "list " .. names_(s.list) end
 					s.choice = 2; s.img = nil end,                     -- Kim
 				"capture1",
 				function() inp.want = "a" end,
@@ -74,7 +78,7 @@ tw.selftest.scenarios.players = {
 				function() if s.mode ~= "confirm" then return "no remove card" end inp.want = "a" end,
 				function()
 					local back = tw.roster.valid(playdate.datastore.read(players.fileKey("players")))
-					if names_(back.players) ~= "Kim" then return "saved roster " .. names_(back.players) end
+					if names_(back.players) ~= "Kim,Montgomery" then return "saved roster " .. names_(back.players) end
 					if back.players[1].level ~= "pro" then return "Kim saved at " .. back.players[1].level end
 					inp.want = "b"
 				end,

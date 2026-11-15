@@ -257,8 +257,12 @@ local function renderList(s)
 			ui.text(big, "+ NEW PLAYER", 16, y, not on)
 		else
 			local p = s.list[i - 1]
-			ui.text(big, p.name, 16, y, not on)
-			ui.text(label, scene.levelText(p.level), t.panelW - 14, y + 3, not on, "right")
+			-- the level right-aligned; a name too wide to clear it goes in the label font
+			local lv = scene.levelText(p.level)
+			local room = t.panelW - 14 - label:getTextWidth(lv) - 8 - 16
+			local f = (big:getTextWidth(string.upper(p.name)) <= room) and big or label
+			ui.text(f, p.name, 16, y + ((f == big) and 0 or 3), not on)
+			ui.text(label, lv, t.panelW - 14, y + 3, not on, "right")
 		end
 	end
 	ui.button("A", s.choice == 1 and "NEW" or "OPEN", 16, 216, true)
