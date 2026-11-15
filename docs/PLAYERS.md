@@ -1,6 +1,8 @@
 # Players and teams: the plan
 
-Draft of 2026-11-15, for Jamie to agree before any code. Nothing here is built yet.
+Draft of 2026-11-15. Jamie answered the questions in section 9 the same day: every
+recommendation but one (an old saved match is dropped), so each "Recommended" there is
+the decision. Nothing here is built yet.
 
 Today a match is two teams of one player each, named as the team (`core/names.teams`), and
 the throw is the same for everyone. Jamie decided the throw difficulty, the **Throw level**,
@@ -117,8 +119,7 @@ bound. 40 players come to about 130 KB in all.
 - `drills` (the Playdate's own records): handed to the first player made from `names`
   ("You" if there is none), so nobody's bests vanish.
 - `match` (a match in progress, `core/save`): a save from before this build has no
-  roster keys. It resumes as it is, with one player a team, the level at default, and its
-  history is not folded in. (Or: refuse to resume it. Open question 9.)
+  roster keys, so it is deleted at the first launch (Jamie, 2026-11-15: decision 9).
 
 ## 3. Entering names
 
@@ -132,7 +133,7 @@ for a ten-letter name and would be ours to build and test; not recommended.
 
 Guests: someone who plays once can be added from the team screen like anyone else and
 removed afterwards, or added as a **guest**, a player with a name and level for this match
-only: their id is in the game file, nothing is saved. Open question 3.
+only: their id is in the game file, nothing is saved. Guests are in (decision 3).
 
 ## 4. Building the two teams
 
@@ -206,8 +207,7 @@ The kubbs are thrown by the team's **inkaster**: by default the player who throw
 turn's first baton, so the Playdate is not passed between the inkast and the batons, and it
 can be changed the same way on the pass card. Rethrows and punishment kubbs are the same player's. Real teams tend
 to have one or two specialist inkasters, so a fixed inkaster is closer to real play than
-dealing kubbs round the team. (Open question 5: the alternative is dealing the kubbs in
-blocks like the batons.)
+dealing kubbs round the team (decision 5).
 
 ### What the sheet says
 
@@ -259,20 +259,22 @@ where the level comes from and how it reaches the throw:
   that player's level, and the drill's records go to that player's history.
 - **The Playdate's own level** (Backyard, Club, Championship; DESIGN Q4) is the computer's
   scatter in `core/autothrow`, not a Throw level: the computer does not use the crank.
-  Whether the two scales share names is open question 6.
+  The two scales share names (decision 6) when the throw design has three levels.
 - **In the game file**, so a sheet can be read for what it was: one extra header,
   `[Throw Levels "alex 3, kim 2, max 4, sam 1"]`. The vendored grammar and `kubb.js`
-  accept an extra header (tried: the gate passes it with no warning). Open question 7.
+  accept an extra header (tried: the gate passes it with no warning). It is written
+  (decision 7).
 
 ## 7. Screens
 
 All in the Woodcut look (`docs/design/README.md`): black panels, the display face for
 names, Roobert labels in capitals, ringed A and B buttons, each screen one cached image
-redrawn only on a change. None of them has a board yet (open question 10).
+redrawn only on a change. None of them has a board; they are built in the existing
+boards' style and reviewed from the 2x frames (decision 10).
 
 | Screen | What it shows | New or changed |
 |---|---|---|
-| Players | the roster as a black list on the left (name, level), the chosen player on the right: games, won-lost, hit rate, the last ten games as bars (the Drills board's layout) | new, title menu or System Menu (open question 8) |
+| Players | the roster as a black list on the left (name, level), the chosen player on the right: games, won-lost, hit rate, the last ten games as bars (the Drills board's layout) | new, a fourth title item, PLAYERS (decision 8) |
 | Player | name (A: keyboard), level (left or right), recent games (A opens the sheet), drill bests, REMOVE (a confirm card) | new |
 | New player | the Names board's keyboard panel, then the level | changed (`scenes/names` gives one name) |
 | Teams | section 4 | new, replaces the names step |
@@ -333,10 +335,10 @@ every game.
 Steps 1 and 2 do not depend on each other; 3 needs 2; 4 needs 2 (and 3 for NEW PLAYER);
 5 needs 1 and 4; 6 needs 5 and the throw redesign.
 
-## 9. Open questions for Jamie
+## 9. Questions and decisions
 
-Each has a recommendation; as with DESIGN.md section 10, "all recommendations" is an
-answer.
+Asked 2026-11-15. Jamie took every recommendation except 9, where the old save is dropped
+instead of resumed. Each "Recommended" below is the decision unless it says otherwise.
 
 1. **The baton rule for small teams.** Keep II.A.4 and II.B.5 as far as the team's size
    allows (section 1), or only enforce them for teams of three or more and let a team of
@@ -363,7 +365,8 @@ answer.
    PRACTICE, PLAYERS), or the title's System Menu beside Games? *Recommended:* the
    title, since the teams screen sends people there anyway.
 9. **An old saved match.** Resume a match saved before this build with one player a team
-   and no history, or drop it? *Recommended:* resume it.
+   and no history, or drop it? *Recommended:* resume it. **Decided: drop it** (a test
+   build; little is lost).
 10. **Boards.** Design the new screens (Players, Teams, Pass card) in a Claude Design
     session first, or build them in the existing boards' style and review the
     screenshots? *Recommended:* build in the existing style (Drills and Names boards
