@@ -193,12 +193,14 @@ players as there are batons:
 
 - Blocks keep both rules (section 1) by construction, and mean the Playdate changes hands
   as few times as the rules allow: a player throws their batons in a row.
-- **The rotation moves on** by the number of players who threw: next turn starts with the
-  next player, so with four players the two who throw two each change turn by turn, and
-  in the opening a team's players who did not throw in its turn 1 throw first in its turn 3.
+- **The rotation moves on** past the players who threw an extra baton (past everyone dealt
+  when all threw the same), so the doubles go round the team: with four players the two
+  who throw two each change turn by turn, and in the opening a team's players who did not
+  throw in its turn 1 throw first in its turn 3.
 - **Changing the thrower.** On the pass card (below) B opens the team's list: any player
-  whose turn's batons the rules still allow can take this baton. The rest of the turn is
-  dealt again from what is left. Real teams change who throws to suit the shot (the best
+  whose turn's batons the rules still allow can take this baton. The player it replaces
+  takes the new thrower's next baton, if they had one (a swap), so the rest of the turn
+  keeps its shape. Real teams change who throws to suit the shot (the best
   king shooter takes the king); this keeps that, and keeps the rules.
 
 ### The inkast
@@ -316,6 +318,7 @@ every game.
    lineups of 1 to 6 a side and returns `thrower`; `tools/thrower.lua` and `make games`
    play teams of every size through `core/order` and check every sheet against II.A.4 and
    II.B.5; `tools/physmatch.lua` too. No screens. Fixtures: a 6-a-side game and a 2-v-4.
+   *Built* (AGENTS.md "Throwing order").
 2. **The roster and history, no screens.** `core/roster.lua`, `core/history.lua`, the
    datastore files, the migration; tests that fold the fixture games into histories and
    that a saved roster reads back.

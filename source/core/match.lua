@@ -18,16 +18,24 @@
 --   local text, name = match.file(m, finish, version)
 --
 -- Everything a resume needs (stage 5) is in the one table m: the engine
--- game (plain fields and a metatable), the start time, the surface and the
--- per-turn counters.
+-- game (plain fields and a metatable), the start time, the surface, the
+-- per-turn counters and the throwing order.
+--
+-- Teams have 1 to 6 players (match.new's `teams`, the engine's). Who throws
+-- each kubb and baton is core/order's (docs/PLAYERS.md section 5): blocks
+-- dealt round each team within Rules V4.0 II.A.4 and II.B.5, one inkaster a
+-- turn; match.setup names the thrower (s.thrower) and match.resolve gives
+-- the engine that player's id.
 import "core/tw"
 import "core/rules"
 import "core/notation"
 import "core/frame"
 import "core/outcome"
 import "core/debris"
+import "core/order"
 
 local rules, notation, frame, outcome, debris = tw.rules, tw.notation, tw.frame, tw.outcome, tw.debris
+local order = tw.order
 local fmt = string.format
 
 local match = {}
@@ -58,7 +66,32 @@ function match.new(opts)
 		settled = nil,            -- raised and punishment kubbs placed before this throw
 		setup = nil,              -- the current throw (match.setup)
 		debris = debris.new(),    -- batons and downed kubbs lying on the pitch this turn
+		order = order.new(g.teams),   -- who throws (core/order)
 	}
+end
+
+-- The order (a match saved before it had one gets a fresh one).
+local function orderOf(m)
+	if not m.order then m.order = order.new(m.game.teams) end
+	return m.order
+end
+
+-- A player of the engine's team `side` by id: { id, name }.
+function match.player(m, side, id)
+	for _, p in ipairs(m.game.teams[side].players) do
+		if p.id == id then return p end
+	end
+	return nil
+end
+
+-- Who throws next: { id, name } of the attacking team's player (nil when
+-- the game is over).
+function match.thrower(m)
+	local g = m.game
+	local pid = order.thrower(orderOf(m), g)
+	if not pid then return nil end
+	local p = match.player(m, g.attacker, pid)
+	return { id = pid, name = p and p.name or pid }
 end
 
 function match.over(m) return m.game.phase == "over" end
@@ -105,6 +138,8 @@ end
 --               frame; physics bodies, not engine pieces)
 --   batonId     the body id of this baton ("baton1" .. "baton6"), so it can
 --               lie on the pitch as debris after it
+--   thrower     { id, name }: the attacking team's player who throws it
+--               (core/order)
 -- Returns nil when the game is over.
 -- core/world's surface for the engine's (the game file's "Grass", "Sand",
 -- "Snow"); grass for anything it does not know.
@@ -145,6 +180,7 @@ function match.setup(m)
 		s.batonId = "baton" .. n.n
 		s.label = fmt("%s  %s %d of %d", match.teamName(side, g), n.kingShot and "king shot, baton" or "baton", n.n, n.of)
 	end
+	s.thrower = match.thrower(m)
 	m.setup = s
 	return s
 end
@@ -222,7 +258,7 @@ function match.resolve(m, res, illegal)
 		end
 		before.Q, before.N = inkCount("Q"), inkCount("N")
 		o = outcome.toss(res, s.pieces, s.side, s.kubb)
-		g:toss(o)
+		g:toss(o, s.thrower and s.thrower.id)
 		m.tossed = m.tossed + 1
 		local parts = {}
 		local fouled = hasNote(sheetTurn.notes, nn + 1, "II.C.4b")
@@ -253,7 +289,7 @@ function match.resolve(m, res, illegal)
 		m.text = table.concat(parts, "; ")
 	else
 		o = outcome.baton(res, s.pieces, s.side, illegal)
-		g:throwBaton(o)
+		g:throwBaton(o, s.thrower and s.thrower.id)
 		local b = sheetTurn.batons[nb + 1]
 		m.text = batonText(g, b and b.token or "-", sheetTurn.notes, nn + 1)
 	end
@@ -302,7 +338,7 @@ function match.resign(m)
 	local g = m.game
 	if g.phase == "over" then return false end
 	local side = g.attacker
-	g:resign(side)
+	g:resign(side, order.thrower(orderOf(m), g))
 	m.setup = nil
 	debris.clear(m.debris)
 	m.text = match.teamName(side, g) .. " resigned: " .. wins(g)

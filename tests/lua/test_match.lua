@@ -506,3 +506,27 @@ test("physics: a scripted match runs to a winner and renders a game file", funct
 	expect.truthy(text:find("Pass and Play", 1, true), "mode")
 	expect.truthy(text:find("Team A", 1, true), "team")
 end)
+
+-- ---------- teams of several players (core/order) ----------
+
+test("match: teams of three and two, the thrower named before each throw and on the sheet", function()
+	local m = match.new { teams = {
+		A = { name = "Snow Kubbs", players = { { name = "Alex" }, { name = "Kim" }, { name = "Max" } } },
+		B = { name = "Baton Rouge", players = { { name = "Sam" }, { name = "Lee" } } } } }
+	local who = {}
+	for _ = 1, 2 + 4 + 6 do
+		local s = setup(m, "baton")
+		who[#who + 1] = s.thrower.id
+		match.resolve(m, still(s.pieces), false)
+	end
+	expect.eq(table.concat(who, " "), "alex kim sam sam lee lee max max alex alex kim kim")
+	expect.eq(m.setup, nil)
+	local s = match.setup(m)
+	expect.eq(s.thrower.id, "sam", "Team B's rotation moved on past both")
+	expect.eq(s.thrower.name, "Sam")
+	expect.eq(#tw.order.checkSheet(m.game), 0)
+	expect.truthy(notation.turnLine(m.game.sheet.turns[3]):find("max:- max:- alex:-", 1, true))
+	match.resign(m)
+	local t = m.game.sheet.turns[m.game.turn]
+	expect.eq(t.batons[1].player .. ":" .. t.batons[1].token, "sam:G")
+end)

@@ -23,17 +23,18 @@ test("save: a game saved and restored mid-match plays on to the same game file",
 		local straight = thrower.playGame(seed)
 		local want = notation.render(straight, META)
 		local actions, swapped = 0, 0
-		local resumed = thrower.playGame(seed, nil, function(g)
+		local resumed = thrower.playGame(seed, nil, function(g, o)
 			actions = actions + 1
 			-- save and restore every 7th action: mid-inkast, mid-raise, mid-batons
 			if actions % 7 ~= 0 or g.phase == "over" then return nil end
-			local m = { game = g, start = META.start, mode = "Pass and Play", turn = g.turn, tossed = 0 }
+			local m = { game = g, start = META.start, mode = "Pass and Play", turn = g.turn, tossed = 0, order = o }
 			local d = roundTrip(save.pack(m, { names = { A = "Ash", B = "Birch" } }))
 			local back, opts = save.unpack(d)
 			expect.truthy(back, "unpacked")
 			expect.eq(opts.names.B, "Birch")
+			expect.truthy(back.order, "the throwing order is saved")
 			swapped = swapped + 1
-			return back.game
+			return back.game, back.order
 		end)
 		total = total + swapped
 		expect.eq(notation.render(resumed, META), want, "seed " .. seed .. ": same game file")
