@@ -1,7 +1,10 @@
 # Kubb: Throwing Wood
 
-A Kubb game for the Playdate. The crank is the throwing arm, outcomes come from a physics
-simulation at real dimensions, and every finished game is saved in Planet Kubb Notation.
+Kubb, the lawn game with batons and a king, on the Playdate. Wind the crank back, flick it
+forward and let the baton go. Play a friend by passing the Playdate back and forth, or take on
+the Playdate itself. Every finished game is saved as a score sheet in Planet Kubb Notation.
+
+Play it: test builds to sideload are at https://playdate.thingelstad.xyz/throwing-wood/.
 
 Design: `docs/DESIGN.md`. Working rules and commands: `AGENTS.md`.
 
@@ -15,10 +18,9 @@ Needs the Playdate SDK 3.1.2 at `~/Developer/PlaydateSDK`, Lua 5.4 from Homebrew
 (`lua@5.4`) and Node. The notation parser the tests use is vendored in
 `tests/vendor/pk-kubb-score/`.
 
-Status: `docs/STATUS.md` (what is built, what is next, what has not been tried on a
-Playdate yet).
+What is built and how it works: `AGENTS.md`.
 
-## Licence
+## License
 
 MIT (`LICENSE`), except:
 

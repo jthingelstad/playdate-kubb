@@ -12,7 +12,7 @@ the 2017 Planet Kubb glossary, and Inside Playdate for SDK 3.1.2.
 ## 1. What it is
 
 - Title "Kubb: Throwing Wood", repo `~/Projects/playdate-kubb`, bundle
-  `com.thingelstad.throwingwood`, Lua, SDK 3.1.2. A plain Kubb game; no Thingy.
+  `com.thingelstad.throwingwood`, Lua, SDK 3.1.2. A plain Kubb game.
 - Modes: Practice (drills), Versus Computer, Pass and Play.
 - The crank is the throwing arm. Outcomes come from a physics simulation at real dimensions,
   not from dice.

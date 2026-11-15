@@ -224,7 +224,7 @@ local function render(s)
 	gfx.setColor(BLACK)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, s.mode == "vs" and "VS PLAYDATE" or "PASS + PLAY", 6, 2, true)
-	ui.text(label, "HOLD A + UP, DOWN: ORDER", 394, 2, true, "right")
+	ui.text(label, "HOLD A + UP/DOWN: THROW ORDER", 394, 2, true, "right")
 	-- the bench, black
 	gfx.fillRect(t.colW, 14, t.colW + 1, 226)
 	ui.text(label, "BENCH", t.colW + 8, t.headY + 3, true)
