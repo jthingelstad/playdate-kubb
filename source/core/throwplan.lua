@@ -69,9 +69,10 @@ plan.tune = {
 	tiltMaxDeg = 20,       -- ... up to this either way (Jamie, 2026-11-15: tap up to 20 in steps of 5).
 	                       -- With the shake it adds up toward legalTiltDeg, the helicopter
 	spinSteps = 3,         -- B + left/right on a kubb: up to this many taps either way
-	spinPerStep = 12.5,    -- rad/s about the long axis per tap. Measured (tools/spinwall.lua, 2026-11-15):
-	                       -- the sideways roll stops at one face (3 to 7 cm), and past about 1.5 x
-	                       -- cutSpin (38 rad/s) a drill stops digging in and slides on (two taps = the old cut, drill.tune.cutSpin)
+	spinPerStep = 22,      -- rad/s about the long axis per tap (+ rolls right). Measured (tools/spinwall.lua,
+	                       -- 2026-11-15, the plan's clean drill on grass at loft 47): 0 taps rests within
+	                       -- 0.01 m of where it lands, 1 tap rolls 0.27 m sideways, 2 taps 0.61, 3 taps 0.90
+	                       -- (loft 30: 0.24, 0.52, 0.81; sand about 45% of that), forward 0.04 to 0.19 m back
 	defaultLevel = "club", -- the level when none is given
 	-- the swing against the plan (plan.launch)
 	skyExtraDeg = 45,      -- a sky ball (the crank on past 12): its release counts as this
@@ -354,7 +355,7 @@ function plan.launch(sol, r, opts, out)
 		out.tilt = pull * shakeTilt
 		out.legal = true
 		out.tumble = 0
-		drill.body(1 - se, pull, -(opts.spin or 0) * t.spinPerStep, out)
+		drill.body(1 - se, pull, (opts.spin or 0) * t.spinPerStep, out)
 	else
 		local tilt = (opts.tilt or 0) + pull * shakeTilt
 		out.tilt = tilt

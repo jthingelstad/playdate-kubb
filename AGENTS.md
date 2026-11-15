@@ -692,6 +692,10 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   `world.step` advances one fixed step (1/240 s), `world.run`, `world.isAtRest`,
   `world.result` (touched, stakesTouched, toppled, kingToppled, outNotToppled, rest poses,
   firstContact, firstHit).
+- A drilled kubb (`world.launchDrill`) meets the ground through a few per-body fields
+  (`edgeRound`, `digBySpin`, `slipDrag`, `rollDrag`, `plugGain`, `bumpGain`; "Drilling"),
+  whose defaults leave every other body bit-identical (`tools/physdump.lua`: every scenario
+  without a drill is unchanged).
 - Toppled means the long axis came within `toppleDeg` of horizontal. There is no tipping
   state machine: tipping, rocking back and falling come out of the contacts.
 - The leaner rule (Jamie, 2026-11-13): a kubb or king that comes to rest propped on another
@@ -1059,9 +1063,11 @@ the throw scene with `s.drill` on.
 - **Aim and launch** are the throw's ("The throw"): the d-pad moves the circle (it never
   snaps), the thrower stands behind it on the baseline (A walks along it or back), the arc
   starts at half past 1 (`plan.tune.arc.drill`), B + left/right is spin in taps
-  (`plan.tune.spinPerStep` rad/s about the long axis each). `plan.solve` solves the clean
-  drill onto the circle at the arc's loft (`drill.solveAt`: the speed that lands the kubb's
-  edge `drill.slideFor` short of the circle); `plan.launch` judges the swing and gives the
+  (`plan.tune.spinPerStep` rad/s about the long axis each, + rolls right after landing).
+  `plan.solve` solves the clean drill onto the circle at the arc's loft (`drill.solveAt`: the
+  speed that lands the kubb's edge `drill.slideFor` short of the circle); the circle is where
+  a drill with no spin rests, so a player rolling one aims the circle short of where it
+  should end by the roll. `plan.launch` judges the swing and gives the
   body through `drill.body` (noseDown, rollLand, spin, wobble, digGain). The aim camera is
   the baton's ("The aim camera": first person behind the thrower, looking past the circle,
   and the plan view while B is held, with the drill's planned arc; it replaced
@@ -1077,19 +1083,54 @@ the throw scene with `s.drill` on.
   2026-11-15; it is kept for core/bench, the tools and tests that throw a clean drill
   (`{ power = band, smoothness = 1, tilt = 0 }`, unchanged bit for bit).
 - **The body** (`world.drillLaunchState`): long axis along the horizontal line of flight, the
-  nose `noseDownDeg` below the horizontal, spinning at the cut rate; the release roll is
-  solved backwards from the flight time so it lands rolled `rollLandDeg` onto a long edge
-  (without that the cut's direction flipped with the landing phase). `b.digGain`
-  (`body.digGain`, 1 for every other body) multiplies the ground's dig on its new ground
-  contacts: with 1 a clean low drill skids 1 to 4 m; `digGain = 3` makes it die near where
-  it lands. Nothing else in the solver changed; the bench is the same within noise.
-- **Measured on grass** (desktop, `tests/lua/test_drill.lua` asserts the bounds): a clean
-  in-band drill first lands about 0.07 m from the marker and rests 0.10 m off on average
-  (0.27 m worst over 15 markers, near to far); the band's edges rest within about 0.3 m
-  (0.47 m worst far out); 0.2 under the band lands 1.0 to 2.3 m short, 0.15 over lands 0.65
-  to 1.65 m long. The cut moves the rest point 5 to 17 cm (10 cm mean), the same both ways.
-  A clean drill slides 0.13 m after landing on average (0.35 m worst); a jerky one
-  (smoothness 0.35) 2.1 m (0.1 to 5 m). On sand: cut 7 cm mean, slides 0.05 and 0.8 m.
+  nose `noseDownDeg` (15, Jamie 2026-11-15) below the horizontal, spinning about that axis at
+  the planned spin (`plan.tune.spinPerStep` rad/s a tap, + rolls right). Nose down is measured
+  from the horizontal, not the flight path: spinning about its long axis the kubb keeps that
+  axis through the flight (no aerodynamics), so it lands with the attitude it left the hand
+  with, and the angle to the grass is what makes the front bottom edge catch; against the
+  path it would be 50 to 65 degrees down at landing and plant on its end. The release roll
+  is solved backwards from the time to the nose's first touch so it touches `rollLandDeg`
+  (-15) short of flat on its bottom face, the spin turning it flat during the catch (flat
+  with no spin). `test_drill` checks the attitude at the first touch (within 0.5 degrees of
+  15 at lofts 30, 47 and 57, with and without spin) and that the nose touches first.
+- **On the ground** (`world.launchDrill` sets these from `drill.tune` on the body; every
+  other body keeps the defaults of `body.new` and steps bit for bit as before):
+  `digGain` (25: the nose meets the grass with a whole edge, which `world.pointed` counts an
+  eighth of a corner), `digBySpin = false` (the dig is judged by the centre's arrival, so a
+  spinning drill plugs like a plain one instead of skimming forward), `plugGain` (10: the
+  plug's rolling resistance holds its tumble and turn, never its roll about the long axis;
+  without it a low drill vaulted onto its nose), `slipDrag` (the grass texture's drag holds
+  the slip of its lowest point, not its roll) with `rollDrag` (0.8 of that drag brushes the
+  roll, viscous), `edgeRound` (0.032 m: its long edges meet the ground rounded,
+  `collide.groundBox`) and `bumpGain` (0: no landing bump; the nose plugs). Why the spin
+  used to die (`tools/spinwall.lua`, 2026-11-15): the plug's rolling resistance is lever
+  times normal impulse, and the landing's impulse is large, so it stopped all the spin in the
+  first contact step; the grass drag damped the spin of a lying piece as if it slid; the dig
+  counted the spin's sweep as a skim (above about 38 rad/s it slid on 0.6 to 1 m instead);
+  and a sharp square on a rigid plane keeps a quarter of its roll at every edge it tips onto
+  (the pivot capture I/(I + m d^2)), so it can never roll past one face.
+- **Measured** (`tools/spinwall.lua`, the plan's clean drill, 12 markers x 8 grounds on
+  grass, 4 x 4 on sand; side = rest x against the 0-tap drill's, fwd = rest y from the first
+  touch, the mean of + and - taps):
+
+  | | 0 taps | 1 tap | 2 taps | 3 taps |
+  |---|---|---|---|---|
+  | grass, loft 47 | 0.00 (rests 0.01 m from its landing) | 0.27 (fwd -0.04) | 0.61 (-0.10) | 0.90 (-0.19) |
+  | grass, loft 30 | 0.00 | 0.24 (-0.03) | 0.52 (-0.07) | 0.81 (-0.14) |
+  | sand, loft 47 | 0.00 | 0.12 (-0.03) | 0.27 (-0.04) | 0.40 (-0.06) |
+  | sand, loft 30 | 0.00 | 0.10 (-0.02) | 0.23 (-0.03) | 0.34 (-0.04) |
+
+  Spread (sd over markers and grounds) 0.03 to 0.07 m; 85 to 95% end flat on a face, none on
+  an end, the rest tipped on an edge. The small backward drift grows with the spin: the
+  catch pitches a spinning kubb, which turns its axis a little (gyroscopic). A clean drill
+  with no spin rests within 0.01 m of the circle at lofts 37 to 57 (`slideAllow`,
+  `slideAllowHigh`). A rolling kubb stops against the stake or a lying kubb (`test_drill`).
+  The wall at the stake (2.5, 4), markers just past y = 4, 5 y's x 6 grounds: two taps from
+  0.4 to 0.5 m inward put the first kubb against the stake 16 to 18 times in 30 (the stake is
+  3 cm thick: a kubb that rolls by 5 cm past it misses); three kubbs at the same circle build
+  a wall of 3 in 12 of 30; moving the circle in a kubb's width each time, 24 of 30 (loft 47;
+  18 of 30 at loft 30). The old band launch (`drill.launch`, `cutSpin` 25, A and B) is about
+  one tap.
 - **HUD.** The clock, the verdicts and the plan chip ("The throw"); at rest the kubb's
   distance from the circle (`18 CM AWAY`) in the plan chip's place.
 - **Telemetry.** A drill's `traces.jsonl` line is a baton line ("The throw") plus
