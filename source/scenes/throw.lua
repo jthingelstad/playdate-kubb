@@ -253,13 +253,19 @@ local function updateTargets(s)
 					end
 				end
 			end
-		elseif not it.toppled and not it.drilled and it.y > throw.tune.lineY + 4 then
-			if not it.king then
+		elseif not it.toppled and not it.drilled then
+			-- the king stands on the centerline (y = 4), so it is a snap target
+			-- although the far-half test leaves it out (Codex on #91)
+			local king = it.king or it.kind == "king"
+			local far = it.y > throw.tune.lineY + 4
+			if far and not king then
 				n = n + 1
 				tg[n] = it
 			end
-			k = k + 1
-			sn[k] = it
+			if far or king then
+				k = k + 1
+				sn[k] = it
+			end
 		end
 	end
 	for i = n + 1, #tg do tg[i] = nil end
