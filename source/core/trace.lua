@@ -3,22 +3,27 @@
 -- read them back with trace.decode and replay them with core/swing.
 --
 -- A line is one JSON object:
---   {"v":1,"time":"2026-11-20 19:42:07","sign":1,"event":"release",
---    "samples":[[0.02,-4.5],[0.02,-6.1],...],
---    "result":{"power":0.91,"smoothness":0.88,"tilt":10.8,"legal":true,
---              "launchSpeed":8.7,"tumbleRate":6.8,"backswing":118,
---              "releaseSpeed":1003,"peakSpeed":1010,"frames":7,"how":"passed",
---              "loft":35,"distance":8.41}}
+--   {"v":1,"time":"2026-11-20 19:42:07","sign":-1,"release":"clock",
+--    "event":"release","samples":[[0.02,4.5],[0.02,6.1],...],
+--    "result":{"back":118,"releaseAngle":88.5,"flickDps":940,"flickFrac":0.94,
+--              "smoothness":0.88,"shake":0.12,"pull":1,"how":"stopped",
+--              "frames":6,"loft":32,"distance":8.41}}
 -- samples are [dt seconds, raw getCrankChange degrees] per frame, from the
 -- first frame of the wind-up to the frame of the release or let-down. "sign"
--- is swing.tune.forwardSign at the time. "result" is absent for a let-down;
--- "loft" and "distance" are added by the game once the baton lands.
--- "release":"stop" (lines from 2026-11-14 on, written when "how" is one of
--- these): the swing was released where the crank stopped, "how" is "stopped" or "over", "releaseAngle" is the
--- arm's angle past the bottom of the turn there and "launchLoft" the launch
--- angle it gave ("loft" is the loft set, the target). A line without it was
--- released as the arm passed the bottom (core/swing passRelease), and
--- trace.replay replays it so.
+-- is swing.tune.forwardSign at the time. "result" is absent for a let-down.
+-- Its first fields are what core/swing measured (the crank as a clock,
+-- 2026-11-15; meanings at swing.lua's release()): back, releaseAngle,
+-- flickDps, flickFrac, smoothness, shake, pull, how ("stopped" or "sky"),
+-- frames. The game may add what the throw made of it (any of power, tilt,
+-- legal, launchSpeed, tumbleRate, launchLoft, loft, distance).
+--
+-- "release" says which swing wrote the line: "clock" for the crank as a
+-- clock; "stop" (2026-11-14) for the release where the crank stopped against
+-- the loft's notch; absent before that (released as the arm passed the
+-- bottom). Older results carry that swing's fields (power, powerCap,
+-- backswing, releaseSpeed, peakSpeed, tilt, legal, launchSpeed, tumbleRate,
+-- launchLoft, how "passed", "slowed", "stopped" or "over"). Every line
+-- decodes, and trace.replay runs any line's samples through today's swing.
 --
 -- A drilled kubb (core/drill) adds, after those, "mode":"drill" (a baton
 -- line has no "mode") and, in meters with y measured from the thrower's
@@ -39,8 +44,10 @@ local concat, fmt = table.concat, string.format
 local trace = {}
 
 local RESULT_KEYS = {
-	"power", "powerCap", "smoothness", "tilt", "legal", "launchSpeed", "tumbleRate", "backswing",
-	"releaseSpeed", "peakSpeed", "frames", "how", "releaseAngle", "loft", "launchLoft", "distance",
+	-- what core/swing measured
+	"back", "releaseAngle", "flickDps", "flickFrac", "smoothness", "shake", "pull", "how", "frames",
+	-- what the throw made of it (added by the game when it has them)
+	"power", "tilt", "legal", "launchSpeed", "tumbleRate", "launchLoft", "loft", "distance",
 	-- drills only (absent on a baton line)
 	"mode", "band", "verdict", "cut", "markerX", "markerY", "landX", "landY", "restX", "restY", "throwerX",
 }
@@ -66,12 +73,9 @@ function trace.encode(samples, n, event, result, sign, time)
 	for i = 1, n do
 		parts[i] = "[" .. num(samples[2 * i - 1]) .. "," .. num(samples[2 * i]) .. "]"
 	end
-	-- "release":"stop" when the swing was released where the crank stopped
-	-- (how "stopped" or "over"); a let-down is the same under either rule
-	local how = result and result.how
-	local stop = (how == "stopped" or how == "over") and ',"release":"stop"' or ""
+	-- every line written now comes from the crank as a clock, let-downs too
 	local out = '{"v":1,"time":' .. value(time or "") .. ',"sign":' .. num(sign or 1)
-		.. stop .. ',"event":' .. value(event or "") .. ',"samples":[' .. concat(parts, ",") .. "]"
+		.. ',"release":"clock","event":' .. value(event or "") .. ',"samples":[' .. concat(parts, ",") .. "]"
 	if result then
 		local r = {}
 		for _, k in ipairs(RESULT_KEYS) do
@@ -158,7 +162,8 @@ end
 -- Replay a decoded trace through the current swing model. Returns the event
 -- and result as swing.replay does. By default the trace's own sign is kept,
 -- so a trace recorded before forwardSign was flipped replays as it was
--- thrown; with useCurrentSign the raw deltas meet today's forwardSign.
+-- thrown; with useCurrentSign the raw deltas meet today's forwardSign. Every
+-- line, whichever swing wrote it ("release"), is replayed through today's.
 function trace.replay(t, useCurrentSign)
 	local swing = tw.swing
 	local flat = {}
@@ -167,9 +172,7 @@ function trace.replay(t, useCurrentSign)
 		flat[#flat + 1] = p[1]
 		flat[#flat + 1] = p[2] * flip
 	end
-	-- lines recorded before the release-at-the-stop (2026-11-14) carry no
-	-- "release" field and replay with the old rule
-	return swing.replay(flat, t.release ~= "stop")
+	return swing.replay(flat)
 end
 
 tw.trace = trace
