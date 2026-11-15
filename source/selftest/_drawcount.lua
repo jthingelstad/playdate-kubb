@@ -3,7 +3,8 @@
 -- of calls a frame makes is the figure to watch. Modules keep graphics
 -- functions in locals when they are imported, so the wrapping must happen
 -- before them: main.lua imports this file first, and it wraps only when the
--- Simulator was launched with selftest=drawcalls.
+-- Simulator was launched with selftest=drawcalls (or clock-gauge, which
+-- counts the clock dial's calls).
 import "CoreLibs/graphics"
 import "core/tw"
 
@@ -11,7 +12,7 @@ tw.drawcount = { n = 0, text = 0, on = false }
 
 local wanted = false
 for _, a in ipairs(playdate.argv or {}) do
-	if a == "selftest=drawcalls" then wanted = true end
+	if a == "selftest=drawcalls" or a == "selftest=clock-gauge" then wanted = true end
 end
 
 if wanted then
