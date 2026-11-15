@@ -80,6 +80,13 @@ drill.tune = {
 	plugGain = 10,          -- how much harder the plug holds its tumble and turn (not its roll) than
 	                        -- a plain dig: without it a low drill (loft 30) vaulted onto its nose
 	                        -- and, spinning, fell any way
+	-- when the drill is over (core/world: the body becomes a plain kubb, sharp edges and
+	-- the grass's grip): at once when it strikes a piece (not a stake), else once it is
+	-- on the ground and moving slower than both of these (Tyler's play test, 2026-11-15:
+	-- a drill that hit a kubb rolled 16 turns, and drills rocked on their rounded edges
+	-- for seconds; 0.2 m/s and 4 rad/s cost the spin rolls 0.1 m)
+	settleV = 0.1,          -- m/s
+	settleW = 2,            -- rad/s
 	-- the swing against the band
 	bandNear = 0.35,        -- swing power the nearest marker needs (gauge band center)
 	bandFar = 0.85,         -- ... and the farthest; leaves room above to throw long

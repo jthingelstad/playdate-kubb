@@ -491,7 +491,8 @@ the datastore part is `source/players.lua` (`tw.players`).
   target, stance and arc, wound into the power target and stopped at 3 o'clock; a base
   kubb goes down, ON ON STEADY, the verdicts and dots on the next aim), `clock-plan` (A
   walks and the targets move, B moves the arc and tilts, a drill's spin and arc, the
-  drill's circle moves freely, a baton's snaps onto b2), `clock-drill` (a drill at half
+  drill's circle moves freely, `aimAt` snaps a baton's onto b2, and the d-pad moves it off
+  b2 without snapping back), `clock-drill` (a drill at half
   past 1 with a tap of spin rests within 0.4 m of the circle and stays on the pitch),
   `clock-letdown` (a flick stopped at 8 o'clock and a slow let-down throw nothing; CRANK
   DOWN while the crank is parked behind 6), `gauge` (the prompts: WIND BACK, FLICK!, EASE
@@ -536,10 +537,13 @@ throw).
 - **Controls** (aim mode). The d-pad alone moves the target circle (`s.markerX`,
   `s.markerY`, view frame; 0.5 m across, `throw.tune.markerRadius`), faster the longer it
   is held (`drill.tune.markerSpeed` .. `markerSpeedMax`), kept in `drill.clampMarker`'s
-  area (3 m either side, 3.5 to 8.6 m out). Let go within `snapRadius` (0.25 m) of a
-  standing target it snaps onto it (`plan.snap` over `s.snaps`: the live targets, and on the
-  practice pitch the king too; `s.markerOn`); a drill's circle never snaps (it is where the
-  kubb should rest). A + d-pad walks (`walkSpeed`, along the line, back to `backMax`, up to
+  area (3 m either side, 3.5 to 8.6 m out). It stays where the d-pad leaves it: no
+  snapping (Tyler's play test, 2026-11-15: the circle locking onto the kubb made 8 m too
+  easy and left no way to aim off it for the wind). A circle moved with the d-pad
+  (`s.markerSet`) stays put for the team's next throw (`retarget`); one never moved starts
+  each throw on a live target (`s.markerOn`, kept while that target stands).
+  `throw.aimAt` (self-tests, callers aiming at a piece) still snaps onto a standing target
+  within `snapRadius` (0.25 m; `plan.snap` over `s.snaps`). A + d-pad walks (`walkSpeed`, along the line, back to `backMax`, up to
   the advantage line for a baton, the baseline for a kubb) and sets `s.stanceSet`; until
   then the stance is `plan.stance`, straight behind the circle as far forward as allowed.
   B + up/down taps move the planned release `plan.tune.arcStepDeg` (15) within
@@ -555,7 +559,7 @@ throw).
   a team's later batons); the arc, tilt and spin start afresh each match throw. Stay put: a
   team's later batons of a turn keep a stance walked with A. AROUND THE PITCH gives its
   own stance (`setup.playerX`). For self-tests and callers: `throw.aimAt(s, x, y)` (the
-  circle, snapping as a let-go does), `setStance`, `setArc`, `setTilt`, `setSpin`.
+  circle, snapping onto a standing target within `snapRadius`), `setStance`, `setArc`, `setTilt`, `setSpin`.
 - **The level.** `throw.levelFor(s)`: `s.level` (a named player's, later) or `throw.level`,
   which `main.lua` sets from the System Menu's "Level" (`beginner`, `club`, `pro`; the
   datastore "level", club by default).
@@ -1139,8 +1143,8 @@ hit rate (records in `playdate.datastore` "drills").
   part way, nothing recorded) or title. The readout set on the practice pitch reaches the
   run's throw scene (`main.lua` `throwScene`). Each throw's trace line names the drill
   (`s.drillRun`, `drillId`). AROUND THE PITCH's stance is the setup's (`setup.playerX`,
-  `throw.prepare`); the circle starts on the nearest kubb. THE HOUSE's kubbs are base kubbs
-  to the plan (its arc is 3 o'clock).
+  `throw.prepare`); the circle starts on the nearest kubb. THE HOUSE's kubbs are field kubbs
+  to the plan (its arc is 4 o'clock).
 - In drill mode (BLAST, THE WALL, and a match's kubb tosses) the rail shows the circle's distance
   and beside it what the caller gave (`throw.setRail`'s first right-hand text: a drill's
   score).
@@ -1232,7 +1236,19 @@ the throw scene with `s.drill` on.
   counted the spin's sweep as a skim (above about 38 rad/s it slid on 0.6 to 1 m instead);
   and a sharp square on a rigid plane keeps a quarter of its roll at every edge it tips onto
   (the pivot capture I/(I + m d^2)), so it can never roll past one face.
-- **Measured** (`tools/spinwall.lua`, the plan's clean drill, 12 markers x 8 grounds on
+- **When the drill is over** (Tyler's play test, 2026-11-15) the body becomes a plain kubb
+  (every field above back to `body.new`'s): at once when it strikes a piece (a stake does
+  not count, so a wall still rolls against the stake; `b.drillHit`, set where contacts are
+  stamped), else once it is on the ground slower than `drill.tune.settleV` (0.1 m/s) and
+  `settleW` (2 rad/s). Before, a drill that hit a kubb could turn the blow into a log roll
+  (16 turns, 3.8 m) and drills rocked on their rounded edges for seconds: two of his match
+  drills ran to the throw's time limit and took over a minute to watch on the device. With
+  it, over 200 drills into a field kubb none rolls more than 3 turns (39 did) and the drill
+  is awake 1.5 s instead of 3.1 on average; landing to rest with 0 taps 0.3 s (was 1.0),
+  with 1 / 2 / 3 taps 1.8 / 2.6 / 3.0 s (was 4.9 / 5.5 / 6.2); the spin rolls on grass at
+  loft 47 lose about 4 cm (0.25 / 0.55 / 0.87 m in `spinwall --quick`). Drills are not
+  bit-identical to before; every other body is.
+- **Measured** (before the drill-over rule above) (`tools/spinwall.lua`, the plan's clean drill, 12 markers x 8 grounds on
   grass, 4 x 4 on sand; side = rest x against the 0-tap drill's, fwd = rest y from the first
   touch, the mean of + and - taps):
 
