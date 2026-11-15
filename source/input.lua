@@ -59,6 +59,8 @@ end
 --   crank = d               raw crank degrees every frame of the step
 --   cranks = {d1, d2, ...}  raw crank degrees frame by frame (sets n)
 --   docked = true           the crank is folded away
+--   home = true             on the step's first frame the crank turns straight
+--                           to the bottom of the turn (180) by the short way
 -- dt is fixed (1/50 s by default). After the last step: nothing held, no crank.
 -- The crank starts at startPos (default 180, the bottom) and its position
 -- follows the scripted changes.
@@ -78,7 +80,22 @@ function input.scripted(steps, dt, startPos)
 			s = self.steps[self.i]
 		end
 		self.cur = s or none
-		self.pos = (self.pos + self:crank()) % 360
+		-- this frame's crank change, worked out once
+		local d
+		s = self.cur
+		if s.home then
+			d = 0
+			if self.k == 1 then
+				d = (180 - self.pos) % 360
+				if d > 180 then d = d - 360 end
+			end
+		elseif s.cranks then
+			d = s.cranks[self.k] or 0
+		else
+			d = s.crank or 0
+		end
+		self.d = d
+		self.pos = (self.pos + d) % 360
 	end
 	local function has(list, name)
 		if not list then return false end
@@ -89,11 +106,7 @@ function input.scripted(steps, dt, startPos)
 		return has(self.cur.hold, name) or (self.k == 1 and has(self.cur.press, name))
 	end
 	function p:pressed(name) return self.k == 1 and has(self.cur.press, name) end
-	function p:crank()
-		local s = self.cur
-		if s.cranks then return s.cranks[self.k] or 0 end
-		return s.crank or 0
-	end
+	function p:crank() return self.d or 0 end
 	function p:crankPos() return self.pos end
 	function p:docked() return self.cur.docked == true end
 	function p:dt() return self.fixed end
@@ -102,7 +115,7 @@ function input.scripted(steps, dt, startPos)
 end
 
 -- Steps for a scripted swing (self-tests, the autobench), in input.scripted's
--- form: `lead` idle frames, the crank wound `back` degrees behind the bottom
+-- form: the crank home to the bottom of the turn, `lead` idle frames, the crank wound `back` degrees behind the bottom
 -- of the turn over `frames` frames, `pause` frames still, then a flick that
 -- stops `release` degrees past the bottom (forward degrees: 90 = 3 o'clock).
 -- The flick ramps up a third of `peak` a frame to `peak` degrees a frame (24
@@ -115,6 +128,9 @@ function input.swingSteps(back, release, opts)
 	local sign = tw.swing.tune.forwardSign
 	local frames, peak = opts.frames or 30, opts.peak or 24
 	local steps = {}
+	-- the crank to the bottom first (wherever the last throw left it), then
+	-- the lead's still frames
+	steps[#steps + 1] = { home = true }
 	if (opts.lead or 5) > 0 then steps[#steps + 1] = { n = opts.lead or 5 } end
 	steps[#steps + 1] = { crank = -sign * back / frames, n = frames }
 	if (opts.pause or 5) > 0 then steps[#steps + 1] = { n = opts.pause or 5 } end

@@ -1,5 +1,6 @@
--- Scenario "skid": a medium throw lands short, near the centerline past the
--- king, on grass, and kicks on along the lawn. Frames: 1 the landing,
+-- Scenario "skid": the plan's clean throw (arc half past 3) at the circle on
+-- bare ground 5 m out, past the king, on grass: the baton lands there and kicks on along the
+-- lawn. Frames: 1 the landing,
 -- 2 0.3 s later, 3 at rest. The check wants a kick of 0.4 to 2.5 m from the
 -- first touch to the rest point (skid-sand wants much less).
 import "selftest/_throw"
@@ -8,14 +9,14 @@ local st = tw.selftest
 
 function st.skidScenario(surface, minKick, maxKick)
 	return st.throwScenario {
-		setup = function(s) s.surface = surface end,
-		script = {
-			{ n = 2 },
-			st.windup(120, 30),
-			{ n = 5 },
-			st.flick { 5, 10, 14, 18, 20, 20, 20 },
-			{ n = 300 },
-		},
+		-- the circle on bare ground 5 m out, the arc half past 3 (flatter than
+		-- a base kubb's: at 3 o'clock it comes down steeply and stops on grass)
+		setup = function(s)
+			s.surface = surface
+			tw.scenes.throw.aimAt(s, 0, 5)
+			tw.scenes.throw.setArc(s, 75)
+		end,
+		script = function(s) return st.planned(s) end,
 		shots = {
 			function(s) local d = st.sinceContact(s); return d and d >= 0 end,
 			function(s) local d = st.sinceContact(s); return d and d >= 0.3 end,

@@ -78,15 +78,6 @@ swing.tune = {
 	                       -- from sampling jitter alone, so only a clearly stuttered swing
 	                       -- (roughness over 1.0) is shaky enough to be a helicopter
 	maxSamples = 512,      -- flick speed samples kept (about 10 s at 50 fps); later ones dropped
-
-	-- The launch range. Not used by the swing (it only measures the crank): kept here
-	-- because core/autothrow, core/drill, tools/compound and the flight, camera and
-	-- physics tests read them from swing.tune. They belong with the plan
-	-- (core/throwplan) and move there with their readers.
-	launchMin = 4.0,       -- m/s at power 0 (a mid-loft throw lands about 2 m out)
-	launchMax = 9.2,       -- m/s at power 1 (a mid-loft throw lands about 8.9 m out)
-	tumbleMin = 4.5,       -- rad/s at power 0
-	tumbleMax = 7.0,       -- rad/s at power 1: about 1.2 turns over 8 m at mid loft
 }
 
 function swing.new()

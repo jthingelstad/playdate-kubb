@@ -14,8 +14,21 @@
 -- Its first fields are what core/swing measured (the crank as a clock,
 -- 2026-11-15; meanings at swing.lua's release()): back, releaseAngle,
 -- flickDps, flickFrac, smoothness, shake, pull, how ("stopped" or "sky"),
--- frames. The game may add what the throw made of it (any of power, tilt,
--- legal, launchSpeed, tumbleRate, launchLoft, loft, distance).
+-- frames. The game adds the throw's plan and what it made of the swing
+-- (AGENTS.md "The throw", 2026-11-15), y measured from the thrower's line:
+--   "level"       the throw level (beginner, club, pro)
+--   "projectile"  "baton" or "kubb" (a drilled kubb)
+--   "drillId"     the practice drill's id in a drill run (8m, doubles, wall, ...)
+--   "tx","ty"     the target circle; "px","py" the stance
+--   "plan"        the planned release (clock degrees); "loft" its launch angle
+--   "powerLo","powerHi","releaseLo","releaseHi"   the clock's targets
+--   "planTilt"    a baton's planned tilt (degrees); "spin" a kubb's (taps)
+--   "launchSpeed","launchLoft","swivelOff"   the launch (m/s, degrees, degrees
+--                 off the plan's swivel: the shake's pull); "tumbleRate", "tilt"
+--   "legal"       false for a helicopter
+--   "powerV","releaseV"   -1, 0, 1: short / on / long, low / on / high;
+--                 "steady" true or false
+--   "distance"    m from the release to the first touch
 --
 -- "release" says which swing wrote the line: "clock" for the crank as a
 -- clock; "stop" (2026-11-14) for the release where the crank stopped against
@@ -25,17 +38,15 @@
 -- launchLoft, how "passed", "slowed", "stopped" or "over"). Every line
 -- decodes, and trace.replay runs any line's samples through today's swing.
 --
--- A drilled kubb (core/drill) adds, after those, "mode":"drill" (a baton
--- line has no "mode") and, in meters with y measured from the thrower's
--- baseline and x across in the thrower's view:
---   "band"      the power the marker needed (the band's center)
---   "verdict"   "short", "on" or "long": the power against the band
---   "cut"       1 (A held: curls right), -1 (B: curls left) or 0
---   "markerX","markerY"   the landing marker
+-- A drilled kubb adds, after those, "mode":"drill" (a baton line has no
+-- "mode") and, in meters with y measured from the thrower's baseline and x
+-- across in the thrower's view:
+--   "markerX","markerY"   the target circle (as tx, ty)
 --   "landX","landY"       where the kubb first touched anything
 --   "restX","restY"       where it came to rest
 --   "throwerX"            where the thrower stood on the baseline
--- and "launchSpeed" is then the drill's own launch speed.
+-- Lines from 2026-11-14 also carry "band", "verdict" and "cut" (the drill's
+-- power band and A or B held for a cut), which today's throw has not.
 import "core/tw"
 import "core/swing"
 
@@ -46,8 +57,14 @@ local trace = {}
 local RESULT_KEYS = {
 	-- what core/swing measured
 	"back", "releaseAngle", "flickDps", "flickFrac", "smoothness", "shake", "pull", "how", "frames",
-	-- what the throw made of it (added by the game when it has them)
-	"power", "tilt", "legal", "launchSpeed", "tumbleRate", "launchLoft", "loft", "distance",
+	-- the plan (added by the game)
+	"level", "projectile", "drillId", "tx", "ty", "px", "py", "plan", "loft",
+	"powerLo", "powerHi", "releaseLo", "releaseHi", "planTilt", "spin",
+	-- what the throw made of it
+	"launchSpeed", "launchLoft", "swivelOff", "tumbleRate", "tilt", "legal", "powerV", "releaseV", "steady",
+	"distance",
+	-- older lines' (the swing before 2026-11-15)
+	"power",
 	-- drills only (absent on a baton line)
 	"mode", "band", "verdict", "cut", "markerX", "markerY", "landX", "landY", "restX", "restY", "throwerX",
 }

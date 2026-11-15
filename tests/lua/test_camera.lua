@@ -166,7 +166,7 @@ test("follow camera blends aim to impact and keeps the baton in frame", function
 		for _, loft in ipairs { 15, 35, 55 } do
 			camera.aim(aim, 0.5, 0, sw, FAR)
 			local fl = flight.new()
-			flight.launch(fl, 0.5, 0, sw, loft, swing.tune.launchMax, 7, 0)
+			flight.launch(fl, 0.5, 0, sw, loft, 9.2, 7, 0)
 			camera.impact(imp, fl.lx, fl.ly, fl.dx, fl.dy)
 			camera.follow(c, aim, imp, 0)
 			expect.near(c.px, aim.px, 1e-9, "starts at the aim camera")

@@ -12,15 +12,8 @@ st.scenarios.autoreset = st.throwScenario {
 		local l = throw.defaultLayout()
 		for _, p in ipairs(l) do p.base = (p.id == "b3") end
 		throw.setLayout(s, l)
-		s.loftDeg = 30
 	end,
-	script = {
-		{ n = 5 },
-		st.windup(120, 30),
-		{ n = 5 },
-		st.flick { 6, 12, 18, 22, 24, 24, 24 },
-		{ n = 300 },
-	},
+	script = function(s) return st.planned(s) end,
 	shots = {
 		st.restShot(30),
 		st.restShot(70),

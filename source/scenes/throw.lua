@@ -118,7 +118,7 @@ throw.tune = {
 	arcSide = 6,          -- px: and inside the screen's sides by this much
 	arcMinF = 380,        -- px: but never wider than this lens
 	arcMaxCy = 158,       -- px: before widening, the camera looks up as far as this principal row
-	arcBottom = 230,      -- px: and the landing ring stays above this row (a low throw lands near)
+	arcBottom = 230,      -- px: and the target circle stays above this row (a low throw lands near)
 	                      -- (the ground point it aims at moves down the screen; the kubbs keep
 	                      -- their size)
 }
@@ -446,7 +446,7 @@ function throw.new(provider)
 		lastBack = nil, lastStop = nil, -- the last throw's peak and stop: dots on the clock
 		showVerdicts = false,    -- the last throw's verdicts show (until the next wind-up)
 		vPower = 0, vRelease = 0, vSteady = true,
-		restText = nil,          -- a drilled kubb's rest distance ("REST 18 CM")
+		restText = nil,          -- a drilled kubb's rest distance from the circle ("18 CM AWAY")
 		drillSeq = 0,            -- practice: drilled kubbs thrown (their ids)
 	}
 	throw.standUp(s)
@@ -910,7 +910,7 @@ local function landed(s)
 		local cm = floor(100 * sqrt((l.restX - l.markerX) ^ 2 + (l.restY - l.markerY) ^ 2) + 0.5)
 		l.restCm = cm
 		-- the drill's rest distance, in the plan chip's place (hud.cutFlag)
-		s.restText = (cm < 100) and string.format("REST %d CM", cm) or string.format("REST %.1f M", cm / 100)
+		s.restText = (cm < 100) and string.format("%d CM AWAY", cm) or string.format("%.1f M AWAY", cm / 100)
 	end
 	s.readout = hud.readoutText(l)
 	-- the result flag (a match puts its own ruling there: throw.setFlag)
@@ -1264,7 +1264,7 @@ local function arcShown(s)
 end
 
 -- Fit the planned arc (the one drawArc shows) on screen below arcTop and
--- inside arcSide, and its landing above arcBottom: from the crane over the
+-- inside arcSide, and the target circle above arcBottom: from the crane over the
 -- thrower's shoulder a high arc's top would otherwise leave the long lens's
 -- frame, and a low throw's landing falls under its lower edge (Codex on
 -- #74). The arc may rise in from the lower edge; where it lands always
@@ -1289,9 +1289,11 @@ fitArc = function(s, c)
 			if w > side then side = w end
 		end
 	end
-	-- where it lands, in px below the principal point
+	-- where it lands, in px below the principal point: the target circle's
+	-- near edge (the arc comes down on its centre)
 	local down = 0
-	local lsx, lsy = camera.project(c, x0 + vx * T, y0 + vy * T, 0)
+	local R, sw = t.markerRadius, s.sol.swivel or 0
+	local lsx, lsy = camera.project(c, s.markerX - R * math.sin(sw), s.markerY - R * math.cos(sw), 0)
 	if lsx then down = lsy - c.cy end
 	-- first look up (the principal point lower: the kubbs keep their size),
 	-- then widen the lens for what is still over

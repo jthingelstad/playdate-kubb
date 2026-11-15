@@ -4,6 +4,9 @@ local flight = tw.flight
 local swing = tw.swing
 
 local MID = flight.tune.loftDefaultDeg
+-- reference speeds (m/s): the old swing's full and softest throws, which these
+-- flight tests were written for
+local FULL, SOFT = 9.2, 4.0
 
 local function fly(x, swivel, loft, speed, rate, tilt)
 	local fl = flight.new()
@@ -17,7 +20,7 @@ local function fly(x, swivel, loft, speed, rate, tilt)
 end
 
 test("full power at mid loft carries about 8 to 9 m", function()
-	local fl = fly(0, 0, MID, swing.tune.launchMax)
+	local fl = fly(0, 0, MID, FULL)
 	expect.truthy(fl.y >= 8 and fl.y <= 9.3, "landed at " .. fl.y)
 	expect.near(fl.x, 0, 1e-9)
 	expect.truthy(fl.t >= 0.8 and fl.t <= 1.3, "flight time " .. fl.t)
@@ -25,14 +28,14 @@ end)
 
 test("minimum power lands short of 3 m at any loft", function()
 	for loft = flight.tune.loftMinDeg, flight.tune.loftMaxDeg, flight.tune.loftStepDeg do
-		local fl = fly(0, 0, loft, swing.tune.launchMin)
+		local fl = fly(0, 0, loft, SOFT)
 		expect.truthy(fl.y < 3, "loft " .. loft .. " landed at " .. fl.y)
 	end
 end)
 
 test("a typical full throw turns 1 to 1.5 times over 8 m", function()
 	local fl = flight.new()
-	flight.launch(fl, 0, 0, 0, MID, swing.tune.launchMax, swing.tune.tumbleMax, 0)
+	flight.launch(fl, 0, 0, 0, MID, FULL, 7.0, 0)
 	while fl.y < 8 and not fl.landed do flight.step(fl, 1 / 200) end
 	local turns = flight.turns(fl)
 	expect.truthy(turns >= 1 and turns <= 1.5, "turns " .. turns)
@@ -81,8 +84,8 @@ test("baton axis: upright at release, end over end when clean, flat when a helic
 end)
 
 test("the aim preview is the full-power landing point", function()
-	local lx, ly = flight.aimPreview(0, 0, 0, MID, swing.tune.launchMax)
-	local px, py = flight.predict(0, 0, 0, MID, swing.tune.launchMax)
+	local lx, ly = flight.aimPreview(0, 0, 0, MID, FULL)
+	local px, py = flight.predict(0, 0, 0, MID, FULL)
 	expect.near(lx, px, 1e-12); expect.near(ly, py, 1e-12)
 end)
 
@@ -96,17 +99,3 @@ test("a landed baton lies flat and stops", function()
 	expect.near(ax * ax + ay * ay, 1, 1e-9)
 end)
 
-test("a low throw is harder: full power carries as far at any loft below boostBelowDeg", function()
-	local t = flight.tune
-	local full = 9.2
-	local _, ref = flight.predict(0, 0, 0, t.boostBelowDeg, full)
-	for loft = t.loftMinDeg, t.boostBelowDeg, 5 do
-		local b = flight.loftBoost(loft, full)
-		local _, ly = flight.predict(0, 0, 0, loft, full * b)
-		expect.near(ly, ref, 1e-6)
-		expect.truthy(b >= 1)
-	end
-	expect.near(flight.loftBoost(t.loftMinDeg, full), 1.83, 0.01)
-	expect.eq(flight.loftBoost(45, full), 1)
-	expect.eq(flight.loftBoost(t.boostBelowDeg, full), 1)
-end)

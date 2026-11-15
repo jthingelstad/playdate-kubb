@@ -17,16 +17,9 @@ st.scenarios.drawcalls = {
 		local C = tw.drawcount
 		if not ctx.scene then
 			if not C.on then error("draw calls are not counted (launch with selftest=drawcalls)") end
-			ctx.scene = throw.new(tw.input.scripted {
-				{ n = 5 },
-				st.windup(120, 30),
-				{ n = 5 },
-				st.flick { 6, 12, 18, 22, 24, 24, 24 },
-				{ n = 300 },
-			})
-			ctx.scene.loftDeg = 30
-			ctx.scene.loftBoost = false   -- written for the speeds before flight.loftBoost
-			ctx.scene.swing.passRelease = true   -- and for the old release (core/swing)
+			local steps = {}
+			ctx.scene = throw.new(tw.input.scripted(steps))
+			for _, x in ipairs(st.planned(ctx.scene)) do steps[#steps + 1] = x end
 			throw.enter()
 			ctx.sum, ctx.max, ctx.cnt, ctx.txt = {}, {}, {}, {}
 			for _, k in ipairs(KINDS) do ctx.sum[k], ctx.max[k], ctx.cnt[k], ctx.txt[k] = 0, 0, 0, 0 end

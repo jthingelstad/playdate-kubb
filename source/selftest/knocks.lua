@@ -10,16 +10,9 @@ local before, struck, played = nil, nil, nil
 
 st.scenarios.knocks = st.throwScenario {
 	setup = function(s)
-		s.loftDeg = 30
 		sound.on, sound.tune.knockVol, sound.played = true, 0, 0
 	end,
-	script = {
-		{ n = 5 },
-		st.windup(120, 30),
-		{ n = 5 },
-		st.flick { 6, 12, 18, 22, 24, 24, 24 },
-		{ n = 300 },
-	},
+	script = function(s) return st.planned(s) end,
 	shots = {
 		function(s)
 			local d = st.sinceHit(s)

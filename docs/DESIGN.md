@@ -404,6 +404,7 @@ design sessions):
   thrown harder (`flight.loftBoost`), so full power carries about 8.9 m at any loft: 9.2
   m/s at 35 degrees, 11.8 at 15, 13.6 at 10, 16.8 at 5. A flat throw lands short and
   skids in. (It was 15 degrees at the same top speed: full power landed 5.9 m out.)
+  Superseded 2026-11-15 by section 4: the arc planned down to 5 o'clock is the low throw.
 - Open: a baton at rest on plain white ground reads as floating; when swivelled, far
   kubbs can pass under the minimap.
 

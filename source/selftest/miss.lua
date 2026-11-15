@@ -1,19 +1,14 @@
--- Scenario "miss": the hit throw from half a meter right of center: the
--- baton passes between b3 and b4, lands past the far baseline and touches
+-- Scenario "miss": the circle on bare ground half a meter right of b3 (it
+-- does not snap: b3 is farther than the circle's radius), the stance behind
+-- it and the plan's clean throw: the baton passes between b3 and b4, lands past the far baseline and touches
 -- nothing. Frames: 1 the impact camera near the landing, 2 at rest.
 import "selftest/_throw"
 
 local st = tw.selftest
 
 st.scenarios.miss = st.throwScenario {
-	setup = function(s) s.loftDeg, s.playerX = 30, 0.5 end,
-	script = {
-		{ n = 5 },
-		st.windup(120, 30),
-		{ n = 5 },
-		st.flick { 6, 12, 18, 22, 24, 24, 24 },
-		{ n = 300 },
-	},
+	setup = function(s) tw.scenes.throw.aimAt(s, 0.5, 8) end,
+	script = function(s) return st.planned(s) end,
 	shots = {
 		function(s) local d = st.sinceContact(s); return d and d >= -0.05 end,
 		st.restShot(30),
