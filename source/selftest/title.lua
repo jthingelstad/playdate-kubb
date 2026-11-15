@@ -1,7 +1,7 @@
 -- Scenario "title": the title screen as it opens (VS PLAYDATE chosen), then
 -- right twice to PRACTICE, then A, which must ask for the practice pitch.
 -- Frames: 1 VS PLAYDATE chosen, 2 PRACTICE chosen, 3 a new player's title
--- (the HOW TO THROW line), 4 a resume line with long team names cut to the
+-- (the HOW TO PLAY line), 4 a resume line with long team names cut to the
 -- turn (title.resumeText).
 import "core/tw"
 import "scenes/title"

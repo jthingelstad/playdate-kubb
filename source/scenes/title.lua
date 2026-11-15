@@ -34,13 +34,13 @@ title.tune = {
 
 -- saved: a line about the match in progress ("ASH V BIRCH, TURN 7"), or
 -- nil; with it, B resumes that match. hint: HOW TO THROW has not been seen
--- yet, so the title says where it is (only when there is no match to
+-- yet, so the title says where HOW TO PLAY (whose last card leads into it) is (only when there is no match to
 -- resume: the line sits where B RESUME would).
 function title.new(provider, saved, hint)
 	return { input = provider, choice = 1, exit = nil, images = {}, saved = saved, hint = hint }
 end
 
-title.HINT = "NEW? PRACTICE > HOW TO THROW"
+title.HINT = "NEW? PRACTICE > HOW TO PLAY"
 
 -- The resume button's text: the teams and the turn, or only the turn when
 -- the teams' names would run into A START.

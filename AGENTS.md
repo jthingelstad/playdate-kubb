@@ -515,7 +515,9 @@ the datastore part is `source/players.lua` (`tw.players`).
   (first person and the plan view for targets across the half, every release and stances
   at both ends: "The aim camera"), `camera-swing` (B held and let go, a baton's and a
   drill's; its note counts the aim frames' graphics calls, camera still and moving), `clock-gauge` (the clock's states drawn alone, cache on and
-  off), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below).
+  off), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
+  `howto-play` (HOW TO PLAY's six cards and the hand-off into HOW TO THROW: "HOW TO
+  PLAY" below).
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
   from `source/selftest/_match.lua`: `opts` are `scenes/match` options (`seed` for
   `core/autothrow` throws instead of the crank, `instant`, `skipHandoff`, `maxTurns`),
@@ -623,6 +625,31 @@ this throw: "HOW TO THROW" below).
   `releaseV`, `steady`, `distance`, and a drill's `mode`, marker, landing, rest and
   thrower. `frames.jsonl` is unchanged.
 
+## HOW TO PLAY
+
+The rules of Kubb on six cards for someone who has never played (Jamie, 2026-11-15:
+"short cards"), written the way a friend explains it on the lawn: plain words, real Kubb
+talk, Rules V4.0 as the game plays them. `core/howtoplay.lua` (`tw.howtoplay`, pure,
+`test_howtoplay.lua`) holds the cards (`CARDS`: `id`, `title`, `text` paragraphs and what
+the little pitch shows: pieces, a throw's arrow, an advantage line) and the paging
+(`press`: A and right on, B and left back; B on the first card leaves, A on the last goes
+to HOW TO THROW, B on the last is done). `render/howtoplay.lua` draws a card in the
+hand-off card's look (white on black, the title in display 32, or 16 when too wide, the
+words in the label font wrapped to the column, the pitch from above on the right with
+THEM at the top and YOU at the bottom, the page count bottom right) into one 400 x 240
+image, and raises an error when the words run past `textBottom`: the `howto-play`
+self-test draws every card. `scenes/howtoplay.lua` keeps each card's image once made.
+
+1. THE PITCH: two teams, five kubbs on each baseline, the king in the middle; knock down
+   all their kubbs, then the king. 2. BATONS: six a turn, underarm, end over end; a
+   helicopter does not count; the 2-4-6 opening. 3. THROW THEM BACK IN: the kubbs you knock
+   down come back into your half as field kubbs, stood up where they land; out once is
+   thrown again, out twice and you pick the spot. 4. FIELD KUBBS FIRST: a base kubb hit too
+   soon is stood back up; field kubbs left standing let the other team step up to the one
+   nearest the middle. 5. THE KING LAST: from your baseline once all their kubbs are down;
+   too early and you lose, or if a kubb thrown in hits him. 6. THE SCORE SHEET: every game
+   in Planet Kubb Notation, under the title's System Menu "Games"; A: HOW TO THROW.
+
 ## HOW TO THROW
 
 The walkthrough of the clock throw (Jamie, 2026-11-14, of the first one: "an interactive
@@ -653,10 +680,10 @@ and real throws at the far base kubbs (recorded like any practice throw). Pure p
   verdicts (`s.vPower`, `s.vRelease`, `s.vSteady`), the circle, the stance, the planned
   release, tilt and spin, A pressed and B's tap. `throw.showHowTo` turns a drilling pitch
   back to batons and starts the plan fresh.
-- **Where it lives**: the drills menu's last item, HOW TO THROW (`scenes/drills`; main.lua
-  opens the practice pitch with it on, `"howto"`), and the practice pitch's System Menu
-  "Pitch: how to" (chosen while it runs, it ends it). The drills menu starts on HOW TO
-  THROW until it has been seen: main.lua's `throw.howtoDone` writes the datastore "howto"
+- **Where it lives**: the last card of HOW TO PLAY, the drills menu's last item (below:
+  A on that card opens the practice pitch with it on, main.lua `"howto"`), and the
+  practice pitch's System Menu "Pitch: how to" (chosen while it runs, it ends it). The
+  drills menu starts on HOW TO PLAY until HOW TO THROW has been seen: main.lua's `throw.howtoDone` writes the datastore "howto"
   as `{ seen = 2 }` when it ends (finished, skipped through or stopped; not in self-tests;
   0.2.0's walkthrough wrote `seen = true`, so a player who saw that one sees this one).
 - Self-test `howto` (above): every step with scripted input fed as the step comes up (the
@@ -816,7 +843,8 @@ Every number that is a guess lives in one table per module, with a comment:
   THROW's tap of B (`howtoTap`).
 - `tw.howto.tune` (`source/core/howto.lua`) and `tw.render.howto.tune`: HOW TO THROW's
   pass thresholds (crank at the bottom, tries, how far the circle and the walk must move)
-  and its panel ("HOW TO THROW").
+  and its panel ("HOW TO THROW"). `tw.render.howtoplay.tune`: HOW TO PLAY's card layout
+  (title, rule, the words' column and bottom, the little pitch).
 - `tw.drill.tune` (`source/core/drill.lua`): every drilling mapping (AGENTS.md
   "Drilling").
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
@@ -1273,9 +1301,9 @@ hit rate (records in `playdate.datastore` "drills").
   result card and the record it leaves, then a second run quit part way), `drills-blast`
   (BLAST's rail keeps its score) and `drills-new` (DOUBLES and THE WALL: the menu, each
   run's first aim and its first throw at rest on the plan's swing).
-- HOW TO THROW is the menu's last item (after THE WALL: the self-tests' menu presses are
-  unchanged); it opens the practice pitch with the walkthrough over it ("HOW TO THROW"),
-  and the menu starts on it until it has been seen.
+- HOW TO PLAY is the menu's last item (after THE WALL: the self-tests' menu presses are
+  unchanged); it opens the rules cards, whose last card leads into HOW TO THROW ("HOW TO
+  PLAY", "HOW TO THROW"), and the menu starts on it until HOW TO THROW has been seen.
 
 ## Throw scene practice
 
@@ -1581,7 +1609,7 @@ own item). Practice is the throw scene exactly as before.
   and needs the same game file as straight through. With a save, the title shows `B
   RESUME <A> V <B>, TURN n` beside A START (`RESUME TURN n` when the teams' names would
   run into it, `title.resumeText`); without one, while HOW TO THROW has not been seen, the
-  same place says `NEW? PRACTICE > HOW TO THROW` (`title.new`'s hint) (a save that does not read back is ignored,
+  same place says `NEW? PRACTICE > HOW TO PLAY` (`title.new`'s hint) (a save that does not read back is ignored,
   never a crash at launch); `main.lua` opens `resume` from it (the match
   scene's `opts.resume`, its names and VS kept for a rematch). Self-test `resume`.
 - Games list (`scenes/games.lua`, board `Games.png`; `core/gamefile.lua` pure and tested
