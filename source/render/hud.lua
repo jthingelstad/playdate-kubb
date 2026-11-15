@@ -755,10 +755,10 @@ end
 -- ---------- after the throw: the verdicts; while aiming: the plan chip ----------
 
 local verdictPlate
-local POWER_V <const> = { [-1] = "SHORT", [0] = "ON", [1] = "LONG" }
+local POWER_V <const> = { [-2] = "SLOW", [-1] = "SHORT", [0] = "ON", [1] = "LONG" }
 local RELEASE_V <const> = { [-1] = "LOW", [0] = "ON", [1] = "HIGH" }
 
--- powerV, releaseV: -1 | 0 | 1 (short / on / long, low / on / high);
+-- powerV, releaseV: -1 | 0 | 1 (short / on / long, low / on / high; powerV -2: slow flick);
 -- steady: true for STEADY, false for SHAKY. One plate of three cells in a
 -- row, a miss white on black; drawn again only when a verdict changes.
 function hud.verdicts(powerV, releaseV, steady)

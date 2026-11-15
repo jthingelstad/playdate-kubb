@@ -65,8 +65,9 @@ plan.tune = {
 	tiltStepDeg = 5,       -- B + left/right on a baton: one tap tilts the spin plane this much. Measured
 	                       -- (tools/tiltgroups.lua, 2026-11-15): tilt deflects the baton after its first
 	                       -- hit by only about 0.15 degrees per degree, so finer steps make no visible
-	                       -- difference: left, none or right
-	tiltMaxDeg = 5,        -- ... up to this either way
+	                       -- difference
+	tiltMaxDeg = 20,       -- ... up to this either way (Jamie, 2026-11-15: tap up to 20 in steps of 5).
+	                       -- With the shake it adds up toward legalTiltDeg, the helicopter
 	spinSteps = 3,         -- B + left/right on a kubb: up to this many taps either way
 	spinPerStep = 12.5,    -- rad/s about the long axis per tap. Measured (tools/spinwall.lua, 2026-11-15):
 	                       -- the sideways roll stops at one face (3 to 7 cm), and past about 1.5 x
@@ -299,7 +300,8 @@ end
 -- default to the solution's). Fills and returns `out`:
 --   speed, loft, swivel, tilt, tumble   the launch (world.launchBaton's arguments)
 --   legal      false for a helicopter: |tilt| over legalTiltDeg (a baton; a kubb is always legal)
---   powerV     -1 short, 0 on, 1 long: the backswing against the power target
+--   powerV     -1 short, 0 on, 1 long: the power the throw got (backswing times flick)
+--              against the power target; -2 slow: the backswing was enough, the flick was not
 --   releaseV   -1 low, 0 on, 1 high: where the crank stopped against the release target
 --   steady     shake under steadyBelow
 --   over       how much overpowering multiplied the shake's costs (0 = none)
@@ -336,7 +338,14 @@ function plan.launch(sol, r, opts, out)
 	local se = shake * lv.shakeGain * m -- the shake as it counts
 	local shakeTilt = t.shakeTiltDeg * se
 	out.swivel = sol.swivel + rad(pull * t.lateralDeg * se)
-	out.powerV = side(back, sol.powerLo, sol.powerHi)
+	-- the power verdict goes by what the throw got: the backswing times the
+	-- flick (Jamie's first play-test throw, 2026-11-15: back on the target, a
+	-- 534 deg/s flick, 2.6 m of an 8 m throw, and the verdict said ON). Short
+	-- of the target with the backswing on it or past it is a slow flick: -2.
+	local got = plan.backForSpeed(plan.speedFor(back) * flick)
+	local pv = side(got, sol.powerLo, sol.powerHi)
+	if pv < 0 and back >= sol.powerLo then pv = -2 end
+	out.powerV = pv
 	out.releaseV = r.how == "sky" and 1 or side(r.releaseAngle or sol.release, sol.releaseLo, sol.releaseHi)
 	out.steady = shake < t.steadyBelow
 	out.over = m - 1
@@ -355,10 +364,10 @@ function plan.launch(sol, r, opts, out)
 	return out
 end
 
-local POWER = { [-1] = "SHORT", [0] = "ON", [1] = "LONG" }
+local POWER = { [-2] = "SLOW", [-1] = "SHORT", [0] = "ON", [1] = "LONG" }
 local RELEASE = { [-1] = "LOW", [0] = "ON", [1] = "HIGH" }
 
--- The HUD's verdicts after a throw, a word each: power (SHORT, ON, LONG),
+-- The HUD's verdicts after a throw, a word each: power (SLOW, SHORT, ON, LONG),
 -- release (LOW, ON, HIGH) and steadiness (STEADY, SHAKY).
 function plan.verdictText(out)
 	return POWER[out.powerV or 0], RELEASE[out.releaseV or 0], out.steady and "STEADY" or "SHAKY"

@@ -289,3 +289,26 @@ test("plan: a planned drill from a stance rests on the target; spin and shake re
 	expect.truthy(s1.wobble > 0 and s2.wobble > s1.wobble, string.format("wobble %.1f then %.1f", s1.wobble, s2.wobble))
 	expect.truthy(s2.legal, "a kubb has no helicopter rule")
 end)
+
+test("plan: the power verdict counts the flick; a slow flick on the target is SLOW", function()
+	local sol = solve("baton", 0, 0, 0, 8, 90)
+	-- Jamie's first play-test throw (2026-11-15): back on the target, a 534 deg/s flick
+	local L = plan.launch(sol, cleanSwing(sol, { flickFrac = 0.53 }), nil, {})
+	expect.eq(L.powerV, -2)
+	expect.eq((plan.verdictText(L)), "SLOW")
+	-- short of the target with the backswing short too is SHORT
+	L = plan.launch(sol, cleanSwing(sol, { back = sol.powerLo - 10, flickFrac = 0.53 }), nil, {})
+	expect.eq(L.powerV, -1)
+	-- a full flick on the target is ON; a little slow but inside is still ON
+	expect.eq(plan.launch(sol, cleanSwing(sol), nil, {}).powerV, 0)
+	expect.eq(plan.launch(sol, cleanSwing(sol, { flickFrac = 0.97 }), nil, {}).powerV, 0)
+end)
+
+test("plan: tilt goes to 20 degrees in 5 degree taps", function()
+	expect.eq(plan.tune.tiltStepDeg, 5)
+	expect.eq(plan.tune.tiltMaxDeg, 20)
+	local sol = solve("baton", 0, 0, 0, 8, 90)
+	local L = plan.launch(sol, cleanSwing(sol), { tilt = 20 }, {})
+	expect.near(L.tilt, 20, 1e-9)
+	expect.truthy(L.legal, "20 degrees planned with a steady swing is legal")
+end)
