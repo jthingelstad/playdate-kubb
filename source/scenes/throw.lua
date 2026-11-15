@@ -59,7 +59,9 @@ throw.tune = {
 	walkSpeed = 1.2,      -- m/s along the throwing line
 	halfWidth = 2.5,      -- the line is 5 m wide (DESIGN 2)
 	backMax = 3.0,        -- m the player may step back from the throwing line
-	snapRadius = 0.25,    -- m: the target circle let go this near a standing kubb or the king
+	snapRadius = 0.25,    -- m: throw.aimAt puts the circle onto a standing kubb or the king this near
+	keepNear = 1.0,       -- m: a circle moved by hand stays put for the next throw while a live
+	                      -- target stands this near it (else it goes onto the nearest target)
 	                      -- snaps onto it (the circle's radius, DESIGN 4)
 	overDeg = 150,        -- backswing degrees past which the clock shows overpowered (11 o'clock)
 	cpuSwingTime = 0.6,   -- s the Playdate's arm takes on the clock before its throw leaves
@@ -387,14 +389,21 @@ local function settleMarker(s, snap)
 end
 
 -- A new throw's circle: (keep) one the player put with the d-pad stays where
--- it is (s.markerSet: aimed off a kubb for the wind, it stays aimed), else it
--- stays on the target it is on while that still stands; otherwise it goes
--- onto the live target nearest the thrower (s.targets; with none it stays
--- where it is).
+-- it is while a live target stands within keepNear of it (s.markerSet: aimed
+-- off a kubb for the wind, it stays aimed; its arc's kind is read again, so
+-- the default arc follows the targets: Codex on #98), else it stays on the
+-- target it is on while that still stands; otherwise it goes onto the live
+-- target nearest the thrower (s.targets; with none it stays where it is).
 local function retarget(s, keep)
 	if keep and s.markerSet then
-		s.planDirty = true
-		return
+		local sn, r = s.snaps, throw.tune.keepNear
+		for i = 1, #sn do
+			local dx, dy = sn[i].x - s.markerX, sn[i].y - s.markerY
+			if dx * dx + dy * dy <= r * r then
+				settleMarker(s, false)
+				return
+			end
+		end
 	end
 	s.markerSet = false
 	local on = s.markerOn
