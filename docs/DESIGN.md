@@ -212,6 +212,17 @@ the gauge and the verdicts in the throw scene; the computer throws the same way.
 and THE WALL. 5. Jamie and Tyler play the drills; the targets, flick speed, stop detection
 and shake limits are fitted from the recordings. 6. The match and HOW TO THROW.
 
+### HOW TO THROW
+
+The walkthrough, on the practice pitch with the real crank and real throws (built
+2026-11-15): 1 the crank is your arm (down to 6), 2 point and throw (what the verdicts
+mean), 3 how far back is how far (a throw with the power ON), 4 where you stop is the arc
+(the release ON), 5 the d-pad aims (it stays where you leave it: aim into a wind), 6 hold A
+to walk, 7 hold B to plan (arc, tilt, spin), 8 that is the throw. Each step goes on once
+the player has done it and A is pressed; a tap of B skips one. It is the last item of
+PRACTICE's menu, which starts on it until it has been seen, and the practice pitch's
+System Menu "Pitch: how to".
+
 "The hard way" (land out of bounds and cut back in), nudges and clacks are not special moves;
 they fall out of the physics. How much a kubb cuts depends on the surface (section 5): more on
 grass, less on sand. The Minnesota slide is the same throw on ice, built last.
