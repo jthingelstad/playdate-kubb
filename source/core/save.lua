@@ -57,7 +57,7 @@ function save.write(m, opts, writer)
 	local ok, err = pcall(writer, {
 		v = save.version, currentIndex = ci,
 		game = m.game, start = m.start, mode = m.mode, turn = m.turn, tossed = m.tossed,
-		text = m.text, debris = m.debris,
+		text = m.text, debris = m.debris, order = m.order,
 		opts = { vs = opts and opts.vs, names = opts and opts.names,
 			autoSettle = opts and opts.autoSettle or nil,   -- the match options' raising
 			set = opts and opts.set or nil,                 -- kubb set
@@ -89,7 +89,7 @@ function save.unpack(d)
 		sheet.currentIndex = nil
 	end
 	local m = { game = g, start = d.start, mode = d.mode, turn = d.turn, tossed = d.tossed, text = d.text,
-		settled = nil, setup = nil, debris = d.debris }
+		settled = nil, setup = nil, debris = d.debris, order = d.order }
 	return m, d.opts or {}
 end
 
