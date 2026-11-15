@@ -235,3 +235,141 @@ test("match framing: look nearer for near targets, the default for the far basel
 	local _, sy = camera.project(b, 0.5, 3, 0)
 	expect.truthy(sy and sy > 0 and sy < 240, "near kubb on screen")
 end)
+
+-- ---------------------------------------------------------------------------
+-- First person and the plan view (Jamie, 2026-11-15: first person while
+-- aiming, over the shoulder and zoomed out while B is held)
+
+import "core/throwplan"
+local plan = tw.plan
+
+local CIRCLES = {}
+for _, x in ipairs { -2.5, -1, 0, 1.5, 2.5 } do
+	for _, y in ipairs { 3.5, 4.2, 5, 6, 7, 8, 8.6 } do CIRCLES[#CIRCLES + 1] = { x, y } end
+end
+local STANCES = { false, -2.5, 2.5 }   -- false: straight behind the circle
+
+local function stanceFor(cx, px)
+	if px then return px, 0 end
+	return math.max(-2.5, math.min(2.5, cx)), 0
+end
+
+test("first person is straight behind the thrower, looking circleBeyond past the circle", function()
+	expect.eq(camera.tune.aim.side, 0, "side")
+	local c = camera.new()
+	local t = camera.tune.aim
+	expect.near(camera.lookDistAt(0, 0, 0, 5), 5 + t.circleBeyond, 1e-12)
+	expect.near(camera.lookDistAt(0, 0, 0, 8), t.lookDist, 1e-12, "the far baseline: the default framing")
+	expect.near(camera.lookDistAt(0, 3, 0, 4), t.lookMin, 1e-12, "close up: never nearer than lookMin")
+	camera.aim(c, 1, 0, 0.1, FAR, 0, camera.lookDistAt(1, 0, 1.5, 6))
+	local dx, dy = camera.aimDir(0.1)
+	expect.near(c.px, 1 - dx * t.back, 1e-9, "behind along the aim")
+	expect.near(c.py, -dy * t.back, 1e-9)
+	expect.near(camera.project(c, 1 + dx * 4, dy * 4, 0), 200, 1e-6, "the aim line at centre x")
+end)
+
+test("first person: the circle wholly on screen and the far base kubbs at least 12 px", function()
+	local c = camera.new()
+	local R = 0.25
+	for _, ci in ipairs(CIRCLES) do
+		for _, sp in ipairs(STANCES) do
+			local px, py = stanceFor(ci[1], sp)
+			local sw = math.atan(ci[1] - px, ci[2] - py)
+			camera.aim(c, px, py, sw, FAR, 0, camera.lookDistAt(px, py, ci[1], ci[2]))
+			local what = string.format("circle %.1f %.1f stance %.1f", ci[1], ci[2], px)
+			for k = 0, 11 do
+				local a = k * math.pi / 6
+				local sx, sy = camera.project(c, ci[1] + R * math.cos(a), ci[2] + R * math.sin(a), 0)
+				expect.truthy(sx and sx >= 0 and sx <= 400 and sy >= 14 and sy <= 240,
+					what .. ": ring at " .. tostring(sx) .. ", " .. tostring(sy))
+			end
+			if c.f < camera.tune.aim.fMax then
+				for _, k in ipairs(FAR) do
+					local h = camera.uprightPx(c, k.x, k.y, 0.15)
+					local sx = camera.project(c, k.x, k.y, 0)
+					if sx >= 0 and sx <= 400 then expect.truthy(h >= 12, what .. ": kubb " .. k.x .. " " .. h .. " px") end
+				end
+			end
+			expect.truthy(camera.uprightPx(c, 0, 8, 0.15) >= 12 or c.f >= camera.tune.aim.fMax, what .. ": (0, 8)")
+		end
+	end
+end)
+
+-- The planned arc (as throw.lua's drawArc: points arcSkip..arcPoints of the
+-- plan's clean throw) and the circle's four sides, into xs, ys, zs.
+local AX, AY, AZ = {}, {}, {}
+local function planArc(px, py, tx, ty, rel)
+	local sol = plan.solve({ projectile = "baton", px = px, py = py, tx = tx, ty = ty, release = rel,
+		level = "club" }, {})
+	local e = math.rad(sol.loft)
+	local _, _, T = flight.predict(px, py, sol.swivel, sol.loft, sol.speed)
+	local vx, vy = sol.speed * math.sin(sol.swivel) * math.cos(e), sol.speed * math.cos(sol.swivel) * math.cos(e)
+	local vz, h, g = sol.speed * math.sin(e), flight.tune.handHeight, flight.tune.g
+	local n = 0
+	for i = 2, 24 do
+		local tt = T * i / 24
+		n = n + 1
+		AX[n], AY[n], AZ[n] = px + vx * tt, py + vy * tt, h + vz * tt - 0.5 * g * tt * tt
+	end
+	for k = 0, 3 do
+		n = n + 1
+		AX[n], AY[n], AZ[n] = tx + 0.25 * math.cos(k * math.pi / 2), ty + 0.25 * math.sin(k * math.pi / 2), 0
+	end
+	return n, sol
+end
+
+test("the plan view: over the right shoulder, zoomed out, the target half, the arc and the circle in its box", function()
+	local t = camera.tune.shoulder
+	local c, fp = camera.new(), camera.new()
+	local pt = plan.tune
+	local ACROSS = 4   -- (throw.tune.arcFitFrom - arcSkip: the arc's first rise only across)
+	for _, ci in ipairs { { 0, 8 }, { -2.5, 8 }, { 2.5, 8 }, { 0, 4.2 }, { -2.5, 4.2 }, { 2.5, 6 }, { 1, 5 } } do
+		for _, sp in ipairs(STANCES) do
+			local px, py = stanceFor(ci[1], sp)
+			for rel = pt.releaseMinDeg, pt.releaseMaxDeg, pt.arcStepDeg do
+				local n, sol = planArc(px, py, ci[1], ci[2], rel)
+				local what = string.format("circle %.1f %.1f stance %.1f release %d", ci[1], ci[2], px, rel)
+				camera.shoulder(c, px, py, sol.swivel, 0, n, AX, AY, AZ, ACROSS)
+				camera.aim(fp, px, py, sol.swivel, FAR, 0, camera.lookDistAt(px, py, ci[1], ci[2]))
+				expect.truthy(c.f < fp.f and c.f >= t.fMin and c.f <= t.fMax, what .. ": lens " .. c.f)
+				-- to the right of the thrower, behind and above
+				local dx, dy = camera.aimDir(sol.swivel)
+				expect.truthy((c.px - px) * dy - (c.py - py) * dx > t.side - 1e-6, what .. ": to the right")
+				expect.near(c.pz, t.height, 1e-9)
+				local function inBox(x, y, z, sidesOnly)
+					local sx, sy = camera.project(c, x, y, z)
+					if not sx then return false end
+					if sx < t.left - 0.5 or sx > t.right + 0.5 then return false end
+					return sidesOnly or (sy >= t.top - 0.5 and sy <= t.bottom + 0.5)
+				end
+				for _, p in ipairs { { -2.5, 8 }, { 2.5, 8 }, { -1, 4 }, { 1, 4 }, { 0, 4 } } do
+					expect.truthy(inBox(p[1], p[2], 0), what .. string.format(": (%.1f, %.0f)", p[1], p[2]))
+				end
+				for i = 1, n do
+					expect.truthy(inBox(AX[i], AY[i], AZ[i], i <= ACROSS), what .. ": fit point " .. i)
+				end
+			end
+		end
+	end
+end)
+
+test("camera.blend runs first person to the plan view; the follow starts from either", function()
+	local a, b, c = camera.new(), camera.new(), camera.new()
+	camera.aim(a, 0, 0, 0, FAR, 0, camera.lookDistAt(0, 0, 0, 8))
+	local n = planArc(0, 0, 0, 8, 90)
+	camera.shoulder(b, 0, 0, 0, 0, n, AX, AY, AZ, 4)
+	camera.blend(c, a, b, 0)
+	for _, k in ipairs { "px", "py", "pz", "lx", "ly", "f", "cx", "cy" } do expect.near(c[k], a[k], 1e-9, k .. " at 0") end
+	camera.blend(c, a, b, 1)
+	for _, k in ipairs { "px", "py", "pz", "lx", "ly", "f", "cx", "cy" } do expect.near(c[k], b[k], 1e-6, k .. " at 1") end
+	camera.blend(c, a, b, 0.5)
+	expect.near(c.f, math.sqrt(a.f * b.f), 1e-6, "the lens half way in log space")
+	expect.near(c.px, (a.px + b.px) / 2, 1e-9, "half way across")
+	-- the follow starts from the aim camera's principal point, wherever it is
+	local imp, f = camera.new(), camera.new()
+	camera.impact(imp, 0, 8, 0, 1)
+	camera.follow(f, b, imp, 0)
+	expect.near(f.cx, b.cx, 1e-9, "follow from the plan view: its cx")
+	camera.follow(f, b, imp, 1)
+	expect.near(f.cx, imp.cx, 1e-9, "to the impact camera's")
+end)

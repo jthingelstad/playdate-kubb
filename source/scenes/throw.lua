@@ -19,8 +19,8 @@
 -- Drilling (DESIGN "Kubbs (drilling)"): a kubb throw (s.drill) is the same
 -- throw: the circle is where the kubb should rest, the plan solves the clean
 -- drill that rests there (from the baseline), B + left/right plans its spin.
--- The aim camera is then a high view of the far half (camera.drillAim) that
--- steps sideways with the thrower. The match's kubb throws drill; the
+-- The aim camera is the baton's: first person, the plan view while B is held.
+-- The match's kubb throws drill; the
 -- practice pitch drills when "Pitch: drill" is chosen, and the drilled kubbs
 -- stay where they end until "Pitch: reset".
 import "CoreLibs/graphics"
@@ -114,13 +114,9 @@ throw.tune = {
 	arcPoints = 24,       -- points along the arc, release to landing (every other gap drawn: dashes)
 	arcSkip = 2,          -- the first points (at the hand, under the camera) are left out
 	arcWidth = 2,         -- px
-	arcTop = 22,          -- px: the aim camera widens until the planned arc stays below this row
-	arcSide = 6,          -- px: and inside the screen's sides by this much
-	arcMinF = 380,        -- px: but never wider than this lens
-	arcMaxCy = 158,       -- px: before widening, the camera looks up as far as this principal row
-	arcBottom = 230,      -- px: and the target circle stays above this row (a low throw lands near)
-	                      -- (the ground point it aims at moves down the screen; the kubbs keep
-	                      -- their size)
+	arcFitFrom = 6,       -- the plan view (camera.shoulder) keeps the arc on screen from this point
+	                      -- on; before it (the first quarter, near the hand) only inside the
+	                      -- sides: it may rise in from the lower edge
 }
 
 -- The match (scenes/match) uses the same scene with these per-scene fields,
@@ -280,21 +276,49 @@ local function kindOf(it)
 	return "base"
 end
 
--- The aim camera for this frame.
-local fitArc   -- (below, with drawArc)
+-- The aim camera for this frame (AGENTS.md "The aim camera"): first person
+-- (camera.aim, straight behind the thrower, looking circleBeyond past the
+-- target circle), and while B is held the plan view over the shoulder
+-- (camera.shoulder, fitted to the target half, the planned arc and the
+-- circle), the two blended by s.camMix (0 first person, 1 the plan view;
+-- throw.update moves it over camera.tune.shoulder.time, eased). `k` (0 to 1,
+-- default 1) is how far the plan view's lens and principal point go toward
+-- this frame's fit: throw.update eases them (a tap of the arc re-fits the view
+-- without a jump); every other caller snaps. No tables.
+local shoulderFit   -- (below, with drawArc)
 
-local function aimCamera(s)
-	if s.drill then
-		camera.drillAim(s.aimCam, s.lineY, s.playerX)
-		return
+local function aimCamera(s, k)
+	local mix = s.camMix
+	local fp = (mix > 0) and s.fpCam or s.aimCam
+	local look
+	if not s.watching or s.cpuTarget then
+		look = camera.lookDistAt(s.playerX, s.playerY, s.markerX, s.markerY)
+	elseif s.targetIds then
+		look = camera.lookDistFor(s.playerX, s.playerY, s.targets, #s.targets)
 	end
-	local tg = s.targets
-	local look = nil
-	if s.targetIds then look = camera.lookDistFor(s.playerX, s.playerY, tg, #tg) end
 	local back = s.lineY - s.playerY
 	if back < 0 then back = 0 end
-	camera.aim(s.aimCam, s.playerX, s.playerY, s.swivel, tg, back, look)
-	fitArc(s, s.aimCam)
+	camera.aim(fp, s.playerX, s.playerY, s.swivel, s.targets, back, look)
+	if mix <= 0 then
+		s.shF = nil
+		return
+	end
+	local sh = s.shCam
+	shoulderFit(s, sh)
+	k = k or 1
+	if s.shF and k < 1 then
+		-- ease toward this frame's fit (the lens in log space), and take it
+		-- once within half a pixel: an easing that never arrives would move
+		-- the camera, and redraw the world, every frame B is held
+		local f, cx, cy = sh.f, sh.cx, sh.cy
+		if abs(f - s.shF) > 0.5 or abs(cx - s.shCx) > 0.5 or abs(cy - s.shCy) > 0.5 then
+			sh.f = s.shF * (f / s.shF) ^ k
+			sh.cx = s.shCx + (cx - s.shCx) * k
+			sh.cy = s.shCy + (cy - s.shCy) * k
+		end
+	end
+	s.shF, s.shCx, s.shCy = sh.f, sh.cx, sh.cy
+	camera.blend(s.aimCam, fp, sh, camera.smooth(mix))
 end
 
 -- How far forward this throw may stand: the advantage line for a baton (a
@@ -397,7 +421,12 @@ function throw.new(provider)
 		swing = swing.new(),
 		flight = flight.new(),   -- the stage 1 prediction (landing point, flight time) and
 		                         -- the baton's displayed position (x, y, z, t)
-		aimCam = camera.new(),
+		aimCam = camera.new(),   -- the aim camera shown: first person, the plan view or between
+		fpCam = camera.new(),    -- first person, while the plan view is mixed in
+		shCam = camera.new(),    -- the plan view over the shoulder (camera.shoulder)
+		camMix = 0,              -- 0 first person .. 1 the plan view (B held), eased
+		shF = nil, shCx = nil, shCy = nil, -- the plan view's lens and principal point last frame
+		planHeld = false,        -- B was held this frame (aimInput)
 		impactCam = camera.new(),
 		view = camera.new(),
 		restTime = 0,
@@ -534,6 +563,7 @@ function throw.prepare(s, setup)
 	burst.reset(s.burst)
 	s.arm, s.armed = nil, false
 	swing.reset(s.swing)
+	s.camMix, s.planHeld, s.shF = 0, false, nil
 	replan(s)
 	aimCamera(s)
 	s.viewCam = s.aimCam
@@ -619,6 +649,7 @@ local function aimInput(s, dt)
 	local dx = (p:held("right") and 1 or 0) - (p:held("left") and 1 or 0)
 	local dy = (p:held("up") and 1 or 0) - (p:held("down") and 1 or 0)
 	local holdA, holdB = p:held("a"), p:held("b")
+	s.planHeld = holdB
 	local sw = s.swing
 	local moving = false
 	if holdB then
@@ -738,6 +769,9 @@ end
 -- Playdate's kubb tosses, end over end).
 local function fire(s, L, how)
 	s.knockT = -1
+	-- the follow camera starts from the aim camera as it is (normally first
+	-- person); the next aim starts in first person
+	s.camMix, s.planHeld, s.shF = 0, false, nil
 	local t = throw.tune
 	local fl = s.flight
 	local kubb = how ~= "baton"
@@ -1107,7 +1141,14 @@ function throw.update(s)
 	local t = throw.tune
 	if s.mode == "aim" then
 		local ev = aimInput(s, dt)
-		aimCamera(s)
+		-- the plan view while B is held, first person when it is let go: a
+		-- smooth move both ways (camera.tune.shoulder.time, eased in aimCamera)
+		local st = camera.tune.shoulder
+		local want = (s.planHeld and not s.watching) and 1 or 0
+		local step = (st.time > 0) and dt / st.time or 1
+		if s.camMix < want then s.camMix = min(want, s.camMix + step)
+		elseif s.camMix > want then s.camMix = max(want, s.camMix - step) end
+		aimCamera(s, (st.refit > 0) and min(1, dt / st.refit) or 1)
 		if ev == "release" then
 			s.scripted = false
 			launch(s, s.swing.result)
@@ -1269,57 +1310,37 @@ local function arcShown(s)
 	return throw.tune.arc and not s.drill and s.projectile ~= "kubb"
 end
 
--- Fit the planned arc (the one drawArc shows) on screen below arcTop and
--- inside arcSide, and the target circle above arcBottom: from the crane over the
--- thrower's shoulder a high arc's top would otherwise leave the long lens's
--- frame, and a low throw's landing falls under its lower edge (Codex on
--- #74). The arc may rise in from the lower edge; where it lands always
--- shows. The camera first looks up (principal row down to arcMaxCy), then
--- widens its lens (offsets from the principal point scale with it) no wider
--- than arcMinF. Every aim frame (25 projections, no tables).
-fitArc = function(s, c)
-	if s.watching or not arcShown(s) then return end
+-- The plan view's fit (camera.shoulder): the planned arc (the one drawArc
+-- shows; before point arcFitFrom, its first rise near the hand, only inside
+-- the sides: it may come in from the lower edge; a drill has none), and the
+-- target circle's four sides. Scratch arrays, filled in place: no tables per
+-- frame.
+local fitX, fitY, fitZ = {}, {}, {}
+shoulderFit = function(s, c)
 	local t = throw.tune
-	local vx, vy, vz, T = arcLaunch(s)
-	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
-	local n = t.arcPoints
-	-- the arc's highest point above the principal point, and its widest
-	-- across, in px at this lens
-	local up, side = 0, 0
-	for i = t.arcSkip, n do
-		local tt = T * i / n
-		local sx, sy = camera.project(c, x0 + vx * tt, y0 + vy * tt, h + vz * tt - 0.5 * g * tt * tt)
-		if sx then
-			local o, w = c.cy - sy, math.abs(sx - c.cx) / (c.cx - t.arcSide)
-			if o > up then up = o end
-			if w > side then side = w end
+	local n, across = 0, 0
+	if arcShown(s) and not s.watching then
+		local vx, vy, vz, T = arcLaunch(s)
+		local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+		across = t.arcFitFrom - t.arcSkip
+		for i = t.arcSkip, t.arcPoints do
+			local tt = T * i / t.arcPoints
+			n = n + 1
+			fitX[n], fitY[n], fitZ[n] = x0 + vx * tt, y0 + vy * tt, h + vz * tt - 0.5 * g * tt * tt
 		end
 	end
-	-- where it lands, in px below the principal point: the target circle's
-	-- near edge (the arc comes down on its centre)
-	local down = 0
-	local R, sw = t.markerRadius, s.sol.swivel or 0
-	local lsx, lsy = camera.project(c, s.markerX - R * math.sin(sw), s.markerY - R * math.cos(sw), 0)
-	if lsx then down = lsy - c.cy end
-	-- first look up (the principal point lower: the kubbs keep their size),
-	-- then widen the lens for what is still over
-	local cy = c.cy
-	if up > cy - t.arcTop then cy = min(t.arcMaxCy, t.arcTop + up) end
-	c.cy = cy
-	local k = up / (cy - t.arcTop)
-	if side > k then k = side end
-	local kd = down / (t.arcBottom - cy)
-	if kd > k then k = kd end
-	if k > 1 then
-		local f = c.f / k
-		if f < t.arcMinF then f = t.arcMinF end
-		c.f = f
+	local R = t.markerRadius
+	for k = 0, 3 do
+		n = n + 1
+		local a = k * math.pi / 2
+		fitX[n], fitY[n], fitZ[n] = s.markerX + R * math.cos(a), s.markerY + R * math.sin(a), 0
 	end
+	camera.shoulder(c, s.playerX, s.playerY, s.swivel, s.lineY, n, fitX, fitY, fitZ, across)
 end
 
 -- The baton's arc while aiming (Jamie and Tyler, 2026-11-14): the plan's
 -- clean throw from where the player stands onto the target circle, the arc
--- the camera is framed for (fitArc). It shows the plan, not the throw: the
+-- the plan view is framed for (shoulderFit). It shows the plan, not the throw: the
 -- backswing, the flick and where the crank stops still decide it. A dashed
 -- line of arcPoints projected points (every other gap drawn), ending in the
 -- circle. Drawn over the world each aim frame, outside its caches; no tables.
