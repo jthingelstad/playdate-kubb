@@ -365,8 +365,10 @@ throw.replan = replan
 
 -- The circle has been let go at (markerX, markerY): the arc's kind is the
 -- nearest target's, and (snap) it snaps onto a standing target within
--- snapRadius (plan.snap over s.snaps). A drill's circle is where the kubb
--- should rest: it never snaps.
+-- snapRadius (plan.snap over s.snaps). Nothing in play snaps any more (Tyler's
+-- play test, 2026-11-15: a circle that locks onto the kubb made 8 m too easy
+-- and left no way to aim off it for the wind); a new throw's circle still
+-- starts on a target (retarget).
 local function settleMarker(s, snap)
 	local sn, n = s.snaps, #s.snaps
 	local best, bd = nil, math.huge
@@ -384,10 +386,17 @@ local function settleMarker(s, snap)
 	s.planDirty = true
 end
 
--- A new throw's circle: it stays on the target it is on while that still
--- stands (keep), else it goes onto the live target nearest the thrower
--- (s.targets; with none it stays where it is).
+-- A new throw's circle: (keep) one the player put with the d-pad stays where
+-- it is (s.markerSet: aimed off a kubb for the wind, it stays aimed), else it
+-- stays on the target it is on while that still stands; otherwise it goes
+-- onto the live target nearest the thrower (s.targets; with none it stays
+-- where it is).
 local function retarget(s, keep)
+	if keep and s.markerSet then
+		s.planDirty = true
+		return
+	end
+	s.markerSet = false
 	local on = s.markerOn
 	if keep and on and not on.toppled then
 		for i = 1, #s.snaps do
@@ -482,6 +491,7 @@ function throw.new(provider)
 		-- the aim: the target circle (view frame), what it is on, and the plan
 		markerX = 0, markerY = 0, markerHeld = 0, markerSide = nil, markerFixed = false,
 		markerOn = nil,          -- the target item the circle is on, or nil
+		markerSet = false,       -- the player moved the circle with the d-pad (kept across throws)
 		markerKind = "base",     -- the kind of target nearest the circle (the arc's default)
 		markerMoving = false,    -- the d-pad moved the circle last frame
 		stanceSet = false,       -- A has walked the stance this aim
@@ -627,8 +637,9 @@ function throw.reset(s)
 end
 
 -- The aim, for self-tests and callers that set it up directly (each solves
--- the plan again at once): the circle onto (x, y) (snapping as the d-pad's
--- let-go does, a baton's only), the stance (as if A had walked it there), the
+-- the plan again at once): the circle onto (x, y) (a baton's snaps onto a
+-- standing target within snapRadius: callers aim at a piece; the d-pad's
+-- let-go no longer snaps), the stance (as if A had walked it there), the
 -- planned release (as if B had set it), the tilt or spin.
 function throw.aimAt(s, x, y)
 	local mx, my = drill.clampMarker(x, y - s.lineY)
@@ -700,14 +711,14 @@ local function aimInput(s, dt)
 		s.markerHeld = s.markerHeld + dt
 		local v = min(dtn.markerSpeedMax, dtn.markerSpeed + dtn.markerAccel * s.markerHeld)
 		local mx, my = drill.clampMarker(s.markerX + dx * v * dt, s.markerY - s.lineY + dy * v * dt)
-		s.markerX, s.markerY, s.markerOn = mx, s.lineY + my, nil
+		s.markerX, s.markerY, s.markerOn, s.markerSet = mx, s.lineY + my, nil, true
 		s.planDirty = true
 		moving = true
 	end
 	if not moving then
 		s.markerHeld = 0
-		-- let go: the circle snaps onto a standing target near it
-		if s.markerMoving then settleMarker(s, s.projectile ~= "kubb") end
+		-- let go: the arc follows the nearest target's kind (no snap)
+		if s.markerMoving then settleMarker(s, false) end
 	end
 	s.markerMoving = moving
 	if s.planDirty or s.planLevel ~= throw.levelFor(s) then replan(s) end

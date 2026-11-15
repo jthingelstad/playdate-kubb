@@ -1279,6 +1279,10 @@ function world.step(w)
 			-- knock come at the impact); one test a contact, no arithmetic
 			if not first.touchT then first.touchT = w.time end
 			if not other.touchT then other.touchT = w.time end
+			-- a drilled kubb that strikes a piece (not a stake: a wall rolls against
+			-- the stake) has done its drill: drillOver below makes it a plain kubb
+			if first.slipDrag and not other.static then first.drillHit = true end
+			if other.slipDrag and not first.static then other.drillHit = true end
 			if proj and not w.firstHit and (first == proj or other == proj) then
 				noteContact(w, proj, (first == proj) and other or first, cPx[idx], cPy[idx], cPz[idx])
 			end
@@ -1297,6 +1301,24 @@ function world.step(w)
 		if b.awake then
 			local gi = b.groundImpulse
 			if gi <= 0 then b.plough = 0 end   -- off the ground: the ploughed snow is left behind
+			-- a drilled kubb is a plain kubb once its drill is over: it has struck
+			-- a piece, or it is on the ground and nearly still (drill.tune
+			-- settleV, settleW). Without this it rolled on like a log after a hit
+			-- and rocked on its rounded edges for seconds before sleeping
+			-- (Tyler's play test, 2026-11-15). Every other body: one test.
+			if b.slipDrag and gi > 0 then
+				local over = b.drillHit
+				if not over then
+					local dt_ = tw.drill.tune
+					local sv, sw = dt_.settleV, dt_.settleW
+					over = b.vx * b.vx + b.vy * b.vy + b.vz * b.vz < sv * sv
+						and b.wx * b.wx + b.wy * b.wy + b.wz * b.wz < sw * sw
+				end
+				if over then
+					b.edgeRound, b.slipDrag, b.rollDrag, b.plugGain = 0, false, 0, 1
+					b.digBySpin, b.bumpGain, b.digGain = true, 1, 1
+				end
+			end
 			if gi > 0 then
 				if b.slipDrag then
 					-- a drilled kubb: the plug (dig) holds its tumble and its turn but

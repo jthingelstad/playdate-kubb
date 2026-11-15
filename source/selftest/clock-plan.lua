@@ -4,10 +4,12 @@
 -- moves the planned release from 3 to 2 o'clock, B + right tilts the baton
 -- (TILT R 5); then the pitch turns to drilling and B + right twice spins
 -- the kubb (SPIN R 2), B + down once lowers its arc. The d-pad alone then
--- moves the drill's circle (it never snaps), and back on batons a circle let
--- go near b2 snaps onto it. No throw is made. Frames: 1 the default aim,
--- 2 after the walk, 3 the arc and tilt, 4 the drill with its spin, 5 the
--- circle snapped onto b2.
+-- moves the drill's circle (it never snaps), and back on batons throw.aimAt
+-- near b2 snaps onto it; then the d-pad moves the circle a little off b2 and
+-- it stays there (the let-go never snaps: Tyler's play test, 2026-11-15). No
+-- throw is made. Frames: 1 the default aim, 2 after the walk, 3 the arc and
+-- tilt, 4 the drill with its spin, 5 the circle snapped onto b2, 6 the
+-- circle moved off b2 and let go.
 import "selftest/_throw"
 
 local st = tw.selftest
@@ -31,6 +33,8 @@ st.scenarios["clock-plan"] = st.throwScenario {
 		{ n = 20, hold = { "up" } },              -- the drill's circle out
 		{ n = 6 },
 		{ n = 3 },                                -- (back to batons)
+		{ n = 6 },
+		{ n = 8, hold = { "left" } },             -- the circle a little off b2
 		{ n = 6 },
 	},
 	shots = {
@@ -56,8 +60,15 @@ st.scenarios["clock-plan"] = st.throwScenario {
 				throw.aimAt(s, -0.85, 7.85)
 				return false
 			end
-			return f == 112
+			if f == 112 then
+				local on = s.markerOn
+				seen.snapped = on and on.id == "b2" and s.markerX == on.x and s.markerY == on.y
+				seen.b2x, seen.snapPX = on and on.x, s.playerX
+				return true
+			end
 		end,
+		function(s, f) return f == 126 end,
+
 	},
 	maxFrames = 200,
 	check = function(s)
@@ -71,8 +82,11 @@ st.scenarios["clock-plan"] = st.throwScenario {
 		if seen.spin ~= 2 then return "spin " .. tostring(seen.spin) end
 		if seen.drillRel ~= 120 then return "the drill's arc " .. tostring(seen.drillRel) end
 		if not (seen.my1 > seen.my0 + 0.3) or seen.drillOn then return "the drill's circle did not move freely" end
-		local on = s.markerOn
-		if not on or on.id ~= "b2" or s.markerX ~= on.x or s.markerY ~= on.y then return "no snap onto b2" end
-		if math.abs(s.playerX - on.x) > 1e-6 then return "the stance did not follow the snapped circle" end
+		if not seen.snapped then return "no snap onto b2" end
+		if math.abs(seen.snapPX - seen.b2x) > 1e-6 then return "the stance did not follow the snapped circle" end
+		local off = seen.b2x - s.markerX
+		if s.markerOn or not (off > 0.03 and off < 0.25) then
+			return string.format("the circle let go %.3f m off b2 snapped back or did not move", off)
+		end
 	end,
 }
