@@ -31,18 +31,43 @@ camera.tune = {
 		                     -- the lens limit grows by stepBack / this when the player steps back
 		lookBeyond = 1.5,    -- m past the nearest live target the match camera looks (lookDistFor)
 		lookMin = 3.0,       -- m; lookDistFor never looks nearer than this
-		side = 1.0,          -- m the crane stands to the thrower's right, still looking at the
-		                     -- same ground point (over the shoulder, Jamie 2026-11-14: the
-		                     -- throw's arc is seen as an arc, not edge-on as from behind)
+		side = 0,            -- m the crane stands to the thrower's right, still looking at the
+		                     -- same ground point. 0: first person, straight behind (Jamie,
+		                     -- 2026-11-15: "return to the first person view"); the over-the-
+		                     -- shoulder view is camera.shoulder, while B is held
+		circleBeyond = 1.5,  -- m past the target circle the first-person camera looks
+		                     -- (camera.lookDistAt), between lookMin and lookDist: the circle
+		                     -- stays on screen wherever the d-pad puts it
 	},
-	drill = {              -- the drill aim (a kubb aimed with a ground marker): higher and
-	                       -- looking down on the target half. It steps sideways with the
-	                       -- thrower, who stands behind the marker (Jamie, 2026-11-13)
-		back = 2.5,          -- m behind the baseline
-		height = 5.5,        -- m above the ground (the baton camera is at 3.4)
-		lookDist = 6.4,      -- m out from the baseline to the ground point it looks at
-		f = 500,             -- px: the half from 3.5 m to 8.6 m out and 3 m either side fits,
-		cy = 72,             -- with the middle line clear above the throw gauge
+	-- The plan view (Jamie, 2026-11-15: "when we hold down B to adjust loft we
+	-- should move the camera to that over the shoulder view to see the loft
+	-- ... it moves position and zooms out"): while B is held the aim camera
+	-- swings from first person to a crane over the thrower's right shoulder,
+	-- standing back and up, turned to the middle of the target half, its
+	-- lens as long as keeps the whole target half, the planned arc and the
+	-- circle in the box below (camera.shoulder). Guesses, tuned by eye on the
+	-- Simulator's frames.
+	shoulder = {
+		side = 2.6,          -- m to the thrower's right
+		back = 3.6,          -- m behind the thrower, along the aim
+		height = 3.4,        -- m above the ground (first person: 3.4)
+		lookY = 6.0,         -- m out from the line to the ground point it turns to (x = 0): the
+		                     -- target half's middle
+		farX = 2.7,          -- m either side of the middle kept in view on the far baseline (the
+		                     -- pitch is 2.5: its corners and the base kubbs)
+		nearX = 1.0,         -- m either side kept on the centerline (the king and the middle;
+		                     -- the whole width there would need a much wider lens)
+		pad = 0.3,           -- m kept beyond the far baseline and short of the centerline
+		cornerZ = 0.3,       -- m: the far corners are kept at this height too (a kubb's top)
+		left = 12,           -- px: the box everything is fitted into (lens shift: the principal
+		right = 388,         -- point moves so the box is filled evenly)
+		top = 24,            -- under the rail
+		bottom = 200,        -- the arc and the half's near corners may come this low (the minimap
+		                     -- and the clock sit below the clear band's 156)
+		fMin = 300,          -- px: never wider (a far base kubb about 4 px tall)
+		fMax = 880,          -- px: never longer than the first-person lens
+		time = 0.4,          -- s for the swing out or back (eased: camera.smooth)
+		refit = 0.15,        -- s: the time constant a new fit (a tap of the arc) is eased in with
 	},
 	impact = {
 		dist = 2.75,         -- m, horizontal, from the predicted landing point (DESIGN 3: 2.5 to 3)
@@ -171,17 +196,6 @@ function camera.aim(c, playerX, lineY, swivel, targets, stepBack, lookDist)
 	return c
 end
 
--- The drill aim camera: straight down the pitch from behind the middle of
--- the baseline at lineY, high, looking down on the far half. It does not
--- follow the marker or the thrower.
-function camera.drillAim(c, lineY, x)
-	local t = camera.tune.drill
-	x = x or 0
-	camera.lookAt(c, x, lineY - t.back, t.height, x, lineY + t.lookDist, 0)
-	c.cx, c.cy, c.f = camera.SCREEN_W / 2, t.cy, t.f
-	return c
-end
-
 -- The look distance that frames the live targets (n of them, {x=, y=}) for a
 -- thrower at (playerX, playerY): lookBeyond past the nearest, between lookMin
 -- and the default lookDist. Base kubbs on the far baseline give the default.
@@ -196,6 +210,98 @@ function camera.lookDistFor(playerX, playerY, targets, n)
 	end
 	if not best then return t.lookDist end
 	return max(t.lookMin, min(t.lookDist, best + t.lookBeyond))
+end
+
+-- The first-person look distance for a target circle at (x, y) and a thrower
+-- at (playerX, playerY): circleBeyond past the circle, between lookMin and
+-- lookDist (the far baseline gives the default framing).
+function camera.lookDistAt(playerX, playerY, x, y)
+	local t = camera.tune.aim
+	local dx, dy = x - playerX, y - playerY
+	return max(t.lookMin, min(t.lookDist, sqrt(dx * dx + dy * dy) + t.circleBeyond))
+end
+
+-- The plan view (tune.shoulder): a crane over the right shoulder of the
+-- thrower at (playerX, playerY) facing `swivel`, turned to (0, lineY +
+-- lookY), with the lens and principal point that fit the target half
+-- (lineY + 4 to lineY + 8 padded, farX either side on the far baseline and
+-- nearX on the centerline; the far corners also at cornerZ) and the n extra points xs, ys, zs (the planned arc, the circle)
+-- into the box left..right, top..bottom: the longest lens that does, between
+-- fMin and fMax, and the principal point that centres them in the box (a lens
+-- shift: verticals stay vertical). The first `across` of the extra points
+-- (default 0) are kept inside the sides only (the arc's first rise, near the
+-- hand: it may come in from the lower edge). Points behind the camera are
+-- left out. No tables.
+function camera.shoulder(c, playerX, playerY, swivel, lineY, n, xs, ys, zs, across)
+	local t = camera.tune.shoulder
+	local dx, dy = camera.aimDir(swivel)
+	camera.lookAt(c,
+		playerX - dx * t.back + dy * t.side, playerY - dy * t.back - dx * t.side, t.height,
+		0, lineY + t.lookY, 0)
+	local near = camera.tune.near
+	local umin, umax, vmin, vmax = math.huge, -math.huge, math.huge, -math.huge
+	local px, py, pz = c.px, c.py, c.pz
+	local rx, ry = c.rx, c.ry
+	local ux, uy, uz = c.ux, c.uy, c.uz
+	local fx, fy, fz = c.fx, c.fy, c.fz
+	local y0, y1 = lineY + 4 - t.pad, lineY + 8 + t.pad
+	local onlyTo = 6 + (across or 0)
+	for i = 1, 6 + (n or 0) do
+		local x, y, z
+		if i <= 6 then
+			-- the half: near left, near right (nearX), far left, far right
+			-- (farX), then the far ones again at cornerZ
+			local hx = (i <= 2) and t.nearX or t.farX
+			x = (i % 2 == 1) and -hx or hx
+			y = (i <= 2) and y0 or y1
+			z = (i >= 5) and t.cornerZ or 0
+		else
+			x, y, z = xs[i - 6], ys[i - 6], zs and zs[i - 6] or 0
+		end
+		local ax, ay, az = x - px, y - py, z - pz
+		local d = ax * fx + ay * fy + az * fz
+		if d >= near then
+			local u = (ax * rx + ay * ry) / d
+			local v = (ax * ux + ay * uy + az * uz) / d
+			if u < umin then umin = u end
+			if u > umax then umax = u end
+			if i <= 6 or i > onlyTo then
+				if v < vmin then vmin = v end
+				if v > vmax then vmax = v end
+			end
+		end
+	end
+	local f = t.fMax
+	if umax > umin then
+		local fw = (t.right - t.left) / (umax - umin)
+		if fw < f then f = fw end
+	end
+	if vmax > vmin then
+		local fh = (t.bottom - t.top) / (vmax - vmin)
+		if fh < f then f = fh end
+	end
+	if f < t.fMin then f = t.fMin end
+	c.f = f
+	if umax >= umin then
+		c.cx = (t.left + t.right) / 2 - f * (umin + umax) / 2
+		c.cy = (t.top + t.bottom) / 2 + f * (vmin + vmax) / 2
+	else
+		c.cx, c.cy = camera.SCREEN_W / 2, camera.SCREEN_H / 2
+	end
+	return c
+end
+
+-- Camera c between cameras a (e = 0) and b (e = 1): position, the point
+-- looked at and the principal point straight, the lens in log space (the
+-- zoom feels even). e is already eased. c may not be a or b.
+function camera.blend(c, a, b, e)
+	if e <= 0 then e = 0 elseif e >= 1 then e = 1 end
+	c.f = a.f * (b.f / a.f) ^ e
+	c.cx = a.cx + (b.cx - a.cx) * e
+	c.cy = a.cy + (b.cy - a.cy) * e
+	return camera.lookAt(c,
+		a.px + (b.px - a.px) * e, a.py + (b.py - a.py) * e, a.pz + (b.pz - a.pz) * e,
+		a.lx + (b.lx - a.lx) * e, a.ly + (b.ly - a.ly) * e, a.lz + (b.lz - a.lz) * e)
 end
 
 -- The impact camera (DESIGN 3): low and close to the predicted landing point
@@ -258,7 +364,8 @@ function camera.follow(c, a, b, s, bx, by, bz)
 	-- focal length blends in log space so the zoom feels even
 	local f = a.f * (b.f / a.f) ^ e
 	f = f * (1 - camera.tune.follow.midZoomOut * math.sin(math.pi * e))
-	c.f, c.cx = f, a.cx
+	c.f = f
+	c.cx = a.cx + (b.cx - a.cx) * e   -- (the aim camera's is off centre while the plan view shows)
 	c.cy = a.cy + (b.cy - a.cy) * e
 	camera.lookAt(c, px, py, pz, lx, ly, lz)
 	if not bx then return c end

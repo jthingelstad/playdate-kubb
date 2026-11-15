@@ -377,8 +377,9 @@ matches (about a minute; `--quick` about 10 s).
   DOWN while the crank is parked behind 6), `gauge` (the prompts: WIND BACK, FLICK!, EASE
   OFF, none in the flick), `gauge-ghost`, `rearm`, `windup`, `flight` (the trace line read
   back with its plan), `helicopter` (a stuttered flick at Pro), `aim-center`, `aim-arc`
-  (the planned arc and the circle on screen for targets across the half, every release
-  and stances at both ends), `clock-gauge` (the clock's states drawn alone, cache on and
+  (first person and the plan view for targets across the half, every release and stances
+  at both ends: "The aim camera"), `camera-swing` (B held and let go, a baton's and a
+  drill's; its note counts the aim frames' graphics calls, camera still and moving), `clock-gauge` (the clock's states drawn alone, cache on and
   off).
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
   from `source/selftest/_match.lua`: `opts` are `scenes/match` options (`seed` for
@@ -492,15 +493,53 @@ every other gap drawn, the first `arcSkip` left out, `arcWidth` 2 px). It shows 
 not the throw: the backswing, the flick and where the crank stops still decide it (and the
 wind will not show in it).
 
-From straight behind the thrower an arc is edge-on (a line), so the aim camera stands over
-the shoulder (Jamie chose it, 2026-11-14): `camera.tune.aim.side` (1.0 m) to the right,
-looking at the same ground point. `fitArc` (in `aimCamera`, every aim frame) keeps the
-planned arc under `arcTop` and inside `arcSide`, and where it lands above `arcBottom`
-(230). The camera first looks up (the principal row lowered as far as `arcMaxCy`, 158:
-the kubbs keep their size, the pitch sits lower), then widens its lens for what is still
-over (never wider than `arcMinF`). Self-test `aim-arc` (the circle and the arc on screen
-for targets across the half, every release, stances at both ends; `throw.arcBox`). `arc =
-false` turns the arc and the fit off (the crane still stands to the side).
+In first person the arc is nearly edge-on (a line up the middle of the screen through the
+circle); the plan view below shows it as an arc. `arc = false` turns the arc off.
+
+## The aim camera
+
+Jamie (2026-11-15, after play-testing the over-the-shoulder crane): "when throwing a baton
+we should return to the first person view ... when we hold down B to adjust loft we should
+move the camera to that over the shoulder view to see the loft and when B is released come
+back to the first person view. Do this for drilling as well", and "Having the camera zoom
+out to see more of the pitch". The same for batons and drilled kubbs (`aimCamera` in
+`scenes/throw.lua`; the math in `core/camera.lua`, tested in `test_camera.lua`):
+
+- **First person** (the default, `camera.aim` into `s.aimCam`): DESIGN 3's crane straight
+  behind the thrower (`camera.tune.aim.side` 0, `back` 3 m, `height` 3.4 m), looking along
+  the swivel (the plan's: at the circle), the long lens of the framing rule (the farthest
+  live target at least `minTargetPx` tall, `fMin`..`fMax`). It looks `circleBeyond` (1.5 m)
+  past the target circle (`camera.lookDistAt`, between `lookMin` and `lookDist`), so the
+  circle stays on screen wherever the d-pad puts it. The Playdate's aims with no circle
+  shown look as before (`lookDistFor` its targets, or `lookDist`).
+- **The plan view** (B held, `camera.shoulder` into `s.shCam`, `camera.tune.shoulder`): a
+  crane `side` (2.6 m) to the thrower's right, `back` (3.6 m) behind along the aim, `height`
+  (3.4 m), turned to the middle of the target half (`lookY` 6 m out, x = 0). Its lens and
+  principal point are solved in closed form (a lens shift: verticals stay vertical) so the
+  target half (the far baseline `farX` either side, the centerline `nearX`, `pad` beyond,
+  the far corners also at `cornerZ`), the planned arc and the circle fill the box
+  `left`..`right`, `top`..`bottom` (12..388, 24..200): the longest lens that fits, within
+  `fMin`..`fMax` (300..880; it comes out about 340 to 770, far base kubbs 4 to 9 px tall). The
+  arc's first quarter (before `throw.tune.arcFitFrom`) is kept inside the sides only: it
+  may rise in from the lower edge (`shoulderFit`, scratch arrays, no tables).
+- **The swing** (`throw.update`): `s.camMix` goes from 0 (first person) to 1 (the plan
+  view) while B is held and back when it is let go, over `shoulder.time` (0.4 s), eased
+  (`camera.smooth`); `camera.blend` mixes the two (position, look point and principal point
+  straight, the lens in log space). A tap of the arc re-fits the plan view, eased in with
+  the time constant `shoulder.refit` (0.15 s; within half a pixel it takes the fit, so the
+  camera stops: about 0.45 s), not a jump. The crank throws only with B up, so a throw
+  normally starts in first person; one thrown before the swing back has finished starts
+  from the camera as it is (the follow camera blends its principal point too). `fire` and
+  `throw.prepare` put the mix back to 0. While the camera moves every aim frame redraws the
+  world (the frame cache keys on the camera): `camera-swing` counts about 48 graphics calls
+  an aim frame with the camera still and about 168 while it moves (a flight frame's
+  number), only during the 0.4 s swings and the refit after a tap (`drawcalls`' aim mean,
+  no B held, is unchanged: 54.7 before, 54.8 after).
+- Self-tests: `aim-arc` (first person: the circle on screen and the far base kubb 12 px or
+  more; the plan view: the circle on screen and the arc in its box, for targets across the
+  half, every release, three stances), `camera-swing` (first person, half way out, the plan
+  view, a tap's re-fit, half way back, first person again, exactly the first frame's
+  camera; then a drill's).
 
 ## Wind
 
@@ -554,7 +593,9 @@ stuttered flick); the crank sign is applied for you.
 
 Every number that is a guess lives in one table per module, with a comment:
 
-- `tw.camera.tune` (`source/core/camera.lua`): aim crane, lens range, framing rule,
+- `tw.camera.tune` (`source/core/camera.lua`): aim crane (first person), lens range,
+  framing rule, how far past the circle it looks (`circleBeyond`), the plan view
+  (`shoulder`: crane, fit box, lens range, swing and refit times; "The aim camera"),
   impact camera, follow margins and mid-flight zoom; `tw.camera.minimap` for the minimap.
 - `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
   to flip if forward feels backwards on hardware), the dead zone (`startBackDeg`), the
@@ -583,7 +624,7 @@ Every number that is a guess lives in one table per module, with a comment:
   rest hold, the drilled kubbs kept on the practice pitch (`drillKeep`), the target
   circle (`markerRadius`, `markerSegments`) and the aim arc ("The aim arc").
 - `tw.drill.tune` (`source/core/drill.lua`): every drilling mapping (AGENTS.md
-  "Drilling"). `tw.camera.tune.drill`: the fixed drill aim camera.
+  "Drilling").
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
   turned, and how high a tossed kubb must rest to be on another.
 - `tw.autothrow.tune` (`source/core/autothrow.lua`): the computer thrower's level, aim, basket
@@ -1018,8 +1059,9 @@ the throw scene with `s.drill` on.
   drill onto the circle at the arc's loft (`drill.solveAt`: the speed that lands the kubb's
   edge `drill.slideFor` short of the circle); `plan.launch` judges the swing and gives the
   body through `drill.body` (noseDown, rollLand, spin, wobble, digGain). The aim camera is
-  `camera.drillAim`, which steps sideways with the thrower so the player lines up behind
-  the circle; the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
+  the baton's ("The aim camera": first person behind the thrower, looking past the circle,
+  and the plan view while B is held; it replaced `camera.drillAim`, the fixed high drill
+  view, 2026-11-15); the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
   and the minimap's aim line goes to the circle. Self-test `clock-drill` (a drill at half
   past 1 rests 0.04 m from the circle on the Simulator).
 - **The band launch** (`drill.launch`, `drill.solve`): the power error against the band is
