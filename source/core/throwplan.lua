@@ -62,12 +62,15 @@ plan.tune = {
 	arcStepDeg = 15,       -- B + up/down moves the release target half an hour
 	releaseMinDeg = 15,    -- the planned release stays between half past 5 ...
 	releaseMaxDeg = 165,   -- ... and half past 12
-	tiltStepDeg = 2.5,     -- B + left/right on a baton: one tap tilts the spin plane this much
-	tiltMaxDeg = 10,       -- ... up to this either way
-	spinSteps = 4,         -- B + left/right on a kubb: up to this many taps either way
-	spinPerStep = drill.tune.cutSpin / 4, -- rad/s about the long axis per tap: a first guess
-	                       -- (four taps = the old cut, drill.tune.cutSpin); the spin-wall
-	                       -- measurement study (tools/spinwall.lua) will set it
+	tiltStepDeg = 5,       -- B + left/right on a baton: one tap tilts the spin plane this much. Measured
+	                       -- (tools/tiltgroups.lua, 2026-11-15): tilt deflects the baton after its first
+	                       -- hit by only about 0.15 degrees per degree, so finer steps make no visible
+	                       -- difference: left, none or right
+	tiltMaxDeg = 5,        -- ... up to this either way
+	spinSteps = 3,         -- B + left/right on a kubb: up to this many taps either way
+	spinPerStep = 12.5,    -- rad/s about the long axis per tap. Measured (tools/spinwall.lua, 2026-11-15):
+	                       -- the sideways roll stops at one face (3 to 7 cm), and past about 1.5 x
+	                       -- cutSpin (38 rad/s) a drill stops digging in and slides on (two taps = the old cut, drill.tune.cutSpin)
 	defaultLevel = "club", -- the level when none is given
 	-- the swing against the plan (plan.launch)
 	skyExtraDeg = 45,      -- a sky ball (the crank on past 12): its release counts as this
