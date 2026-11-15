@@ -463,10 +463,10 @@ end)
 
 local function simulate(s, a)
 	local w = world.new { surface = "grass", pieces = s.pieces }
-	if s.projectile == "kubb" then
+	if s.projectile == "kubb" and not a.drill then
 		world.launchKubb(w, s.kubb, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate)
 	else
-		world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt)
+		autothrow.launch(w, s, a) -- the computer's throw: a drilled kubb or a baton
 	end
 	world.run(w)
 	return world.result(w)

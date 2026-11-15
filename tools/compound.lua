@@ -287,11 +287,8 @@ for gi = 1, games do
 		local a = autothrow.choose(s, r)
 		local pieces = match.worldPieces and match.worldPieces(s) or s.pieces
 		local w = world.new { surface = "grass", pieces = pieces }
-		if s.projectile == "kubb" then
-			world.launchKubb(w, s.kubb, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate)
-		else
-			world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt, s.batonId)
-		end
+
+		autothrow.launch(w, s, a)
 		world.run(w)
 		local res = world.result(w)
 		if s.kind == "baton" then

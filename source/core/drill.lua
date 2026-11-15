@@ -3,29 +3,33 @@
 -- The aim is a landing marker on the ground in the far half. The thrower
 -- stands on the baseline straight behind it (no walk step). The game solves
 -- a launch that lands a clean drill on the marker: a low loft chosen by the
--- distance, and the speed that carries the kubb there. The crank swing is
--- then judged against that launch:
+-- distance (drill.solve), or the plan's arc (drill.solveAt, which
+-- core/throwplan solves with), and the speed that carries the kubb there.
+--
+-- Play launches a drill with tw.plan.launch (core/throwplan), which judges
+-- the swing against the plan and gives drill.body's numbers. drill.launch
+-- is the older launch against a power band, kept for core/bench, the tools
+-- and tests that throw a clean drill, and the throw scene until it
+-- launches drills through the plan:
 --   power      against a target band (the power the distance needs): in the
 --              band the speed barely moves, outside it the kubb goes short or long
 --   smoothness a clean flick keeps the nose down and the kubb dies near the
 --              marker; a jerky one wobbles it and it runs on
---   tilt       pushes the line a little sideways (right when the swing
---              passed the release, left when it slowed into it)
---   cut        A or B held at release spins the kubb about its long axis, and
---              the ground turns that into a curve after landing
+--   tilt       pushes the line a little sideways, the way pull says (+1 right)
+--   cut        spins the kubb about its long axis, and the ground turns that
+--              into a curve after landing
 --
 -- All in one frame: x across, y away from the thrower (the throw scene's view
--- frame). world.launchDrill (core/world) makes the body from drill.launch's
+-- frame). world.launchDrill (core/world) makes the body from drill.body's
 -- numbers.
 import "core/tw"
 import "core/flight"
-import "core/swing"
 
-local sqrt, sin, cos, atan, rad, deg, abs, min, max =
-	math.sqrt, math.sin, math.cos, math.atan, math.rad, math.deg, math.abs, math.min, math.max
+local sqrt, sin, cos, atan, rad, abs, min, max =
+	math.sqrt, math.sin, math.cos, math.atan, math.rad, math.abs, math.min, math.max
 
 local drill = {}
-local flight, swing = tw.flight, tw.swing
+local flight = tw.flight
 
 drill.tune = {
 	-- the marker (relative to the thrower's baseline)
@@ -158,30 +162,25 @@ function drill.judge(power, band)
 	return "on"
 end
 
--- The launch for swing result `r` (power, smoothness, tilt, how) against the
--- solution `sol`, with cut drill.CUT_NONE / CUT_A / CUT_B. Fills and returns
--- `out`: swivel, loft, speed, noseDown, rollLand, spin, wobble, digGain (the
--- arguments of world.launchDrill after x and lineY), plus jerk (0..1).
+-- The band launch for `r` = { power, smoothness, tilt, pull } against the
+-- solution `sol` (drill.solve), with cut drill.CUT_NONE / CUT_A / CUT_B: the
+-- solved loft, the speed from the power against the band, the line pushed by
+-- the tilt the way pull says (+1 right, the default; -1 left, also the
+-- wobble's sign). Fills and returns `out`: swivel, loft, speed, noseDown,
+-- rollLand, spin, wobble, digGain (the arguments of world.launchDrill after
+-- x and lineY), plus jerk (0..1). Not the plan's launch (tw.plan.launch):
+-- the release angle is not read.
 function drill.launch(sol, r, cut, out)
 	local t = drill.tune
 	out = out or {}
 	local e = drill.powerError(r.power or 0, sol.band)
 	out.speed = sol.speed * max(t.speedMinFrac, 1 + t.speedPerPower * e)
-	local push = rad(t.tiltPushDeg * (r.tilt or 0))
-	-- the release where the crank stops, as a baton's (Jamie, 2026-11-14: "the
-	-- player should only need to learn how the crank works for throwing
-	-- once"): the solved loft is the notch, and the stop against it sets the
-	-- launch angle by the same forgiving rule (swing.releaseLoft); early is a
-	-- stop before the notch. A swing under the old release ("passed",
-	-- "slowed") or with no release angle keeps the solved loft.
-	local stopRelease = r.releaseAngle and (r.how == "stopped" or r.how == "over")
-	local early = r.how == "slowed" or (stopRelease and swing.releaseMiss(sol.loft, r.releaseAngle) < 0)
-	if early then push = -push end
-	out.swivel = sol.swivel + push
-	out.loft = stopRelease and swing.releaseLoft(sol.loft, r.releaseAngle) or sol.loft
+	local pull = (r.pull or 1) < 0 and -1 or 1
+	out.swivel = sol.swivel + pull * rad(t.tiltPushDeg * (r.tilt or 0))
+	out.loft = sol.loft
 	-- positive spin about the forward long axis curves the kubb to the left
 	-- (measured: test_drill), so A (+1) spins it negative and curves right
-	return drill.body(r.smoothness or 1, early and -1 or 1, -(cut or 0) * t.cutSpin, out)
+	return drill.body(r.smoothness or 1, pull, -(cut or 0) * t.cutSpin, out)
 end
 
 -- The drilled kubb's body at release (world.launchDrill's arguments after
@@ -201,11 +200,5 @@ function drill.body(smoothness, pull, spin, out)
 	return out
 end
 
--- The swing power that gives `speed` on the plain lob (swing.tune's linear
--- launch range): the autothrow and the readout use it.
-function drill.powerForSpeed(speed)
-	local st = swing.tune
-	return (speed - st.launchMin) / (st.launchMax - st.launchMin)
-end
 
 tw.drill = drill

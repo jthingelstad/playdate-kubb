@@ -18,7 +18,7 @@ local function throwAt(mx, my, r, cut, pieces, groundSeed)
 	local sol = drill.solve(mx, my, 0)
 	r = r or {}
 	local sr = { power = r.power or sol.band, smoothness = r.smoothness or 1,
-		tilt = r.tilt or 90 * (1 - (r.smoothness or 1)), how = r.how or "passed" }
+		tilt = r.tilt or 90 * (1 - (r.smoothness or 1)), pull = r.pull }
 	local L = drill.launch(sol, sr, cut or drill.CUT_NONE)
 	local w = world.new { surface = "grass", stakes = false, pieces = pieces, groundSeed = groundSeed }
 	local b = world.launchDrill(w, "p", sol.x, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
@@ -102,8 +102,8 @@ test("drill: a clean drill dies near its landing; a jerky one runs on farther", 
 			local sc = dist(c.rest.x, c.rest.y, c.land.x, c.land.y)
 			expect.truthy(sc < 0.45, string.format("clean drill at (%.1f, %.1f) slides %.2f m", m[1], m[2], sc))
 			clean = clean + sc
-			for _, how in ipairs { "passed", "slowed" } do
-				local j = throwAt(m[1], m[2], { smoothness = 0.35, how = how })
+			for _, pull in ipairs { 1, -1 } do
+				local j = throwAt(m[1], m[2], { smoothness = 0.35, pull = pull })
 				jerky = jerky + dist(j.rest.x, j.rest.y, j.land.x, j.land.y)
 			end
 			n = n + 1

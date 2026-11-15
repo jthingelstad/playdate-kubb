@@ -64,11 +64,8 @@ end
 
 local function simulate(s, a)
 	local w = world.new { surface = "grass", pieces = match.worldPieces(s) }
-	if s.projectile == "kubb" then
-		world.launchKubb(w, s.kubb, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate)
-	else
-		world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt, s.batonId)
-	end
+
+	autothrow.launch(w, s, a)
 	world.prof = P
 	local steps, slowFrom = 0, nil
 	local cnt = { air = 0, ground = 0, multi = 0 }
