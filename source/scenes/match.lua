@@ -319,13 +319,6 @@ function scene.update(s)
 		if s.sheet.done then s.sheet = nil end
 		return
 	end
-	-- HOW TO THROW (System Menu "Match: how to") over whatever phase this is:
-	-- the throw scene's update only reads A or B to put it away, and nothing
-	-- else runs (a card, a settle, the Playdate's think; Codex on #81)
-	if ts and ts.howto then
-		throw.update(ts)
-		return
-	end
 	if s.sheetWanted and (s.phase ~= "play" or ts.mode == "aim" or ts.mode == "done") then
 		s.sheetWanted = false
 		openSheet(s)
@@ -414,7 +407,6 @@ end
 
 function scene.draw(s)
 	if s.sheet then return sheet.draw(s.sheet) end
-	if s.ts and s.ts.howto then return throw.draw(s.ts) end
 	s.ts.covered = (s.phase ~= "play")
 	if s.phase == "over" or s.phase == "handoff" then
 		-- a full-screen card, built once

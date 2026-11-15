@@ -1,28 +1,28 @@
--- The throw scene: stand at the baseline, aim, wind up and flick the crank,
--- watch the baton fly and knock kubbs over, then do it again. Controls: the
--- d-pad walks (left/right along the line, down back from it), B + crank
--- swivels, A + crank sets the loft, the crank alone throws. All input comes
--- from an input provider (input.lua), so self-tests drive this scene with
--- scripted crank samples.
+-- The throw scene: aim, wind up and flick the crank, watch the baton fly
+-- and knock kubbs over, then do it again. The throw is DESIGN 4 "the crank
+-- as a clock" (AGENTS.md "The throw"): the d-pad moves the target circle
+-- over the far half (it snaps onto a standing kubb or the king), A + d-pad
+-- walks, B + d-pad plans (up/down the arc, left/right tilt or spin), the
+-- crank alone throws. The swivel is always the plan's (core/throwplan): the
+-- thrower faces the target. All input comes from an input provider
+-- (input.lua), so self-tests drive this scene with scripted crank samples.
 --
--- Stage 2: the throw is simulated by the rigid-body world (core/world) and
--- shown through core/playback: the physics runs ahead of the screen within
--- tune.physicsBudget per frame and the scene plays the recorded frames back
--- in real time; when the physics falls behind, playback waits (slows down)
--- rather than skipping. Practice: toppled kubbs stay down between throws
--- (they keep their rest poses); throw.reset stands everything back up (the
--- System Menu "Pitch: reset"), and it happens by itself after the throw that
--- leaves every far base kubb down.
+-- The throw is simulated by the rigid-body world (core/world) and shown
+-- through core/playback: the physics runs ahead of the screen within its
+-- budget per frame and the scene plays the recorded frames back; when the
+-- physics falls behind, playback waits (slows down) rather than skipping.
+-- Practice: toppled kubbs stay down between throws (they keep their rest
+-- poses); throw.reset stands everything back up (the System Menu "Pitch:
+-- reset"), and it happens by itself after the throw that leaves every far
+-- base kubb down.
 --
--- Drilling (core/drill, DESIGN "Kubbs (drilling)"): with s.drill on, a kubb
--- is aimed with a landing marker instead. The d-pad moves the marker over
--- the far half, the thrower stands on the baseline straight behind it, A or
--- B held at the release cuts the kubb, and the crank swing is judged against
--- the power band the marker's distance needs. The aim camera is then a
--- high view of the far half (camera.drillAim) that steps sideways with the
--- thrower. The match's kubb throws drill; the practice pitch
--- drills when "Pitch: drill" is chosen, and the drilled kubbs stay where they
--- end until "Pitch: reset".
+-- Drilling (DESIGN "Kubbs (drilling)"): a kubb throw (s.drill) is the same
+-- throw: the circle is where the kubb should rest, the plan solves the clean
+-- drill that rests there (from the baseline), B + left/right plans its spin.
+-- The aim camera is then a high view of the far half (camera.drillAim) that
+-- steps sideways with the thrower. The match's kubb throws drill; the
+-- practice pitch drills when "Pitch: drill" is chosen, and the drilled kubbs
+-- stay where they end until "Pitch: reset".
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/camera"
@@ -40,13 +40,12 @@ import "recorder"
 import "framelog"
 import "core/frametel"
 import "core/drill"
+import "core/throwplan"
 import "sound"
-import "core/howto"
-import "render/howto"
 
 local gfx <const> = playdate.graphics
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
-local phys, playback, frametel, drill = tw.world, tw.playback, tw.frametel, tw.drill
+local phys, playback, frametel, drill, plan = tw.world, tw.playback, tw.frametel, tw.drill, tw.plan
 local render, hud, burst = tw.render.world, tw.render.hud, tw.render.burst
 local burstpick = tw.burstpick
 local sound = tw.sound
@@ -60,10 +59,11 @@ throw.tune = {
 	walkSpeed = 1.2,      -- m/s along the throwing line
 	halfWidth = 2.5,      -- the line is 5 m wide (DESIGN 2)
 	backMax = 3.0,        -- m the player may step back from the throwing line
-	swivelGear = 0.25,    -- degrees of swivel per degree of crank with B held (geared down for fine aim)
-	doubleTap = 0.35,     -- s between two presses of A or B that count as a double tap
-	loftGear = 0.15,      -- degrees of loft per degree of crank with A held (forward = higher)
-	swivelMaxDeg = 35,    -- swivel limit either way
+	snapRadius = 0.25,    -- m: the target circle let go this near a standing kubb or the king
+	                      -- snaps onto it (the circle's radius, DESIGN 4)
+	overDeg = 150,        -- backswing degrees past which the clock shows overpowered (11 o'clock)
+	cpuSwingTime = 0.6,   -- s the Playdate's arm takes on the clock before its throw leaves
+	cpuBackShare = 0.6,   -- the share of that spent going back
 	restHold = 1.0,       -- s the landed baton stays on screen before the next baton
 	lineY = 0,            -- the throwing line: Team A's baseline
 	surface = "grass",    -- the practice pitch (tw.world.surfaces)
@@ -105,15 +105,16 @@ throw.tune = {
 	instantHold = 0.1,    -- s the rest hold lasts in instant mode (self-tests)
 	knockLate = 0.15,     -- s: a knock this far behind the picture is not played (sound.lua)
 	drillKeep = 10,       -- drilled kubbs kept on the practice pitch; the oldest goes past this
-	markerRadius = 0.2,   -- m: the drill marker's ring on the ground
+	markerRadius = 0.25,  -- m: the target circle on the ground (0.5 m across, DESIGN 4)
 	markerSegments = 12,  -- straight pieces the ring is drawn with
-	-- the throw's arc while aiming a baton (Jamie and Tyler, 2026-11-14: "like
-	-- billiards on a computer, lines that show you where it's going to go"):
+	-- the planned throw's arc while aiming a baton (Jamie and Tyler,
+	-- 2026-11-14: "like billiards on a computer, lines that show you where
+	-- it's going to go"): the plan's clean throw from the stance onto the target
 	arc = true,           -- false: no arc
 	arcPoints = 24,       -- points along the arc, release to landing (every other gap drawn: dashes)
 	arcSkip = 2,          -- the first points (at the hand, under the camera) are left out
 	arcWidth = 2,         -- px
-	arcTop = 22,          -- px: the aim camera widens until the full-power arc stays below this row
+	arcTop = 22,          -- px: the aim camera widens until the planned arc stays below this row
 	arcSide = 6,          -- px: and inside the screen's sides by this much
 	arcMinF = 380,        -- px: but never wider than this lens
 	arcMaxCy = 158,       -- px: before widening, the camera looks up as far as this principal row
@@ -137,8 +138,26 @@ throw.tune = {
 --   s.advY               the advantage line to draw (pitch and minimap)
 --   s.instant            show a throw's last frame at once (self-tests)
 --   s.scripted           launched by throw.autoLaunch, not the crank: no trace written
---   s.drill              aim kubbs with the drill marker (set by throw.prepare for a
+--   s.drill              the throw is a drilled kubb (set by throw.prepare for a
 --                        kubb throw; throw.setDrill on the practice pitch)
+--   s.level              the thrower's throw level (plan.levels), or nil for
+--                        throw.level, the System Menu's (throw.levelFor)
+--   s.drillRun           the practice drill's id during a drill run (scenes/drills),
+--                        written to the trace line
+--
+-- The aim (AGENTS.md "The throw"): the target circle s.markerX, s.markerY
+-- (view frame), the stance s.playerX, s.playerY (s.stanceSet once A has
+-- walked it; until then plan.stance behind the target), the plan s.release
+-- (s.arcSet once B has moved it; until then plan.arcFor the target's kind),
+-- s.tilt (baton, degrees) and s.spin (kubb, taps). s.sol is plan.solve's
+-- solution for them, solved again only when one changes (s.planDirty).
+
+-- The throw level everything in this scene uses: the scene's own (a named
+-- player's, later) or the System Menu's "Level" (main.lua sets throw.level).
+throw.level = plan.tune.defaultLevel
+function throw.levelFor(s)
+	return s.level or throw.level
+end
 
 -- The practice layout: five base kubbs on each baseline and the king.
 -- `base` marks the far base kubbs (all down = stand everything back up).
@@ -197,6 +216,7 @@ local function setItem(s, i, p)
 	render.setPose(it, p.x, p.y, p.z or restZ(it, p.qw, p.qx, p.qy, p.qz), p.qw, p.qx, p.qy, p.qz)
 	it.toppled = p.toppled
 	it.base = nil
+	it.role = p.role
 end
 function throw.setPieces(s, pieces, debris)
 	local items = s.items
@@ -212,9 +232,12 @@ function throw.setPieces(s, pieces, debris)
 end
 
 -- Live targets for the aim camera's framing rule: the standing kubbs in the
--- far half, or the standing pieces named by s.targetIds (reused table).
+-- far half, or the standing pieces named by s.targetIds (reused table). The
+-- target circle snaps onto these, and on the practice pitch onto the king too
+-- (s.snaps, reused).
 local function updateTargets(s)
 	local tg, n = s.targets, 0
+	local sn, k = s.snaps, 0
 	local ids = s.targetIds
 	for i = 1, s.nitems do
 		local it = s.items[i]
@@ -224,16 +247,31 @@ local function updateTargets(s)
 					if ids[j] == it.id then
 						n = n + 1
 						tg[n] = it
+						k = k + 1
+						sn[k] = it
 						break
 					end
 				end
 			end
-		elseif not it.toppled and not it.king and it.y > throw.tune.lineY + 4 then
-			n = n + 1
-			tg[n] = it
+		elseif not it.toppled and not it.drilled and it.y > throw.tune.lineY + 4 then
+			if not it.king then
+				n = n + 1
+				tg[n] = it
+			end
+			k = k + 1
+			sn[k] = it
 		end
 	end
 	for i = n + 1, #tg do tg[i] = nil end
+	for i = k + 1, #sn do sn[i] = nil end
+end
+
+-- What kind of target a piece is, for the arc the plan starts on
+-- (plan.arcFor): "king", "field" or "base".
+local function kindOf(it)
+	if it.king or it.kind == "king" then return "king" end
+	if it.role == "field" then return "field" end
+	return "base"
 end
 
 -- The aim camera for this frame.
@@ -253,15 +291,101 @@ local function aimCamera(s)
 	fitArc(s, s.aimCam)
 end
 
+-- How far forward this throw may stand: the advantage line for a baton (a
+-- king shot's forwardY is the baseline already), the baseline for a kubb
+-- (II.C.1).
+local function forwardLimit(s)
+	if s.projectile == "kubb" then return s.lineY end
+	return s.forwardY
+end
+
+-- Solve the plan for the aim as it stands: the stance straight behind the
+-- target until A has walked it (plan.stance), the arc for the target's kind
+-- until B has moved it (plan.arcFor); the swivel and loft follow the
+-- solution (the swivel is never set by hand). No tables.
+local function replan(s)
+	local kubb = s.projectile == "kubb"
+	if not s.stanceSet then
+		local o = plan.stance(s.markerX, s.markerY, s.lineY, forwardLimit(s), throw.tune.halfWidth, s.stanceOut)
+		s.playerX, s.playerY = o.x, o.y
+	end
+	if not s.arcSet then s.release = plan.arcFor(kubb and "drill" or s.markerKind) end
+	local q = s.planQ
+	q.projectile = kubb and "kubb" or "baton"
+	q.px, q.py, q.tx, q.ty = s.playerX, s.playerY, s.markerX, s.markerY
+	q.release, q.level = s.release, throw.levelFor(s)
+	local sol = plan.solve(q, s.sol)
+	s.swivel, s.loftDeg = sol.swivel, sol.loft
+	s.planLevel, s.planDirty = q.level, false
+end
+throw.replan = replan
+
+-- The circle has been let go at (markerX, markerY): the arc's kind is the
+-- nearest target's, and (snap) it snaps onto a standing target within
+-- snapRadius (plan.snap over s.snaps). A drill's circle is where the kubb
+-- should rest: it never snaps.
+local function settleMarker(s, snap)
+	local sn, n = s.snaps, #s.snaps
+	local best, bd = nil, math.huge
+	for i = 1, n do
+		local dx, dy = sn[i].x - s.markerX, sn[i].y - s.markerY
+		local d = dx * dx + dy * dy
+		if d < bd then best, bd = sn[i], d end
+	end
+	if best then s.markerKind = kindOf(best) end
+	s.markerOn = nil
+	if snap then
+		local it = plan.snap(s.markerX, s.markerY, sn, n, throw.tune.snapRadius)
+		if it then s.markerX, s.markerY, s.markerOn = it.x, it.y, it end
+	end
+	s.planDirty = true
+end
+
+-- A new throw's circle: it stays on the target it is on while that still
+-- stands (keep), else it goes onto the live target nearest the thrower
+-- (s.targets; with none it stays where it is).
+local function retarget(s, keep)
+	local on = s.markerOn
+	if keep and on and not on.toppled then
+		for i = 1, #s.snaps do
+			if s.snaps[i] == on then
+				s.markerX, s.markerY, s.markerKind = on.x, on.y, kindOf(on)
+				s.planDirty = true
+				return
+			end
+		end
+	end
+	local tg = s.targets
+	local best, bd = nil, math.huge
+	for i = 1, #tg do
+		local dx, dy = tg[i].x - s.playerX, tg[i].y - s.playerY
+		local d = dx * dx + dy * dy
+		if d < bd then best, bd = tg[i], d end
+	end
+	if best then s.markerX, s.markerY, s.markerOn, s.markerKind = best.x, best.y, best, kindOf(best) end
+	s.planDirty = true
+end
+
+-- The plan starts afresh: the arc follows the target, no tilt or spin.
+local function freshPlan(s)
+	s.arcSet, s.tilt, s.spin = false, 0, 0
+	s.planDirty = true
+end
+
+-- The last throw's dots on the clock and its verdicts go (a new wind-up, a
+-- new team's turn).
+local function clearLast(s)
+	s.lastBack, s.lastStop, s.showVerdicts, s.restText = nil, nil, false, nil
+end
+
 function throw.new(provider)
 	local s = {
 		input = provider,
-		mode = "aim",            -- "aim" | "flight" | "rest"
+		mode = "aim",            -- "aim" | "cpuswing" (the Playdate's arm on the clock) | "flight" | "rest" | "done"
 		playerX = 0,
-		tapA = 10, tapB = 10,    -- s since the swivel button (B) and the loft button (A) were last pressed
 		playerY = throw.tune.lineY, -- at the throwing line, or up to backMax behind it
-		swivel = 0,              -- radians, + = right
-		loftDeg = flight.tune.loftDefaultDeg,
+		swivel = 0,              -- radians, + = right: the plan's (s.sol.swivel)
+		loftDeg = flight.tune.loftDefaultDeg, -- the plan's loft (s.sol.loft)
 		arm = nil,               -- where the crank is: forward degrees from the bottom of the turn
 		armed = false,           -- the crank crossed the bottom going back; the wind-up may start
 		swing = swing.new(),
@@ -271,9 +395,9 @@ function throw.new(provider)
 		impactCam = camera.new(),
 		view = camera.new(),
 		restTime = 0,
-		last = nil,              -- the last throw: power, smoothness, tilt, legal, distance, ...
+		last = nil,              -- the last throw: what the swing measured, the launch, distance, ...
 		readout = nil,           -- its readout text
-		showReadout = false,     -- System Menu "Readout"
+		showReadout = false,     -- System Menu "Pitch: readout"
 		flagText = nil,          -- the result flag after a release (12 characters at most)
 		-- the rail (hud.rail): practice until throw.setRail says otherwise
 		railName = "PRACTICE", railKind = nil, railN = 0, railOf = 0, railR1 = nil, railR2 = nil,
@@ -283,7 +407,8 @@ function throw.new(provider)
 		set = throw.tune.set,     -- the kubb set drawn (render.world.sets; a match's from its options)
 		layout = throw.defaultLayout(),
 		items = {}, nitems = 0,  -- render/world items, one per layout piece
-		targets = {},
+		targets = {},            -- live targets (camera framing, the circle's start)
+		snaps = {},              -- what the circle snaps onto
 		pb = nil,                -- the throw being played back (core/playback)
 		bodyIndex = {},          -- item i -> body index in pb.w
 		batonIndex = 0,
@@ -304,33 +429,43 @@ function throw.new(provider)
 		sceneName = "practice",  -- or "match": the frame-time log's scene
 		ft = frametel.new(),     -- this throw's frame times (core/frametel), reset per throw
 		ftInfo = {},             -- the rest of its log line, filled once at rest
-		drill = false,           -- aim kubbs with the drill marker
+		drill = false,           -- the throw is a drilled kubb
 		thisDrill = false,       -- the throw in the air (or at rest) was drilled
+		-- the aim: the target circle (view frame), what it is on, and the plan
 		markerX = 0, markerY = 0, markerHeld = 0, markerSide = nil, markerFixed = false,
-		cut = 0,                 -- drill.CUT_NONE / CUT_A / CUT_B, from A or B held
-		drillSol = {},           -- core/drill solution for the marker (reused)
-		drillLaunch = {},        -- core/drill launch of the last drill (reused)
+		markerOn = nil,          -- the target item the circle is on, or nil
+		markerKind = "base",     -- the kind of target nearest the circle (the arc's default)
+		markerMoving = false,    -- the d-pad moved the circle last frame
+		stanceSet = false,       -- A has walked the stance this aim
+		release = plan.arcFor("base"), arcSet = false, -- the planned release (clock degrees)
+		tilt = 0, spin = 0,      -- B + left/right: a baton's tilt (degrees), a kubb's spin (taps)
+		sol = {}, planQ = {}, stanceOut = {}, planDirty = true, planLevel = nil,
+		launchOut = {}, launchOpts = {}, -- plan.launch's (reused)
+		dial = {},               -- hud.clock's state (reused)
+		traceOut = {},           -- the trace line's result (reused)
+		lastBack = nil, lastStop = nil, -- the last throw's peak and stop: dots on the clock
+		showVerdicts = false,    -- the last throw's verdicts show (until the next wind-up)
+		vPower = 0, vRelease = 0, vSteady = true,
+		restText = nil,          -- a drilled kubb's rest distance ("REST 18 CM")
 		drillSeq = 0,            -- practice: drilled kubbs thrown (their ids)
 	}
 	throw.standUp(s)
 	updateTargets(s)
+	retarget(s, false)
+	replan(s)
 	aimCamera(s)
 	return s
 end
 
--- The drill solution for the marker; the thrower stands where it says.
-local function solveDrill(s)
-	local sol = drill.solve(s.markerX, s.markerY, s.lineY, s.drillSol)
-	s.playerX, s.playerY, s.swivel, s.loftDeg = sol.x, s.lineY, sol.swivel, sol.loft
-end
-
 local function markerHome(s)
-	s.markerX, s.markerY = 0, s.lineY + drill.tune.markerStartY
+	s.markerX, s.markerY, s.markerOn = 0, s.lineY + drill.tune.markerStartY, nil
+	s.planDirty = true
 end
 
 -- The match: set the next throw up. `setup` is a core/match setup (view
--- frame): its pieces and debris, projectile, lines and targets. The thrower starts in
--- the middle of the baseline facing straight down the pitch.
+-- frame): its pieces and debris, projectile, lines and targets. The circle
+-- starts on the live target nearest the thrower and the thrower stands
+-- behind it (a drill's circle: where the team left it).
 function throw.prepare(s, setup)
 	burst.reset(s.burst)
 	-- the match's surface (core/match setup.surface: grass, sand, snow)
@@ -341,56 +476,59 @@ function throw.prepare(s, setup)
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
 	s.targetIds = setup.targets
 	s.auto = false
+	updateTargets(s)
+	-- another team's turn: the last throw's dots and verdicts are not this team's
+	if s.stanceSide ~= setup.side then clearLast(s) end
 	-- Stay put (Jamie, 2026-11-14: "in a real Kubb game you stand in one spot
-	-- and throw until you want to move"): a team's batons after its first of a
-	-- turn start where the last was thrown from, with its swivel and loft,
-	-- held to where this one may stand (a king shot is from the baseline).
-	-- The first baton of a turn, and every kubb, start from the middle.
+	-- and throw until you want to move"): a team's batons after its first of
+	-- a turn keep the stance the player walked to with A, held to where this
+	-- one may stand (a king shot is from the baseline), and the circle stays
+	-- on its target while that stands. Otherwise (a turn's first baton, every
+	-- kubb) the stance follows the target.
 	local keep = setup.projectile == "baton" and (setup.n or 1) > 1
 		and s.stanceSide == setup.side and s.stanceKind == "baton"
-	if keep then
-		local t = throw.tune
+	local t = throw.tune
+	if keep and s.stanceSet then
 		s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX))
 		s.playerY = max(s.lineY - t.backMax, min(s.forwardY, s.playerY))
 	else
-		-- a turn's first baton starts on the advantage line when there is one
-		-- (Jamie, 2026-11-14: from there you are far more accurate); the d-pad
-		-- can still step back
-		local startY = (setup.projectile == "baton") and s.forwardY or setup.lineY
-		s.playerX, s.playerY, s.swivel = 0, startY, 0
-		s.loftDeg = flight.tune.loftDefaultDeg
+		s.stanceSet = false
+		s.playerX, s.playerY = 0, (setup.projectile == "baton") and s.forwardY or setup.lineY
 	end
+	-- a drill's own stance (AROUND THE PITCH: in front of the next base kubb)
+	if setup.playerX then s.playerX, s.playerY, s.stanceSet = setup.playerX, setup.lineY, true end
 	s.stanceSide, s.stanceKind = setup.side, setup.projectile
+	freshPlan(s)
 	-- metres the advantage line is up from the baseline, for the HUD's flag
 	-- (batons only; nil from the baseline and for a king shot)
 	local adv = s.forwardY - s.lineY
 	s.advMeters = (setup.projectile == "baton" and adv > 0.05) and adv or nil
 	s.advText = s.advMeters and hud.advantageText(s.advMeters) or nil
-	-- a kubb is drilled; the marker stays where the team left it last throw
-	-- (setup.markerY, a drill's own marker from the thrower's line: fixed there)
-	local drilling = setup.projectile == "kubb"
+	-- a kubb is drilled; its circle stays where the team left it last throw
+	-- (setup.markerY, a drill's own from the thrower's line: fixed there)
 	s.markerFixed = false
-	if drilling then
+	if setup.projectile == "kubb" then
 		if setup.markerY then
 			s.markerX, s.markerY, s.markerFixed = setup.markerX or 0, setup.lineY + setup.markerY, true
+			s.markerOn = nil
 		elseif not (s.drill and s.markerSide == setup.side) then
 			markerHome(s)
 		end
 		s.markerSide = setup.side
 		s.drill = true
-		solveDrill(s)
 	else
 		s.drill = false
+		retarget(s, keep)
 	end
 	s.thisDrill = false
 	s.mode = "aim"
 	s.pb, s.result, s.readout, s.last, s.flagText = nil, nil, nil, nil, nil
+	s.cpuThrow, s.cpuPlan, s.cpuTarget, s.cpuSpeed = nil, nil, false, nil
 	s.slowMo = false
 	burst.reset(s.burst)
 	s.arm, s.armed = nil, false
 	swing.reset(s.swing)
-	s.swing.backswing = 0
-	updateTargets(s)
+	replan(s)
 	aimCamera(s)
 	s.viewCam = s.aimCam
 end
@@ -408,16 +546,19 @@ function throw.setDrill(s, on)
 	s.drill = on and true or false
 	s.projectile = on and "kubb" or "baton"
 	s.projectileId = nil
+	s.stanceSet = false
+	freshPlan(s)
+	clearLast(s)
 	if on then
 		markerHome(s)
-		solveDrill(s)
 	else
-		s.playerX, s.playerY, s.swivel, s.loftDeg = 0, s.lineY, 0, flight.tune.loftDefaultDeg
+		s.playerX, s.playerY = 0, s.lineY
+		retarget(s, false)
 	end
 	s.arm, s.armed = nil, false
 	swing.reset(s.swing)
-	s.swing.backswing = 0
 	s.readout, s.last, s.flagText = nil, nil, nil
+	replan(s)
 	aimCamera(s)
 	return true
 end
@@ -430,77 +571,98 @@ function throw.reset(s)
 	s.mode = "aim"
 	s.pb = nil
 	s.readout = nil
+	s.cpuThrow = nil
 	burst.reset(s.burst)     -- a burst (or the king's inverted flash) must not outlive the throw
 	swing.reset(s.swing)
-	s.swing.backswing = 0
+	s.planDirty = true
 end
+
+-- The aim, for self-tests and callers that set it up directly (each solves
+-- the plan again at once): the circle onto (x, y) (snapping as the d-pad's
+-- let-go does, a baton's only), the stance (as if A had walked it there), the
+-- planned release (as if B had set it), the tilt or spin.
+function throw.aimAt(s, x, y)
+	local mx, my = drill.clampMarker(x, y - s.lineY)
+	s.markerX, s.markerY = mx, s.lineY + my
+	settleMarker(s, s.projectile ~= "kubb")
+	replan(s)
+	aimCamera(s)
+end
+function throw.setStance(s, x, y)
+	s.playerX, s.playerY, s.stanceSet = x, y, true
+	replan(s)
+	aimCamera(s)
+end
+function throw.setArc(s, releaseDeg)
+	s.release, s.arcSet = plan.clampRelease(releaseDeg), true
+	replan(s)
+	aimCamera(s)
+end
+function throw.setTilt(s, deg) s.tilt = deg end
+function throw.setSpin(s, taps) s.spin = taps end
 
 local swingInput, drawMarker, drawRail, drawArc
 
 local function aimInput(s, dt)
 	local t = throw.tune
 	local p = s.input
-	local left, right = p:held("left"), p:held("right")
-	local up, down = p:held("up"), p:held("down")
 	local delta = p:crank()
 	local arm = swing.armAngle(p:crankPos())
 	local prevArm = s.arm
 	s.arm = arm
-
-	local dx = (right and 1 or 0) - (left and 1 or 0)
-	local dy = (up and 1 or 0) - (down and 1 or 0)
+	local dx = (p:held("right") and 1 or 0) - (p:held("left") and 1 or 0)
+	local dy = (p:held("up") and 1 or 0) - (p:held("down") and 1 or 0)
+	local holdA, holdB = p:held("a"), p:held("b")
 	local sw = s.swing
-	if s.drill then
-		-- d-pad: the marker, across and along, faster the longer it is held
-		-- (not a drill's fixed marker)
-		if (dx ~= 0 or dy ~= 0) and not s.markerFixed then
-			local dtn = drill.tune
-			s.markerHeld = s.markerHeld + dt
-			local v = min(dtn.markerSpeedMax, dtn.markerSpeed + dtn.markerAccel * s.markerHeld)
-			local mx, my = drill.clampMarker(s.markerX + dx * v * dt, s.markerY - s.lineY + dy * v * dt)
-			s.markerX, s.markerY = mx, s.lineY + my
-			solveDrill(s)
-		else
-			s.markerHeld = 0
+	local moving = false
+	if holdB then
+		-- the plan: up/down move the release half an hour a tap, left/right
+		-- tilt a baton's spin plane or spin a kubb a step a tap
+		local pt = plan.tune
+		local step = (p:pressed("up") and 1 or 0) - (p:pressed("down") and 1 or 0)
+		if step ~= 0 then
+			s.release = plan.clampRelease(s.release + step * pt.arcStepDeg)
+			s.arcSet, s.planDirty = true, true
 		end
-		-- A or B held: the cut, read again every frame up to the release
-		s.cut = p:held("a") and drill.CUT_A or (p:held("b") and drill.CUT_B or drill.CUT_NONE)
-		return swingInput(s, sw, delta, arm, prevArm, dt)
+		local side = (p:pressed("right") and 1 or 0) - (p:pressed("left") and 1 or 0)
+		if side ~= 0 then
+			if s.projectile == "kubb" then
+				s.spin = max(-pt.spinSteps, min(pt.spinSteps, s.spin + side))
+			else
+				s.tilt = max(-pt.tiltMaxDeg, min(pt.tiltMaxDeg, s.tilt + side * pt.tiltStepDeg))
+			end
+		end
+	elseif holdA then
+		-- walk: left/right along the line, down steps back from it, up comes
+		-- forward again as far as this throw may stand (in a match, as far as
+		-- the advantage line when the engine allows it: s.forwardY)
+		if dx ~= 0 then
+			s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX + dx * t.walkSpeed * dt))
+		end
+		if dy ~= 0 then
+			s.playerY = max(s.lineY - t.backMax, min(forwardLimit(s), s.playerY + dy * t.walkSpeed * dt))
+		end
+		if dx ~= 0 or dy ~= 0 then s.stanceSet, s.planDirty = true, true end
+	elseif (dx ~= 0 or dy ~= 0) and not s.markerFixed then
+		-- the d-pad alone: the target circle, across and along, faster the
+		-- longer it is held (not a drill's fixed marker)
+		local dtn = drill.tune
+		s.markerHeld = s.markerHeld + dt
+		local v = min(dtn.markerSpeedMax, dtn.markerSpeed + dtn.markerAccel * s.markerHeld)
+		local mx, my = drill.clampMarker(s.markerX + dx * v * dt, s.markerY - s.lineY + dy * v * dt)
+		s.markerX, s.markerY, s.markerOn = mx, s.lineY + my, nil
+		s.planDirty = true
+		moving = true
 	end
-	-- d-pad: walk. Left/right along the line, down steps back from it, up
-	-- comes forward again as far as the line (in a match, as far as the
-	-- advantage line when the engine allows it: s.forwardY).
-	if dx ~= 0 then
-		s.playerX = max(-t.halfWidth, min(t.halfWidth, s.playerX + dx * t.walkSpeed * dt))
+	if not moving then
+		s.markerHeld = 0
+		-- let go: the circle snaps onto a standing target near it
+		if s.markerMoving then settleMarker(s, s.projectile ~= "kubb") end
 	end
-	if dy ~= 0 then
-		s.playerY = max(s.lineY - t.backMax, min(s.forwardY, s.playerY + dy * t.walkSpeed * dt))
-	end
-
-	-- double tap B: face straight down the pitch again. Double tap A: loft
-	-- back to the default.
-	s.tapA, s.tapB = s.tapA + dt, s.tapB + dt
-	if p:pressed("b") then
-		if s.tapA <= t.doubleTap then s.swivel = 0 end
-		s.tapA = 0
-	end
-	if p:pressed("a") then
-		if s.tapB <= t.doubleTap then s.loftDeg = flight.tune.loftDefaultDeg end
-		s.tapB = 0
-	end
-
-	-- hold B: the crank swivels the player. Hold A: the crank changes the
-	-- loft. Either way the crank does not throw.
-	local holdA, holdB = p:held("b"), p:held("a")   -- holdA = swivel (B button), holdB = loft (A button)
+	s.markerMoving = moving
+	if s.planDirty or s.planLevel ~= throw.levelFor(s) then replan(s) end
+	-- while A or B is held the crank does not throw
 	if holdA or holdB then
-		local turn = delta * swing.tune.forwardSign
-		if holdA then
-			local lim = rad(t.swivelMaxDeg)
-			s.swivel = max(-lim, min(lim, s.swivel + rad(turn * t.swivelGear)))
-		else
-			local ft = flight.tune
-			s.loftDeg = max(ft.loftMinDeg, min(ft.loftMaxDeg, s.loftDeg + turn * t.loftGear))
-		end
 		if sw.phase ~= "idle" then swing.reset(sw) end
 		s.armed = false
 		return nil
@@ -509,7 +671,8 @@ local function aimInput(s, dt)
 end
 
 -- The crank throws: arming at the bottom of the turn, the wind-up and the
--- flick (core/swing), with the trace recorder fed alongside.
+-- flick (core/swing), with the trace recorder fed alongside (not in the
+-- cooldown after a release: the crank swinging back is not part of the swing).
 swingInput = function(s, sw, delta, arm, prevArm, dt)
 	-- the wind-up starts when the crank crosses the bottom of the turn going
 	-- back; until then the crank does nothing
@@ -528,18 +691,19 @@ swingInput = function(s, sw, delta, arm, prevArm, dt)
 		end
 	end
 	local rec = tw.recorder
-	if sw.phase == "idle" and sw.pending == 0 then rec.clear() end
-	if sw.phase ~= "idle" or delta ~= 0 then rec.add(dt, delta) end
+	local ph = sw.phase
+	if ph == "idle" and sw.pending == 0 then rec.clear() end
+	if ph == "winding" or ph == "swinging" or (ph == "idle" and delta ~= 0) then rec.add(dt, delta) end
 	local ev = swing.update(sw, delta, dt)
 	if ev then s.armed = false end
+	-- a new wind-up: the last throw's dots and verdicts go
+	if sw.phase == "winding" and (s.lastBack or s.showVerdicts) then clearLast(s) end
 	if ev == "letdown" then
 		rec.write("letdown", nil)
 	end
 	return ev
 end
 
--- Launch the throw `r` (the swing's result: launchSpeed, tumbleRate, tilt,
--- power, smoothness, legal) from where the player stands and aims.
 -- A knock for every piece struck (wood on wood: kubbs, the king, lying
 -- batons, stakes), as the picture reaches the moment (sound.lua; Jamie,
 -- 2026-11-14): those first touched since the last frame's
@@ -562,67 +726,28 @@ local function knocks(s)
 	s.knockT = t1
 end
 
--- The verdict on where the crank stopped (swing.releaseMiss), shown after a
--- baton throw and on the next aim until the next wind-up.
-local STOP_TEXT <const> = { [-1] = "EARLY: LOW", [0] = "ON THE NOTCH", [1] = "LATE: HIGH" }
-throw.STOP_TEXT = STOP_TEXT
-
-local function launch(s, r)
+-- Launch a throw: L is a launch (plan.launch's fields: speed, loft, swivel,
+-- tilt, tumble, legal; a drill's noseDown, rollLand, spin, wobble, digGain)
+-- from where the player stands; how is "baton", "drill" or "lob" (the
+-- Playdate's kubb tosses, end over end).
+local function fire(s, L, how)
 	s.knockT = -1
 	local t = throw.tune
 	local fl = s.flight
-	local kubb = s.projectile == "kubb"
-	local tumble, tilt, speed = r.tumbleRate, r.tilt, r.launchSpeed
-	-- a lobbed kubb: slower end over end, never sideways (no helicopter)
-	if kubb then tumble, tilt = tumble * t.tossTumble, 0 end
-	-- a low baton is thrown harder (flight.loftBoost); the computer's speed is
-	-- already the one it wants
-	-- (s.loftBoost = false: the throw-scene self-tests written before it)
-	if not kubb and not s.scripted and s.loftBoost ~= false then
-		speed = speed * flight.loftBoost(s.loftDeg, swing.tune.launchMax)
-	end
-	-- a baton leaves at the angle the crank stopped at (Jamie and Tyler,
-	-- 2026-11-14: the loft set is the target; swing.releaseLoft). The
-	-- computer's loft is its own, and a swing with the old release
-	-- (passRelease: the self-tests written before it) keeps the loft set.
-	local loft = s.loftDeg
-	s.stopAngle, s.stopText = nil, nil
-	if not kubb and not s.scripted and r.releaseAngle and not s.swing.passRelease then
-		loft = swing.releaseLoft(s.loftDeg, r.releaseAngle)
-		-- where the crank stopped against the notch, for the flag and the
-		-- dial's dot (Jamie, 2026-11-14: to see what the crank did)
-		s.stopAngle = r.releaseAngle
-		s.stopText = STOP_TEXT[swing.releaseMiss(s.loftDeg, r.releaseAngle)]
-	end
-	-- a drilled kubb (not the computer's: it lobs): the launch the drill
-	-- solution and the swing make (core/drill)
-	local drilling = kubb and s.drill and (not s.scripted or s.autoDrill)
-	local L
-	if drilling then
-		local sol = s.drillSol
-		L = drill.launch(sol, r, s.cut, s.drillLaunch)
-		s.playerX, s.playerY, s.swivel, s.loftDeg = sol.x, s.lineY, L.swivel, L.loft
-		-- the prediction the follow camera uses flies at the drill's own
-		-- launch angle (Codex on #85: it kept the solved loft)
-		loft = L.loft
-		-- where the crank stopped against the drill's notch (its solved loft),
-		-- as for a baton: the flag and the dial's dot
-		if not s.scripted and r.releaseAngle and not s.swing.passRelease then
-			s.stopAngle = r.releaseAngle
-			s.stopText = STOP_TEXT[swing.releaseMiss(sol.loft, r.releaseAngle)]
-		end
-		speed, tumble = L.speed, 0
-		if not s.projectileId then
-			-- practice: each drilled kubb is a piece of its own
-			s.drillSeq = s.drillSeq + 1
-			s.drillId = "d" .. s.drillSeq
-		end
+	local kubb = how ~= "baton"
+	local drilling = how == "drill"
+	if drilling and not s.projectileId then
+		-- practice: each drilled kubb is a piece of its own
+		s.drillSeq = s.drillSeq + 1
+		s.drillId = "d" .. s.drillSeq
 	end
 	s.thisDrill = drilling
 	local id = s.projectileId or (drilling and s.drillId) or nil
+	local tumble = drilling and 0 or (L.tumble or 0)
+	local tilt = kubb and 0 or (L.tilt or 0)
 	-- the stage 1 prediction: landing point and flight time for the cameras
-	flight.launch(fl, s.playerX, s.playerY, s.swivel, loft, speed, tumble, tilt)
-	-- the physics world: every piece where it lies now, then the baton
+	flight.launch(fl, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt)
+	-- the physics world: every piece where it lies now, then the thrown one
 	local pieces = {}
 	for i = 1, s.nitems do
 		local it = s.items[i]
@@ -638,7 +763,7 @@ local function launch(s, r)
 			b = phys.launchDrill(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
 				L.spin, L.wobble, L.digGain)
 		else
-			b = phys.launchKubb(w, id, s.playerX, s.playerY, s.swivel, s.loftDeg, speed, tumble)
+			b = phys.launchKubb(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble)
 		end
 		-- the thrown kubb is drawn as one more item after the pitch's
 		local it = s.projItem
@@ -648,8 +773,7 @@ local function launch(s, r)
 		end
 		s.items[s.nitems + 1] = it
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, s.swivel, loft, speed, tumble, tilt,
-			s.projectileId)
+		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, s.projectileId)
 	end
 	s.batonIndex = b.index
 	s.pb = playback.new(w, 1 / t.refreshRate)
@@ -665,23 +789,40 @@ local function launch(s, r)
 	camera.impact(s.impactCam, fl.lx, fl.ly, fl.dx, fl.dy, s.side)
 	s.last = s.last or {}
 	local l = s.last
-	l.power, l.smoothness, l.tilt, l.legal = r.power, r.smoothness, tilt, kubb or r.legal
-	l.launchSpeed, l.tumbleRate, l.loft = speed, tumble, s.loftDeg
-	l.launchLoft, l.releaseAngle = loft, r.releaseAngle
-	l.distance, l.down, l.hit = nil, nil, nil
+	l.legal = L.legal ~= false
+	l.tilt, l.launchSpeed, l.tumbleRate, l.launchLoft, l.launchSwivel = tilt, L.speed, tumble, L.loft, L.swivel
+	l.back, l.planBack, l.stop, l.plan, l.flick, l.shake = nil, nil, nil, nil, nil, nil
+	l.powerV, l.releaseV, l.steady, l.loft, l.swivelOff = nil, nil, nil, nil, nil
+	l.distance, l.down, l.hit, l.restCm = nil, nil, nil, nil
 	l.drill = drilling
 	if drilling then
-		local sol = s.drillSol
-		l.markerX, l.markerY, l.band = s.markerX, s.markerY, sol.band
-		l.verdict = drill.judge(r.power or 0, sol.band)
-		l.cut, l.jerk = s.cut, L.jerk
+		l.markerX, l.markerY = s.markerX, s.markerY
 		l.restX, l.restY = nil, nil
 	end
-	s.readout = nil
+	s.readout, s.restText = nil, nil
 	-- the result flag: a helicopter shows from the release, the rest at rest
 	s.flagText = (not l.legal) and "HELICOPTER" or nil
 	s.mode = "flight"
 	s.throws = s.throws + 1
+end
+
+-- The player's throw: the swing's result `r` (core/swing) against the plan
+-- (plan.launch), and its verdicts and dots for the HUD.
+local function launch(s, r)
+	local kubb = s.projectile == "kubb"
+	local o = s.launchOpts
+	o.projectile, o.tilt, o.spin, o.level = kubb and "kubb" or "baton", s.tilt, s.spin, throw.levelFor(s)
+	if s.planDirty or s.planLevel ~= o.level then replan(s) end
+	local sol = s.sol
+	local L = plan.launch(sol, r, o, s.launchOut)
+	fire(s, L, kubb and "drill" or "baton")
+	s.lastBack, s.lastStop = r.back, r.releaseAngle
+	s.vPower, s.vRelease, s.vSteady = L.powerV, L.releaseV, L.steady
+	local l = s.last
+	l.back, l.planBack, l.stop, l.plan = r.back, sol.back, r.releaseAngle, sol.release
+	l.flick, l.shake = r.flickDps, r.shake
+	l.powerV, l.releaseV, l.steady = L.powerV, L.releaseV, L.steady
+	l.loft, l.swivelOff = sol.loft, math.deg(L.swivel - sol.swivel)
 end
 
 -- Show the throw at time t (s from the release, between recorded frames):
@@ -706,6 +847,36 @@ local function showAt(s, t)
 	bt.ax = 2 * (qx * qz + qw * qy)
 	bt.ay = 2 * (qy * qz - qw * qx)
 	bt.az = 1 - 2 * (qx * qx + qy * qy)
+end
+
+-- The trace line's plan and launch (core/trace's header): written once, at
+-- rest, for the player's own throws.
+local function writeTrace(s, l)
+	local T = s.traceOut
+	for k in pairs(T) do T[k] = nil end
+	for k, v in pairs(s.swing.result) do T[k] = v end   -- what the swing measured
+	local y0, sol = s.lineY, s.sol
+	local lv = throw.levelFor(s)
+	T.level = type(lv) == "string" and lv or nil
+	T.projectile = l.drill and "kubb" or "baton"
+	T.drillId = s.drillRun
+	T.tx, T.ty, T.px, T.py = s.markerX, s.markerY - y0, s.playerX, s.playerY - y0
+	T.plan, T.loft = sol.release, sol.loft
+	T.powerLo, T.powerHi, T.releaseLo, T.releaseHi = sol.powerLo, sol.powerHi, sol.releaseLo, sol.releaseHi
+	if l.drill then T.spin = s.spin else T.planTilt = s.tilt end
+	T.launchSpeed, T.launchLoft, T.swivelOff = l.launchSpeed, l.launchLoft, l.swivelOff
+	T.tumbleRate, T.tilt, T.legal = l.tumbleRate, l.tilt, l.legal
+	T.powerV, T.releaseV, T.steady = l.powerV, l.releaseV, l.steady
+	T.distance = l.distance
+	if l.drill then
+		-- lengths from the thrower's baseline, as the target's
+		T.mode = "drill"
+		T.markerX, T.markerY = l.markerX, l.markerY - y0
+		T.landX, T.landY = l.landX, l.landY - y0
+		T.restX, T.restY = l.restX, l.restY - y0
+		T.throwerX = s.playerX
+	end
+	tw.recorder.write("release", T)
 end
 
 local function landed(s)
@@ -735,10 +906,13 @@ local function landed(s)
 		s.projItem.toppled = rb.toppled
 		if l.drill then l.restX, l.restY = rb.x, rb.y end
 	end
-	s.readout = l.drill and hud.drillReadoutText(l) or hud.readoutText(l)
 	if l.drill and l.restX then
-		l.restCm = floor(100 * sqrt((l.restX - l.markerX) ^ 2 + (l.restY - l.markerY) ^ 2) + 0.5)
+		local cm = floor(100 * sqrt((l.restX - l.markerX) ^ 2 + (l.restY - l.markerY) ^ 2) + 0.5)
+		l.restCm = cm
+		-- the drill's rest distance, in the plan chip's place (hud.cutFlag)
+		s.restText = (cm < 100) and string.format("REST %d CM", cm) or string.format("REST %.1f M", cm / 100)
 	end
+	s.readout = hud.readoutText(l)
 	-- the result flag (a match puts its own ruling there: throw.setFlag)
 	if not l.legal then s.flagText = "HELICOPTER"
 	elseif l.drill then s.flagText = nil
@@ -752,24 +926,10 @@ local function landed(s)
 		info.steps, info.phys = pb.steps, pb.busy
 		tw.framelog.write(s.ft, info)
 	end
-	if not s.scripted then
-		local r = s.swing.result
-		r.loft, r.distance = s.loftDeg, l.distance
-		r.launchLoft = (not l.drill) and l.launchLoft or nil
-		if l.drill then
-			-- drill fields (core/trace): lengths from the thrower's baseline
-			local y0 = s.lineY
-			r.mode, r.band, r.verdict, r.cut = "drill", l.band, l.verdict, l.cut
-			r.markerX, r.markerY = l.markerX, l.markerY - y0
-			r.landX, r.landY = l.landX, l.landY - y0
-			r.restX, r.restY = l.restX, l.restY - y0
-			r.throwerX, r.launchSpeed = s.playerX, l.launchSpeed
-		end
-		tw.recorder.write("release", r)
-		r.loft, r.distance, r.launchLoft = nil, nil, nil
-		r.mode, r.band, r.verdict, r.cut, r.markerX, r.markerY = nil, nil, nil, nil, nil, nil
-		r.landX, r.landY, r.restX, r.restY, r.throwerX = nil, nil, nil, nil, nil
-	end
+	-- the player's throws: the verdicts show until the next wind-up, and
+	-- the trace line is written
+	s.showVerdicts = not s.scripted
+	if not s.scripted then writeTrace(s, l) end
 	s.mode = "rest"
 	s.restTime = 0
 	if playdate and not s.instant then playdate.display.setRefreshRate(throw.tune.refreshRate) end
@@ -896,39 +1056,35 @@ local function flightUpdate(s, dt)
 	if pb.done and s.showTime >= have then landed(s) end
 end
 
--- HOW TO THROW (core/howto, render/howto) over the scene until it ends: from
--- the System Menu's "how to", and once by itself the first time a player aims a baton
--- (throw.howtoFirst, set by main.lua for a player's own runs; the device
--- remembers it in the datastore "howto").
-throw.howtoFirst = false
-function throw.showHowTo(s)
-	s.howto = tw.howto.new(s.loftDeg)
-end
-
-local function firstHowTo(s)
-	if not throw.howtoFirst or s.watching or s.drill or s.projectile == "kubb" then return end
-	throw.howtoFirst = false
-	local seen = playdate.datastore.read("howto")
-	if seen and seen.seen then return end
-	playdate.datastore.write({ seen = true }, "howto")
-	throw.showHowTo(s)
+-- The Playdate's arm on the clock before its throw leaves (core/autothrow's
+-- a.swing): back to a.swing.back over cpuBackShare of cpuSwingTime, eased
+-- out, then forward to a.swing.releaseAngle, speeding up; then the throw.
+local autoFire
+local function cpuSwing(s, dt)
+	local t = throw.tune
+	local a = s.cpuThrow
+	local back, rel = a.swing.back or 0, a.swing.releaseAngle or 0
+	s.cpuT = s.cpuT + dt
+	local tb = t.cpuSwingTime * t.cpuBackShare
+	local u = s.cpuT
+	if u < tb then
+		local f = u / tb
+		s.cpuArm, s.cpuPhase = -back * f * (2 - f), "winding"
+		s.cpuBack = -s.cpuArm
+	elseif u < t.cpuSwingTime then
+		local f = (u - tb) / (t.cpuSwingTime - tb)
+		s.cpuArm, s.cpuPhase, s.cpuBack = -back + (back + rel) * f * f, "swinging", back
+	else
+		s.cpuThrow = nil
+		autoFire(s, a)
+		s.lastBack, s.lastStop = back, rel
+		showAt(s, 0)
+	end
 end
 
 function throw.update(s)
 	local p = s.input
 	p:advance()
-	-- HOW TO THROW over the scene (core/howto: the crank walks through the
-	-- throw); nothing else moves. When it ends the crank must arm afresh, so
-	-- its turns there throw nothing here.
-	if s.howto then
-		if tw.howto.update(s.howto, p, p:dt()) == "close" then
-			s.howto = nil
-			s.arm, s.armed = nil, false
-			swing.reset(s.swing)
-			s.swing.backswing = 0
-		end
-		return
-	end
 	local dt = p:dt()
 	-- the frame clock: when this frame started, and how long the last one's
 	-- draw and display took (fast up, slow down: the budget errs short)
@@ -944,7 +1100,6 @@ function throw.update(s)
 	s.drawEnd = nil
 	local t = throw.tune
 	if s.mode == "aim" then
-		firstHowTo(s)
 		local ev = aimInput(s, dt)
 		aimCamera(s)
 		if ev == "release" then
@@ -952,6 +1107,8 @@ function throw.update(s)
 			launch(s, s.swing.result)
 			showAt(s, 0)
 		end
+	elseif s.mode == "cpuswing" then
+		cpuSwing(s, dt)
 	elseif s.mode == "flight" then
 		flightUpdate(s, dt)
 		burst.update(s.burst, s, dt)
@@ -971,7 +1128,6 @@ function throw.update(s)
 			s.pb = nil
 			burst.reset(s.burst)
 			swing.reset(s.swing)
-			s.swing.backswing = 0
 			if s.thisDrill then
 				keepDrilled(s)
 			elseif baseDown(s) then
@@ -980,10 +1136,14 @@ function throw.update(s)
 			s.thisDrill = false
 			if s.pendingDrill ~= nil then throw.setDrill(s, s.pendingDrill) end
 			updateTargets(s)
+			-- the circle stays on its target while that stands, else the
+			-- nearest one (a drill's stays where it was)
+			if not s.drill then retarget(s, true) end
+			s.planDirty = true
 		end
 	end
 	-- the camera for this frame
-	if s.mode == "aim" then
+	if s.mode == "aim" or s.mode == "cpuswing" then
 		s.viewCam = s.aimCam
 	else
 		-- once the baton has touched something it is kept in frame only
@@ -1002,15 +1162,6 @@ function throw.update(s)
 	end
 end
 
--- A scripted throw (self-tests, and stage 5's computer can grow from it):
--- `a` is a core/autothrow throw {x, y, swivel, loftDeg, speed, tumbleRate,
--- tilt, legal}. The player is put where it says and the throw launched as if
--- the crank had made it. Only in aim mode. With a.drill = {markerX, markerY}
--- and s.drill on (the autobench's match case), the kubb is drilled at that
--- marker instead: a clean swing at the band's center, no cut.
--- Show a throw's aim before it is made (the Playdate's turn): where it stands,
--- swivel and loft, and the aim camera on them. s.watching hides the
--- player's controls (gauge, loft plaque) and prompts WATCH.
 -- The practice pitch's surface (System Menu "Pitch"): the next throw is on
 -- it, and the ground looks it at once.
 function throw.setSurface(s, name)
@@ -1018,69 +1169,112 @@ function throw.setSurface(s, name)
 	render.setSurface(name)
 end
 
+-- The Playdate's throws (core/autothrow; self-tests; the autobench): `a` is
+-- {x, y, swivel, loftDeg, speed, tumbleRate, tilt, legal}, optionally a.plan
+-- (its plan: tx, ty and the clock's targets) and a.swing (its swing: back,
+-- releaseAngle). throw.showAim shows its stance and aim before it throws
+-- (s.watching hides the player's controls and prompts WATCH); a lobbed kubb
+-- (the Playdate's tosses: no a.drill) is aimed like a baton, so no drill
+-- circle is shown that the toss will not go to.
 function throw.showAim(s, a)
-	-- a lobbed kubb (the Playdate's tosses: no a.drill) is aimed like a baton,
-	-- so no drill marker is shown that the toss will not go to
 	if s.projectile == "kubb" and not a.drill then s.drill = false end
 	s.playerX, s.playerY, s.swivel, s.loftDeg = a.x, a.y, a.swivel, a.loftDeg
+	local P = a.plan
+	s.cpuPlan, s.cpuSpeed = P, a.speed
+	s.cpuTarget = P ~= nil and P.tx ~= nil
+	if s.cpuTarget then s.markerX, s.markerY = P.tx, P.ty end
 	aimCamera(s)
 end
 
+-- The clean swing of the autobench's drill (a circle and no launch): exactly
+-- on the plan's targets.
+local CLEAN = { back = 0, releaseAngle = 0, flickFrac = 1, smoothness = 1, shake = 0, pull = 1, how = "stopped" }
+
+-- Launch the Playdate's throw `a` as it is (its own speed, loft and swivel,
+-- mistakes included). A kubb with a.drill's launch fields (core/autothrow:
+-- noseDown, rollLand, spin, wobble, digGain) is drilled with them; a.drill
+-- with only a circle (the autobench's match case: markerX, markerY) is
+-- drilled as the plan's clean drill onto it at the drill arc; a kubb with no
+-- a.drill is lobbed end over end.
+autoFire = function(s, a)
+	local L = s.launchOut
+	local d = a.drill
+	if s.projectile == "kubb" and d then
+		s.markerX, s.markerY, s.markerOn = d.markerX, s.lineY + d.markerY, nil
+		if d.noseDown then
+			L.speed, L.loft, L.swivel, L.tilt, L.tumble, L.legal = a.speed, a.loftDeg, a.swivel, 0, 0, true
+			L.noseDown, L.rollLand, L.spin, L.wobble, L.digGain = d.noseDown, d.rollLand, d.spin, d.wobble, d.digGain
+		else
+			s.stanceSet, s.arcSet, s.tilt, s.spin = false, false, 0, 0
+			s.projectile, s.drill = "kubb", true
+			replan(s)
+			CLEAN.back, CLEAN.releaseAngle = s.sol.back, s.sol.release
+			local o = s.launchOpts
+			o.projectile, o.tilt, o.spin, o.level = "kubb", 0, 0, throw.levelFor(s)
+			plan.launch(s.sol, CLEAN, o, L)
+		end
+		s.drill = true
+		fire(s, L, "drill")
+		return
+	end
+	L.speed, L.loft, L.swivel, L.tilt, L.tumble, L.legal = a.speed, a.loftDeg, a.swivel, a.tilt or 0, a.tumbleRate,
+		a.legal ~= false
+	fire(s, L, s.projectile == "kubb" and "lob" or "baton")
+end
+
+-- Throw `a` now (only in aim mode). With a.swing, and not in instant mode,
+-- the Playdate's arm plays on the clock first (mode "cpuswing", about
+-- cpuSwingTime), then the throw leaves.
 function throw.autoLaunch(s, a)
 	assert(s.mode == "aim", "autoLaunch while " .. s.mode)
 	s.playerX, s.playerY, s.swivel, s.loftDeg = a.x, a.y, a.swivel, a.loftDeg
 	s.scripted = true
-	local r = s.autoResult or {}
-	s.autoResult = r
-	r.launchSpeed, r.tumbleRate, r.tilt, r.legal = a.speed, a.tumbleRate, a.tilt or 0, a.legal ~= false
-	r.power = (a.speed - swing.tune.launchMin) / (swing.tune.launchMax - swing.tune.launchMin)
-	r.smoothness = 1
-	s.autoDrill = (a.drill ~= nil) and s.drill
-	if s.autoDrill then
-		s.markerX, s.markerY = a.drill.markerX, s.lineY + a.drill.markerY
-		solveDrill(s)
-		s.cut = drill.CUT_NONE
-		r.power, r.how = s.drillSol.band, nil
+	clearLast(s)
+	if a.swing and not s.instant then
+		s.cpuThrow, s.cpuT, s.cpuArm, s.cpuBack, s.cpuPhase = a, 0, 0, 0, "winding"
+		s.cpuPlan = s.cpuPlan or a.plan
+		s.mode = "cpuswing"
+		return
 	end
-	-- a.tumbleRate is the projectile's own (a kubb's too): undo the toss factor
-	if s.projectile == "kubb" then r.tumbleRate = a.tumbleRate / throw.tune.tossTumble end
-	launch(s, r)
+	autoFire(s, a)
 	showAt(s, 0)
 end
 
--- The drill marker on the ground: a ring with a cross in it, and a dotted
--- line to it from the thrower's spot on the baseline. Drawn over the world
--- image each frame (a few lines), so moving it leaves the cached scenery be.
-local ringX, ringY = {}, {}
--- The arc's launch: start, velocity and time to the ground for a clean throw
--- at the loft set at power `cap` (0..1; the loft boost as in play).
-local function arcLaunch(s, cap)
-	local ft, st = flight.tune, swing.tune
-	local speed = st.launchMin + (st.launchMax - st.launchMin) * cap
-	if s.loftBoost ~= false then speed = speed * flight.loftBoost(s.loftDeg, st.launchMax) end
-	local e = rad(s.loftDeg)
+-- The target circle on the ground: a ring with a cross in it (white under
+-- black, so it reads on the grass pattern and on a kubb), and for a drill a
+-- dotted line to it from the thrower's spot on the baseline. Drawn over the
+-- world image each frame (a few calls: the ring is one polygon a pass), so
+-- moving it leaves the cached scenery be. No tables.
+local ringPts = {}
+local unpack = table.unpack
+
+-- The arc's launch: start velocity and time to the ground for the plan's
+-- clean throw from the stance onto the target (its loft and speed).
+local function arcLaunch(s)
+	local sol = s.sol
+	local speed, loft, sw = sol.speed or 0, sol.loft or 32, sol.swivel or 0
+	local e = rad(loft)
 	local ce = math.cos(e)
-	local _, _, T = flight.predict(s.playerX, s.playerY, s.swivel, s.loftDeg, speed)
-	return speed * math.sin(s.swivel) * ce, speed * math.cos(s.swivel) * ce, speed * math.sin(e), T, speed
+	local _, _, T = flight.predict(s.playerX, s.playerY, sw, loft, speed)
+	return speed * math.sin(sw) * ce, speed * math.cos(sw) * ce, speed * math.sin(e), T
 end
 
 local function arcShown(s)
 	return throw.tune.arc and not s.drill and s.projectile ~= "kubb"
 end
 
--- Fit the full-power arc (the one drawArc shows) on screen below arcTop and
+-- Fit the planned arc (the one drawArc shows) on screen below arcTop and
 -- inside arcSide, and its landing above arcBottom: from the crane over the
 -- thrower's shoulder a high arc's top would otherwise leave the long lens's
--- frame, and a low hard throw's landing (it first touches down about 4 m out)
--- falls under its lower edge (Codex on #74). The arc may rise in from the
--- lower edge; where it lands always shows. The camera first looks up
--- (principal row down to arcMaxCy), then widens its lens (offsets from the
--- principal point scale with it) no wider than arcMinF.
--- Every aim frame (25 projections, no tables).
+-- frame, and a low throw's landing falls under its lower edge (Codex on
+-- #74). The arc may rise in from the lower edge; where it lands always
+-- shows. The camera first looks up (principal row down to arcMaxCy), then
+-- widens its lens (offsets from the principal point scale with it) no wider
+-- than arcMinF. Every aim frame (25 projections, no tables).
 fitArc = function(s, c)
 	if s.watching or not arcShown(s) then return end
 	local t = throw.tune
-	local vx, vy, vz, T = arcLaunch(s, 1)
+	local vx, vy, vz, T = arcLaunch(s)
 	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
 	local n = t.arcPoints
 	-- the arc's highest point above the principal point, and its widest
@@ -1115,20 +1309,16 @@ fitArc = function(s, c)
 	end
 end
 
--- The baton's arc while aiming (Jamie and Tyler, 2026-11-14): where a clean
--- full-power throw at the loft set goes from where the player stands and
--- points: the farthest this aim reaches, the arc the camera is framed for
--- (fitArc). It shows the aim, not the throw: the flick's speed and where the
--- crank stops still decide it. (It once shrank with the backswing while
--- winding; a short arc lands under this view's lower edge, so it vanished:
--- Codex on #74. The plaque's power fill shows the wind-up.) A dashed line of
--- arcPoints projected points (every other gap drawn) and a small ring where
--- it lands. Drawn over the world each aim frame, outside its caches; no tables.
+-- The baton's arc while aiming (Jamie and Tyler, 2026-11-14): the plan's
+-- clean throw from where the player stands onto the target circle, the arc
+-- the camera is framed for (fitArc). It shows the plan, not the throw: the
+-- backswing, the flick and where the crank stops still decide it. A dashed
+-- line of arcPoints projected points (every other gap drawn), ending in the
+-- circle. Drawn over the world each aim frame, outside its caches; no tables.
 drawArc = function(s, c)
 	local t = throw.tune
-	local vx, vy, vz, T = arcLaunch(s, 1)
+	local vx, vy, vz, T = arcLaunch(s)
 	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
-	local lx, ly = x0 + vx * T, y0 + vy * T
 	local n = t.arcPoints
 	gfx.setColor(gfx.kColorBlack)
 	gfx.setLineWidth(t.arcWidth)
@@ -1140,26 +1330,17 @@ drawArc = function(s, c)
 		px, py = sx, sy
 	end
 	gfx.setLineWidth(1)
-	-- where it lands: a small flat ring, 8 pieces
-	local R = 0.12
-	local qx, qy = camera.project(c, lx + R, ly, 0)
-	for k = 1, 8 do
-		local a = k * math.pi / 4
-		local sx, sy = camera.project(c, lx + R * math.cos(a), ly + R * math.sin(a), 0)
-		if sx and qx then gfx.drawLine(qx, qy, sx, sy) end
-		qx, qy = sx, sy
-	end
 end
 
--- (self-tests) the aim camera for this frame, then where drawArc's arc and
--- ring fall on it: the ring's screen box (minX, minY, maxX, maxY), the box of
--- the arc's points on screen, and how many of its points are on screen and
--- in all. nil when no arc shows.
+-- (self-tests) the aim camera for this frame, then where the target circle
+-- and drawArc's arc fall on it: the circle's screen box (minX, minY, maxX,
+-- maxY), the box of the arc's points on screen, and how many of its points
+-- are on screen and in all. nil when no arc shows.
 function throw.arcBox(s)
 	if not arcShown(s) then return nil end
 	aimCamera(s)
 	local c, t = s.aimCam, throw.tune
-	local vx, vy, vz, T = arcLaunch(s, 1)
+	local vx, vy, vz, T = arcLaunch(s)
 	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
 	local huge = math.huge
 	local ring = { huge, huge, -huge, -huge }
@@ -1175,46 +1356,42 @@ function throw.arcBox(s)
 		all = all + 1
 		if sx and sy <= 240 then on = on + 1; add(arc, sx, sy) end
 	end
-	local lx, ly = x0 + vx * T, y0 + vy * T
-	for k = 1, 8 do
-		local a = k * math.pi / 4
-		local sx, sy = camera.project(c, lx + 0.12 * math.cos(a), ly + 0.12 * math.sin(a), 0)
+	local R = t.markerRadius
+	for k = 1, t.markerSegments do
+		local a = 2 * math.pi * k / t.markerSegments
+		local sx, sy = camera.project(c, s.markerX + R * math.cos(a), s.markerY + R * math.sin(a), 0)
 		if not sx then return ring, arc, on, all, true end
 		add(ring, sx, sy)
 	end
 	return ring, arc, on, all
 end
 
-drawMarker = function(s, c)
+drawMarker = function(s, c, line)
 	local t = throw.tune
 	local mx, my = s.markerX, s.markerY
-	local x0, y0, x1, y1 = camera.projectSegment(c, s.drillSol.x, s.lineY, 0, mx, my, 0)
-	if x0 then
-		gfx.setLineWidth(2)
-		gfx.setColor(gfx.kColorBlack)
-		gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer2x2)
-		gfx.drawLine(x0, y0, x1, y1)
+	if line then
+		local x0, y0, x1, y1 = camera.projectSegment(c, s.playerX, s.lineY, 0, mx, my, 0)
+		if x0 then
+			gfx.setLineWidth(2)
+			gfx.setColor(gfx.kColorBlack)
+			gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer2x2)
+			gfx.drawLine(x0, y0, x1, y1)
+		end
 	end
 	local n, R = t.markerSegments, t.markerRadius
-	local ok = true
 	for i = 1, n do
 		local a = 2 * math.pi * i / n
 		local sx, sy = camera.project(c, mx + R * math.cos(a), my + R * math.sin(a), 0)
-		if not sx then ok = false break end
-		ringX[i], ringY[i] = sx, sy
+		if not sx then return end
+		ringPts[2 * i - 1], ringPts[2 * i] = sx, sy
 	end
-	if not ok then return end
-	-- white under black, so it reads on the grass pattern and on a kubb
+	for i = 2 * n + 1, #ringPts do ringPts[i] = nil end
+	local cx, cy = camera.project(c, mx, my, 0)
+	local w = (ringPts[2 * n - 1] - ringPts[n - 1]) * 0.3
 	for pass = 1, 2 do
 		gfx.setColor(pass == 1 and gfx.kColorWhite or gfx.kColorBlack)
 		gfx.setLineWidth(pass == 1 and 4 or 2)
-		local px, py = ringX[n], ringY[n]
-		for i = 1, n do
-			gfx.drawLine(px, py, ringX[i], ringY[i])
-			px, py = ringX[i], ringY[i]
-		end
-		local cx, cy = camera.project(c, mx, my, 0)
-		local w = (ringX[n] - ringX[n // 2]) * 0.3
+		gfx.drawPolygon(unpack(ringPts))
 		gfx.drawLine(cx - w, cy, cx + w, cy)
 		gfx.drawLine(cx, cy - w * 0.6, cx, cy + w * 0.6)
 	end
@@ -1222,23 +1399,19 @@ drawMarker = function(s, c)
 	gfx.setColor(gfx.kColorBlack)
 end
 
--- The kubb set this scene draws (render.world.SETS; a match's options).
 -- The wind for the next throw (core/wind: m/s in the view frame), or nil
 -- for still air. The match sets it before each throw; practice has none.
 function throw.setWind(s, wx, wy, text)
 	s.windX, s.windY, s.windText = wx, wy, text
 end
 
+-- The kubb set this scene draws (render.world.SETS; a match's options).
 function throw.setSet(s, name)
 	s.set = name or "classic"
 	render.setSet(s.set)
 end
 
 function throw.draw(s)
-	if s.howto then
-		tw.render.howto.draw(s.howto, s.input:docked())
-		return true
-	end
 	-- (render/world is shared: the scene's own set, a no-op when unchanged)
 	render.setSet(s.set)
 	s.drawStart = s.clock() - (s.frameStart or 0)
@@ -1247,35 +1420,80 @@ function throw.draw(s)
 	return ok
 end
 
+-- What the prompt over the clock says while the player aims: WIND BACK
+-- (idle, or short of the power target), FLICK! inside it, EASE OFF past it;
+-- CRANK DOWN while the crank sits behind the bottom unarmed (it must come
+-- down through 6 first); nothing during the flick.
+local function promptFor(s, sw, sol)
+	local ph = sw.phase
+	if ph == "winding" then
+		local b = sw.back
+		if b < sol.powerLo then return "WIND BACK" end
+		if b <= sol.powerHi then return "FLICK!" end
+		return "EASE OFF"
+	elseif ph == "idle" then
+		if not s.armed and (s.arm or 0) < -3 then return "CRANK DOWN" end
+		return "WIND BACK"
+	end
+	return nil
+end
+
+-- hud.clock's state for this frame (s.dial, reused).
+local function dialState(s, aiming)
+	local st, sw, sol = s.dial, s.swing, s.sol
+	local P = nil   -- the targets shown: the player's plan, or the Playdate's
+	if s.watching or s.scripted and not aiming then P = s.cpuPlan else P = sol end
+	st.powerLo, st.powerHi = P and P.powerLo, P and P.powerHi
+	st.releaseLo, st.releaseHi = P and P.releaseLo, P and P.releaseHi
+	st.deadDeg, st.overDeg = swing.tune.startBackDeg, throw.tune.overDeg
+	local stop = s.lastStop
+	if stop and stop > 180 then stop = 180 end
+	st.lastBack, st.lastStop, st.prompt = s.lastBack, stop, nil
+	if s.mode == "cpuswing" then
+		st.phase, st.arm, st.crank, st.back = s.cpuPhase, s.cpuArm, 0, s.cpuBack
+		st.lastBack, st.lastStop = nil, nil
+	elseif aiming and not s.watching then
+		st.phase, st.arm, st.crank, st.back = sw.phase, sw.arm, s.arm or 0, sw.back
+		st.prompt = promptFor(s, sw, sol)
+	elseif aiming then
+		-- the Playdate thinking: the hand at rest
+		st.phase, st.arm, st.crank, st.back = "idle", 0, 0, 0
+	else
+		-- in flight and at rest: the hand where the crank stopped
+		st.phase, st.arm, st.crank, st.back = "idle", 0, stop or 0, 0
+	end
+	return st
+end
 
 function throw.drawFrame(s)
+	local aiming = s.mode == "aim" or s.mode == "cpuswing"
 	local b = nil
 	local n = s.nitems
-	if s.mode ~= "aim" then
+	if not aiming then
 		if s.projectile == "kubb" then n = n + 1 else b = s.baton end
 	end
 	render.advantageY = s.advY
 	local cam = s.viewCam or s.aimCam
 	render.draw(cam, s.items, n, b)
 	burst.draw(s.burst, cam)
-	local marker = s.drill and (s.mode == "aim" or s.thisDrill)
-	if marker then drawMarker(s, cam) end
+	-- the target circle: while aiming (the Playdate's only when its plan says
+	-- where), and under a drilled kubb's flight and rest
+	local marker = (aiming and (not s.watching or s.cpuTarget)) or (not aiming and s.thisDrill)
+	if marker then drawMarker(s, cam, s.drill) end
 	if s.mode == "aim" and not s.watching and arcShown(s) then drawArc(s, cam) end
 
 	local hs = s.hudState
 	hs.playerX, hs.lineY = s.playerX, s.playerY
-	if marker then
+	if marker or not s.watching then
 		hs.aimX, hs.aimY = s.markerX, s.markerY
 	else
-		local full = swing.tune.launchMax
-		if s.projectile ~= "kubb" and s.loftBoost ~= false then full = full * flight.loftBoost(s.loftDeg, full) end
-		hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, full)
+		hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, s.cpuSpeed or 9)
 	end
-	hs.baton = (s.mode ~= "aim") and s.baton or nil
+	hs.baton = (not aiming) and s.baton or nil
 	hs.pieces, hs.npieces = s.items, s.nitems
 	hs.advY = s.advY
 	local fl = s.flight
-	if s.mode ~= "aim" then
+	if not aiming then
 		hs.landX, hs.landY = fl.lx, fl.ly
 	elseif s.last and s.last.landX then
 		hs.landX, hs.landY = s.last.landX, s.last.landY
@@ -1284,56 +1502,45 @@ function throw.drawFrame(s)
 	end
 	hud.minimap(hs)
 	-- the wind (a match with WIND on): an arrow on the minimap, the speed above it
-	if s.windText and (s.mode == "aim" or s.mode == "flight") then hud.wind(s.windText, s.windX, s.windY) end
+	if s.windText and (aiming or s.mode == "flight") then hud.wind(s.windText, s.windX, s.windY) end
 	drawRail(s)
 
 	-- s.covered: a card is over the pitch (the match's hand-off and winner
 	-- cards), so the plaques stay out of the way
 	if s.covered then return end
-	local half = drill.tune.bandHalf
-	local sw = s.swing
-	local l = s.last
 	-- throwing from the advantage line (yours or the Playdate's): a flag under
 	-- the rail while aiming
-	if s.mode == "aim" and s.advText then hud.advantage(s.advText) end
-	if s.mode == "aim" and s.watching then
+	if aiming and s.advText then hud.advantage(s.advText) end
+	-- the clock, always: the arm while aiming, the last throw's dots after it
+	local st = dialState(s, aiming)
+	hud.clock(st)
+	s.promptText = st.prompt    -- (self-tests read it)
+	local sw = s.swing
+	if aiming and s.watching then
 		hud.prompt("WATCH", true)
-	elseif s.mode == "aim" then
-		local cap = (sw.phase ~= "idle") and swing.powerCap(sw) or nil
-		local band = marker and s.drillSol.band or nil
-		hud.plaque(s.loftDeg, cap, band, half)
-		-- a baton's release target: the loft set (the crank stops there)
-		-- (a drill's: the loft that reaches the marker, the same throw)
-		local target = nil
-		if not sw.passRelease then
-			target = floor((marker and s.drillSol.loft or s.loftDeg) + 0.5)
+		s.promptText = "WATCH"
+	elseif aiming then
+		local kubb = s.projectile == "kubb"
+		local pv = kubb and s.spin or s.tilt
+		hud.planChip(kubb and "kubb" or "baton", pv)
+		local idle = sw.phase == "idle" or sw.phase == "cooldown"
+		-- the last throw's verdicts, until the next wind-up (and a drill's
+		-- rest distance where the plan chip would be)
+		if s.showVerdicts and idle then
+			hud.verdicts(s.vPower, s.vRelease, s.vSteady)
+			if pv == 0 and s.restText then hud.cutFlag(s.restText) end
 		end
-		-- the last throw's stop: a dot on the dial and its verdict, until the
-		-- next wind-up
-		local stop = (target and sw.phase == "idle" and s.stopAngle) and floor(s.stopAngle + 0.5) or nil
-		local prompt, inverted = hud.gauge(sw.phase, sw.angle, (sw.phase ~= "idle") and sw.backswing or 0,
-			swing.tune.fullBackswingDeg, s.arm or 0, band, half, target, stop)
-		hud.prompt(prompt, inverted)
-		s.promptText = prompt    -- (self-tests read it)
-		-- one flag in that place: a drill's cut while A or B is held, else the
-		-- last stop's verdict
-		if marker and s.cut ~= drill.CUT_NONE then
-			hud.cutFlag(s.cut == drill.CUT_A and "CUT RIGHT" or "CUT LEFT")
-		elseif stop and s.stopText then
-			hud.cutFlag(s.stopText)
-		end
-		if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout) end
+		if s.showReadout and s.readout and idle then hud.readout(s.readout) end
 		if s.input:docked() then hud.crankPrompt() end
-	elseif l then
-		-- after the release: the power chip and the result flag, and once a
-		-- drilled kubb stops, how near the band it was
-		hud.chip(l.power, l.drill and l.band or nil, half)
+	elseif s.last then
+		-- after the release: the result flag; at rest the verdicts and a
+		-- drilled kubb's rest distance
 		hud.flag(s.flagText)
-		-- where the crank stopped: ON THE NOTCH, EARLY: LOW or LATE: HIGH
-		if s.stopText then hud.cutFlag(s.stopText) end
-		if s.mode == "flight" and s.slowMo then hud.slow() end
-		if l.drill and l.restCm and s.mode ~= "flight" then
-			hud.callout(l.verdict, (l.power or 0) - l.band, half, l.restCm)
+		if s.mode == "flight" then
+			if s.slowMo then hud.slow() end
+		else
+			if s.showVerdicts then hud.verdicts(s.vPower, s.vRelease, s.vSteady) end
+			if s.restText then hud.cutFlag(s.restText) end
 		end
 		if s.showReadout and s.readout then hud.readout(s.readout) end
 	end

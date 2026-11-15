@@ -7,24 +7,26 @@
 -- baseline).
 --
 -- System Menu (at most three items; the third is the scene's own):
---   "Readout"  the debug line after each throw (power, smoothness, tilt,
---              LEGAL/HELICOPTER, distance), for tuning on hardware
+--   "Level"    the throw level (beginner, club, pro: tw.plan.levels): how wide
+--              the clock's targets are and how much a miss costs (DESIGN 4
+--              "Throw levels"); kept in the datastore "level", club by default.
+--              The throw scene reads it through throw.levelFor (a named
+--              player's level can take its place later)
 --   "Record"   append each swing's crank samples to traces.jsonl in the
 --              Data folder (replay with tools/replay_traces.lua). On by
 --              default while the throw is being tuned; self-tests leave it off.
---   "Pitch"    practice only: play (nothing) / how to (the HOW TO THROW card,
---              also on Match and Drill; shown once by itself before a
---              player's first baton) / reset (stand every piece back
---              up and clear the drilled kubbs) / drill (aim kubbs at the far
---              half with a landing marker; they stay where they end) / batons
+--   "Pitch"    practice only: play (nothing) / reset (stand every piece back
+--              up and clear the drilled kubbs) / readout (the debug line after
+--              each throw, on or off: back, stop, flick, shake) / drill (drill
+--              kubbs at the far half; they stay where they end) / batons
 --              (back to throwing batons) / grass, sand, snow (the surface) / bench (the physics benchmark of core/bench plus the
 --              scene's draw time; shows the figures and appends a line to
 --              bench.txt) / title (back to the title)
---   "Match"    match only: play (nothing) / how to / sheet (the score sheet so far,
+--   "Match"    match only: play (nothing) / sheet (the score sheet so far,
 --              once nothing is in the air; B back) / resign (the team on turn gives
 --              up, once nothing is in the air) / title (leave: the match is
 --              dropped and no game file is written)
---   "Drill"    drills only: play (nothing) / how to / menu (leave the run part way,
+--   "Drill"    drills only: play (nothing) / menu (leave the run part way,
 --              unrecorded, for the drills menu) / title
 
 import "CoreLibs/graphics"
@@ -72,8 +74,6 @@ import "selftest/gauge-ghost"
 import "selftest/rearm"
 import "selftest/hit"
 import "selftest/knocks"
-import "selftest/howto"
-import "selftest/match-howto"
 import "selftest/burst"
 import "selftest/bursts"
 import "selftest/burst-reset"
@@ -129,7 +129,7 @@ else
 	local lastMatch = nil            -- the options of the last match (a rematch plays them again)
 	local device = tw.input.device()
 	local current, kind = nil, nil   -- the scene and which: "title" | "practice" | "match"
-	local showReadout = false        -- System Menu "Readout": off in normal play
+	local showReadout = false        -- System Menu "Pitch: readout": off in normal play
 	local benchRun = nil
 	local pending = nil              -- a scene to open on the next frame (from a menu callback)
 	local open, savedMatch
@@ -146,15 +146,25 @@ else
 		return nil
 	end
 
-	-- Readout and Record on every scene, then the scene's own options item,
+	-- The throw level (System Menu "Level"): kept in the datastore "level",
+	-- club unless one of tw.plan.LEVELS was chosen
+	local function readLevel()
+		local d = playdate.datastore.read("level")
+		local v = d and d.level
+		for _, l in ipairs(tw.plan.LEVELS) do
+			if l == v then return v end
+		end
+		return tw.plan.tune.defaultLevel
+	end
+	throw.level = readLevel()
+
+	-- Level and Record on every scene, then the scene's own options item,
 	-- whose choice acts when the menu closes and then reads "play" again.
 	local function sceneMenu()
 		menu:removeAllMenuItems()
-		menu:addCheckmarkMenuItem("Readout", showReadout, function(on)
-			showReadout = on
-			if kind == "drills" then current.showReadout = on end
-			local ts = throwScene()
-			if ts then ts.showReadout = on end
+		menu:addOptionsMenuItem("Level", tw.plan.LEVELS, throw.level, function(v)
+			throw.level = v
+			playdate.datastore.write({ level = v }, "level")
 		end)
 		menu:addCheckmarkMenuItem("Record", tw.recorder.on, function(on)
 			tw.recorder.on = on
@@ -162,10 +172,12 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			item = menu:addOptionsMenuItem("Pitch", { "play", "how to", "reset", "drill", "batons", "grass", "sand",
+			item = menu:addOptionsMenuItem("Pitch", { "play", "reset", "readout", "drill", "batons", "grass", "sand",
 				"snow", "bench", "title" }, "play", function(v)
-				if v == "how to" then
-					throw.showHowTo(current)
+				if v == "readout" then
+					-- debug only: the line under the rail after each throw
+					showReadout = not showReadout
+					current.showReadout = showReadout
 				elseif v == "grass" or v == "sand" or v == "snow" then
 					throw.setSurface(current, v)
 				elseif v == "reset" then
@@ -184,11 +196,8 @@ else
 			menu:addMenuItem("Games", function() pending = "games" end)
 		elseif kind == "drills" then
 			-- leave a run part way, unrecorded: for the drills menu or the title
-			item = menu:addOptionsMenuItem("Drill", { "play", "how to", "menu", "title" }, "play", function(v)
-				if v == "how to" then
-					local ts = throwScene()
-					if ts then throw.showHowTo(ts) end
-				elseif v == "menu" then
+			item = menu:addOptionsMenuItem("Drill", { "play", "menu", "title" }, "play", function(v)
+				if v == "menu" then
 					drillsScene.quit(current)
 				elseif v == "title" then
 					pending = "title"
@@ -196,11 +205,8 @@ else
 				item:setValue("play")
 			end)
 		elseif kind == "match" then
-			item = menu:addOptionsMenuItem("Match", { "play", "how to", "sheet", "resign", "title" }, "play", function(v)
-				if v == "how to" then
-					local ts = throwScene()
-					if ts then throw.showHowTo(ts) end
-				elseif v == "sheet" then
+			item = menu:addOptionsMenuItem("Match", { "play", "sheet", "resign", "title" }, "play", function(v)
+				if v == "sheet" then
 					match.showSheet(current)
 				elseif v == "resign" then
 					match.resign(current)
@@ -298,9 +304,6 @@ else
 	-- the device soak (soak.lua): a file named "soak" runs whole matches
 	-- unattended once, after any autobench
 	local soakWanted = playdate.file.exists(tw.soak.flag)
-	-- HOW TO THROW once by itself before a player's first baton (never in the
-	-- self-tests, the autobench or the soak)
-	throw.howtoFirst = not tw.selftestRun and not autoRun and not soakWanted
 	local soakRun = nil
 
 	function playdate.update()
