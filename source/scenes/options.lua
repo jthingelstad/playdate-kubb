@@ -84,7 +84,7 @@ local function render(s)
 	if key == "opening" and matchopts.value(s.choice, "opening") == "six" then note = scene.openingSix end
 	ui.text(label, note, t.labelX, t.noteY)
 	ui.button("A", "START", t.labelX, t.buttonY)
-	ui.button("B", "NAMES", t.labelX + 96, t.buttonY)
+	ui.button("B", "TEAMS", t.labelX + 96, t.buttonY)
 end
 
 -- The scenes/match options this screen makes, on top of `opts` (names, vs).

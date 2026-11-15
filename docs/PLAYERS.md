@@ -2,7 +2,7 @@
 
 Draft of 2026-11-15. Jamie answered the questions in section 9 the same day: every
 recommendation but one (an old saved match is dropped), so each "Recommended" there is
-the decision. Nothing here is built yet.
+the decision. Built the same day (`AGENTS.md`, "Saved players").
 
 Today a match is two teams of one player each, named as the team (`core/names.teams`), and
 the throw is the same for everyone. Jamie decided the throw difficulty, the **Throw level**,

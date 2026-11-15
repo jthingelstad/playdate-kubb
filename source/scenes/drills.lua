@@ -281,7 +281,7 @@ local function renderResult(s)
 	gfx.clear(BLACK)
 	ui.text(label, d.name, 200, 40, true, "center")
 	ui.text(big, run.score .. "/" .. d.of, 200, 80, true, "center")
-	ui.text(label, s.newBest and "A NEW BEST" or ("BEST " .. s.records[d.id].best .. "/" .. d.of), 200, 132, true, "center")
+	ui.text(label, s.newBest and "NEW BEST!" or ("BEST " .. s.records[d.id].best .. "/" .. d.of), 200, 132, true, "center")
 	if d.kind == "doubles" then
 		ui.text(label, run.multi .. ((run.multi == 1) and " BATON" or " BATONS") .. " TOOK TWO OR MORE", 200, 152, true, "center")
 	end

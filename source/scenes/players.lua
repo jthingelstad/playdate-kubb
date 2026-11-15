@@ -300,10 +300,10 @@ local function renderList(s)
 	else
 		local x = t.rightX
 		ui.text(big, "NEW PLAYER", x, 34)
-		for i, line in ipairs { "A NAME, TYPED ONCE", "WITH A THROW LEVEL", "THEN PICK THEM", "FOR EVERY MATCH" } do
+		for i, line in ipairs { "TYPE A NAME ONCE", "PICK A THROW LEVEL", "THEN PICK THEM", "FOR ANY MATCH" } do
 			ui.text(label, line, x, 64 + (i - 1) * 14)
 		end
-		if #s.r.players >= roster.tune.max then ui.text(label, "THE PLAYERS ARE FULL", x, 130) end
+		if #s.r.players >= roster.tune.max then ui.text(label, "NO ROOM FOR MORE PLAYERS", x, 130) end
 	end
 end
 
@@ -338,8 +338,8 @@ local function renderPlayer(s)
 			gfx.fillTriangle(vx + w + 6, y + 17, vx + w + 6, y + 31, vx + w + 13, y + 24)
 		end
 	end
-	local hint = ({ NAME = "A RENAME", LEVEL = "LEFT, RIGHT: THE LEVEL", GAMES = "A THEIR GAMES",
-		REMOVE = "A REMOVE" })[ROWS[s.row]]
+	local hint = ({ NAME = "A: RENAME", LEVEL = "LEFT/RIGHT: LEVEL", GAMES = "A: SEE THEIR GAMES",
+		REMOVE = "A: REMOVE" })[ROWS[s.row]]
 	ui.text(label, hint, 16, 190, true)
 	ui.button("B", "BACK", 16, 216, true)
 	figures(s, p, true)

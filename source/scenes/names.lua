@@ -58,7 +58,7 @@ end
 local showStep
 
 -- What a refused name shows instead of UP TO 10 LETTERS.
-scene.WHY = { taken = "THAT NAME IS TAKEN", full = "THE PLAYERS ARE FULL" }
+scene.WHY = { taken = "THAT NAME IS TAKEN", full = "NO ROOM FOR MORE PLAYERS" }
 
 -- What the keyboard's callbacks do (and the self-tests).
 function scene.type(s, text)

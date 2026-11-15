@@ -1,7 +1,7 @@
 # Status
 
-Where the work stands, for whoever picks it up next. Updated 2026-11-14, early morning
-(US Central), after the overnight round.
+Out of date: this is where the work stood on 2026-11-14, before the clock throw, saved
+players, HOW TO THROW and HOW TO PLAY. For what is built now, see `AGENTS.md`.
 
 ## On `main`
 

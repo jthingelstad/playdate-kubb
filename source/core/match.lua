@@ -429,7 +429,7 @@ function match.howText(m)
 	if g.how == "king" then return match.teamName(g.winner, g) .. " toppled the king"
 	elseif g.how == "resigned" then return loser .. " resigned"
 	elseif g.how == "king toppled by a thrown kubb" then return loser .. " toppled the king with a kubb"
-	elseif g.how == "king toppled early" then return loser .. " toppled the king early" end
+	elseif g.how == "king toppled early" then return loser .. " hit the king too soon" end
 	return g.how or ""
 end
 
