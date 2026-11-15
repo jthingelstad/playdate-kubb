@@ -357,6 +357,17 @@ the datastore part is `source/players.lua` (`tw.players`).
   the names typed for matches (`names`) become players (the defaults aside), and the drill
   records (`drills`) go to the first of them (`You` when there was none); the old files
   are left as they were. `players.today()`, `players.now()` give the dates.
+- **PLAYERS** (`scenes/players.lua`, the title's fourth item; no board, the Drills board's
+  look): the roster on a black panel (+ NEW PLAYER, then the players most recently played
+  first, each with their level) and the chosen player's figures (games, wins, hit rate,
+  kings, kubbs in, the last ten games as bars of hits over batons with a dot for a win). A
+  opens a player: NAME (A: the keyboard), LEVEL (left/right, saved at once and logged in
+  the history), REMOVE (a confirm card: the history goes, game files stay), with their
+  drill bests. A new player is typed (scenes/names in mode `"player"`, which refuses a
+  taken name and shows why) and lands on their LEVEL row. Self-test `players`.
+- **The title** has four items in two rows of two (four do not fit across at 16 px):
+  VS PLAYDATE, PASS + PLAY / PRACTICE, PLAYERS; left/right go in reading order, up/down
+  change row.
 
 ## Simulator self-tests
 

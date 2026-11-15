@@ -7,6 +7,13 @@
 -- The last names used are saved (playdate.datastore "names") and offered
 -- again.
 --
+-- Mode "player" asks for one saved player's name (scenes/players: a new
+-- player or a rename): opts.label and opts.nxt say what for, opts.initial is
+-- the text it starts with, and opts.check(name) may refuse a name (it
+-- returns nil and why: "taken", "full"); a refused name stays typed with the
+-- reason under it. Nothing is saved to "names" in that mode; the caller
+-- reads s.list.A once s.done.
+--
 -- Self-tests drive it without the keyboard (opts.scripted): names.type,
 -- names.ok and names.back do what the keyboard's callbacks do.
 import "CoreLibs/graphics"
@@ -50,9 +57,14 @@ end
 
 local showStep
 
+-- What a refused name shows instead of UP TO 10 LETTERS.
+scene.WHY = { taken = "THAT NAME IS TAKEN", full = "THE PLAYERS ARE FULL" }
+
 -- What the keyboard's callbacks do (and the self-tests).
 function scene.type(s, text)
-	s.text = cnames.clean(text)
+	local t = cnames.clean(text)
+	if t ~= s.text then s.why = nil end
+	s.text = t
 	s.img = nil
 	return s.text
 end
@@ -61,12 +73,21 @@ function scene.ok(s)
 	local name = cnames.finish(s.text)
 	if not name then return false end      -- no letter: the same step again
 	local step = s.steps[s.i]
+	if s.check then
+		local ok, why = s.check(name)
+		if not ok then
+			s.why, s.img = why, nil
+			s.list[step.side] = s.text       -- keep what was typed for the next try
+			return false
+		end
+	end
+	s.why = nil
 	s.list[step.side] = name
 	if s.i < #s.steps then
 		s.i = s.i + 1
 	else
 		s.done = true
-		if not s.scripted then save(s.mode, s.list) end
+		if not s.scripted and s.mode ~= "player" then save(s.mode, s.list) end
 	end
 	return true
 end
@@ -79,8 +100,13 @@ end
 function scene.new(provider, mode, opts)
 	opts = opts or {}
 	local s = { input = provider, mode = mode, steps = STEPS[mode], i = 1, done = false, exit = nil,
-		scripted = opts.scripted, img = nil, text = "" }
-	s.list = opts.scripted and { A = cnames.defaults.A, B = cnames.defaults.B } or saved(mode)
+		scripted = opts.scripted, img = nil, text = "", check = opts.check }
+	if mode == "player" then
+		s.steps = { { side = "A", label = opts.label or "NEW PLAYER", nxt = opts.nxt or "THEN THE LEVEL" } }
+		s.list = { A = opts.initial or "" }
+	else
+		s.list = opts.scripted and { A = cnames.defaults.A, B = cnames.defaults.B } or saved(mode)
+	end
 	if mode == "vs" then s.list.B = "Playdate" end
 	return s
 end
@@ -107,6 +133,7 @@ showStep = function(s)
 end
 
 function scene.enter(s)
+	s.shownI = s.i
 	showStep(s)
 end
 
@@ -142,7 +169,8 @@ local function render(s)
 	local ch = (f == big) and 34 or 18
 	gfx.fillRect(x + w + 4, t.nameY + ((f == big) and 0 or 16), 3, ch)
 	gfx.fillRect(x, t.ruleY, t.panelW - 2 * x, 3)
-	ui.text(label, "UP TO " .. cnames.max .. " LETTERS", x, t.upToY, true)
+	ui.text(label, s.why and (scene.WHY[s.why] or "TRY ANOTHER NAME") or ("UP TO " .. cnames.max .. " LETTERS"),
+		x, t.upToY, true)
 	-- the id in lower case, as the file has it (ui.text would capitalise it)
 	local pre = "GAME FILE ID: "
 	local pw = ui.text(label, pre, x, t.idY, true)

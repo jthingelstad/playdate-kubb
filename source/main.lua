@@ -47,6 +47,7 @@ import "scenes/options"
 import "core/save"
 import "scenes/games"
 import "scenes/drills"
+import "scenes/players"
 import "benchscreen"
 import "autobench"
 import "soak"
@@ -102,6 +103,7 @@ import "selftest/clock-plan"
 import "selftest/clock-drill"
 import "selftest/clock-letdown"
 import "selftest/drills-new"
+import "selftest/players"
 
 local function launchArgs()
 	local args = {}
@@ -254,6 +256,11 @@ else
 			kind = "names"
 			current = names.new(device, which)
 			names.enter(current)
+		elseif which == "players" then
+			-- the saved players (scenes/players)
+			kind = "players"
+			current = tw.scenes.players.new(device)
+			tw.scenes.players.enter()
 		elseif which == "games" then
 			-- the games list and score sheets (scenes/games)
 			kind = "games"
@@ -339,6 +346,10 @@ else
 			drillsScene.update(current)
 			if current.exit then return open(current.exit == "practice" and "pitch" or current.exit) end
 			drillsScene.draw(current)
+		elseif kind == "players" then
+			tw.scenes.players.update(current)
+			if current.exit then return open(current.exit) end
+			tw.scenes.players.draw(current)
 		elseif kind == "games" then
 			games.update(current)
 			if current.exit then return open(current.exit) end
