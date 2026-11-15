@@ -224,3 +224,88 @@ test("drill: the stop on the notch sets the launch, as a baton's", function()
 	local old = drill.launch(sol, { power = sol.band, smoothness = 1, tilt = 0, how = "passed", releaseAngle = 50 }, 0)
 	expect.near(old.loft, sol.loft, 1e-9)
 end)
+
+-- The cut by tilting the console (the accelerometer's roll).
+
+-- The accelerometer's x, y, z for a console rolled `roll` degrees with its
+-- screen tipped `pitch` up from lying on its back (as source/input.lua's
+-- input.gravity, which needs the device to load).
+local function gravity(roll, pitch)
+	local r, e = math.rad(roll), math.rad(pitch)
+	return math.sin(r), math.cos(r) * math.sin(e), math.cos(r) * math.cos(e)
+end
+
+test("drill: the roll is read the same at any pitch, right side down positive", function()
+	for _, pitch in ipairs { 0, 30, 45, 70, 90 } do
+		for _, roll in ipairs { -40, -12, 0, 5, 25 } do
+			expect.near(drill.rollDeg(gravity(roll, pitch)), roll, 1e-6)
+		end
+	end
+	-- the SDK's own examples: upright 0, 1, 0 and flat on its back 0, 0, 1
+	expect.near(drill.rollDeg(0, 1, 0), 0, 1e-9)
+	expect.near(drill.rollDeg(0, 0, 1), 0, 1e-9)
+	expect.truthy(drill.rollDeg(0.5, 0.7, 0.5) > 0, "x to the right is the right side down")
+end)
+
+test("drill: the tilt cut has a dead zone, grows with the roll and stops at the full cut", function()
+	local t = drill.tune
+	expect.eq(drill.tiltCut(0), 0)
+	expect.eq(drill.tiltCut(t.tiltDeadDeg), 0)
+	expect.eq(drill.tiltCut(-t.tiltDeadDeg * 0.9), 0)
+	-- continuous at the dead zone's edge
+	expect.truthy(drill.tiltCut(t.tiltDeadDeg + 0.01) < 0.01, "no jump at the dead zone")
+	local prev = 0
+	for roll = t.tiltDeadDeg + 1, t.tiltFullDeg, 1 do
+		local c = drill.tiltCut(roll)
+		expect.truthy(c > prev, string.format("more tilt cuts more at %d", roll))
+		expect.near(drill.tiltCut(-roll), -c, 1e-12)
+		prev = c
+	end
+	expect.near(drill.tiltCut(t.tiltFullDeg), t.tiltCutMax, 1e-9)
+	expect.near(drill.tiltCut(80), t.tiltCutMax, 1e-9)
+	expect.near(drill.tiltCut(-80), -t.tiltCutMax, 1e-9)
+	-- right side down curls right, as A does
+	expect.truthy(drill.tiltCut(20) > 0 and drill.CUT_A > 0, "right is A's way")
+	local sign = t.tiltSign
+	t.tiltSign = -1
+	local flipped = drill.tiltCut(20)
+	t.tiltSign = sign
+	expect.near(flipped, -drill.tiltCut(20), 1e-12)
+end)
+
+test("drill: the roll is smoothed: the first reading at once, then over tiltSmooth", function()
+	local t = drill.tune
+	expect.eq(drill.smoothRoll(nil, 17, 0.02), 17)
+	local r = 0
+	for _ = 1, math.floor(t.tiltSmooth / 0.02 + 0.5) do r = drill.smoothRoll(r, 20, 0.02) end
+	expect.truthy(r > 10 and r < 20, string.format("after tiltSmooth it is %.1f of the way to 20", r))
+	-- one frame's jolt moves it only a little
+	local j = drill.smoothRoll(0, 40, 0.02)
+	expect.truthy(j < 0.2 * 40, string.format("a one-frame jolt of 40 moves it %.1f", j))
+	-- a long frame never overshoots
+	expect.eq(drill.smoothRoll(0, 20, 1), 20)
+end)
+
+test("drill: tilted right curls right, left curls left, and more tilt curls more", function()
+	-- over a dozen grounds at each marker, as for A and B above: the full
+	-- tilt each way parts the rest points, and a full tilt curls farther from
+	-- the straight drill than a light one on average
+	local t = drill.tune
+	local light = (t.tiltDeadDeg + t.tiltFullDeg) / 2   -- half the full cut
+	for _, m in ipairs { { 0, 5 }, { 0.5, 6.5 }, { -1, 8 } } do
+		local right, n, sr, sl, sLight = 0, 0, 0, 0, 0
+		for seed = 1, 12 do
+			local straight = throwAt(m[1], m[2], nil, nil, nil, seed)
+			local r = throwAt(m[1], m[2], nil, drill.tiltCut(t.tiltFullDeg), nil, seed)
+			local l = throwAt(m[1], m[2], nil, drill.tiltCut(-t.tiltFullDeg), nil, seed)
+			local h = throwAt(m[1], m[2], nil, drill.tiltCut(light), nil, seed)
+			local dr, dl = r.rest.x - straight.rest.x, l.rest.x - straight.rest.x
+			if dr > dl then right = right + 1 end
+			sr, sl, sLight, n = sr + dr, sl + dl, sLight + (h.rest.x - straight.rest.x), n + 1
+		end
+		local where = string.format("(%.1f, %.1f)", m[1], m[2])
+		expect.truthy(right >= 0.9 * n, string.format("tilted right ends right of left at %s: %d of %d", where, right, n))
+		expect.truthy(sr / n > 0 and sl / n < 0, string.format("right %+.3f, left %+.3f m at %s", sr / n, sl / n, where))
+		expect.truthy(sr / n > sLight / n, string.format("full tilt %+.3f, light %+.3f m at %s", sr / n, sLight / n, where))
+	end
+end)

@@ -493,9 +493,16 @@ provider (`source/input.lua`, `tw.input`): `p:advance()` once per frame, then
 `p:held(name)`, `p:pressed(name)` (names `left right up down a b`), `p:crank()` (raw
 degrees this frame, `getCrankChange` sign: negative = anti-clockwise), `p:crankPos()`
 (`getCrankPosition`: 0 = up, 180 = the bottom of the turn), `p:docked()`,
-`p:dt()`. `input.device()` wraps the hardware (dt measured, capped at 0.1 s);
+`p:dt()`, and the accelerometer: `p:setAccel(on)` runs it or puts it to sleep (only on a
+change; a scene asks for it only while it reads it) and `p:accel()` gives x, y, z in g
+(`readAccelerometer`: gravity's pull, x right, y to the bottom of the screen, z through it
+away from the viewer), nil while it is off and until the `advance()` after it was turned
+on. `input.device()` wraps the hardware (dt measured, capped at 0.1 s);
 `input.scripted(steps, dt)` plays a step list (`n`, `hold`, `press`, `crank`, `cranks`,
-`docked`) at a fixed 1/50 s, with the crank starting at the bottom (or `startPos`).
+`docked`, and `roll`/`pitch`: the console's tilt in degrees from that step on,
+`input.gravity`, level at pitch 45 to begin with) at a fixed 1/50 s, with the crank
+starting at the bottom (or `startPos`); `p.accelOn` says whether a scene has it running.
+`main.lua`'s `open` puts it to sleep on every scene change.
 The wind-up starts only when the crank crosses the bottom of the turn going back
 (`swing.armAngle`, `swing.crossedBack`); the throw scene feeds the swing nothing before that.
 
@@ -522,7 +529,7 @@ Every number that is a guess lives in one table per module, with a comment:
   slew and baton framing radius, the tossed kubb's tumble (`tossTumble`), the instant
   rest hold, and for drilling the drilled kubbs kept on the practice pitch (`drillKeep`)
   and the marker ring (`markerRadius`, `markerSegments`).
-- `tw.drill.tune` (`source/core/drill.lua`): every drilling mapping (AGENTS.md
+- `tw.drill.tune` (`source/core/drill.lua`): every drilling mapping, the tilt cut's too (AGENTS.md
   "Drilling"). `tw.camera.tune.drill`: the fixed drill aim camera.
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
   turned, and how high a tossed kubb must rest to be on another.
@@ -900,9 +907,9 @@ the throw scene with `s.drill` on.
   baseline straight behind it (x clamped to `throwerXMax`) and solves the clean launch: loft by
   distance, the speed that lands the kubb's edge `slideAllow` short of the marker
   (`flight.tune.handHeight` down to `landZ`), the band center (power) for that distance and
-  the flight time. A or B held sets `s.cut` (`drill.CUT_A` = 1 curls right, `CUT_B` = -1
-  curls left), read every frame up to the release; in drill mode A and B never swivel or
-  loft and do not stop a wind-up. The aim camera is `camera.drillAim`, which steps sideways
+  the flight time. The cut `s.cut` is read every frame up to the release: A or B held
+  (`drill.CUT_A` = 1 curls right, `CUT_B` = -1 curls left), else the console's tilt (below);
+  in drill mode A and B never swivel or loft and do not stop a wind-up. The aim camera is `camera.drillAim`, which steps sideways
   with the thrower so the player lines up behind the marker (the world frame is redrawn
   while it moves, as in a baton walk); the marker ring, cross and dotted line are drawn over it each frame
   in `throw.draw` (`drawMarker`), and the minimap's aim line goes to the marker.
@@ -917,7 +924,22 @@ the throw scene with `s.drill` on.
   notch. Smoothness under `cleanAbove` gives a nose-over wobble of up
   to `wobbleRate` rad/s (its sign follows the swing's `how`). Tilt pushes the swivel by
   `tiltPushDeg` per degree (right, left when early). The cut is
-  `cutSpin` rad/s about the long axis.
+  `cut * cutSpin` rad/s about the long axis.
+- **The cut by tilt** (Jamie, 2026-11-14: "the accelerometer could be used to tilt and spin
+  the Kubb on the drill. That feels like it would be very natural"; drills only, never
+  batons). `throw.update`'s `tiltInput` runs the accelerometer only while a player aims a
+  drill (`s.mode == "aim"`, `s.drill`, not watching the Playdate, no HOW TO THROW; off as
+  soon as it is released) and smooths its roll into `s.roll` (`drill.rollDeg(x, y, z)`: the
+  angle about the screen's long side, + = right side down, the same at any pitch;
+  `drill.smoothRoll` over `tiltSmooth`, 0.12 s, so the flick's jolt does not set the cut).
+  `drill.tiltCut(roll)`: nothing inside `tiltDeadDeg` (6), then a straight line to
+  `tiltCutMax` (1, A's or B's cut) at `tiltFullDeg` (30), signed by the roll times
+  `tiltSign` (+1; flip it if right curls left on the device). A or B held wins over the
+  tilt; `tiltCut = false` turns the tilt off. A bigger cut does not curl more: over 24
+  grounds a marker on grass a cut of 0.5 curls about 5 cm, 1 about 9, 1.25 no more and 2
+  less and less surely, so the full tilt is A's cut (`test_drill.lua`: tilted right ends
+  right of tilted left 9 times in 10 or more, and a full tilt curls farther than a half
+  one). Pitch (nose-down) is not mapped.
 - **The body** (`world.drillLaunchState`): long axis along the horizontal line of flight, the
   nose `noseDownDeg` below the horizontal, spinning at the cut rate; the release roll is
   solved backwards from the flight time so it lands rolled `rollLandDeg` onto a long edge
@@ -935,13 +957,16 @@ the throw scene with `s.drill` on.
 - **HUD.** `hud.plaque` marks the band beside the power fill; `hud.gauge` draws the band
   as a wedge on the disc and its prompt says `WIND TO BAND`, `FLICK!` (inverted) or
   `EASE OFF` while winding; the cut flag says `CUT RIGHT` or `CUT LEFT` while A or B is
-  held. After the throw `hud.callout` gives the verdict (`SHORT`, `ON`, `LONG`) in a black
+  held or the tilt cuts, and over it `hud.tilt` is a level (250 166 42 13, keyed on the
+  knob's pixel): the knob goes the way the console leans (to the end at `tiltFullDeg`),
+  ticks mark the dead zone, and the knob is filled once the tilt cuts. After the throw `hud.callout` gives the verdict (`SHORT`, `ON`, `LONG`) in a black
   block and a ruler from SHORT to LONG with the rest point's distance from the marker (cm
   under 1 m). The `hud-drill` scenario shows the band prompts and a long callout.
-  `hud.drillReadoutText`: `P <power>/<band> <verdict>  S <smoothness>  cut R|L|-  off
-  <land>/<rest> m` (distances from the marker).
+  `hud.drillReadoutText`: `P <power>/<band> <verdict>  S <smoothness>  cut R1.0|L0.4|-  off
+  <land>/<rest> m` (distances from the marker; the cut's side and size).
 - **Telemetry.** A drill's `traces.jsonl` line is a baton line plus `"mode":"drill"`, `band`,
-  `verdict`, `cut`, `markerX/Y`, `landX/Y` (first contact), `restX/Y` and `throwerX`, in
+  `verdict`, `cut` (A/B's 1 or -1, or the tilt's cut), `roll` (the console's smoothed roll
+  at the release, degrees), `markerX/Y`, `landX/Y` (first contact), `restX/Y` and `throwerX`, in
   meters with y from the thrower's baseline (`core/trace.lua` header); `launchSpeed` is the
   drill's own. `frames.jsonl` writes `"proj":"drill"`.
 - **Rules.** A drilled kubb's rest goes through `core/outcome.toss` and `core/match` like a
@@ -954,6 +979,12 @@ the throw scene with `s.drill` on.
   marker. `drill-early`: stopped 40 degrees before it: EARLY: LOW, leaves at 17.6 against
   27.6. Both check the flight the camera follows is the one thrown (Codex on #85: the
   prediction kept the solved loft, so the camera looked 1 m past an early drill).
+  `drill-tilt` and `drill-tilt-left` (`selftest/_drilltilt.lua`): the console rolled 30
+  degrees right or 40 left (past the full cut), no button, stopped on the notch: the cut is
+  `drill.tiltCut` of the roll, the kubb spins its way and curls that way from its first
+  touch to its rest (about 14 cm on the Simulator), and the accelerometer is off in flight
+  and on again when aiming (frames: the level over CUT RIGHT, in the air, at rest, aiming
+  again).
 
 ## Woodcut type, title, cards and launcher
 

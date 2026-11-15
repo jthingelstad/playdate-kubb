@@ -16,8 +16,9 @@
 --
 -- Drilling (core/drill, DESIGN "Kubbs (drilling)"): with s.drill on, a kubb
 -- is aimed with a landing marker instead. The d-pad moves the marker over
--- the far half, the thrower stands on the baseline straight behind it, A or
--- B held at the release cuts the kubb, and the crank swing is judged against
+-- the far half, the thrower stands on the baseline straight behind it, the
+-- console tilted at the release (the accelerometer, running only while a
+-- drill is aimed) or A or B held cuts the kubb, and the crank swing is judged against
 -- the power band the marker's distance needs. The aim camera is then a
 -- high view of the far half (camera.drillAim) that steps sideways with the
 -- thrower. The match's kubb throws drill; the practice pitch
@@ -307,7 +308,11 @@ function throw.new(provider)
 		drill = false,           -- aim kubbs with the drill marker
 		thisDrill = false,       -- the throw in the air (or at rest) was drilled
 		markerX = 0, markerY = 0, markerHeld = 0, markerSide = nil, markerFixed = false,
-		cut = 0,                 -- drill.CUT_NONE / CUT_A / CUT_B, from A or B held
+		cut = 0,                 -- the drill's cut: CUT_A / CUT_B from A or B held, else the
+		                         -- console's tilt (drill.tiltCut of s.roll), else CUT_NONE
+		roll = nil,              -- the console's smoothed roll in degrees (+ = right side
+		                         -- down) while a drill is aimed; nil when not read
+		tiltCuts = false,        -- the roll is past the dead zone (the tilt indicator)
 		drillSol = {},           -- core/drill solution for the marker (reused)
 		drillLaunch = {},        -- core/drill launch of the last drill (reused)
 		drillSeq = 0,            -- practice: drilled kubbs thrown (their ids)
@@ -463,8 +468,11 @@ local function aimInput(s, dt)
 		else
 			s.markerHeld = 0
 		end
-		-- A or B held: the cut, read again every frame up to the release
-		s.cut = p:held("a") and drill.CUT_A or (p:held("b") and drill.CUT_B or drill.CUT_NONE)
+		-- the cut, read again every frame up to the release: A or B held, else
+		-- the console's tilt (s.roll, read in throw.update)
+		local tc = s.roll and drill.tiltCut(s.roll) or 0
+		s.tiltCuts = tc ~= 0
+		s.cut = p:held("a") and drill.CUT_A or (p:held("b") and drill.CUT_B or tc)
 		return swingInput(s, sw, delta, arm, prevArm, dt)
 	end
 	-- d-pad: walk. Left/right along the line, down steps back from it, up
@@ -674,7 +682,7 @@ local function launch(s, r)
 		local sol = s.drillSol
 		l.markerX, l.markerY, l.band = s.markerX, s.markerY, sol.band
 		l.verdict = drill.judge(r.power or 0, sol.band)
-		l.cut, l.jerk = s.cut, L.jerk
+		l.cut, l.jerk, l.roll = s.cut, L.jerk, s.roll
 		l.restX, l.restY = nil, nil
 	end
 	s.readout = nil
@@ -759,7 +767,7 @@ local function landed(s)
 		if l.drill then
 			-- drill fields (core/trace): lengths from the thrower's baseline
 			local y0 = s.lineY
-			r.mode, r.band, r.verdict, r.cut = "drill", l.band, l.verdict, l.cut
+			r.mode, r.band, r.verdict, r.cut, r.roll = "drill", l.band, l.verdict, l.cut, l.roll
 			r.markerX, r.markerY = l.markerX, l.markerY - y0
 			r.landX, r.landY = l.landX, l.landY - y0
 			r.restX, r.restY = l.restX, l.restY - y0
@@ -767,7 +775,7 @@ local function landed(s)
 		end
 		tw.recorder.write("release", r)
 		r.loft, r.distance, r.launchLoft = nil, nil, nil
-		r.mode, r.band, r.verdict, r.cut, r.markerX, r.markerY = nil, nil, nil, nil, nil, nil
+		r.mode, r.band, r.verdict, r.cut, r.roll, r.markerX, r.markerY = nil, nil, nil, nil, nil, nil, nil
 		r.landX, r.landY, r.restX, r.restY, r.throwerX = nil, nil, nil, nil, nil
 	end
 	s.mode = "rest"
@@ -914,9 +922,24 @@ local function firstHowTo(s)
 	throw.showHowTo(s)
 end
 
+-- The console's tilt (core/drill, the cut): the accelerometer runs only
+-- while a player aims a drill, and its roll is smoothed into s.roll.
+local function tiltInput(s, p, dt)
+	local on = drill.tune.tiltCut and s.mode == "aim" and s.drill and not s.watching and not s.howto
+	p:setAccel(on)
+	local x, y, z
+	if on then x, y, z = p:accel() end
+	if x then
+		s.roll = drill.smoothRoll(s.roll, drill.rollDeg(x, y, z), dt)
+	else
+		s.roll, s.tiltCuts = nil, false
+	end
+end
+
 function throw.update(s)
 	local p = s.input
 	p:advance()
+	tiltInput(s, p, p:dt())
 	-- HOW TO THROW over the scene (core/howto: the crank walks through the
 	-- throw); nothing else moves. When it ends the crank must arm afresh, so
 	-- its turns there throw nothing here.
@@ -1315,12 +1338,18 @@ function throw.drawFrame(s)
 			swing.tune.fullBackswingDeg, s.arm or 0, band, half, target, stop)
 		hud.prompt(prompt, inverted)
 		s.promptText = prompt    -- (self-tests read it)
-		-- one flag in that place: a drill's cut while A or B is held, else the
-		-- last stop's verdict
+		-- one flag in that place: a drill's cut while A or B is held or the
+		-- console is tilted, else the last stop's verdict
 		if marker and s.cut ~= drill.CUT_NONE then
-			hud.cutFlag(s.cut == drill.CUT_A and "CUT RIGHT" or "CUT LEFT")
+			hud.cutFlag(s.cut > 0 and "CUT RIGHT" or "CUT LEFT")
 		elseif stop and s.stopText then
 			hud.cutFlag(s.stopText)
+		end
+		-- above it, the console's tilt: a level whose knob goes the way it
+		-- leans, filled once it cuts
+		if marker and s.roll then
+			local dtn = drill.tune
+			hud.tilt(s.roll / dtn.tiltFullDeg, dtn.tiltDeadDeg / dtn.tiltFullDeg, s.tiltCuts)
 		end
 		if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout) end
 		if s.input:docked() then hud.crankPrompt() end

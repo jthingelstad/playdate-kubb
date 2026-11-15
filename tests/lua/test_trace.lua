@@ -95,6 +95,11 @@ test("a drill line carries its mode, marker, band, landing and rest; a baton lin
 	expect.near(t.result.landY, 5.9, 1e-6)
 	expect.near(t.result.restX, 0.4, 1e-6)
 	expect.near(t.result.throwerX, 0.5, 1e-6)
+	-- a tilt cut: any number, and the console's roll beside it
+	r.cut, r.roll = 0.42, 13.5
+	t = trace.decode(trace.encode(flat, 8, "release", r, 1))
+	expect.near(t.result.cut, 0.42, 1e-6)
+	expect.near(t.result.roll, 13.5, 1e-6)
 end)
 
 test("a line recorded before the stop release replays with the old rule", function()

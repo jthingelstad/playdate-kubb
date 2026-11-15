@@ -7,7 +7,8 @@
 --   gauge     disc at 346 205, r 27, aiming: the arm turning with the crank, the
 --             wind-up arc, the full-power mark, a drill's band as a grey wedge
 --   plaque    250 199 62 34, aiming: the loft and the wind-up's power bar
---   cut flag  250 182 62 15, drilling while A or B is held
+--   cut flag  250 182 62 15, drilling while A or B is held or the console tilted
+--   tilt      250 166 42 13, drilling: the console's tilt as a level
 --   minimap   frame 4 162 49 76, always
 --   chip      318 203 76 32 and the result flag 318 185 76 15, after a release
 --   callout   59 185 234 48, after a drilled kubb stops: SHORT / ON / LONG
@@ -55,6 +56,9 @@ hud.tune = {
 		bandIn = 12, tickOut = 6, notchIn = 9, stopIn = 6, stopR = 3 },
 	plaque = { x = 250, y = 199, w = 62, h = 34 },
 	cutFlag = { x = 250, y = 182, w = 62, h = 15 },
+	-- drilling: the console's roll as a level over the cut flag, its knob
+	-- `knob` px wide; ticks at the dead zone's edges
+	tilt = { x = 250, y = 166, w = 42, h = 13, knob = 6 },  -- short of a widened prompt (WIND TO BAND)
 	chip = { x = 318, y = 203, w = 76, h = 32 },
 	flag = { x = 318, y = 185, w = 76, h = 15 },
 	-- while the slow motion around a hit plays (playback.speed below 1): an
@@ -277,6 +281,39 @@ function hud.cutFlag(s)
 	end
 	if plateBegin(P, s) then
 		flagIn(0, 0, P.w - sh, t.h, s, false)
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
+end
+
+-- The console's tilt while a drill is aimed: f is the roll over the roll of
+-- the full cut (-1 to 1, + = right side down; past that the knob stays at the
+-- end), dead the dead zone's edge in the same units, cuts whether the tilt
+-- cuts (the knob filled). Redrawn only when the knob moves a pixel.
+local tiltPlate
+function hud.tilt(f, dead, cuts)
+	local t, sh = hud.tune.tilt, hud.tune.shadow
+	local P = tiltPlate
+	if not P then
+		P = newPlate(t.x, t.y, t.w + sh, t.h + sh)
+		tiltPlate = P
+	end
+	if f > 1 then f = 1 elseif f < -1 then f = -1 end
+	local half = floor((t.w - 8 - t.knob) / 2)
+	local px, dpx = floor(f * half + 0.5), floor(dead * half + 0.5)
+	if plateBegin(P, px, cuts, dpx) then
+		plaque(0, 0, t.w, t.h)
+		local cx, cy = floor(t.w / 2), floor(t.h / 2)
+		gfx.setColor(BLACK)
+		gfx.fillRect(4, cy, t.w - 8, 1)
+		gfx.fillRect(cx - dpx, cy - 2, 1, 5)
+		gfx.fillRect(cx + dpx, cy - 2, 1, 5)
+		local x0 = cx + px - floor(t.knob / 2)
+		gfx.fillRect(x0, cy - 3, t.knob, 7)
+		if not cuts then
+			gfx.setColor(WHITE)
+			gfx.fillRect(x0 + 1, cy - 2, t.knob - 2, 5)
+		end
 		plateEnd(P)
 	end
 	P.img:draw(P.x, P.y)
@@ -670,7 +707,8 @@ function hud.drillReadoutText(r)
 		if not x then return 0 end
 		return math.sqrt((x - r.markerX) ^ 2 + (y - r.markerY) ^ 2)
 	end
-	local cut = (r.cut or 0) > 0 and "R" or ((r.cut or 0) < 0 and "L" or "-")
+	local c = r.cut or 0
+	local cut = c == 0 and "-" or string.format("%s%.1f", c > 0 and "R" or "L", math.abs(c))
 	return string.format("P %.2f/%.2f %s  S %.2f  cut %s  off %.2f/%.2f m",
 		r.power, r.band, string.upper(r.verdict or ""), r.smoothness, cut, off(r.landX, r.landY), off(r.restX, r.restY))
 end

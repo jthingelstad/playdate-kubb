@@ -11,8 +11,10 @@
 --              marker; a jerky one wobbles it and it runs on
 --   tilt       pushes the line a little sideways (right when the swing
 --              passed the release, left when it slowed into it)
---   cut        A or B held at release spins the kubb about its long axis, and
---              the ground turns that into a curve after landing
+--   cut        the console tilted at the release (the accelerometer's roll:
+--              right side down curls right, more tilt curls more) spins the
+--              kubb about its long axis, and the ground turns that into a
+--              curve after landing; A or B held is a fixed cut instead
 --
 -- All in one frame: x across, y away from the thrower (the throw scene's view
 -- frame). world.launchDrill (core/world) makes the body from drill.launch's
@@ -61,9 +63,26 @@ drill.tune = {
 	wobbleRate = 10,        -- rad/s of nose-over wobble at smoothness 0 (scales with how far
 	                        -- under cleanAbove the swing was)
 	tiltPushDeg = 0.05,     -- degrees of line per degree of swing tilt
-	cutSpin = 25,           -- rad/s about the long axis with A or B held at release
+	cutSpin = 25,           -- rad/s about the long axis for a cut of 1 (A or B held at release)
+	-- the cut by tilting the console (Jamie, 2026-11-14: "the accelerometer
+	-- could be used to tilt and spin the Kubb on the drill"): its roll, left
+	-- or right about the screen's long side, read while a drill is aimed. A or
+	-- B held still cuts by 1 and wins over the tilt.
+	tiltCut = true,         -- read the accelerometer while aiming a drill (false: A/B only)
+	tiltSign = 1,           -- +1: right side down curls right. Flip it if the device disagrees
+	tiltDeadDeg = 6,        -- roll under this cuts nothing: two hands on a crank are never level
+	tiltFullDeg = 30,       -- roll that gives the full tilt cut; more tilt cuts no more
+	tiltCutMax = 1.0,       -- the full tilt cut, in units of cutSpin (A or B is 1): from the dead
+	                        -- zone's edge the cut grows in a straight line to this. The curl
+	                        -- stops growing past about 1 (24 grounds a marker on grass: a
+	                        -- cut of 0.5 curls about 5 cm, 1 about 9, 1.25 no more, and 2
+	                        -- less and less surely), so a full tilt is A's or B's cut
+	tiltSmooth = 0.12,      -- s: the roll is smoothed over about this, so the jolt of the flick
+	                        -- and the crank stopping does not set the cut at the release
 }
 
+-- A or B held: a cut of +1 (curls right) or -1 (curls left). A tilt cut is
+-- any number between -tiltCutMax and tiltCutMax.
 drill.CUT_NONE, drill.CUT_A, drill.CUT_B = 0, 1, -1
 
 local function lerp(a, b, f)
@@ -112,6 +131,37 @@ function drill.solve(mx, my, lineY, out)
 	return out
 end
 
+-- The console's roll in degrees from the accelerometer's x, y, z (in g, the
+-- way gravity pulls in the console's frame: x right, y to the bottom of the
+-- screen, z through it away from the viewer; held upright 0, 1, 0, flat on
+-- its back 0, 0, 1). Positive is the right side down, whatever the pitch.
+function drill.rollDeg(x, y, z)
+	return deg(atan(x, sqrt(y * y + z * z)))
+end
+
+-- One frame of smoothing: the roll shown and used, `prev` (nil for the first
+-- reading), moved toward this frame's `roll` over tiltSmooth seconds.
+function drill.smoothRoll(prev, roll, dt)
+	if not prev then return roll end
+	local k = dt / drill.tune.tiltSmooth
+	if k > 1 then k = 1 end
+	return prev + (roll - prev) * k
+end
+
+-- The cut for a roll in degrees: nothing inside the dead zone, then growing
+-- in a straight line to tiltCutMax at tiltFullDeg, signed like the roll
+-- (times tiltSign): + curls right like A, - left like B.
+function drill.tiltCut(roll)
+	local t = drill.tune
+	local a = abs(roll)
+	if a <= t.tiltDeadDeg then return 0 end
+	local f = (a - t.tiltDeadDeg) / (t.tiltFullDeg - t.tiltDeadDeg)
+	if f > 1 then f = 1 end
+	local c = f * t.tiltCutMax
+	if (roll < 0) ~= (t.tiltSign < 0) then c = -c end
+	return c
+end
+
 -- The power error as it reaches the speed: shrunk inside the band.
 function drill.powerError(power, band)
 	local t = drill.tune
@@ -131,7 +181,8 @@ function drill.judge(power, band)
 end
 
 -- The launch for swing result `r` (power, smoothness, tilt, how) against the
--- solution `sol`, with cut drill.CUT_NONE / CUT_A / CUT_B. Fills and returns
+-- solution `sol`, with cut drill.CUT_NONE / CUT_A / CUT_B or a tilt cut
+-- (drill.tiltCut, any number: the spin is cut times cutSpin). Fills and returns
 -- `out`: swivel, loft, speed, noseDown, rollLand, spin, wobble, digGain (the
 -- arguments of world.launchDrill after x and lineY), plus jerk (0..1).
 function drill.launch(sol, r, cut, out)

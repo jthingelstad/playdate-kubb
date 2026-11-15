@@ -138,11 +138,14 @@ a football with the nose down. The kubb is aimed differently from the baton:
   early goes lower and late higher). Smoothness decides the landing: a clean flick keeps
   the nose down and the kubb dies near the marker; a jerky one wobbles it nose over tail and it
   runs on. The swing's tilt pushes the line a little sideways.
-- **Cut:** A or B held at the release (neither: straight). A cut is spin about the long axis,
-  and the ground turns it into a curve after landing: A curls right, B curls left. On grass
-  it is modest, about 5 to 17 cm (10 cm on average); on sand less. The release roll is
-  solved so the kubb always lands on a long edge, which keeps the curve the same way every
-  time.
+- **Cut:** tilt the Playdate at the release (Jamie, 2026-11-14: "the accelerometer could be
+  used to tilt and spin the Kubb on the drill"): right side down curls right, left side down
+  curls left, and more tilt curls more, from nothing near level up to a full cut at about 30
+  degrees. A or B held at the release is a full cut too (A right, B left) and wins over the
+  tilt. A cut is spin about the long axis, and the ground turns it into a curve after
+  landing. On grass it is modest, about 5 to 17 cm at the full cut (10 cm on average); on
+  sand less. The release roll is solved so the kubb always lands on a long edge, which keeps
+  the curve the same way every time. Batons ignore the tilt.
 
 Every mapping is a tunable in `tw.drill.tune` (`source/core/drill.lua`). The computer
 thrower still lobs its kubbs (stage 3). Stage 4 as built is described in AGENTS.md

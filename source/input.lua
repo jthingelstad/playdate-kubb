@@ -11,6 +11,12 @@
 --   p:crankPos()       crank position in degrees (getCrankPosition: 0 = straight
 --                      up, growing clockwise; 180 = the bottom of the turn)
 --   p:docked()         is the crank folded away
+--   p:setAccel(on)     run the accelerometer (true) or put it to sleep; a scene
+--                      asks for it only while it reads it (a drill being aimed)
+--   p:accel()          x, y, z in g (readAccelerometer: the way gravity pulls,
+--                      x right, y to the bottom of the screen, z through it away
+--                      from the viewer), read at advance(); nil while it is off
+--                      and until the advance() after it was turned on
 --   p:dt()             seconds this frame
 --   p.raw              (device only) seconds this frame, not capped: the
 --                      frame-time log's measure
@@ -35,6 +41,8 @@ function input.device()
 		local cur, pressed = playdate.getButtonState()
 		self.cur, self.down = cur, pressed
 		self.delta = playdate.getCrankChange()
+		-- turned on in an earlier frame's update: its values are ready by now
+		if self.accelOn then self.ax, self.ay, self.az = playdate.readAccelerometer() end
 		local e = playdate.getElapsedTime()
 		playdate.resetElapsedTime()
 		if e <= 0 then e = 1 / playdate.display.getRefreshRate() end
@@ -47,7 +55,25 @@ function input.device()
 	function p:crankPos() return playdate.getCrankPosition() end
 	function p:docked() return playdate.isCrankDocked() end
 	function p:dt() return self.step end
+	function p:setAccel(on)
+		on = on and true or false
+		if on == (self.accelOn or false) then return end
+		self.accelOn, self.ax, self.ay, self.az = on, nil, nil, nil
+		if on then playdate.startAccelerometer() else playdate.stopAccelerometer() end
+	end
+	function p:accel()
+		if self.ax == nil then return nil end
+		return self.ax, self.ay, self.az
+	end
 	return p
+end
+
+-- The accelerometer's x, y, z for a console rolled `roll` degrees (right
+-- side down positive) and its screen tipped `pitch` degrees up from lying on
+-- its back (90 is upright; the scripted default, 45, is a usual hold).
+function input.gravity(roll, pitch)
+	local r, e = math.rad(roll), math.rad(pitch or 45)
+	return math.sin(r), math.cos(r) * math.sin(e), math.cos(r) * math.cos(e)
 end
 
 -- Scripted input for self-tests. `steps` is an array; each step lasts n
@@ -58,11 +84,15 @@ end
 --   crank = d               raw crank degrees every frame of the step
 --   cranks = {d1, d2, ...}  raw crank degrees frame by frame (sets n)
 --   docked = true           the crank is folded away
+--   roll = d, pitch = e     the console's tilt in degrees (input.gravity) from
+--                           this step on; it starts level at pitch 45. p:accel()
+--                           gives it only while a scene has the accelerometer on.
 -- dt is fixed (1/50 s by default). After the last step: nothing held, no crank.
 -- The crank starts at startPos (default 180, the bottom) and its position
 -- follows the scripted changes.
 function input.scripted(steps, dt, startPos)
-	local p = { steps = steps, i = 1, k = 0, fixed = dt or (1 / 50), frame = 0, pos = startPos or 180 }
+	local p = { steps = steps, i = 1, k = 0, fixed = dt or (1 / 50), frame = 0, pos = startPos or 180,
+		roll = 0, pitch = 45, accelOn = false, accelLive = false, accelFrames = 0 }
 	local none = {}
 	local function stepLength(s)
 		if s.cranks then return #s.cranks end
@@ -78,6 +108,11 @@ function input.scripted(steps, dt, startPos)
 		end
 		self.cur = s or none
 		self.pos = (self.pos + self:crank()) % 360
+		if s and self.k == 1 and (s.roll or s.pitch) then
+			self.roll, self.pitch = s.roll or self.roll, s.pitch or self.pitch
+		end
+		-- as on the device: values from the advance() after it was turned on
+		if self.accelOn then self.accelLive, self.accelFrames = true, self.accelFrames + 1 end
 	end
 	local function has(list, name)
 		if not list then return false end
@@ -96,6 +131,16 @@ function input.scripted(steps, dt, startPos)
 	function p:crankPos() return self.pos end
 	function p:docked() return self.cur.docked == true end
 	function p:dt() return self.fixed end
+	-- accelFrames counts the frames it was asked to run (self-tests check it
+	-- sleeps when no drill is aimed)
+	function p:setAccel(on)
+		on = on and true or false
+		if on ~= self.accelOn then self.accelOn, self.accelLive = on, false end
+	end
+	function p:accel()
+		if not (self.accelOn and self.accelLive) then return nil end
+		return input.gravity(self.roll, self.pitch)
+	end
 	function p:finished() return self.steps[self.i] == nil end
 	return p
 end

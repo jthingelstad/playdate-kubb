@@ -98,6 +98,8 @@ import "selftest/match-vs"
 import "selftest/match-debris"
 import "selftest/drill"
 import "selftest/drill-stop"
+import "selftest/drill-tilt"
+import "selftest/drill-tilt-left"
 import "selftest/cards"
 import "selftest/hud-drill"
 import "selftest/drawcalls"
@@ -232,6 +234,8 @@ else
 		-- a scene left during the king burst's flash must not leave the
 		-- screen inverted (render/burst)
 		playdate.display.setInverted(false)
+		-- a scene left while a drill was aimed must not leave the accelerometer on
+		device:setAccel(false)
 		if which == "practice" then
 			-- PRACTICE: the drills menu (scenes/drills); its OPEN PITCH is "pitch"
 			kind = "drills"
