@@ -89,64 +89,118 @@ will use). They are sketches of framing and legibility, not of final art.
 
 ## 4. Controls
 
-### Batons
+The throw (Jamie and Tyler, 2026-11-15, after play-testing the stop on the notch): one way
+to throw, modelled on how a real player throws, the same for batons and drilled kubbs.
 
-Before the throw:
+- The d-pad positions. A and B are modifiers of the d-pad. The crank throws.
+- **Point and throw.** A player who never presses A or B can play: the target starts on a
+  kubb, the player stands behind it, the arc is chosen for them; they only crank. A (moving
+  yourself) is the first level of control, B (the plan) the most advanced. Neither is
+  needed.
+- **Throw level** (Beginner, Club, Pro) sets how wide the gauge's targets are and how much
+  a miss costs. It belongs to the player who throws (named players are planned in
+  `docs/PLAYERS.md`); until players exist it is one setting in the System Menu.
+
+### The three steps before the throw (in any order)
 
 | Input | Does |
 |---|---|
-| D-pad left/right | Walk the player along the throwing line (baseline or advantage line, II.B.2). The camera moves with the player. |
-| D-pad down/up | Step back from the throwing line (up to 3 m) and forward again as far as the line. |
-| Hold B + crank | Swivel the player left and right, so a throw need not be straight on. The crank is geared down for fine aim. |
-| Hold A + crank | Loft (5 to 55 degrees): crank forward for a higher arc, back for a low, hard throw. |
-| Double tap B | Face straight down the pitch again. |
-| Double tap A | Loft back to the default. |
+| D-pad | **Target.** Move a 0.5 m circle over the far half (a little past it: 3 m either side, 3.5 to 8.6 m out). For a baton it is where the throw comes down (a clean throw lands on its center); for a kubb, where it should come to rest. It starts on the nearest live target (standing field kubbs, else base kubbs, else the king), and snaps onto a standing kubb or the king when it stops within a circle's radius of one. |
+| Hold A + d-pad | **Position.** Walk: left/right along the throwing line, down to step back (up to 3 m), up to come forward as far as the line allows (the advantage line in a match; king shots and kubbs from the baseline). The player always faces the target: the swivel is worked out, never set. Until A is used the player stands straight behind the target, as far forward as allowed (clamped inside the line's ends). |
+| Hold B + d-pad up/down | **Plan the arc.** Moves the release target on the gauge's forward side half an hour (15 degrees) at a time. Until B is used the arc follows the target: 3 o'clock at base kubbs, half past 3 at the king, 4 o'clock at field kubbs, half past 1 for a drilled kubb. |
+| Hold B + d-pad left/right | **Plan the tilt** (baton): taps tilt the baton's spin plane left or right, up to 10 degrees, to steer it after the first kubb it hits in a group. **Plan the spin** (kubb): taps add spin left or right, which rolls the kubb sideways after it lands (expert drillers roll kubbs into the centerline stake, and against each other, to build a wall). Step sizes are set by measurement (`tools/spinwall.lua`, `tools/tiltgroups.lua`). |
 
-The throw, with A and B released (A and B swapped after play testing; set on hardware, 2026-11-13):
+Everything the plan sets shows on the gauge and the HUD while aiming.
 
-| Input | Does |
-|---|---|
-| Crank back past the bottom of the turn | Wind up. The wind-up starts only when the crank crosses the bottom going back; the backswing angle caps the power. |
-| Crank forward flick, then stop | The swing. The baton is released where the crank stops (all but halted), and the crank is the throwing arm: the launch angle is the arm's angle past the bottom of the turn at the stop. Within 10 degrees of the notch is perfect; beyond it, early goes lower and late higher, by a third of the rest of the miss; the loft set is the target, a notch on the dial's forward side like the full-power notch at the back (Jamie and Tyler, 2026-11-14). The power is the flick's speed. |
-| Slow crank forward | Lets the wind-up down without throwing. |
-| B (hold, on the other side's turn) | Fast-forward their throws. |
+### The throw: the crank as a clock
 
-The throw gauge (a disc) shows the arm turning with the crank, the backswing against a
-full-power mark, and, while idle, the crank's real position and which way to turn; its
-prompt names the next move.
+The crank is the throwing arm. Read it as a clock: 6 is the arm hanging straight down,
+the backswing goes up the left side (7, 8, 9, 10, 11, 12) and the forward swing up the right
+(5, 4, 3, 2, 1). The forward swing is anti-clockwise (`swing.tune.forwardSign`, set on
+hardware 2026-11-13).
+
+| Clock | Backswing (power) | Clock | Forward swing (release) |
+|---|---|---|---|
+| 6 to 7 | dead zone: the throw has not started | 5 | low and flat (field kubbs, a line drive) |
+| 9 | about 4 m | half past 3 | king shot |
+| 10 | 8 m | 3 | normal throw at a base kubb |
+| 10 to 11 | longer throws (corner to corner is 9.4 m, about 10:20) | 1 to 2 | high: drilling a kubb |
+| 11 to 12 | overpowered | | |
+
+- **The gauge** is a dial with the arm on it. On the back side it marks the **power
+  target**: the backswing this throw needs, from the distance to the target and the arc
+  planned (a flatter arc needs more). On the forward side it marks the **release target**:
+  where to stop. Both are ranges, not points; the Throw level sets their width. Walking,
+  moving the target or changing the plan moves them at once.
+- **Backswing.** The crank crossing 7 going back starts the wind-up; how far back it goes
+  (the farthest point) sets the power. Inside the power target the throw has the speed it
+  needs. Short of it the throw goes short; past it, long. Past 11 is overpowered: more
+  speed than any throw on the pitch needs, which can smash through a group of field kubbs
+  with a low, hard throw, but every step past the target makes every other error worse.
+- **Forward swing.** The crank must pass 6 to throw. The throw leaves where the crank
+  stops (its farthest forward point). That sets the launch angle: 5 o'clock is about 12
+  degrees, 3 o'clock about 32, half past 1 about 47, 12 o'clock about 62 (a line through
+  these). Inside the release target the launch is the planned arc; outside it the throw
+  leaves at the angle the crank stopped at and the physics makes it short, long or high.
+- **Flick speed** scales the power: a fast flick (about 1000 deg/s and over, to be tuned) gives
+  all the power of the backswing, a slow one as little as 20 percent.
+- **Steadiness** of the forward swing: a shaky flick pulls the throw sideways and wobbles
+  the baton; a very shaky one is a helicopter (illegal, II.B.1). Overpowering makes both
+  worse. A planned tilt and the shake add up toward the helicopter limit (30 degrees).
+- **What goes wrong.** Stopping before 6 lets the wind-up down (no throw). Cranking on past
+  12 is a sky ball: the highest launch, with a large error. The crank swinging back after a
+  throw is ignored for a moment, so it does not start a new one.
+- **After the throw** the HUD says what happened in a word each: power (SHORT, ON, LONG),
+  release (LOW, ON, HIGH) and steadiness (STEADY, SHAKY), and the dial keeps a dot where the
+  backswing peaked and where the crank stopped until the next wind-up.
+
+How it plays (Jamie and Tyler's examples):
+
+1. An 8 m baton at a base kubb: target it, pull back to 10, stop at 3.
+2. A king shot: target the king, pull back to 10, stop between 3 and 4.
+3. A field kubb group from the advantage line: target, pull back to 11 (the risk), flick
+   fast and stop at 5.
+4. Drilling: target the spot, pull back to 9 or 10, stop at 1 to 2, spin planned with B.
+
+The computer throws the same way: it plans a target and an arc and makes a swing with
+mistakes in it, and the gauge shows its arm going back and forward as it throws.
 
 ### Kubbs (drilling)
 
-Always from the baseline (II.C.1). Per the glossary a drilled kubb spins on its long axis like
-a football with the nose down. The kubb is aimed differently from the baton:
+Always from the baseline (II.C.1). A drilled kubb spins on its long axis like a football
+with the nose down. The target circle is where it should rest; the game solves the clean
+drill that rests there at the arc planned. The spin planned with B is spin about the long
+axis, which the ground turns into a sideways roll; earlier kubbs and the stakes are real
+bodies, so a kubb can roll into the centerline stake or against another kubb and stop
+there. Every mapping is a tunable in `tw.drill.tune` (`source/core/drill.lua`).
 
-- **Aim is a landing marker on the ground.** The d-pad moves it over the far half (left/right
-  across, up/down along), clamped to an area a little past the legal half (3 m either side,
-  3.5 to 8.6 m out), so "the hard way" stays possible. The thrower stands on the baseline
-  straight behind the marker (clamped inside the stakes); there is no walk step. The aim
-  camera is a fixed, higher view looking down on the whole target half, so moving the marker
-  does not redraw the scenery. The marker is a ring with a cross and a dotted line from the
-  thrower. Earlier kubbs of the turn stay where they landed.
-- **The throw is the crank swing, judged against a target.** The game solves the launch that
-  lands a clean drill on the marker: a low loft chosen by distance (26 degrees near, 30
-  far) and the speed that carries it there. The gauge and the power meter show the **band**:
-  the power that distance needs (a farther marker needs more). Winding back to the band and
-  flicking hard puts the power in it. Inside the band a power error barely moves the kubb;
-  outside it the kubb goes short or long. The angle is a baton's (Jamie, 2026-11-14: one
-  throw to learn): the solved loft is the notch on the dial, and where the crank stops
-  sets the angle the same forgiving way (within 10 degrees the solved loft; beyond it,
-  early goes lower and late higher). Smoothness decides the landing: a clean flick keeps
-  the nose down and the kubb dies near the marker; a jerky one wobbles it nose over tail and it
-  runs on. The swing's tilt pushes the line a little sideways.
-- **Cut:** A or B held at the release (neither: straight). A cut is spin about the long axis,
-  and the ground turns it into a curve after landing: A curls right, B curls left. On grass
-  it is modest, about 5 to 17 cm (10 cm on average); on sand less. The release roll is
-  solved so the kubb always lands on a long edge, which keeps the curve the same way every
-  time.
+### Throw levels
 
-Every mapping is a tunable in `tw.drill.tune` (`source/core/drill.lua`). The computer
-thrower still lobs its kubbs (stage 3). Stage 4 as built is described in AGENTS.md
-"Drilling".
+| | Beginner | Club | Pro |
+|---|---|---|---|
+| Power target, half width | 15 degrees | 8 | 4 |
+| Release target, half width | 30 degrees | 18 | 10 |
+| Error inside a target | a tenth | 0.3 | 0.6 |
+| Shake and overpower costs | low | medium | full |
+
+First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.lua`).
+
+### Practice drills
+
+PRACTICE's drills (AGENTS.md "Practice drills") are how a real player practises and how the
+throw gets tuned: every throw in a drill is recorded with the drill's name. 8 METERS
+(baselines), THE HOUSE, KING SHOTS, BLAST (a bucket of kubbs to drill), AROUND THE PITCH,
+and two new ones: DOUBLES (field kubbs in pairs and triples, 3, 7 and 15 cm apart: a point
+for every kubb down, a bonus for two or more with one baton) and THE WALL (drill kubbs into
+the centerline stake: a point for each kubb that rests in a wall running from the stake
+along the centerline).
+
+### Build order
+
+1. This spec. 2. The swing, the plan and the levels (pure core, tested). 3. The controls,
+the gauge and the verdicts in the throw scene; the computer throws the same way. 4. DOUBLES
+and THE WALL. 5. Jamie and Tyler play the drills; the targets, flick speed, stop detection
+and shake limits are fitted from the recordings. 6. The match and HOW TO THROW.
 
 "The hard way" (land out of bounds and cut back in), nudges and clacks are not special moves;
 they fall out of the physics. How much a kubb cuts depends on the surface (section 5): more on
