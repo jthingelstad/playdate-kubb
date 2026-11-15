@@ -11,6 +11,10 @@
 --   minimap   frame 4 162 49 76, always
 --   chip      318 203 76 32 and the result flag 318 185 76 15, after a release
 --   callout   59 185 234 48, after a drilled kubb stops: SHORT / ON / LONG
+--   clock     the throw as a clock (hud.clock, replacing the gauge): face at
+--             351 207, r 30 with a 2 px drop shadow (319 177 to 383 239)
+--   verdicts  73 222 158 15, after a throw: power, release, steadiness
+--   plan chip 250 182 62 15 (the cut flag's place), aiming: TILT or SPIN set
 -- Everything else stays out of the clear area (the full width down to y 156,
 -- then x 58 to 246 down to y 222).
 --
@@ -67,6 +71,21 @@ hud.tune = {
 	-- the wind: its label above the minimap, and the arrow's length on it
 	wind = { x = 4, y = 145, h = 15, baseLen = 10, perMps = 2.5, maxLen = 30 },
 	callout = { x = 59, y = 185, w = 234, h = 48, block = 66, rulerW = 144, rulerBands = 3 },
+	-- The throw as a clock (DESIGN 4, hud.clock): a white face in a 2 px black
+	-- frame with a drop shadow, centred under the prompt flag. ring: the band
+	-- inside the frame that holds the zones and targets; ticks inside it
+	-- (tick, the long ones at 12, 3, 6 and 9 tickLong); the hand reaches to
+	-- `hand` px from the centre (the idle crank's to `crankHand`); dots on the
+	-- ring for the backswing peak and the last throw (dotR).
+	clock = { x = 351, y = 207, r = 30, frame = 2, ring = 5, tick = 3, tickLong = 5, sliceIn = 5, hand = 20,
+		crankHand = 20, hub = 3, dotR = 3 },
+	-- After a throw (hud.verdicts): power, release, steadiness as one plate of
+	-- three cells, a miss white on black. Below the clear area, between the
+	-- minimap and the loft plaque.
+	verdicts = { x = 73, y = 222, w = 158, h = 15 },
+	-- While aiming (hud.planChip): the tilt or spin B has set, in the cut
+	-- flag's place (widening to the left)
+	planChip = { x = 250, y = 182, w = 62, h = 15 },
 	readoutX = 4, readoutY = 17,  -- the System Menu "Readout" line, just under the rail
 	cardPad = 10, cardGap = 6, cardRise = 20,              -- hand-off and winner card: padding,
 	                                                       -- line gap, px above screen center
@@ -870,6 +889,254 @@ function hud.gauge(phase, angle, backswing, fullDeg, crank, band, half, target, 
 	end
 	if behind then return "CRANK DOWN", false end
 	return band and "WIND TO BAND" or "WIND BACK", false
+end
+
+-- ---------- the throw as a clock (DESIGN 4, "The throw: the crank as a clock") ----------
+
+-- The dead zone (6 to 7: nothing has started): sparse dots. Overpowered (11
+-- to 12): a diagonal hatch. Targets: solid black. (Pattern bits: 1 = white.)
+local DEAD <const> = { 0x77, 0xFF, 0xDD, 0xFF, 0x77, 0xFF, 0xDD, 0xFF }
+local HATCH <const> = { 0x33, 0x99, 0xCC, 0x66, 0x33, 0x99, 0xCC, 0x66 }
+
+local ct = hud.tune.clock
+local clockLayer = newLayer(ct.x - ct.r - 2, ct.y - ct.r - 2, ct.x + ct.r + hud.tune.shadow, 239)
+local clockKey = {}
+local faceImg = nil
+local faceKey = {}
+
+-- The point at radius R for an arm angle (forward degrees from the bottom of
+-- the turn: 0 = 6 o'clock, -90 = 9, +90 = 3, +-180 = 12). drawArc's angles
+-- are the clock's (0 = up, clockwise), so an arm angle a is drawArc's 180 - a.
+local function onClock(cx, cy, R, arm)
+	local a = rad(180 - arm)
+	return cx + R * sin(a), cy - R * cos(a)
+end
+
+-- A target: the slice between arm angles a0 < a1 from radius r0 to r1, grey
+-- in a black outline, and solid black across the ring (rm, width w) so the
+-- hand, which stops short of the ring, never hides it. With a pattern, a
+-- zone: the slice in that pattern alone. (Only when the face is drawn again,
+-- not per frame.)
+local slicePts = {}
+local function slice(cx, cy, r0, r1, a0, a1, rm, w, pattern)
+	local P, n = slicePts, 0
+	local function add(x, y) P[n + 1], P[n + 2] = floor(x + 0.5), floor(y + 0.5); n = n + 2 end
+	add(onClock(cx, cy, r0, a0))
+	local steps = max(1, floor((a1 - a0) / 4 + 0.5))
+	for i = 0, steps do add(onClock(cx, cy, r1, a0 + (a1 - a0) * i / steps)) end
+	add(onClock(cx, cy, r0, a1))
+	for i = #P, n + 1, -1 do P[i] = nil end
+	gfx.setPattern(pattern or GREY)
+	gfx.fillPolygon(table.unpack(P))
+	gfx.setColor(BLACK)
+	if pattern then return end   -- a zone: the pattern alone
+	gfx.drawPolygon(table.unpack(P))
+	gfx.setLineWidth(w)
+	gfx.drawArc(cx, cy, rm, 180 - a1, 180 - a0)
+	gfx.setLineWidth(1)
+end
+
+-- A hollow dot on the ring: the last throw's backswing peak or stop.
+local function lastDot(cx, cy, R, arm, dr)
+	local x, y = onClock(cx, cy, R, arm)
+	gfx.setColor(WHITE)
+	gfx.fillCircleAtPoint(x, y, dr + 1)
+	gfx.setColor(BLACK)
+	gfx.drawCircleAtPoint(x, y, dr)
+end
+
+-- What changes only when the player re-aims (targets) or throws (the last
+-- dots): the face, the ring with its zones and targets, the ticks.
+local function drawFace(cx, cy, pLo, pHi, rLo, rHi, dead, over, lastBack, lastStop)
+	local t = hud.tune.clock
+	local r, sh = t.r, hud.tune.shadow
+	local ro = r - t.frame              -- the ring's outer edge
+	local ri = ro - t.ring              -- and its inner edge
+	local rm = (ro + ri) / 2
+	gfx.setColor(BLACK)
+	gfx.fillCircleAtPoint(cx + sh, cy + sh, r)
+	gfx.fillCircleAtPoint(cx, cy, r)
+	gfx.setColor(WHITE)
+	gfx.fillCircleAtPoint(cx, cy, ro)
+	-- the zones: slices in their patterns
+	if dead and dead > 0 then slice(cx, cy, t.sliceIn, ro, -dead, 0, rm, t.ring, DEAD) end
+	if over and over < 180 then slice(cx, cy, t.sliceIn, ro, -180, -over, rm, t.ring, HATCH) end
+	-- the targets: slices from near the hub to the frame, grey in a black
+	-- outline (the drill band's look), so even a narrow one reads and the hand
+	-- shows over it
+	if pLo and pHi and pHi > pLo then slice(cx, cy, t.sliceIn, ro, -pHi, -pLo, rm, t.ring) end
+	if rLo and rHi and rHi > rLo then slice(cx, cy, t.sliceIn, ro, rLo, rHi, rm, t.ring) end
+	-- the ring's inner edge
+	gfx.drawCircleAtPoint(cx, cy, ri)
+	-- the hours, inside the ring
+	for h = 0, 11 do
+		local arm = h * 30
+		local long = (h % 3 == 0)
+		local x0, y0 = onClock(cx, cy, ri - 1, arm)
+		local x1, y1 = onClock(cx, cy, ri - (long and t.tickLong or t.tick), arm)
+		gfx.setLineWidth(long and 2 or 1)
+		gfx.drawLine(x0, y0, x1, y1)
+	end
+	gfx.setLineWidth(1)
+	if lastBack then lastDot(cx, cy, rm, -lastBack, t.dotR) end
+	if lastStop then lastDot(cx, cy, rm, lastStop, t.dotR) end
+end
+
+local function q(v) return v and floor(v + 0.5) or false end
+
+-- The throw gauge as a clock (aiming only). st is a table the scene owns and
+-- reuses (nothing is made per frame):
+--   phase      "idle" | "winding" | "swinging" | "cooldown"
+--   arm        the arm's position, forward degrees from the bottom of the turn
+--              (negative on the backswing side: -120 = 10 o'clock, +90 = 3)
+--   crank      the idle crank's position as an arm angle (shown while idle)
+--   back       the farthest backswing so far (positive degrees), or 0
+--   powerLo, powerHi      the power target (backswing degrees, positive)
+--   releaseLo, releaseHi  the release target (forward degrees)
+--   deadDeg, overDeg      6 to deadDeg is dead; past overDeg is overpowered
+--   lastBack, lastStop    the last throw's peak and stop (or nil): hollow dots
+--   prompt     a short word for the prompt flag over the dial, or nil; one
+--              ending in "!" (FLICK!) is white on black
+-- Backswing on the left, forward on the right, as the player reads a clock.
+-- The face, ring, zones, targets, ticks and last dots are one image keyed on
+-- those values; the hand and the live peak are drawn over it, and the whole
+-- dial is a layer (a frame that repeats the last one's inputs is one copy).
+function hud.clock(st)
+	local t = hud.tune.clock
+	local cx, cy = t.x, t.y
+	local phase = st.phase
+	local live = (phase == "winding" or phase == "swinging")
+	local hand = q(phase == "idle" and (st.crank or 0) or (st.arm or 0))
+	local back = live and q(st.back or 0) or 0
+	local pLo, pHi, rLo, rHi = q(st.powerLo), q(st.powerHi), q(st.releaseLo), q(st.releaseHi)
+	local dead, over, lb, ls = q(st.deadDeg), q(st.overDeg), q(st.lastBack), q(st.lastStop)
+	local K = clockKey
+	local same = K[1] == phase and K[2] == hand and K[3] == back and K[4] == pLo and K[5] == pHi and K[6] == rLo
+		and K[7] == rHi and K[8] == dead and K[9] == over and K[10] == lb and K[11] == ls
+	K[1], K[2], K[3], K[4], K[5], K[6], K[7], K[8], K[9], K[10], K[11] =
+		phase, hand, back, pLo, pHi, rLo, rHi, dead, over, lb, ls
+	local L = clockLayer
+	if begin(L, same) then
+		local F = faceKey
+		if not hud.tune.cache then
+			drawFace(cx, cy, pLo or nil, pHi or nil, rLo or nil, rHi or nil, dead or nil, over or nil, lb or nil, ls or nil)
+		else
+			if not faceImg or F[1] ~= pLo or F[2] ~= pHi or F[3] ~= rLo or F[4] ~= rHi or F[5] ~= dead
+				or F[6] ~= over or F[7] ~= lb or F[8] ~= ls then
+				F[1], F[2], F[3], F[4], F[5], F[6], F[7], F[8] = pLo, pHi, rLo, rHi, dead, over, lb, ls
+				faceImg = faceImg or gfx.image.new(L.w, L.h, CLEAR)
+				faceImg:clear(CLEAR)
+				gfx.pushContext(faceImg)
+				drawFace(cx - L.x, cy - L.y, pLo or nil, pHi or nil, rLo or nil, rHi or nil, dead or nil, over or nil,
+					lb or nil, ls or nil)
+				gfx.popContext()
+			end
+			faceImg:draw(L.x, L.y)
+		end
+		local rm = t.r - t.frame - t.ring / 2
+		-- the live backswing peak: a black dot in a white ring, so it reads on
+		-- a target as well as on the bare ring
+		if back > 0 then
+			local x, y = onClock(cx, cy, rm, -back)
+			gfx.setColor(WHITE)
+			gfx.fillCircleAtPoint(x, y, t.dotR + 1)
+			gfx.setColor(BLACK)
+			gfx.fillCircleAtPoint(x, y, t.dotR - 1)
+		end
+		-- the hand: thick while throwing, thin where the idle crank sits
+		local hx, hy = onClock(cx, cy, live and t.hand or t.crankHand, hand)
+		if live then
+			-- a white edge, so the hand shows over a grey target
+			gfx.setColor(WHITE)
+			gfx.setLineWidth(5)
+			gfx.drawLine(cx, cy, hx, hy)
+		end
+		gfx.setColor(BLACK)
+		gfx.setLineWidth(live and 3 or 1)
+		gfx.drawLine(cx, cy, hx, hy)
+		gfx.setLineWidth(1)
+		gfx.fillCircleAtPoint(cx, cy, t.hub)
+		finish(L)
+	end
+	if st.prompt then hud.prompt(st.prompt, st.prompt:sub(-1) == "!") end
+end
+
+-- ---------- after the throw: the verdicts; while aiming: the plan chip ----------
+
+local verdictPlate
+local POWER_V <const> = { [-1] = "SHORT", [0] = "ON", [1] = "LONG" }
+local RELEASE_V <const> = { [-1] = "LOW", [0] = "ON", [1] = "HIGH" }
+
+-- powerV, releaseV: -1 | 0 | 1 (short / on / long, low / on / high);
+-- steady: true for STEADY, false for SHAKY. One plate of three cells in a
+-- row, a miss white on black; drawn again only when a verdict changes.
+function hud.verdicts(powerV, releaseV, steady)
+	local t = hud.tune.verdicts
+	local sh = hud.tune.shadow
+	verdictPlate = verdictPlate or newPlate(t.x, t.y, t.w + sh, t.h + sh)
+	steady = steady and true or false
+	if plateBegin(verdictPlate, powerV, releaseV, steady) then
+		plaque(0, 0, t.w, t.h)
+		local f = hud.labelFont()
+		local cw = floor((t.w - 4 - 4) / 3)   -- three cells inside the frame, 2 px rules between
+		for i = 1, 3 do
+			local s, miss
+			if i == 1 then s, miss = POWER_V[powerV] or "?", powerV ~= 0
+			elseif i == 2 then s, miss = RELEASE_V[releaseV] or "?", releaseV ~= 0
+			else s, miss = steady and "STEADY" or "SHAKY", not steady end
+			local x = 2 + (i - 1) * (cw + 2)
+			local w = (i == 3) and (t.w - 2 - x) or cw
+			if i > 1 then gfx.setColor(BLACK); gfx.fillRect(x - 2, 0, 2, t.h) end
+			if miss then gfx.setColor(BLACK); gfx.fillRect(x, 2, w, t.h - 4) end
+			text(f, s, x + floor((w - f:getTextWidth(s)) / 2), hud.tune.labelTop, miss)
+		end
+		plateEnd(verdictPlate)
+	end
+	verdictPlate.img:draw(t.x, t.y)
+end
+
+local planPlate
+-- kind: "baton" | "kubb"; value: the tilt in degrees (baton, one decimal) or
+-- the spin in steps (kubb), negative = left. Nothing at 0: TILT L 5°,
+-- TILT R 2.5°, SPIN L 2. A flag in the cut flag's place, widening to the
+-- left; the string is made only when kind or value changes.
+function hud.planChip(kind, value)
+	if not value or value == 0 then return end
+	local t = hud.tune.planChip
+	local sh = hud.tune.shadow
+	local P = planPlate
+	if not P or P.k1 ~= kind or P.k2 ~= value or not hud.tune.cache then
+		local f = hud.labelFont()
+		local s
+		if kind == "kubb" then
+			s = string.format("SPIN %s %d", value < 0 and "L" or "R", floor(abs(value) + 0.5))
+		else
+			local v = floor(abs(value) * 10 + 0.5)
+			s = string.format("TILT %s %d", value < 0 and "L" or "R", v // 10)
+			if v % 10 ~= 0 then s = s .. "." .. (v % 10) end
+		end
+		local deg = (kind ~= "kubb")
+		local tw_ = f:getTextWidth(s) + (deg and 5 or 0)
+		local w = max(t.w, tw_ + 10)
+		if not P or P.w ~= w + sh then
+			P = newPlate(t.x, t.y, w + sh, t.h + sh)
+			planPlate = P
+		end
+		P.x = t.x + t.w - w
+		P.k1, P.k2 = nil, nil   -- (plateBegin below sets them and redraws)
+		P.s, P.deg, P.tw = s, deg, tw_
+	end
+	if plateBegin(P, kind, value) then
+		local w = P.w - sh
+		plaque(0, 0, w, t.h)
+		local f = hud.labelFont()
+		local x = floor((w - P.tw) / 2)
+		text(f, P.s, x, hud.tune.labelTop)
+		-- the degree sign (the font has none): a 3 px ring, as on the loft plaque
+		if P.deg then gfx.drawRect(x + f:getTextWidth(P.s) + 1, hud.tune.labelTop + 1, 3, 3) end
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
 end
 
 -- A card in the middle of the screen over the world: a title line and up to

@@ -101,6 +101,7 @@ import "selftest/drill-stop"
 import "selftest/cards"
 import "selftest/hud-drill"
 import "selftest/drawcalls"
+import "selftest/clock-gauge"
 
 local function launchArgs()
 	local args = {}

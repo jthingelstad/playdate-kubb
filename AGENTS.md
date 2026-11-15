@@ -813,6 +813,21 @@ and copying a full-screen image about 0.7 ms. So:
   match's hand-off and winner cards (`render/cards`, built once per card and kept in
   `s.card`) are each one cached 400 x 240 image, copied every frame: no text is drawn
   while they wait.
+- The throw as a clock (DESIGN 4; built beside `hud.gauge`, which the throw scene still
+  calls until it is switched over): `hud.clock(st)` takes a table the scene owns and
+  reuses (`phase`, `arm`, `crank`, `back`, `powerLo/Hi`, `releaseLo/Hi`, `deadDeg`,
+  `overDeg`, `lastBack`, `lastStop`, `prompt`; angles are arm degrees, 0 = 6 o'clock,
+  backswing negative, drawn on the left). The face (frame, ticks, the dotted dead slice,
+  the hatched overpowered slice, the targets as grey slices with a black rim segment, the
+  last throw's hollow dots) is one image keyed on those values rounded to whole degrees;
+  the hand (thick with a white edge while throwing, thin at the idle crank) and the live
+  peak dot go over it, and the whole dial is a layer like the gauge. `hud.tune.clock`
+  places it at 351 207, r 30, under the prompt flag. Its calls (the `clock-gauge`
+  self-test counts them): 13 a frame while the hand moves with a peak, 6 for an idle
+  crank, 1 for a frame that repeats the last, about 66 once when the targets change.
+  `hud.verdicts(powerV, releaseV, steady)` (one plate, 73 222 158 15, misses white on
+  black) and `hud.planChip(kind, value)` (the cut flag's place, `TILT R 2.5°`,
+  `SPIN L 2`, nothing at 0) are plates keyed on their arguments.
 - The ground (`render/world`): the rough is a `setPattern` fill whose 8 x 8 phase follows
   the projected middle of the far baseline (64 shifted patterns made once), so it travels
   with the pitch rather than sliding under a screen-fixed pattern. It is drawn as two fills
