@@ -45,6 +45,8 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   on files.thingelstad.com and linked from https://playdate.thingelstad.xyz/throwing-wood/
   (that site's repository). 0.1.0 (build 2), 2026-11-14: the first for friends. 0.2.0
   (build 3), 2026-11-14: HOW TO THROW walks through the real crank; drills set the angle.
+  0.9.0 (build 4), 2026-11-15: the last test build before 1.0.0; the crank-clock throw,
+  saved players and teams, DOUBLES and THE WALL.
 
 Tools are called by full path: SDK at `~/Developer/PlaydateSDK` (no `PLAYDATE_SDK_PATH`),
 `/opt/homebrew/opt/lua@5.4/bin/lua5.4` (keg-only), `/opt/homebrew/bin/node`. Install
