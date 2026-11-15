@@ -7,12 +7,18 @@
 -- baseline).
 --
 -- System Menu (at most three items; the third is the scene's own):
---   "Readout"  the debug line after each throw (power, smoothness, tilt,
---              LEGAL/HELICOPTER, distance), for tuning on hardware
+--   "Swing"    the throw's rule (core/swing, swing.presets): easy / mid / hard
+--              (the tempo rule: the wind-up picks the distance, the flick's
+--              tempo the error, more each step) or stop (the release where the
+--              crank stops, kept to compare). Remembered in the datastore
+--              "swing". It took the place of "Readout", which is now a Pitch
+--              choice in practice.
 --   "Record"   append each swing's crank samples to traces.jsonl in the
 --              Data folder (replay with tools/replay_traces.lua). On by
 --              default while the throw is being tuned; self-tests leave it off.
---   "Pitch"    practice only: play (nothing) / how to (the HOW TO THROW card,
+--   "Pitch"    practice only: play (nothing) / readout (the debug line after
+--              each throw on or off: power, smoothness, tilt, LEGAL/HELICOPTER,
+--              distance, tempo) / how to (the HOW TO THROW card,
 --              also on Match and Drill; shown once by itself before a
 --              player's first baton) / reset (stand every piece back
 --              up and clear the drilled kubbs) / drill (aim kubbs at the far
@@ -71,6 +77,8 @@ import "selftest/gauge"
 import "selftest/gauge-ghost"
 import "selftest/rearm"
 import "selftest/hit"
+import "selftest/swing-tempo"
+import "selftest/swing-fast"
 import "selftest/knocks"
 import "selftest/howto"
 import "selftest/match-howto"
@@ -114,6 +122,9 @@ end
 local args = launchArgs()
 
 if args.selftest then
+	-- the self-tests were written for the release where the crank stops; a
+	-- tempo-rule scenario sets the rule in its setup
+	tw.swing.setPreset("stop")
 	tw.sound.on = false      -- no knocks from the Simulator during self-tests
 	tw.selftestRun = true    -- saves go to their own key (scenes/match.saveKey)
 	tw.selftest.start(args.selftest, args.out)
@@ -128,7 +139,14 @@ else
 	local lastMatch = nil            -- the options of the last match (a rematch plays them again)
 	local device = tw.input.device()
 	local current, kind = nil, nil   -- the scene and which: "title" | "practice" | "match"
-	local showReadout = false        -- System Menu "Readout": off in normal play
+	local showReadout = false        -- Pitch "readout": off in normal play
+	-- System Menu "Swing": the rule, remembered across launches
+	local swingPreset = "mid"
+	do
+		local saved = playdate.datastore.read("swing")
+		if saved and (tw.swing.presets[saved.preset] or saved.preset == "stop") then swingPreset = saved.preset end
+	end
+	tw.swing.setPreset(swingPreset)
 	local benchRun = nil
 	local pending = nil              -- a scene to open on the next frame (from a menu callback)
 	local open, savedMatch
@@ -149,11 +167,12 @@ else
 	-- whose choice acts when the menu closes and then reads "play" again.
 	local function sceneMenu()
 		menu:removeAllMenuItems()
-		menu:addCheckmarkMenuItem("Readout", showReadout, function(on)
-			showReadout = on
-			if kind == "drills" then current.showReadout = on end
+		menu:addOptionsMenuItem("Swing", tw.swing.PRESETS, swingPreset, function(v)
+			swingPreset = v
+			tw.swing.setPreset(v)
+			playdate.datastore.write({ preset = v }, "swing")
 			local ts = throwScene()
-			if ts then ts.showReadout = on end
+			if ts then throw.applyRule(ts) end
 		end)
 		menu:addCheckmarkMenuItem("Record", tw.recorder.on, function(on)
 			tw.recorder.on = on
@@ -161,9 +180,12 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			item = menu:addOptionsMenuItem("Pitch", { "play", "how to", "reset", "drill", "batons", "grass", "sand",
+			item = menu:addOptionsMenuItem("Pitch", { "play", "readout", "how to", "reset", "drill", "batons", "grass", "sand",
 				"snow", "bench", "title" }, "play", function(v)
-				if v == "how to" then
+				if v == "readout" then
+					showReadout = not showReadout
+					current.showReadout = showReadout
+				elseif v == "how to" then
 					throw.showHowTo(current)
 				elseif v == "grass" or v == "sand" or v == "snow" then
 					throw.setSurface(current, v)

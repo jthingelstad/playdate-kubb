@@ -20,6 +20,13 @@
 -- released as the arm passed the bottom (core/swing passRelease), and
 -- trace.replay replays it so.
 --
+-- "release":"tempo" (from 2026-11-14 on): the tempo rule (core/swing):
+-- released as the arm passes the bottom, "power" is the wind-up's,
+-- "tempoDev" the release speed against the tempo (deg/s), "tempoMps" the
+-- launch speed that added, "tempoGain" the preset's gain and "timing" the
+-- degrees before the release that the flick's speed peaked. A replay uses
+-- today's tempo tune.
+--
 -- A drilled kubb (core/drill) adds, after those, "mode":"drill" (a baton
 -- line has no "mode") and, in meters with y measured from the thrower's
 -- baseline and x across in the thrower's view:
@@ -41,6 +48,8 @@ local trace = {}
 local RESULT_KEYS = {
 	"power", "powerCap", "smoothness", "tilt", "legal", "launchSpeed", "tumbleRate", "backswing",
 	"releaseSpeed", "peakSpeed", "frames", "how", "releaseAngle", "loft", "launchLoft", "distance",
+	-- the tempo rule (core/swing; "release":"tempo")
+	"rule", "tempoDev", "tempoMps", "tempoGain", "timing",
 	-- drills only (absent on a baton line)
 	"mode", "band", "verdict", "cut", "markerX", "markerY", "landX", "landY", "restX", "restY", "throwerX",
 }
@@ -69,7 +78,8 @@ function trace.encode(samples, n, event, result, sign, time)
 	-- "release":"stop" when the swing was released where the crank stopped
 	-- (how "stopped" or "over"); a let-down is the same under either rule
 	local how = result and result.how
-	local stop = (how == "stopped" or how == "over") and ',"release":"stop"' or ""
+	local stop = (how == "stopped" or how == "over") and ',"release":"stop"'
+		or (result and result.rule == "tempo") and ',"release":"tempo"' or ""
 	local out = '{"v":1,"time":' .. value(time or "") .. ',"sign":' .. num(sign or 1)
 		.. stop .. ',"event":' .. value(event or "") .. ',"samples":[' .. concat(parts, ",") .. "]"
 	if result then
@@ -169,7 +179,7 @@ function trace.replay(t, useCurrentSign)
 	end
 	-- lines recorded before the release-at-the-stop (2026-11-14) carry no
 	-- "release" field and replay with the old rule
-	return swing.replay(flat, t.release ~= "stop")
+	return swing.replay(flat, t.release ~= "stop" and t.release ~= "tempo", t.release == "tempo")
 end
 
 tw.trace = trace

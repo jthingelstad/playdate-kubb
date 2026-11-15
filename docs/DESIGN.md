@@ -106,8 +106,9 @@ The throw, with A and B released (A and B swapped after play testing; set on har
 
 | Input | Does |
 |---|---|
-| Crank back past the bottom of the turn | Wind up. The wind-up starts only when the crank crosses the bottom going back; the backswing angle caps the power. |
-| Crank forward flick, then stop | The swing. The baton is released where the crank stops (all but halted), and the crank is the throwing arm: the launch angle is the arm's angle past the bottom of the turn at the stop. Within 10 degrees of the notch is perfect; beyond it, early goes lower and late higher, by a third of the rest of the miss; the loft set is the target, a notch on the dial's forward side like the full-power notch at the back (Jamie and Tyler, 2026-11-14). The power is the flick's speed. |
+| Crank back past the bottom of the turn | Wind up. The wind-up starts only when the crank crosses the bottom going back. Under the tempo rule (the default) the backswing is the distance: the aim arc's landing moves out as you wind, to full power at the full-power mark. |
+| Crank forward flick (tempo rule) | The swing. The baton leaves as the arm passes the bottom. The flick only has to match a steady tempo: faster goes long, slower short, by the difficulty chosen in the System Menu ("Swing": easy, mid, hard). The flag after the throw says ON TEMPO, FAST: LONG or SLOW: SHORT (Jamie and Tyler, 2026-11-14, after play testing the stop below: far too hard; the old release before it was too easy). |
+| Crank forward flick, then stop (System Menu "Swing" stop) | The swing. The baton is released where the crank stops (all but halted), and the crank is the throwing arm: the launch angle is the arm's angle past the bottom of the turn at the stop. Within 10 degrees of the notch is perfect; beyond it, early goes lower and late higher, by a third of the rest of the miss; the loft set is the target, a notch on the dial's forward side like the full-power notch at the back (Jamie and Tyler, 2026-11-14). The power is the flick's speed. |
 | Slow crank forward | Lets the wind-up down without throwing. |
 | B (hold, on the other side's turn) | Fast-forward their throws. |
 

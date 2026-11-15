@@ -137,7 +137,8 @@ end
 function drill.launch(sol, r, cut, out)
 	local t = drill.tune
 	out = out or {}
-	local e = drill.powerError(r.power or 0, sol.band)
+	-- under the tempo rule (core/swing) the flick's tempo adds to the wind-up's power
+	local e = drill.powerError((r.power or 0) + (r.tempoPower or 0), sol.band)
 	out.speed = sol.speed * max(t.speedMinFrac, 1 + t.speedPerPower * e)
 	local push = rad(t.tiltPushDeg * (r.tilt or 0))
 	-- the release where the crank stops, as a baton's (Jamie, 2026-11-14: "the

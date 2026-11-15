@@ -364,7 +364,36 @@ matches (about a minute; `--quick` about 10 s).
   Simulator's floats differ from the desktop's, so the same seed plays a different match
   there than in `tools/physmatch.lua`: the checks do not depend on what happens.
 
-## The release
+## The tempo rule
+
+Jamie and Tyler play tested the stop below on 2026-11-14: "far too difficult to throw with
+any control". The 29 swings recorded (`telemetry/2026-11-14/`) stopped 50 degrees (standard
+deviation) from the notch, only 3 of 22 within its 10, so batons landed anywhere from 0.7 to
+11.6 m. The old release before it was too easy for another reason: full power was a ceiling
+at the baseline's distance, and any loft from about 24 to 30 degrees hit the centre base
+kubb at full power, so every flick that reached the ceiling hit (55 of 55 recorded).
+
+The tempo rule (`s.tempo` on the swing, the default; `core/swing` header): released as the
+arm passes the bottom (the old release), the wind-up picks the distance (power =
+backswing / `fullBackswingDeg`, the aim arc's landing follows it while winding) and the
+flick only has to match a steady tempo (`tempoDps`, 850 deg/s, the median of 226 recorded
+flicks). Its release speed off the tempo moves the launch speed by `tempoGain` m/s per 100
+deg/s, `tempoFarGain` beyond `tempoKneeDps`: too fast goes long, too slow short, never
+under `launchFloor`. After a throw the flag says `ON TEMPO` (within `tempoOnMps`), `FAST:
+LONG` or `SLOW: SHORT`, and stays while aiming until the next wind-up. A drill adds the
+tempo's power (`r.tempoPower`) to the wind-up's against the band. The flick's timing (where
+its speed peaked, against the release: `result.timing`) is recorded in the trace, not used.
+
+The gain is the difficulty: System Menu "Swing" `easy`, `mid` (the default), `hard`
+(`swing.presets`: 0.05, 0.10, 0.20), or `stop` (the release below, kept to compare),
+remembered in the datastore `swing`. Replaying the 226 recorded swings with real physics
+against the centre base kubb, each against the player's own usual speed (so what the
+player has not yet learned of a fixed tempo comes on top): 0.05 hit 81%, 0.10 64%, 0.15 44%,
+0.20 35%, today's slope (0.47) 19%. HOW TO THROW still teaches the stop; it does not show by
+itself under the tempo rule. Self-tests run with `stop` (the rule they were written for)
+unless a scenario sets the tempo rule; `swing-tempo` and `swing-fast` do.
+
+## The release (the stop, System Menu "Swing" stop)
 
 Jamie and Tyler (2026-11-14, after play testing: hitting a base kubb was far too easy):
 "you stop the crank where you release the baton". `core/swing`: the wind-up (back) sets
@@ -509,7 +538,9 @@ Every number that is a guess lives in one table per module, with a comment:
   to flip if forward feels backwards on hardware), wind-up and swing thresholds, full power
   speed and backswing, launch speed and tumble ranges, smoothness and tilt, and the release
   where the crank stops (`releaseStopDps`, `releaseMaxDeg`, `releaseTolDeg`, `releaseGain`,
-  `releaseLoftMin`/`Max`; "The release"; `releaseDropFrac` is the old release's).
+  `releaseLoftMin`/`Max`; "The release"; `releaseDropFrac` is the old release's), and the
+  tempo rule (`tempoDps`, `tempoGain`, `tempoKneeDps`, `tempoFarGain`, `tempoOnMps`,
+  `launchFloor`; `swing.presets`; "The tempo rule").
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range (5 to 55) and step,
   `boostBelowDeg` (under it a baton is thrown harder, `flight.loftBoost`: full power carries
   as far as at that loft; the throw scene's own batons only, not the computer's),
@@ -877,7 +908,7 @@ Toppled kubbs stay down between throws at their rest poses (the scene's item lis
 render items of `render/world`, carries every piece's pose). System Menu "Pitch" set to
 "reset" stands everything back up (`throw.reset`); it also happens by itself after the
 throw that leaves every far base kubb down. The System Menu holds three custom items at
-most (Readout, Record, Pitch), so Pitch is an options item that acts when the menu closes
+most (Swing, Record, Pitch), so Pitch is an options item that acts when the menu closes
 and then reads "play" again; its "title" goes back to the title screen. Its "drill" turns
 the pitch to drilling kubbs (next section) and "batons" back; chosen mid-throw, the switch
 waits until the scene aims again. "reset" also clears the drilled kubbs.
@@ -996,7 +1027,7 @@ The look is `docs/design/` (README and boards). What is built of it here:
 The title (`scenes/title.lua`, Woodcut look below) offers "VS PLAYDATE" (a match against
 the computer), "PASS + PLAY" (the match) and "PRACTICE" (the drills menu, whose OPEN PITCH
 is the practice pitch); `main.lua` opens one
-scene at a time and rebuilds the System Menu for it (Readout, Record, then the scene's
+scene at a time and rebuilds the System Menu for it (Swing, Record, then the scene's
 own item). Practice is the throw scene exactly as before.
 
 - `core/frame.lua`: the thrower's view frame. Team B's throws are made in the pitch turned
@@ -1369,7 +1400,8 @@ picture behind the physics. The `flight` self-test reads its line back.
 
 ## Crank traces
 
-The System Menu has "Readout" (the debug line after each throw) and "Record". Record is
+The System Menu has "Swing" (the throw's rule, "The tempo rule") and "Record"; "Readout"
+(the debug line after each throw) is a Pitch choice in practice. Record is
 on by default while the throw is being tuned (self-tests leave it off). With
 Record on, every swing is appended as one JSON line to `traces.jsonl` in the game's Data
 folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/`).

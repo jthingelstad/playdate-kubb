@@ -253,6 +253,21 @@ local function aimCamera(s)
 	fitArc(s, s.aimCam)
 end
 
+-- A swing under the rule the System Menu "Swing" chose (swing.tune.rule):
+-- the tempo rule, or the release where the crank stops.
+function throw.newSwing()
+	local w = swing.new()
+	w.tempo = swing.tune.rule == "tempo"
+	return w
+end
+
+-- Change the rule of a scene's swing (System Menu "Swing"; not mid-swing).
+function throw.applyRule(s)
+	if s.swing.phase ~= "idle" then swing.reset(s.swing) end
+	s.swing.tempo = swing.tune.rule == "tempo"
+	s.stopAngle, s.stopText = nil, nil
+end
+
 function throw.new(provider)
 	local s = {
 		input = provider,
@@ -264,7 +279,7 @@ function throw.new(provider)
 		loftDeg = flight.tune.loftDefaultDeg,
 		arm = nil,               -- where the crank is: forward degrees from the bottom of the turn
 		armed = false,           -- the crank crossed the bottom going back; the wind-up may start
-		swing = swing.new(),
+		swing = throw.newSwing(),
 		flight = flight.new(),   -- the stage 1 prediction (landing point, flight time) and
 		                         -- the baton's displayed position (x, y, z, t)
 		aimCam = camera.new(),
@@ -566,6 +581,9 @@ end
 -- baton throw and on the next aim until the next wind-up.
 local STOP_TEXT <const> = { [-1] = "EARLY: LOW", [0] = "ON THE NOTCH", [1] = "LATE: HIGH" }
 throw.STOP_TEXT = STOP_TEXT
+-- The tempo rule's verdict (swing.tempoMiss), in the same place.
+local TEMPO_TEXT <const> = { [-1] = "SLOW: SHORT", [0] = "ON TEMPO", [1] = "FAST: LONG" }
+throw.TEMPO_TEXT = TEMPO_TEXT
 
 local function launch(s, r)
 	s.knockT = -1
@@ -587,7 +605,11 @@ local function launch(s, r)
 	-- (passRelease: the self-tests written before it) keeps the loft set.
 	local loft = s.loftDeg
 	s.stopAngle, s.stopText = nil, nil
-	if not kubb and not s.scripted and r.releaseAngle and not s.swing.passRelease then
+	if not s.scripted and r.tempoMps then
+		-- the tempo rule: how the flick's speed sat against the tempo
+		s.stopText = TEMPO_TEXT[swing.tempoMiss(r.tempoMps)]
+	end
+	if not kubb and not s.scripted and r.releaseAngle and swing.stops(s.swing) then
 		loft = swing.releaseLoft(s.loftDeg, r.releaseAngle)
 		-- where the crank stopped against the notch, for the flag and the
 		-- dial's dot (Jamie, 2026-11-14: to see what the crank did)
@@ -607,7 +629,7 @@ local function launch(s, r)
 		loft = L.loft
 		-- where the crank stopped against the drill's notch (its solved loft),
 		-- as for a baton: the flag and the dial's dot
-		if not s.scripted and r.releaseAngle and not s.swing.passRelease then
+		if not s.scripted and r.releaseAngle and swing.stops(s.swing) then
 			s.stopAngle = r.releaseAngle
 			s.stopText = STOP_TEXT[swing.releaseMiss(sol.loft, r.releaseAngle)]
 		end
@@ -668,12 +690,13 @@ local function launch(s, r)
 	l.power, l.smoothness, l.tilt, l.legal = r.power, r.smoothness, tilt, kubb or r.legal
 	l.launchSpeed, l.tumbleRate, l.loft = speed, tumble, s.loftDeg
 	l.launchLoft, l.releaseAngle = loft, r.releaseAngle
+	l.tempoDev = r.tempoDev
 	l.distance, l.down, l.hit = nil, nil, nil
 	l.drill = drilling
 	if drilling then
 		local sol = s.drillSol
 		l.markerX, l.markerY, l.band = s.markerX, s.markerY, sol.band
-		l.verdict = drill.judge(r.power or 0, sol.band)
+		l.verdict = drill.judge((r.power or 0) + (r.tempoPower or 0), sol.band)
 		l.cut, l.jerk = s.cut, L.jerk
 		l.restX, l.restY = nil, nil
 	end
@@ -907,6 +930,8 @@ end
 
 local function firstHowTo(s)
 	if not throw.howtoFirst or s.watching or s.drill or s.projectile == "kubb" then return end
+	-- HOW TO THROW teaches the stop on the notch, not the tempo rule
+	if s.swing.tempo then return end
 	throw.howtoFirst = false
 	local seen = playdate.datastore.read("howto")
 	if seen and seen.seen then return end
@@ -1064,6 +1089,14 @@ local function arcLaunch(s, cap)
 	return speed * math.sin(s.swivel) * ce, speed * math.cos(s.swivel) * ce, speed * math.sin(e), T, speed
 end
 
+-- The power the aim arc shows: full, or under the tempo rule while winding
+-- the wind-up's (the wind-up picks the distance; on tempo it lands there).
+function throw.arcPower(s)
+	local sw = s.swing
+	if sw.tempo and sw.phase ~= "idle" then return swing.powerCap(sw) end
+	return 1
+end
+
 local function arcShown(s)
 	return throw.tune.arc and not s.drill and s.projectile ~= "kubb"
 end
@@ -1126,7 +1159,7 @@ end
 -- it lands. Drawn over the world each aim frame, outside its caches; no tables.
 drawArc = function(s, c)
 	local t = throw.tune
-	local vx, vy, vz, T = arcLaunch(s, 1)
+	local vx, vy, vz, T = arcLaunch(s, throw.arcPower(s))
 	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
 	local lx, ly = x0 + vx * T, y0 + vy * T
 	local n = t.arcPoints
@@ -1267,8 +1300,9 @@ function throw.drawFrame(s)
 	if marker then
 		hs.aimX, hs.aimY = s.markerX, s.markerY
 	else
-		local full = swing.tune.launchMax
-		if s.projectile ~= "kubb" and s.loftBoost ~= false then full = full * flight.loftBoost(s.loftDeg, full) end
+		local st = swing.tune
+		local full = st.launchMin + (st.launchMax - st.launchMin) * throw.arcPower(s)
+		if s.projectile ~= "kubb" and s.loftBoost ~= false then full = full * flight.loftBoost(s.loftDeg, st.launchMax) end
 		hs.aimX, hs.aimY = flight.aimPreview(s.playerX, s.playerY, s.swivel, s.loftDeg, full)
 	end
 	hs.baton = (s.mode ~= "aim") and s.baton or nil
@@ -1305,7 +1339,7 @@ function throw.drawFrame(s)
 		-- a baton's release target: the loft set (the crank stops there)
 		-- (a drill's: the loft that reaches the marker, the same throw)
 		local target = nil
-		if not sw.passRelease then
+		if swing.stops(sw) then
 			target = floor((marker and s.drillSol.loft or s.loftDeg) + 0.5)
 		end
 		-- the last throw's stop: a dot on the dial and its verdict, until the
@@ -1320,6 +1354,9 @@ function throw.drawFrame(s)
 		if marker and s.cut ~= drill.CUT_NONE then
 			hud.cutFlag(s.cut == drill.CUT_A and "CUT RIGHT" or "CUT LEFT")
 		elseif stop and s.stopText then
+			hud.cutFlag(s.stopText)
+		elseif sw.tempo and sw.phase == "idle" and s.stopText then
+			-- the tempo rule: the last flick's verdict until the next wind-up
 			hud.cutFlag(s.stopText)
 		end
 		if s.showReadout and s.readout and sw.phase == "idle" then hud.readout(s.readout) end

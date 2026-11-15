@@ -40,6 +40,10 @@ installed.
 
 The overnight QA build, after midnight (US Central).
 
+`traces.jsonl` and `frames.jsonl` run to the afternoon's play test of the release where the
+crank stops (build 0.1.0): its swings are the lines with `"release":"stop"`, 13:33 to 15:54.
+AGENTS.md "The tempo rule" says what they showed and what replaced the stop.
+
 | Bench file | Build |
 | --- | --- |
 | `run1-half-circle-variants.txt` | the half circle's variants: at 40 ms a frame the hit takes 6.7 s, at 60 ms 4.7, without it 4.2 (0.34, 0.40, 0.42); the open view costs nothing measurable |

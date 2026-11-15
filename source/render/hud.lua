@@ -681,6 +681,8 @@ function hud.readoutText(r)
 	-- the launch angle the crank's stop gave, against the loft set
 	if r.launchLoft then s = s .. string.format("  loft %d/%d", floor(r.launchLoft + 0.5), floor(r.loft + 0.5)) end
 	if r.down then s = s .. string.format("  down %d", r.down) end
+	-- the tempo rule: the flick's release speed against the tempo, deg/s
+	if r.tempoDev then s = s .. string.format("  tempo %+d", floor(r.tempoDev + 0.5)) end
 	return s
 end
 
