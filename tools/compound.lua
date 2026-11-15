@@ -70,10 +70,11 @@ local AIM_STEP = quick and 0.04 or 0.02           -- m between aim points across
 local AIM_MARGIN = 0.06                            -- m beyond the group's outer faces
 local DEPTHS = quick and { 0.15 } or { 0.05, 0.25 } -- m the front face stands short of the landing point
 
--- core/swing's mapping from power to launch speed and tumble.
+-- The old swing's mapping from power (0..1) to launch speed (4.0 to 9.2 m/s,
+-- the sweep this tool measured with), and the plan's tumble for that speed.
 local function launch(p)
-	local t = swing.tune
-	return t.launchMin + (t.launchMax - t.launchMin) * p, t.tumbleMin + (t.tumbleMax - t.tumbleMin) * p
+	local speed = 4.0 + (9.2 - 4.0) * p
+	return speed, tw.plan.tumbleFor(speed)
 end
 
 -- ---------------------------------------------------------------------------

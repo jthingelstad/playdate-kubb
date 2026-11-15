@@ -23,14 +23,7 @@ local function at(lo, hi)
 end
 
 st.scenarios.burst = st.throwScenario {
-	setup = function(s) s.loftDeg = 30 end,
-	script = {
-		{ n = 5 },
-		st.windup(120, 30),
-		{ n = 5 },
-		st.flick { 6, 12, 18, 22, 24, 24, 24 },
-		{ n = 300 },
-	},
+	script = function(s) return st.planned(s) end,
 	shots = {
 		at(0, t.flash),
 		at(t.flash + 0.1, t.flash + t.burst),

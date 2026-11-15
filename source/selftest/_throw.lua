@@ -2,15 +2,13 @@
 -- start with "_" are helpers, not scenarios (the Makefile skips them).
 --
 -- tw.selftest.throwScenario{ script = {...}, shots = {...}, check = fn, maxFrames = n, setup = fn }
---   script  input.scripted steps (crank degrees are raw, as getCrankChange)
+--   script  input.scripted steps (crank degrees are raw, as getCrankChange),
+--           or fn(scene) returning them, called after setup (so a swing can
+--           be built from the scene's plan: tw.selftest.planned)
 --   shots   array of predicates fn(scene, frame) -> true when the frame
 --           should be captured; each fires once, in order
 --   check   optional fn(scene) -> nil or an error string, run at the end; a
 --           second return value is appended to the marker's note
---   loftBoost  true: low throws are harder as in play (flight.loftBoost); off
---           by default, so the older scenarios keep their throws
---   stopRelease  true: the release where the crank stops, the launch angle
---           from it (as in play); off by default: the old release at the loft set
 --   setup   optional fn(scene), run once after the scene is made (a layout,
 --           a surface)
 -- The scenario ends when every shot is taken (or fails after maxFrames).
@@ -29,16 +27,14 @@ function tw.selftest.throwScenario(def)
 	return {
 		step = function(ctx)
 			if not scene then
-				scene = throw.new(tw.input.scripted(def.script, nil, def.startPos))
-				-- these scenarios' crank throws were written for the launch
-				-- speeds before the low throw got harder (flight.loftBoost);
-				-- `loftBoost = true` opts in
-				scene.loftBoost = def.loftBoost or false
-				-- and for the old release, as the arm passes the bottom of
-				-- the turn at the loft set (core/swing passRelease);
-				-- `stopRelease = true` opts in to the release where the crank stops
-				scene.swing.passRelease = not def.stopRelease
+				local steps = (type(def.script) == "table") and def.script or {}
+				scene = throw.new(tw.input.scripted(steps, nil, def.startPos))
 				if def.setup then def.setup(scene) end
+				-- a script built from the scene as set up (input.scripted
+				-- reads its steps as it goes)
+				if type(def.script) == "function" then
+					for _, st in ipairs(def.script(scene)) do steps[#steps + 1] = st end
+				end
 				throw.enter()
 			end
 			local t0 = playdate.getElapsedTime()
@@ -88,8 +84,8 @@ function tw.selftest.describe(s)
 	return out
 end
 
--- Script pieces. Raw crank degrees: negative = anti-clockwise = back (with
--- swing.tune.forwardSign = 1), so these follow the sign.
+-- Script pieces. Raw crank degrees: the crank sign (swing.tune.forwardSign)
+-- is applied here; the degrees given are the arm's (back, forward).
 local function sign() return tw.swing.tune.forwardSign end
 
 function tw.selftest.windup(deg, frames)
@@ -100,6 +96,26 @@ function tw.selftest.flick(steps)
 	local c = {}
 	for i, d in ipairs(steps) do c[i] = sign() * d end
 	return { cranks = c }
+end
+
+-- A swing against the scene's plan (input.swingSteps): wound to the power
+-- target's centre plus `backOff` degrees, a full flick that stops at the
+-- release target's centre plus `stopOff` (both 0: the plan's clean throw),
+-- then `after` idle frames (300). opts go to input.swingSteps (frames,
+-- pause, peak, lead, shaky).
+function tw.selftest.planned(s, backOff, stopOff, after, opts)
+	local sol = s.sol
+	local steps = tw.input.swingSteps(sol.back + (backOff or 0), sol.release + (stopOff or 0), opts)
+	steps[#steps + 1] = { n = after or 300 }
+	return steps
+end
+
+-- A swing wound to `back` degrees that stops at `stop` (clock degrees: 90 =
+-- 3 o'clock), then `after` idle frames.
+function tw.selftest.swingTo(back, stop, after, opts)
+	local steps = tw.input.swingSteps(back, stop, opts)
+	steps[#steps + 1] = { n = after or 300 }
+	return steps
 end
 
 -- Seconds of the throw on screen relative to the baton's first hit on a

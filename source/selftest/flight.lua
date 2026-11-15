@@ -1,9 +1,11 @@
--- Scenario "flight": a scripted clean, strong throw at mid loft. Frames:
+-- Scenario "flight": the plan's clean throw at b3 (the default aim).
+-- Frames:
 -- 1 just after release, as the baton rises into the aim view; 2 mid-flight
 -- (tumbling); 3 the impact camera just before landing; 4 at rest with the
 -- debug readout. The trace recorder is on, writing to
 -- Data/<bundle>/selftest/flight-traces.jsonl; the check reads the line back
--- and replays it through core/swing. The frame-time log is on too, writing
+-- and replays it through core/swing, and wants the plan in it (level,
+-- target, stance, the clock's targets, the launch and its verdicts). The frame-time log is on too, writing
 -- to Data/<bundle>/selftest/flight-frames.jsonl; the check reads its one
 -- line (scripted frames: 20 ms each).
 import "selftest/_throw"
@@ -14,13 +16,7 @@ local TRACES = "selftest/flight-traces.jsonl"
 local FRAMES = "selftest/flight-frames.jsonl"
 
 st.scenarios.flight = st.throwScenario {
-	script = {
-		{ n = 2 },
-		st.windup(120, 30),
-		{ n = 5 },
-		st.flick { 6, 12, 18, 22, 24, 24, 24 },
-		{ n = 200 },
-	},
+	script = function(s) return st.planned(s, 0, 0, 200) end,
 	shots = {
 		function(s, f)
 			if f == 1 then
@@ -44,7 +40,7 @@ st.scenarios.flight = st.throwScenario {
 		local l = s.last
 		if not l then return "no throw" end
 		if not l.legal then return "clean throw was not legal" end
-		if l.power < 0.9 then return "power " .. l.power end
+		if l.powerV ~= 0 or l.releaseV ~= 0 or not l.steady then return "the plan's clean throw was not ON ON STEADY" end
 		if l.distance < 7.5 or l.distance > 9.5 then return "distance " .. l.distance end
 		local f = playdate.file.open(TRACES, playdate.file.kFileRead)
 		if not f then return "no trace file" end
@@ -53,7 +49,17 @@ st.scenarios.flight = st.throwScenario {
 		local t = tw.trace.decode(line)
 		local ev, r = tw.trace.replay(t)
 		if t.event ~= "release" or ev ~= "release" then return "trace event " .. tostring(t.event) .. "/" .. tostring(ev) end
-		if math.abs(r.power - l.power) > 0.01 or r.legal ~= l.legal then return "trace replays differently" end
+		if math.abs(r.back - l.back) > 0.01 or math.abs(r.releaseAngle - l.stop) > 0.01 then
+			return "trace replays differently"
+		end
+		local o = t.result
+		if o.level ~= "club" or o.projectile ~= "baton" or math.abs(o.ty - 8) > 0.01 or math.abs(o.tx) > 0.01 then
+			return "trace plan: " .. line
+		end
+		if math.abs(o.plan - 90) > 0.01 or not o.powerLo or not o.releaseHi or o.powerV ~= 0 or o.legal ~= true then
+			return "trace targets or verdicts: " .. line
+		end
+		if not o.launchSpeed or not o.swivelOff or o.planTilt ~= 0 then return "trace launch: " .. line end
 		if not t.result.distance or math.abs(t.result.distance - l.distance) > 0.01 then return "trace distance" end
 		f = playdate.file.open(FRAMES, playdate.file.kFileRead)
 		if not f then return "no frame-time log" end

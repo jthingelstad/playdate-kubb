@@ -23,6 +23,7 @@ st.scenarios["gauge-ghost"] = st.throwScenario {
 		function(s, fr) return fr == 85 end,
 	},
 	check = function(s)
+		if s.promptText ~= "CRANK DOWN" then return "parked behind the prompt was " .. tostring(s.promptText) end
 		if s.swing.phase ~= "idle" then return "a throw started behind the bottom: " .. s.swing.phase end
 		if s.throws ~= 0 then return "throws " .. s.throws end
 	end,

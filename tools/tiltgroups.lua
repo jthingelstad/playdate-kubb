@@ -12,7 +12,7 @@
 -- 15 cm, centred on x = 0. The baton is thrown from y = 0 at loft 25 or 35
 -- with the speed that lands its center D = 4 m (an advantage line) or 8 m (the
 -- baseline) out, the group's front face `depth` short of that point, tumble
--- from core/swing's power for that speed. The aim (swivel) sweeps across the
+-- the plan's for that speed (plan.tumbleFor). The aim (swivel) sweeps across the
 -- group's width plus 6 cm either side. Every aim is thrown at each tilt
 -- (world.launchBaton's tiltDeg: + tilts the top of the turning plane to the
 -- right) and twice more at tilt 0 as controls: on another ground seed, and
@@ -63,13 +63,10 @@ local GAPS = { 0.03, 0.07, 0.15 }
 local AIM_STEP = quick and 0.04 or 0.02
 local AIM_MARGIN = 0.06
 
--- Launch speed for a landing distance and the tumble the swing gives that power.
+-- Launch speed for a landing distance and the tumble the plan gives that speed.
 local function launch(D, loft)
 	local sp = autothrow.speedFor(D, loft)
-	local t = swing.tune
-	local p = (sp / flight.loftBoost(loft, t.launchMax) - t.launchMin) / (t.launchMax - t.launchMin)
-	p = max(0, min(1, p))
-	return sp, t.tumbleMin + (t.tumbleMax - t.tumbleMin) * p
+	return sp, tw.plan.tumbleFor(sp)
 end
 
 -- Kubb centers for a layout with its front face at y0; half = half width.

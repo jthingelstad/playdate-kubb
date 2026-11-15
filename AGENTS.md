@@ -319,12 +319,19 @@ matches (about a minute; `--quick` about 10 s).
   appends it to the `DONE` marker (the throw scenarios put `avg_ms`/`max_ms` of
   update + draw there).
 - Throw-scene scenarios use `tw.selftest.throwScenario{ script, shots, check, maxFrames }`
-  from `source/selftest/_throw.lua`: `script` is an `input.scripted` step list, `shots` an
+  from `source/selftest/_throw.lua`: `script` is an `input.scripted` step list (or
+  `fn(scene)` returning one, called after `setup`, so a swing can be built from the
+  scene's plan), `shots` an
   ordered list of predicates `fn(scene, frame)` that each capture one frame when they first
   return true, `check(scene)` returns an error string or nil. `tw.selftest.windup(deg, n)`
   and `tw.selftest.flick{deg, ...}` build crank steps in forward degrees and apply the
-  crank sign for you. Every scenario must also be imported from `main.lua`.
-  `setup(scene)` runs once after the scene is made (`throw.setLayout`, `scene.surface`).
+  crank sign for you; `tw.selftest.planned(s, backOff, stopOff, after, opts)` is a swing
+  against the scene's plan (`input.swingSteps`: wound to the power target's centre plus
+  `backOff`, a full flick stopped at the release target's centre plus `stopOff`; 0 and 0
+  is the plan's clean throw) and `tw.selftest.swingTo(back, stop, after, opts)` one to
+  given clock degrees. Every scenario must also be imported from `main.lua`.
+  `setup(scene)` runs once after the scene is made (`throw.setLayout`, `scene.surface`,
+  and the aim: `throw.aimAt`, `setStance`, `setArc`, `setTilt`, `setSpin`).
   For physics frames use `tw.selftest.sinceHit(s)` / `sinceContact(s)` (seconds on screen
   relative to the baton's first hit or touch, nil until the physics has found it),
   `restShot(n)` (n frames into the rest; the rest hold is 50 frames) and `item(s, id)`.
@@ -355,122 +362,145 @@ matches (about a minute; `--quick` about 10 s).
   right-hand end); all the way up must stand it on that end's footprint.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
   group of field kubbs), `skid`, `skid-sand` and `skid-snow` (the kick after landing on
-  each surface),
+  each surface), `king`, `low-hard` (the arc planned down to half past 5: a low throw
+  takes a field kubb 6.5 m out), `burst`, `burst-reset`, `layer`, `knocks`, `drawcalls`,
   `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
-  are the Mac's, not the device's). They set loft and position in `setup`, not through the
-  controls. Strong throws use loft 30 or less: at full speed and 35 degrees the baton
-  lands past the far baseline. These throw scenes run with `loftBoost = false` (the speeds
-  they were written for); `low-hard` turns it on: a baton at 5 degrees, faster than the
-  swing's full speed, skids into field kubbs 6.5 m out, clear of the king.
+  are the Mac's, not the device's). They set the target circle (and the arc) in `setup`
+  and throw the plan's clean swing (`planned`): the default aim is the circle on b3.
+- The throw ("The throw" below): `clock-throw` (point and throw, no A or B: the default
+  target, stance and arc, wound into the power target and stopped at 3 o'clock; a base
+  kubb goes down, ON ON STEADY, the verdicts and dots on the next aim), `clock-plan` (A
+  walks and the targets move, B moves the arc and tilts, a drill's spin and arc, the
+  drill's circle moves freely, a baton's snaps onto b2), `clock-drill` (a drill at half
+  past 1 with a tap of spin rests within 0.4 m of the circle and stays on the pitch),
+  `clock-letdown` (a flick stopped at 8 o'clock and a slow let-down throw nothing; CRANK
+  DOWN while the crank is parked behind 6), `gauge` (the prompts: WIND BACK, FLICK!, EASE
+  OFF, none in the flick), `gauge-ghost`, `rearm`, `windup`, `flight` (the trace line read
+  back with its plan), `helicopter` (a stuttered flick at Pro), `aim-center`, `aim-arc`
+  (the planned arc and the circle on screen for targets across the half, every release
+  and stances at both ends), `clock-gauge` (the clock's states drawn alone, cache on and
+  off).
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
   from `source/selftest/_match.lua`: `opts` are `scenes/match` options (`seed` for
   `core/autothrow` throws instead of the crank, `instant`, `skipHandoff`, `maxTurns`),
   `step(ms, ctx, h)` runs after each frame with `h.feed(steps)`, `h.pressA()` and
   `h.idle()` for scripted input. `tw.selftest.pitchMatchesEngine(ms)` checks every item on
   screen against the engine's state and the setup's debris; `tw.selftest.debrisShown(ms)`
-  counts the debris kubbs and batons on screen. Scenarios: `match-opening` (crank throws: Team A's two
-  opening batons, the hand-off card, Team B's first throw in its turned view),
+  counts the debris kubbs and batons on screen. Scenarios: `match-opening` (crank throws on
+  the plan: Team A's two opening batons from a stance set off the middle and kept, the
+  hand-off card, Team B's first throw in its turned view, standing behind its circle),
   `match-toss` (a kubb toss played back and the automatic raising after it),
   `match-debris` (a downed kubb and a lying baton on the pitch for the next throw of the
   turn, that baton among them at rest, gone after the hand-off) and
   `cards` (a scripted match, seed 5: frame 1 the first hand-off with kubbs to throw in
   and a last turn to report, frame 2 the winner card, then A must ask for a rematch) and
-  `match-whole` (a scripted match to a winner as fast as the Simulator goes, the d-pad
-  walk up to the advantage line on the way; its marker names the game file, which the
+  `match-whole` (a scripted match to a winner as fast as the Simulator goes, the A +
+  d-pad walk up to the advantage line on the way; its marker names the game file, which the
   Makefile copies to `build/selftest/games/` and runs the notation gate over). The
   Simulator's floats differ from the desktop's, so the same seed plays a different match
   there than in `tools/physmatch.lua`: the checks do not depend on what happens.
 
-## The release
+## The throw
 
-Jamie and Tyler (2026-11-14, after play testing: hitting a base kubb was far too easy):
-"you stop the crank where you release the baton". `core/swing`: the wind-up (back) sets
-the power cap as before, the forward flick its speed; the baton is released where the
-crank stops (the forward speed over `speedWindow` frames below `releaseStopDps`, 150 deg/s:
-the crank all but halted, `how = "stopped"`), or at `releaseMaxDeg` past the bottom if it
-never stops (`"over"`). (It was below half the flick's peak: on the device that fired while
-Jamie's hand was still turning the crank at 300 deg/s, or well past the stop meant;
-`telemetry/2026-11-14/traces.jsonl`.) The power is the flick's
-peak (two-frame) speed. The crank is the throwing arm, and a hand swung on an arm leaves
-at right angles to it, so the arm's angle past the bottom of the turn at the stop
-(`result.releaseAngle`, forward degrees) sets the launch angle, forgivingly (Jamie,
-2026-11-14: Jamie's first 13 swings left from -27 to 137 degrees against a 25 to 35 target, as
-the crank moves 20 to 30 degrees a frame in a flick): `swing.releaseLoft(target, angle)` is
-the loft set when the stop is within `releaseTolDeg` (10) of it, and beyond that the loft
-set plus `releaseGain` (1/3) of the rest of the miss, within `releaseLoftMin`/`Max` (-30,
-85). Stop early and the baton goes lower and shorter; late and it goes higher. The loft set by A + crank is the target: the dial marks it (`hud.gauge`'s `target`:
-a white notch on the forward side, drawn like the full-power notch at the back and a
-little longer, `notchIn`; Jamie: "a notch on the forward swing too ... this would be
-perfect"), and the readout gives `loft <launch>/<set>`. Seeing what the crank did (Jamie, 2026-11-14:
-"I'm not able to see the connection between the crank and what is happening"; no lesson):
-after a baton throw the flag above the loft plaque (the drill's cut flag's place) says where
-the crank stopped against the notch, `ON THE NOTCH`, `EARLY: LOW` or `LATE: HIGH`
-(`swing.releaseMiss`, `throw.STOP_TEXT`, `s.stopText`), and on the next aim the dial keeps
-a white dot where it stopped (`hud.gauge`'s `stop`, `s.stopAngle`) with the flag, until the
-next wind-up. HOW TO THROW is a walkthrough run by the crank (Jamie, 2026-11-14: a static
-card "is not useful ... make it an interactive thing that walks the player through the
-different steps and meaning of the crank"; `core/howto`, pure and tested in
-`test_howto.lua`, drawn by `render/howto`). The player's crank runs the game's own swing,
-armed at the bottom of the turn as a throw is: a big dial that is the crank (both
-notches, the wind-up arc, the last stop's dot), a power bar, and a side view of the throw
-(the last one solid with where it landed, the full-power throw at the notch dashed, a
-kubb 8 m out), with the step's words and a line on the last throw (`ON THE NOTCH`,
-`EARLY: LOW`, `LATE: HIGH`, the angle it left at and its carry, or `TOO SLOW` after a
-let-down). Steps: 1 wind back to the back notch (full power), 2 flick and stop on the
-front notch until one throw is on it, 3 hold A and turn the crank to move the notch
-(`notchMoveDeg`, 10), then A plays; B leaves at any step. A throw's launch is
-`swing.releaseLoft` and its speed the loft boost's, as on the pitch. It covers the throw
-scene (`throw.showHowTo`, `s.howto`: nothing else moves; closing it makes the scene's crank
-arm afresh); the System Menu's Pitch, Drill and Match items have "how to", and it shows
-once by itself the first time a player aims a baton (`throw.howtoFirst`, off in
-self-tests, the autobench and the soak; remembered in the datastore "howto"). In a match
-the match scene hands the frame to it before any phase (a hand-off or settle card, the
-Playdate's think), and draws it, so everything waits under it (Codex on #81; self-test
-`match-howto`). Self-test `howto` drives it with the crank (frames: each step, a throw on
-the notch carrying 8.9 m, the notch moved); `release-stop` and `release-early` check the
-verdict and show the dot (frame 4). The throw
-scene launches the player's batons at that angle (the loft boost still goes by the loft
-set), and drilled kubbs the same way (Jamie, 2026-11-14: "the player should only need to
-learn how the crank works for throwing once"; "Drilling"); the computer's throws are
-unchanged. Trace lines carry
-`"release":"stop"`, `releaseAngle` and `launchLoft`; older lines replay with the old rule
-(`passRelease`: released as the arm passed the bottom, at the loft set). The throw-scene
-self-tests written before it keep the old rule (`throwScenario`'s `stopRelease = true` opts
-in; `burst-reset` and `drawcalls` set `passRelease`); `release-stop` (stopped on the
-target: 30 degrees, lands 8.4 m out) and `release-early` (20 short of the bottom, 50
-short of the notch: about 17 degrees, lands 6.3 m out) test it.
+DESIGN 4 is the rule book (Jamie and Tyler, 2026-11-15, after play-testing the stop on the
+notch: "one way to throw, modelled on how a real player throws"). The pure parts are
+`core/swing` (the crank only: the clock), `core/throwplan` (`tw.plan`: target, stance and
+plan to the clock's targets, and a measured swing to a launch) and `render/hud`'s clock,
+verdicts and plan chip; `scenes/throw.lua` puts them together, the same for batons and
+drilled kubbs. It replaced the stop on the notch, the A/B + crank swivel and loft, the
+double taps, `flight.loftBoost` in the player's throw, the loft plaque, the power chip,
+the stop and cut flags, the drill callout and HOW TO THROW (to be written again for this
+throw).
+
+- **Controls** (aim mode). The d-pad alone moves the target circle (`s.markerX`,
+  `s.markerY`, view frame; 0.5 m across, `throw.tune.markerRadius`), faster the longer it
+  is held (`drill.tune.markerSpeed` .. `markerSpeedMax`), kept in `drill.clampMarker`'s
+  area (3 m either side, 3.5 to 8.6 m out). Let go within `snapRadius` (0.25 m) of a
+  standing target it snaps onto it (`plan.snap` over `s.snaps`: the live targets, and on the
+  practice pitch the king too; `s.markerOn`); a drill's circle never snaps (it is where the
+  kubb should rest). A + d-pad walks (`walkSpeed`, along the line, back to `backMax`, up to
+  the advantage line for a baton, the baseline for a kubb) and sets `s.stanceSet`; until
+  then the stance is `plan.stance`, straight behind the circle as far forward as allowed.
+  B + up/down taps move the planned release `plan.tune.arcStepDeg` (15) within
+  `releaseMinDeg`..`releaseMaxDeg` and set `s.arcSet`; until then the release is
+  `plan.arcFor` the kind of target nearest the circle (base 3 o'clock, king half past 3,
+  field 4, a drill half past 1). B + left/right taps: a baton's tilt (`s.tilt`, steps of
+  `tiltStepDeg` to `tiltMaxDeg`), a kubb's spin (`s.spin`, to `spinSteps` taps). While A or
+  B is held the crank does not throw. The swivel is always the plan's (`s.sol.swivel`).
+- **The plan.** `replan(s)` (`throw.replan`) runs `plan.solve` into `s.sol` (reused, no
+  tables) only when an input changed (`s.planDirty`: the circle, the stance, the arc, the
+  projectile) or the level did. A new throw's circle starts on the live target nearest the
+  thrower (`retarget`; it stays on its target while that stands: practice after a throw,
+  a team's later batons); the arc, tilt and spin start afresh each match throw. Stay put: a
+  team's later batons of a turn keep a stance walked with A. AROUND THE PITCH gives its
+  own stance (`setup.playerX`). For self-tests and callers: `throw.aimAt(s, x, y)` (the
+  circle, snapping as a let-go does), `setStance`, `setArc`, `setTilt`, `setSpin`.
+- **The level.** `throw.levelFor(s)`: `s.level` (a named player's, later) or `throw.level`,
+  which `main.lua` sets from the System Menu's "Level" (`beginner`, `club`, `pro`; the
+  datastore "level", club by default).
+- **The throw.** On a release `launch(s, r)` takes `plan.launch(s.sol, r, {projectile,
+  tilt, spin, level})` and `fire` launches `world.launchBaton` or `world.launchDrill` with
+  its outputs (and the flight prediction the cameras use with the same speed, loft and
+  swivel). The swing's let-downs (stopped at or before 6) throw nothing. The recorder adds
+  no samples in the swing's cooldown.
+- **The Playdate's throws** (`throw.autoLaunch(s, a)`, `s.scripted`): `core/autothrow`'s
+  launch as it is, mistakes included (`a.speed`, `a.loftDeg`, `a.swivel`, `a.tumbleRate`,
+  `a.tilt`, `a.legal`; a kubb drilled with `a.drill`'s `world.launchDrill` fields, lobbed
+  when there is no `a.drill`; `a.drill` with only a circle, the autobench's case, is the
+  plan's clean drill onto it). With `a.swing` and not instant the scene goes to mode
+  `cpuswing` first: the Playdate's arm on the clock, back to `a.swing.back` over
+  `cpuBackShare` of `cpuSwingTime` (0.6 s) and forward to `a.swing.releaseAngle`, then the
+  throw, with its dots kept on the clock. `throw.showAim` shows its stance, and its circle
+  when `a.plan` says where (`s.cpuTarget`); the clock shows `a.plan`'s targets.
+- **The clock** (`hud.clock`, "Drawing speed") is always on in the throw scene: the scene's
+  `s.dial` (reused) gets the swing's phase, arm and peak (the idle crank's arm), the plan's
+  targets, the dead zone (`swing.tune.startBackDeg`) and overpowered past `overDeg` (150, 11
+  o'clock), the last throw's peak and stop as dots (until the next wind-up), and the prompt:
+  `WIND BACK` (idle, and winding short of the power target), `FLICK!` (inverted, inside
+  it), `EASE OFF` (past it), `CRANK DOWN` (the crank parked behind 6 without arming: it must
+  come down through 6 first), nothing during the flick; `WATCH` for the Playdate. In flight
+  and at rest the hand stays where the crank stopped. `s.promptText` keeps the prompt for
+  self-tests.
+- **After a throw** `hud.verdicts(powerV, releaseV, steady)` (SHORT/ON/LONG, LOW/ON/HIGH,
+  STEADY/SHAKY, `plan.launch`'s) shows from rest until the next wind-up, the player's
+  throws only (`s.showVerdicts`; a new team's turn clears them). The result flag and the
+  slow motion flag sit left of the clock. A drilled kubb's rest distance from the circle (`18 CM AWAY`,
+  `s.restText`) is a flag in the plan chip's place (`hud.cutFlag`), at rest and on the next
+  aim while no tilt or spin is planned. Decided 2026-11-15: the drill callout went (its
+  SHORT/ON/LONG was the power band's, now the verdicts' first cell; its ruler and its 234 px
+  plate overlapped the verdicts), and its distance moved to that flag. `hud.planChip` shows
+  TILT or SPIN while it is not zero.
+- **Readout** (the practice pitch's "Pitch: readout", debug only): `hud.readoutText(s.last)`,
+  `back <peak>/<target centre> stop <stop>/<target centre> flick <deg/s> shake <0..1>`, then
+  HELICOPTER, and the distance and kubbs down, or a drill's rest distance.
+- **Telemetry**: the trace line's result is the swing's fields plus the plan and the launch
+  (`writeTrace`, at rest; `core/trace`'s header): `level`, `projectile`, `drillId` (a drill
+  run's), `tx`, `ty`, `px`, `py` (from the thrower's line), `plan` and `loft`, `powerLo`,
+  `powerHi`, `releaseLo`, `releaseHi`, `planTilt` or `spin`, `launchSpeed`, `launchLoft`,
+  `swivelOff` (degrees off the plan's swivel), `tumbleRate`, `tilt`, `legal`, `powerV`,
+  `releaseV`, `steady`, `distance`, and a drill's `mode`, marker, landing, rest and
+  thrower. `frames.jsonl` is unchanged.
 
 ## The aim arc
 
 Jamie and Tyler (2026-11-14): "the player should visually see the arc of the baton throw
-... like a game of billiards on a computer", and then (Jamie): "an actual arc ... from where
-the baton would be released up into the air and then landing". While a player aims a baton
-(not a drill, not the Playdate's throw), `throw.drawFrame` draws the arc over the world
-(`drawArc`, outside its caches, no tables): where a clean throw at the loft set goes from
-where the player stands and points (`flight.predict`'s arc with the loft boost,
-`arcLaunch`), at full power: the farthest this aim reaches, the arc the camera is framed
-for (it once shrank with the backswing while winding, and a short arc lands under the
-view's lower edge, so it vanished: Codex on #74; the plaque's power fill shows the
-wind-up); dashed (`arcPoints` 24, every other gap
-drawn, the first `arcSkip` left out, `arcWidth` 2 px) with a small ring where it lands. It
-shows the aim, not the throw: the flick and where the crank stops still decide it (and the
+... like a game of billiards on a computer". While a player aims a baton (not a drill, not
+the Playdate's throw), `throw.drawFrame` draws the plan's clean throw over the world
+(`drawArc`, outside its caches, no tables): from where the player stands, at the plan's
+loft and speed (`arcLaunch`, `s.sol`), onto the target circle; dashed (`arcPoints` 24,
+every other gap drawn, the first `arcSkip` left out, `arcWidth` 2 px). It shows the plan,
+not the throw: the backswing, the flick and where the crank stops still decide it (and the
 wind will not show in it).
 
 From straight behind the thrower an arc is edge-on (a line), so the aim camera stands over
 the shoulder (Jamie chose it, 2026-11-14): `camera.tune.aim.side` (1.0 m) to the right,
 looking at the same ground point. `fitArc` (in `aimCamera`, every aim frame) keeps the
-full-power arc under `arcTop` and inside `arcSide`, and where it lands above `arcBottom`
-(230): a low hard throw first touches down about 4 m out, under the long lens's lower edge
-(Codex on #74). The arc may rise in from the lower edge (at 5 degrees only its last few
-points show); where it lands always shows. The camera first looks up (the principal row
-lowered as far as `arcMaxCy`, 158: the kubbs keep their size, the pitch sits lower), then
-widens its lens for what is still over (never wider than `arcMinF`). At the default 35
-degrees the arc fits by looking up alone; at 55 the lens widens; at 5 it widens a little
-(a far kubb 11 px against 12.5). Self-test `aim-arc`: mid wind-up, every loft from 5 to 55
-from the middle and both ends of the line turned both ways, the ring wholly on screen and
-the arc inside the margins (`throw.arcBox`). `arc = false` turns the arc
-and the fit off (the crane still stands to the side). `drawcalls`: aim frames 61 calls
-against 39 (the arc's lines; aim frames wait on the player, not the physics).
+planned arc under `arcTop` and inside `arcSide`, and where it lands above `arcBottom`
+(230). The camera first looks up (the principal row lowered as far as `arcMaxCy`, 158:
+the kubbs keep their size, the pitch sits lower), then widens its lens for what is still
+over (never wider than `arcMinF`). Self-test `aim-arc` (the circle and the arc on screen
+for targets across the half, every release, stances at both ends; `throw.arcBox`). `arc =
+false` turns the arc and the fit off (the crane still stands to the side).
 
 ## Wind
 
@@ -515,6 +545,10 @@ degrees this frame, `getCrankChange` sign: negative = anti-clockwise), `p:crankP
 `docked`) at a fixed 1/50 s, with the crank starting at the bottom (or `startPos`).
 The wind-up starts only when the crank crosses the bottom of the turn going back
 (`swing.armAngle`, `swing.crossedBack`); the throw scene feeds the swing nothing before that.
+`input.swingSteps(back, release, opts)` builds a scripted swing (self-tests, the
+autobench): wound `back` degrees behind the bottom, a full flick that stops exactly
+`release` degrees past it (`opts`: `frames`, `pause`, `peak`, `lead`, `shaky` for a
+stuttered flick); the crank sign is applied for you.
 
 ## Tunables
 
@@ -523,22 +557,31 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.camera.tune` (`source/core/camera.lua`): aim crane, lens range, framing rule,
   impact camera, follow margins and mid-flight zoom; `tw.camera.minimap` for the minimap.
 - `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
-  to flip if forward feels backwards on hardware), wind-up and swing thresholds, full power
-  speed and backswing, launch speed and tumble ranges, smoothness and tilt, and the release
-  where the crank stops (`releaseStopDps`, `releaseMaxDeg`, `releaseTolDeg`, `releaseGain`,
-  `releaseLoftMin`/`Max`; "The release"; `releaseDropFrac` is the old release's).
+  to flip if forward feels backwards on hardware), the dead zone (`startBackDeg`), the
+  backswing cap, the flick's start and stop speeds (`swingStartDps`, `releaseStopDps`,
+  `speedWindow`), the sky ball (`skyDeg`), the cooldown, the flick's power
+  (`fullFlickDps`, `minFlickFrac`), the pull and the shake (`roughFull`).
+- `tw.plan.tune` (`source/core/throwplan.lua`): the power scale (`reachZeroDeg`, the
+  anchors: 9 o'clock 4 m, 10 o'clock 8 m), the loft scale (5 o'clock 12 degrees, 3 o'clock
+  32), the default arcs by target (`arc`), `arcStepDeg`, the release's range, `tiltStepDeg`
+  and `tiltMaxDeg`, `spinSteps` and `spinPerStep`, the sky ball's extra, the helicopter
+  limit, the shake's tilt and pull, overpower, STEADY, the baton's tumble by speed;
+  `tw.plan.levels` (beginner, club, pro: the targets' half widths, the error inside a
+  target, the shake and overpower costs; `plan.LEVELS` in menu order).
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range (5 to 55) and step,
-  `boostBelowDeg` (under it a baton is thrown harder, `flight.loftBoost`: full power carries
-  as far as at that loft; the throw scene's own batons only, not the computer's),
-  baton size, wobble.
+  baton size, wobble. (`boostBelowDeg` and `flight.loftBoost`, the old player's low throw,
+  were removed 2026-11-15, as were `swing.tune`'s launch and tumble ranges: the plan's
+  scales set the speed, `plan.tumbleFor` the tumble.)
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
-  back the player may step, swivel and loft gearing, double-tap time, rest hold, practice
+  back the player may step, the circle's snap radius (`snapRadius`), where the clock shows
+  overpowered (`overDeg`), the Playdate's arm on the clock (`cpuSwingTime`,
+  `cpuBackShare`), rest hold, practice
   surface, the flight's pacing (`flightRate`, `framePeriod`, `tailPeriod`, `minBudget`;
   `physicsBudget` only for scripted input; see "Playback") and how far ahead the physics
   may record, impact-camera
   slew and baton framing radius, the tossed kubb's tumble (`tossTumble`), the instant
-  rest hold, and for drilling the drilled kubbs kept on the practice pitch (`drillKeep`)
-  and the marker ring (`markerRadius`, `markerSegments`).
+  rest hold, the drilled kubbs kept on the practice pitch (`drillKeep`), the target
+  circle (`markerRadius`, `markerSegments`) and the aim arc ("The aim arc").
 - `tw.drill.tune` (`source/core/drill.lua`): every drilling mapping (AGENTS.md
   "Drilling"). `tw.camera.tune.drill`: the fixed drill aim camera.
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
@@ -565,7 +608,7 @@ Every number that is a guess lives in one table per module, with a comment:
   `kingDiamond`, `kingDetailFrom`: drawing only, the physics king stays a plain box; the
   `king` scenario shows it), the kubb set (`set`, `setFrom`, `setDetailFrom`; the
   sets themselves are `render.world.sets`, see "Kubb sets"), HUD fonts (`labelFont`, `displayFont`) and every HUD box
-  (`rail`, `prompt`, `gauge`, `plaque`, `chip`, `flag`, `slow`, `callout`, ...), and `cache` in each (the
+  (`rail`, `prompt`, `clock`, `verdicts`, `planChip`, `cutFlag`, `flag`, `slow`, ...), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
   speed").
@@ -818,33 +861,35 @@ and copying a full-screen image about 0.7 ms. So:
 - The device autobench turns the crank recorder and the frame-time log off while it runs
   and restores them after, so its scripted throws never reach `traces.jsonl` or
   `frames.jsonl`.
-- `render/hud` draws the minimap and the gauge disc as layers: to the screen while their
+- `render/hud` draws the minimap and the clock as layers: to the screen while their
   inputs change, into an image (on the 8 px grid, through `gfx.setDrawOffset`) once a
   frame repeats the last frame's inputs, then copied until an input changes. The minimap
   layer keys on the pose version and the advantage line; the aim line, player, landing mark
-  and baton dot are drawn on top every frame. The other parts (rail, prompt, loft plaque,
-  cut flag, power chip, result flag, callout, readout) are plates: one image each, redrawn
-  only when their own key changes, so a frame that changes nothing costs one image draw per
-  part. The plaque's power fill is the one thing drawn per frame (one `fillRect`), so
-  winding never redraws text. The title (one image per highlighted choice) and the
+  and baton dot are drawn on top every frame. The other parts (rail, prompt, plan chip,
+  rest flag, result flag, slow motion flag, verdicts, readout) are plates: one image each,
+  redrawn only when their own key changes, so a frame that changes nothing costs one image
+  draw per part. The title (one image per highlighted choice) and the
   match's hand-off and winner cards (`render/cards`, built once per card and kept in
   `s.card`) are each one cached 400 x 240 image, copied every frame: no text is drawn
   while they wait.
-- The throw as a clock (DESIGN 4; built beside `hud.gauge`, which the throw scene still
-  calls until it is switched over): `hud.clock(st)` takes a table the scene owns and
+- The throw as a clock (DESIGN 4; "The throw"; it replaced `hud.gauge`, the loft plaque,
+  the power chip and the drill callout, 2026-11-15): `hud.clock(st)` takes a table the scene owns and
   reuses (`phase`, `arm`, `crank`, `back`, `powerLo/Hi`, `releaseLo/Hi`, `deadDeg`,
   `overDeg`, `lastBack`, `lastStop`, `prompt`; angles are arm degrees, 0 = 6 o'clock,
   backswing negative, drawn on the left). The face (frame, ticks, the dotted dead slice,
   the hatched overpowered slice, the targets as grey slices with a black rim segment, the
   last throw's hollow dots) is one image keyed on those values rounded to whole degrees;
   the hand (thick with a white edge while throwing, thin at the idle crank) and the live
-  peak dot go over it, and the whole dial is a layer like the gauge. `hud.tune.clock`
+  peak dot go over it, and the whole dial is a layer like the minimap. `hud.tune.clock`
   places it at 351 207, r 30, under the prompt flag. Its calls (the `clock-gauge`
   self-test counts them): 13 a frame while the hand moves with a peak, 6 for an idle
   crank, 1 for a frame that repeats the last, about 66 once when the targets change.
   `hud.verdicts(powerV, releaseV, steady)` (one plate, 73 222 158 15, misses white on
-  black) and `hud.planChip(kind, value)` (the cut flag's place, `TILT R 2.5°`,
-  `SPIN L 2`, nothing at 0) are plates keyed on their arguments.
+  black) and `hud.planChip(kind, value)` (250 182, `TILT R 5°`, `SPIN L 2`, nothing at 0)
+  are plates keyed on their arguments; `hud.cutFlag(text)` in the same place gives a
+  drilled kubb's rest distance (never at the same time as the plan chip). The result flag
+  (`hud.flag`, right edge 316, y 199) and the slow motion flag (y 182) sit left of the
+  clock, widening to the left.
 - The ground (`render/world`): the rough is a `setPattern` fill whose 8 x 8 phase follows
   the projected middle of the far baseline (64 shifted patterns made once), so it travels
   with the pitch rather than sliding under a screen-fixed pattern. It is drawn as two fills

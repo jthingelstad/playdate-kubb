@@ -1,6 +1,7 @@
 -- Scenario "field": three field kubbs stand in a tight group at about
--- (0, 5.9), past the centerline. A strong low throw (15 degrees, set by setup)
--- from the center flies over the king into the group. Frames: 1 just
+-- (0, 5.9), past the centerline. The circle on f1, the arc planned to half past
+-- 4, and the plan's clean throw from behind it fly over the king into
+-- the group. Frames: 1 just
 -- before the hit, 2 the hit, 3 the group falling, 4 at rest.
 import "selftest/_throw"
 
@@ -14,15 +15,12 @@ st.scenarios.field = st.throwScenario {
 		l[#l + 1] = { id = "f2", kind = "kubb", x = 0.09, y = 5.96, yaw = 0.5 }
 		l[#l + 1] = { id = "f3", kind = "kubb", x = -0.08, y = 5.99, yaw = -0.3 }
 		throw.setLayout(s, l)
-		s.loftDeg = 15
+		-- the circle on f1, the arc a little lower than a field kubb's (half
+		-- past 4: it drives into the group behind)
+		throw.aimAt(s, 0, 5.9)
+		throw.setArc(s, 45)
 	end,
-	script = {
-		{ n = 5 },
-		st.windup(120, 30),
-		{ n = 5 },
-		st.flick { 6, 12, 18, 22, 24, 24, 24 },
-		{ n = 300 },
-	},
+	script = function(s) return st.planned(s) end,
 	shots = {
 		function(s) local d = st.sinceHit(s); return d and d >= -0.15 end,
 		function(s) local d = st.sinceHit(s); return d and d >= 0.02 end,
@@ -33,7 +31,6 @@ st.scenarios.field = st.throwScenario {
 	check = function(s)
 		local r = s.result
 		if not r then return "no result" end
-		if s.loftDeg ~= 15 then return "loft " .. s.loftDeg end
 		if not r.firstHit or r.firstHit.with:sub(1, 1) ~= "f" then
 			return "first hit " .. tostring(r.firstHit and r.firstHit.with)
 		end

@@ -11,12 +11,9 @@ local s
 st.scenarios["burst-reset"] = {
 	step = function(ctx)
 		if not s then
-			s = throw.new(tw.input.scripted {
-				{ n = 5 }, st.windup(120, 30), { n = 5 }, st.flick { 6, 12, 18, 22, 24, 24, 24 }, { n = 300 },
-			})
-			s.loftDeg = 30
-			s.loftBoost = false   -- written for the speeds before flight.loftBoost
-			s.swing.passRelease = true   -- and for the old release (core/swing)
+			local steps = {}
+			s = throw.new(tw.input.scripted(steps))
+			for _, x in ipairs(st.planned(s)) do steps[#steps + 1] = x end
 			throw.enter()
 		end
 		throw.update(s)

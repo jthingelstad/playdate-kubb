@@ -6,19 +6,15 @@
 -- at rest with its result line, 4 Team B's hand-off card, 5 Team B aiming
 -- (A's base kubbs now at the far end), 6 Team B's baton at rest. A's
 -- second baton must start from the first one's stance (stay put), B's first
--- from the middle.
+-- straight behind its circle (the stance follows the target).
 import "selftest/_match"
 import "selftest/_throw"
 
 local st = tw.selftest
 
-local function crankThrow()
-	return {
-		{ n = 5 },
-		st.windup(120, 30),
-		{ n = 5 },
-		st.flick { 6, 12, 18, 22, 24, 24, 24 },
-	}
+-- a crank throw on the scene's plan (its clean throw)
+local function crankThrow(ts)
+	return st.planned(ts, 0, 0, 1)
 end
 
 local shots, stage = 0, 1
@@ -40,9 +36,9 @@ st.scenarios["match-opening"] = st.matchScenario {
 			stage = 2
 		elseif stage == 2 and ms.phase == "play" and ts.mode == "aim" and h.idle() then
 			shot()
-			-- a stance off the middle, to be kept for the next baton
-			ts.playerX, ts.swivel, ts.loftDeg = 0.6, 0.04, 28
-			h.feed(crankThrow())
+			-- a stance off the middle (as if A had walked it), to be kept for the next baton
+			tw.scenes.throw.setStance(ts, 0.6, ts.playerY)
+			h.feed(crankThrow(ts))
 			stage = 3
 		elseif stage == 3 then
 			if ts.mode == "rest" and not restAt then restAt = ctx.frame end
@@ -55,10 +51,10 @@ st.scenarios["match-opening"] = st.matchScenario {
 			-- A's second baton
 			if ms.setup.n ~= 2 then error("expected baton 2, got " .. tostring(ms.setup.n)) end
 			-- stay put: the second baton starts where the first was thrown from
-			if math.abs(ts.playerX - 0.6) > 1e-6 or math.abs(ts.swivel - 0.04) > 1e-6 or ts.loftDeg ~= 28 then
-				error(string.format("stance not kept: x %.2f swivel %.3f loft %s", ts.playerX, ts.swivel, tostring(ts.loftDeg)))
+			if math.abs(ts.playerX - 0.6) > 1e-6 or not ts.stanceSet then
+				error(string.format("stance not kept: x %.2f (%s)", ts.playerX, tostring(ts.stanceSet)))
 			end
-			h.feed(crankThrow())
+			h.feed(crankThrow(ts))
 			stage = 5
 		elseif stage == 5 and ms.phase == "handoff" then
 			if ms.side ~= "B" then error("hand-off to " .. tostring(ms.side)) end
@@ -70,8 +66,10 @@ st.scenarios["match-opening"] = st.matchScenario {
 			h.pressA()
 			stage = 6
 		elseif stage == 6 and ms.phase == "play" and ts.mode == "aim" and h.idle() then
-			-- a new team's turn starts from the middle
-			if ts.playerX ~= 0 or ts.swivel ~= 0 then error("Team B did not start from the middle") end
+			-- a new team's turn: the stance follows the circle again (straight behind it)
+			if ts.stanceSet or math.abs(ts.playerX - math.max(-2.5, math.min(2.5, ts.markerX))) > 1e-6 then
+				error(string.format("Team B stands at %.2f, the circle at %.2f", ts.playerX, ts.markerX))
+			end
 			-- Team B's view: A's base kubbs (world y = 0) are at the far end,
 			-- mirrored across the middle
 			local g = ms.m.game
@@ -88,7 +86,7 @@ st.scenarios["match-opening"] = st.matchScenario {
 			local want = ms.setup.kind == "toss" and "^Team B  kubb 1 of %d$" or "^Team B  baton 1 of 4$"
 			if not ms.setup.label:match(want) then error("label " .. ms.setup.label) end
 			shot()
-			h.feed(crankThrow())
+			h.feed(crankThrow(ts))
 			restAt = nil
 			stage = 7
 		elseif stage == 7 then
