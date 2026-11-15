@@ -50,6 +50,7 @@ import "scenes/games"
 import "scenes/drills"
 import "scenes/players"
 import "scenes/teams"
+import "scenes/howtoplay"
 import "benchscreen"
 import "autobench"
 import "soak"
@@ -111,6 +112,7 @@ import "selftest/players"
 import "selftest/teams"
 import "selftest/match-teams"
 import "selftest/howto"
+import "selftest/howto-play"
 
 local function launchArgs()
 	local args = {}
@@ -277,13 +279,19 @@ else
 			current.showReadout = showReadout
 			drillsScene.enter()
 		elseif which == "pitch" or which == "howto" then
-			-- OPEN PITCH, or HOW TO THROW over it (the drills menu's last item)
+			-- OPEN PITCH, or HOW TO THROW over it (HOW TO PLAY's last card)
 			kind = "practice"
 			current = throw.new(device)
 			-- the practising player's throw level (scenes/drills), else the System Menu's
 			current.level = drillsScene.practiceLevel()
 			if which == "howto" then throw.showHowTo(current) end
 			throw.enter()
+		elseif which == "howtoplay" then
+			-- HOW TO PLAY: the rules on six cards (the drills menu's last item);
+			-- the last card leads into HOW TO THROW ("howto")
+			kind = "howtoplay"
+			current = tw.scenes.howtoplay.new(device)
+			tw.scenes.howtoplay.enter()
 		elseif which == "match" or which == "vs" then
 			-- PASS + PLAY or VS PLAYDATE: the teams first (scenes/teams)
 			kind = "teams"
@@ -379,6 +387,10 @@ else
 			drillsScene.update(current)
 			if current.exit then return open(current.exit == "practice" and "pitch" or current.exit) end
 			drillsScene.draw(current)
+		elseif kind == "howtoplay" then
+			tw.scenes.howtoplay.update(current)
+			if current.exit then return open(current.exit) end
+			tw.scenes.howtoplay.draw(current)
 		elseif kind == "players" then
 			tw.scenes.players.update(current)
 			if current.exit then return open(current.exit) end

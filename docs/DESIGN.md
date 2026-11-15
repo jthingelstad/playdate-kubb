@@ -219,9 +219,11 @@ The walkthrough, on the practice pitch with the real crank and real throws (buil
 mean), 3 how far back is how far (a throw with the power ON), 4 where you stop is the arc
 (the release ON), 5 the d-pad aims (it stays where you leave it: aim into a wind), 6 hold A
 to walk, 7 hold B to plan (arc, tilt, spin), 8 that is the throw. Each step goes on once
-the player has done it and A is pressed; a tap of B skips one. It is the last item of
-PRACTICE's menu, which starts on it until it has been seen, and the practice pitch's
-System Menu "Pitch: how to".
+the player has done it and A is pressed; a tap of B skips one. It follows HOW TO PLAY,
+six cards with the rules of Kubb in plain words (the pitch, batons, throwing kubbs back
+in, field kubbs first, the king last, the score sheet), the last item of PRACTICE's menu,
+which starts on it until HOW TO THROW has been seen; and it is the practice pitch's System
+Menu "Pitch: how to".
 
 "The hard way" (land out of bounds and cut back in), nudges and clacks are not special moves;
 they fall out of the physics. How much a kubb cuts depends on the surface (section 5): more on

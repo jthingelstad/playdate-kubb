@@ -2,9 +2,10 @@
 -- on the left OPEN PITCH (the free practice pitch, as before) and the drills
 -- of core/drills; on the right the chosen drill's pitch from above, what it
 -- is, its best, its last ten runs as bars and its hit rate. Up/down chooses,
--- A starts, B goes to the title. HOW TO THROW, last on the list, opens the
--- practice pitch with the walkthrough over it (main.lua "howto"); the menu
--- starts on it until it has been seen.
+-- A starts, B goes to the title. HOW TO PLAY, last on the list, opens the
+-- rules on six cards (main.lua "howtoplay"), whose last card leads into HOW
+-- TO THROW over the practice pitch ("howto"); the menu starts on it until
+-- HOW TO THROW has been seen.
 --
 -- A run is the drill's throws on its own pitch through the throw scene, set
 -- up one throw at a time like the match (throw.prepare); the rail counts the
@@ -45,10 +46,12 @@ scene.tune = {
 }
 
 local OPEN <const> = { id = "open", name = "OPEN PITCH", lines = { "THROW AS YOU LIKE", "SYSTEM MENU, PITCH:", "RESET, SURFACE, KUBBS" } }
--- HOW TO THROW (core/howto over the practice pitch), last on the list; the
--- menu starts on it until it has been seen once (datastore "howto", seen = 2:
--- the clock throw's; 0.2.0's walkthrough wrote seen = true)
-local HOWTO <const> = { id = "howto", name = "HOW TO THROW", lines = { "THE THROW, STEP BY STEP,", "ON THE PRACTICE PITCH", "WITH THE REAL CRANK" } }
+-- HOW TO PLAY, last on the list: the rules on six cards (scenes/howtoplay),
+-- whose last card leads into HOW TO THROW (core/howto over the practice
+-- pitch). The menu starts on it until HOW TO THROW has been seen once
+-- (datastore "howto", seen = 2: the clock throw's; 0.2.0's walkthrough wrote
+-- seen = true)
+local HOWTO <const> = { id = "howto", name = "HOW TO PLAY", lines = { "THE RULES ON SIX CARDS,", "THEN THE THROW, STEP BY STEP,", "WITH THE REAL CRANK" } }
 
 function scene.howtoSeen()
 	local d = playdate.datastore.read("howto")
@@ -327,7 +330,7 @@ function scene.update(s)
 		if p:pressed("a") then
 			local d = s.items[s.choice]
 			if d.id == "open" then s.exit = "practice"
-			elseif d.id == "howto" then s.exit = "howto"
+			elseif d.id == "howto" then s.exit = "howtoplay"
 			else startRun(s, d) end
 		elseif p:pressed("b") then
 			s.exit = "title"
