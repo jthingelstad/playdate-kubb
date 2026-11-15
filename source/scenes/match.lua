@@ -177,6 +177,8 @@ local function foldHistory(s)
 end
 
 local function over(s)
+	-- (a resign from the System Menu may end the match under the change list)
+	s.changing = nil
 	archive(s)
 	foldHistory(s)
 	persist(s)
