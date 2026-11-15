@@ -56,9 +56,9 @@ local STEPS = {
 	{ id = "clock", title = "1  THE CRANK IS YOUR ARM",
 		say = { "READ IT AS A CLOCK: 6 IS YOUR ARM HANGING DOWN.",
 			"TURN THE CRANK DOWN TO 6 O'CLOCK." },
-		after = { "THE DIAL BOTTOM RIGHT IS THE CRANK. BACK UP THE",
-			"LEFT IS POWER. FORWARD UP THE RIGHT IS WHERE",
-			"YOU LET GO." } },
+		after = { "THE DIAL BOTTOM RIGHT IS YOUR CRANK. WIND BACK",
+			"UP THE LEFT FOR POWER, FLICK UP THE RIGHT AND",
+			"WHERE YOU STOP IS WHERE YOU LET GO." } },
 	{ id = "throw", title = "2  POINT AND THROW",
 		say = { "THE CIRCLE IS ON A KUBB. WIND BACK INTO THE LEFT",
 			"MARK, THEN FLICK FORWARD FAST AND STOP AT 3." },
@@ -70,7 +70,7 @@ local STEPS = {
 		afterOn = { "POWER ON. THE LEFT MARK IS THE POWER THIS THROW",
 			"NEEDS: IT MOVES WITH THE DISTANCE." },
 		after = { "THE LEFT MARK IS THE POWER THIS THROW NEEDS: IT",
-			"MOVES WITH THE DISTANCE. THE DRILLS FIND IT." } },
+			"MOVES WITH THE DISTANCE. THE DRILLS TEACH IT." } },
 	{ id = "arc", title = "4  WHERE YOU STOP IS THE ARC",
 		say = { "STOP AT 5 O'CLOCK FOR LOW, 4 FOR FIELD KUBBS,",
 			"3 FOR BASE KUBBS, HALF PAST 3 FOR THE KING." },
@@ -97,9 +97,9 @@ local STEPS = {
 		-- one line kept on screen while B holds the camera out (the panel folds
 		-- to a strip then; the RC review of 2026-11-15: its words went with it)
 		held = "B HELD: UP/DOWN THE ARC, LEFT/RIGHT TILT OR SPIN" },
-	{ id = "done", title = "THAT IS THE THROW",
+	{ id = "done", title = "THAT'S THE THROW",
 		say = { "A AND B ARE EXTRAS: POINT AND THROW IS ENOUGH.",
-			"PRACTICE'S DRILLS ARE WHERE TO GET GOOD." } },
+			"THE DRILLS ARE WHERE YOU GET GOOD." } },
 }
 howto.STEPS = STEPS
 
