@@ -36,6 +36,12 @@ local totals = {}
 local wins = { A = 0, B = 0 }
 for g_i = 1, n do
 	local g, t = thrower.playGame(seed * 100003 + g_i)
+	local bad = tw.order.checkSheet(g)
+	if #bad > 0 then error("game " .. g_i .. ": " .. bad[1]) end
+	for _, side in ipairs { "A", "B" } do
+		local key = "teamOf" .. #g.teams[side].players
+		totals[key] = (totals[key] or 0) + 1
+	end
 	local start = notation.addMinutes(base, (g_i - 1) * 37)
 	local finish = notation.addMinutes(start, 5 + g.turn * 2)
 	local text = notation.render(g, { start = start, finish = finish, version = "0.0.1",

@@ -249,8 +249,12 @@ neighbours toppled or pushed, inkast landing spots with scatter, and rare events
 (rescues, punishment kubbs, kubbs on top of others, helicopters, own-half hits, early base
 kubbs and kings, resigns). Its rates are `thrower.tune`. `thrower.playGame(seed, check)`
 plays one game; `tests/lua/test_games.lua` plays 50 and checks invariants after every
-action; `tools/games.lua` writes N games. `tests/fixtures/games/` holds eleven generated games
-plus the two hand-written ones; `make test` gates them. The thrower sometimes aims at a kubb
+action; `tools/games.lua` writes N games. Teams have one to six players and who throws is
+`core/order`'s ("Throwing order"); now and then a team gives a baton or its kubbs to
+another player (`changeThrower`, `changeInkaster`, from a generator of their own, so the
+throws are the same without them), and every sheet is checked with `order.checkSheet`.
+`tests/fixtures/games/` holds thirteen generated games (a six-a-side and a two against
+four among them) plus the two hand-written ones; `make test` gates them. The thrower sometimes aims at a kubb
 of this turn lying out near the target half and knocks it toward the middle (`chaseOut`),
 so games have kubbs knocked in before the round is judged; `make games` prints
 `knockedIn`/`knockedOut` and the sheets' `R`, `P`, `Q`, `N` counts.
@@ -283,7 +287,9 @@ kubb 45% and a field kubb 59% of the time, 1% helicopters, 2% of drilled kubbs r
 5 resigned). `tools/physmatch.lua` prints these counts after its games.
 `tools/physmatch.lua [--n --seed --out --maxturns -v]` plays whole matches through
 `core/match` with every throw run by `core/world` to rest (the match scene's path without
-the screen; about 0.7 s a match on a Mac) and writes the game files. Past `--maxturns`
+the screen; about 0.7 s a match on a Mac) and writes the game files. Team sizes go round
+one to six (game i: Team A `(i - 1) % 6 + 1` players, Team B `(i + 1) % 6 + 1`), and every
+sheet is checked with `order.checkSheet`. Past `--maxturns`
 (40) the team on turn resigns. With no scatter every baton hits and a game never ends
 (every toppled field kubb comes straight back), so the scatter is not zero. Its throws go
 into the turn's debris like the match scene's.
@@ -293,6 +299,36 @@ two or three kubbs: a deterministic sweep of core/swing batons (power 0.6 to 1.0
 to 35) at pairs and triples side by side and pairs in line at 3, 7, 15 and 30 cm gaps across
 a sweep of aim offsets, a domino check, and the spacing of standing field kubbs in physics
 matches (about a minute; `--quick` about 10 s).
+
+## Throwing order
+
+Teams of one to six (docs/PLAYERS.md, the plan for saved players and team pass and play;
+step 1 is built). `core/order.lua` (`tw.order`, pure, `test_order.lua`) decides who throws
+every baton and kubb before the throw, within Rules V4.0 as far as a team's size allows:
+
+- **II.B.5**: a player throws at most `order.cap(n, batons)` = max(2, ceil(batons / n))
+  batons a turn (one player all six, two three each, three to six two each).
+- **II.A.4**: the opening's two batons by two different players and its four by at least
+  three (`order.distinct`, fewer for a smaller team).
+- **Blocks**: each team has a rotation (its players in order); a turn's batons are dealt
+  from it as evenly as possible over as many players as there are batons
+  (`order.split`: 2, 2, 1, 1 for four players), a player's batons in a row, so the
+  Playdate changes hands as few times as the rules allow. The next turn starts past the
+  players who threw an extra baton (past everyone dealt when all threw the same): the
+  doubles go round the team, and in the opening whoever did not throw opens the team's
+  next turn.
+- **The inkast**: one inkaster a turn (first throws and rethrows), by default the turn's
+  first baton thrower (`o.inkaster`).
+- **Changes**: `order.change(o, n, pid, thrown)` gives baton n to another player, swapping
+  with that player's first later baton, refused (`team`, `cap`, `distinct`, `thrown`) if
+  the turn would break a rule; `order.setInkaster(o, pid)`.
+- `order.thrower(o, g)` deals the engine's turn when it is new (`order.sync`) and says who
+  throws what `g:need()` asks for (the next baton's thrower also while the defender
+  raises). The state is plain tables (`o.A`, `o.B` = `{ ids, start }`, `o.turn`, `o.deal`,
+  `o.inkaster`), so `core/save` keeps it as `m.order`; a match saved without one starts a
+  fresh order.
+- `order.checkSheet(g)`: every turn of a finished sheet against both rules and the teams
+  (`kubb.js` checks neither); `test_games`, `make games` and `tools/physmatch.lua` run it.
 
 ## Simulator self-tests
 
@@ -1115,8 +1151,10 @@ own item). Practice is the throw scene exactly as before.
   count) that a resume can save. `match.setup(m)` raises lying kubbs and places punishment
   kubbs with the engine's policies, then returns the next throw in the view frame (kind,
   projectile, pieces, `forwardY` = how far forward the thrower may walk, `advY`, `targets`,
-  `label` such as "Team B  baton 2 of 6"); `match.resolve(m, res, illegal)` applies a
-  finished throw and sets `m.text` (the result line); `match.resign`, `match.file`.
+  `label` such as "Team B  baton 2 of 6", `thrower` = `{ id, name }` of the player who
+  throws it, from `core/order`); `match.resolve(m, res, illegal)` applies a
+  finished throw (as that player) and sets `m.text` (the result line); `match.resign` (the
+  next thrower's `G`), `match.file`. `m.order` is the throwing order; the save keeps it.
 - `scenes/match.lua`: phases handoff (the full-screen hand-off card before each team's turn,
   A to play), settle (below), play (the throw scene set up by `throw.prepare`: pieces, lines, projectile,
   targets; `s.auto = false` stops it in mode `done` after the rest hold) and over (the

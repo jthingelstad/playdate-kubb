@@ -4,6 +4,7 @@
 -- kubb.js itself; this runs on GitHub too).
 import "core/rules"
 import "core/notation"
+import "core/order"
 local notation = tw.notation
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
@@ -100,6 +101,8 @@ test("50 seeded random games: invariants hold after every action and the sheet r
 		g.batonsFor = function(n) return tw.rules.batonsFor(g.opening, n) end
 		local ok, err = pcall(replay, g)
 		if not ok then error("seed " .. seed .. ": " .. tostring(err)) end
+		local bad = tw.order.checkSheet(g)
+		if #bad > 0 then error("seed " .. seed .. ": " .. bad[1]) end
 		expect.eq(pcall(g.throwBaton, g, {}), false, "no baton after game over")
 		expect.eq(pcall(g.toss, g, {}), false, "no toss after game over")
 		expect.eq(pcall(g.resign, g, "A"), false, "no resign after game over")
