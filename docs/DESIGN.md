@@ -64,7 +64,7 @@ behind the thrower: 3 m behind the throwing line, 3.4 m up, long lens (focal len
   arc, tilt or spin) the camera swings out over the right shoulder, lower and wider, and
   zooms out until the whole target half, the planned arc and the circle are in view (far
   kubbs about 4 to 9 px tall); letting B go swings it back. Both moves take 0.4 s, eased.
-  The fixed high drill view went with it. AGENTS.md "The aim camera".
+  The fixed high drill view went with it; a drill shows its planned arc too. AGENTS.md "The aim camera".
 
 **HUD** (the Woodcut layout, `docs/design/README.md`). The pitch keeps a clear area in the
 middle of the screen; the HUD sits around it: a black rail along the top (team, projectile

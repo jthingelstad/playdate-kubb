@@ -107,9 +107,10 @@ throw.tune = {
 	drillKeep = 10,       -- drilled kubbs kept on the practice pitch; the oldest goes past this
 	markerRadius = 0.25,  -- m: the target circle on the ground (0.5 m across, DESIGN 4)
 	markerSegments = 12,  -- straight pieces the ring is drawn with
-	-- the planned throw's arc while aiming a baton (Jamie and Tyler,
-	-- 2026-11-14: "like billiards on a computer, lines that show you where
-	-- it's going to go"): the plan's clean throw from the stance onto the target
+	-- the planned throw's arc while aiming a baton or a drill (Jamie and
+	-- Tyler, 2026-11-14: "like billiards on a computer, lines that show you
+	-- where it's going to go"): the plan's clean throw from the stance onto the
+	-- target (a drill's down to where it lands, short of the circle)
 	arc = true,           -- false: no arc
 	arcPoints = 24,       -- points along the arc, release to landing (every other gap drawn: dashes)
 	arcSkip = 2,          -- the first points (at the hand, under the camera) are left out
@@ -1297,22 +1298,31 @@ local unpack = table.unpack
 
 -- The arc's launch: start velocity and time to the ground for the plan's
 -- clean throw from the stance onto the target (its loft and speed).
+-- A drilled kubb's is drill.solveAt's: the same launch from the hand, down
+-- to where it lands (its centre at drill.tune.landZ, its edge short of the
+-- circle by what it slides on), in the plan's sol.T.
 local function arcLaunch(s)
 	local sol = s.sol
 	local speed, loft, sw = sol.speed or 0, sol.loft or 32, sol.swivel or 0
 	local e = rad(loft)
 	local ce = math.cos(e)
-	local _, _, T = flight.predict(s.playerX, s.playerY, sw, loft, speed)
+	local T = sol.T
+	if not (s.drill and T) then
+		local _
+		_, _, T = flight.predict(s.playerX, s.playerY, sw, loft, speed)
+	end
 	return speed * math.sin(sw) * ce, speed * math.cos(sw) * ce, speed * math.sin(e), T
 end
 
+-- The arc shows for a baton and a drilled kubb (not the Playdate's lobbed
+-- kubb tosses, which have no plan).
 local function arcShown(s)
-	return throw.tune.arc and not s.drill and s.projectile ~= "kubb"
+	return throw.tune.arc and (s.drill or s.projectile ~= "kubb")
 end
 
 -- The plan view's fit (camera.shoulder): the planned arc (the one drawArc
 -- shows; before point arcFitFrom, its first rise near the hand, only inside
--- the sides: it may come in from the lower edge; a drill has none), and the
+-- the sides: it may come in from the lower edge; a drill's too), and the
 -- target circle's four sides. Scratch arrays, filled in place: no tables per
 -- frame.
 local fitX, fitY, fitZ = {}, {}, {}
@@ -1338,12 +1348,13 @@ shoulderFit = function(s, c)
 	camera.shoulder(c, s.playerX, s.playerY, s.swivel, s.lineY, n, fitX, fitY, fitZ, across)
 end
 
--- The baton's arc while aiming (Jamie and Tyler, 2026-11-14): the plan's
--- clean throw from where the player stands onto the target circle, the arc
+-- The arc while aiming (Jamie and Tyler, 2026-11-14; a drill's too,
+-- 2026-11-15): the plan's clean throw from where the player stands onto the
+-- target circle (a drilled kubb's to where it lands, just short of it), the arc
 -- the plan view is framed for (shoulderFit). It shows the plan, not the throw: the
 -- backswing, the flick and where the crank stops still decide it. A dashed
--- line of arcPoints projected points (every other gap drawn), ending in the
--- circle. Drawn over the world each aim frame, outside its caches; no tables.
+-- line of arcPoints projected points (every other gap drawn), ending in (or,
+-- for a drill, just short of) the circle. Drawn over the world each aim frame, outside its caches; no tables.
 drawArc = function(s, c)
 	local t = throw.tune
 	local vx, vy, vz, T = arcLaunch(s)
