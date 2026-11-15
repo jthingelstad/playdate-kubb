@@ -155,9 +155,9 @@ for the surface.
 
 ## Device testing
 
-`nolock` is in the game's Data folder on Jamie's Playdate so it stays awake for unattended
-testing over USB (AGENTS.md "Measuring on the device"). **Delete it when the testing is
-done.**
+`nolock` is no longer in the game's Data folder on Jamie's Playdate (checked 2026-11-15), so it
+auto-locks as usual. Put it back for unattended testing over USB (AGENTS.md "Measuring on the
+device") and delete it when the testing is done.
 
 The Playdate stopped answering over USB at about 5:00 on 2026-11-14 during a soak of the
 `soak-profile` build (the port was there, but it would neither mount its disk nor launch
