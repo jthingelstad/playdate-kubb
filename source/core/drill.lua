@@ -43,6 +43,11 @@ drill.tune = {
 	landZ = 0.07,           -- m: the kubb's center height when its lowest edge reaches the grass
 	slideAllow = 0.1,       -- m a clean drill moves on after its first touch (measured
 	                        -- on grass: tests/lua/test_drill.lua); it is aimed this much short
+	slideLoftDeg = 30,      -- ... at lofts up to this (the distance's lofts above)
+	slideHighDeg = 47,      -- at this loft and over (half past 1, the plan's drill arc) ...
+	slideAllowHigh = -0.03, -- ... aimed this much long (measured on grass, 9 markers x 4 grounds:
+	                        -- aimed with slideAllow a clean drill at 47 rested 0.13 m short;
+	                        -- with this 0.04 m off on average, 0.05 worst; test_throwplan)
 	-- the body at release (world.launchDrill)
 	noseDownDeg = 10,       -- the long axis this far below the horizontal: the nose leads
 	rollLandDeg = 45,       -- roll about the long axis when it lands: on a long edge, so
@@ -84,7 +89,8 @@ local function speedFor(R, e, h0, g)
 end
 
 -- Solve the clean drill onto the marker (mx, my in the view frame, the
--- thrower's baseline at lineY). Fills and returns `out`:
+-- thrower's baseline at lineY) at the loft the distance picks (loftNearDeg to
+-- loftFarDeg). Fills and returns `out`:
 --   x          where the thrower stands on the baseline
 --   swivel     radians, + = right
 --   loft       degrees
@@ -94,19 +100,41 @@ end
 --   T          s from release until the kubb's edge reaches the grass
 function drill.solve(mx, my, lineY, out)
 	local t = drill.tune
-	out = out or {}
 	local x = max(-t.throwerXMax, min(t.throwerXMax, mx))
 	local dx, dy = mx - x, my - lineY
 	local d = sqrt(dx * dx + dy * dy)
 	local f = max(0, min(1, (d - t.markerNear) / (t.markerFar - t.markerNear)))
-	local loft = lerp(t.loftNearDeg, t.loftFarDeg, f)
+	return drill.solveAt(mx, my, lineY, lerp(t.loftNearDeg, t.loftFarDeg, f), out, x)
+end
+
+-- The aim short of the marker that a clean drill at this loft slides on
+-- after its first touch: slideAllow up to slideLoftDeg, falling linearly to
+-- slideAllowHigh at slideHighDeg (a steeper drop runs on less).
+function drill.slideFor(loftDeg)
+	local t = drill.tune
+	if loftDeg <= t.slideLoftDeg then return t.slideAllow end
+	local f = min(1, (loftDeg - t.slideLoftDeg) / (t.slideHighDeg - t.slideLoftDeg))
+	return lerp(t.slideAllow, t.slideAllowHigh, f)
+end
+
+-- The clean drill onto the marker at a given loft (degrees): the plan's arc
+-- (core/throwplan). px is where the thrower stands on the baseline (nil:
+-- straight behind the marker, inside throwerXMax). Fills and returns `out`
+-- with the fields of drill.solve. No table is made when `out` is given.
+function drill.solveAt(mx, my, lineY, loftDeg, out, px)
+	local t = drill.tune
+	out = out or {}
+	local x = px or max(-t.throwerXMax, min(t.throwerXMax, mx))
+	local dx, dy = mx - x, my - lineY
+	local d = sqrt(dx * dx + dy * dy)
+	local f = max(0, min(1, (d - t.markerNear) / (t.markerFar - t.markerNear)))
 	local ft = flight.tune
 	local h0 = ft.handHeight - t.landZ
-	local e = rad(loft)
-	local R = max(0.5, d - t.slideAllow)
+	local e = rad(loftDeg)
+	local R = max(0.5, d - drill.slideFor(loftDeg))
 	local v = speedFor(R, e, h0, ft.g)
 	local vz = v * sin(e)
-	out.x, out.swivel, out.loft, out.dist, out.speed = x, atan(dx, dy), loft, d, v
+	out.x, out.swivel, out.loft, out.dist, out.speed = x, atan(dx, dy), loftDeg, d, v
 	out.band = lerp(t.bandNear, t.bandFar, f)
 	out.T = (vz + sqrt(vz * vz + 2 * ft.g * h0)) / ft.g
 	return out
@@ -151,16 +179,24 @@ function drill.launch(sol, r, cut, out)
 	if early then push = -push end
 	out.swivel = sol.swivel + push
 	out.loft = stopRelease and swing.releaseLoft(sol.loft, r.releaseAngle) or sol.loft
-	out.noseDown = t.noseDownDeg
-	out.rollLand = t.rollLandDeg
 	-- positive spin about the forward long axis curves the kubb to the left
 	-- (measured: test_drill), so A (+1) spins it negative and curves right
-	out.spin = -(cut or 0) * t.cutSpin
-	local jerk = max(0, (t.cleanAbove - (r.smoothness or 1)) / t.cleanAbove)
+	return drill.body(r.smoothness or 1, early and -1 or 1, -(cut or 0) * t.cutSpin, out)
+end
+
+-- The drilled kubb's body at release (world.launchDrill's arguments after
+-- the line of flight): fills `out` with noseDown, rollLand, spin (rad/s about
+-- the long axis, as given), wobble, digGain and jerk (0..1). smoothness is the
+-- swing's (or the plan's effective smoothness: core/throwplan); under
+-- cleanAbove the kubb wobbles nose over tail, up to wobbleRate at 0 and
+-- never more. pull (+1 or -1) is the wobble's sign.
+function drill.body(smoothness, pull, spin, out)
+	local t = drill.tune
+	local jerk = (t.cleanAbove - smoothness) / t.cleanAbove
+	if jerk < 0 then jerk = 0 elseif jerk > 1 then jerk = 1 end
+	out.noseDown, out.rollLand, out.spin = t.noseDownDeg, t.rollLandDeg, spin
 	out.jerk = jerk
-	local wob = t.wobbleRate * jerk
-	if early then wob = -wob end
-	out.wobble = wob
+	out.wobble = pull * t.wobbleRate * jerk
 	out.digGain = t.digGain
 	return out
 end
