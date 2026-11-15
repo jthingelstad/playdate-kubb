@@ -63,6 +63,8 @@ test("cards: the hand-off to Team B says what Team A took", function()
 	expect.eq(c.turn, 2)
 	expect.eq(c.base[1], 5, "Team A's base kubbs")
 	expect.eq(c.base[2], 4, "Team B's base kubbs")
+	expect.eq(c.baseText[1], "YOUR BASE 4", "the receiving team's own count first")
+	expect.eq(c.baseText[2], "THEIRS 5")
 	-- Team B's view is turned: its own baseline (world y = 8) at the bottom
 	local down = 0
 	for _, p in ipairs(c.pieces) do

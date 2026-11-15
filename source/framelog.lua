@@ -3,8 +3,10 @@
 -- during the flight. The line is core/frametel's (format there and in
 -- AGENTS.md "Frame-time log"). Separate from the crank recorder's
 -- traces.jsonl. On by default outside self-tests; the device autobench
--- turns it off while it runs, as it does the recorder.
+-- turns it off while it runs, as it does the recorder. logcap keeps the file
+-- to about 1 MB (older lines in frames-1.jsonl).
 import "core/tw"
+import "logcap"
 import "core/frametel"
 
 local framelog = {
@@ -22,6 +24,7 @@ end
 function framelog.write(t, info)
 	if not framelog.on then return end
 	info.time = now()
+	tw.logcap.check(framelog.path)
 	local f = playdate.file.open(framelog.path, playdate.file.kFileAppend)
 	if f then
 		f:write(tw.frametel.encode(t, info) .. "\n")

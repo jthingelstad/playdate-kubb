@@ -383,7 +383,9 @@ the datastore part is `source/players.lua` (`tw.players`).
   a player send them toward that side (bench to a team, a team to the bench), anywhere else
   change column; hold A + up/down moves a team's player up or down the order (the order
   is the rotation of "Throwing order"); A on a team's name types it; + PLAYER makes a saved
-  player, + GUEST one for this match only (not saved, no key). Six a side
+  player, + GUEST one for this match only (not saved, no key); either goes straight onto an
+  empty team (`lineup.seatNew`: Team A, else Team B when it is not the Playdate's), so a
+  first match needs no trip through the bench (RC review, 2026-11-15). Six a side
   (`lineup.tune.size`); a player is on one side. A team's name is the one typed, else the
   player's for a team of one, else `Team <first player>`. The lineup is kept per mode
   (datastore `teams`, saved players only) and offered again. `lineup.teams(L)` is
@@ -466,7 +468,11 @@ the datastore part is `source/players.lua` (`tw.players`).
   A scenario that runs out of frames reports the scene's mode, playback frame and awake
   bodies in its `FAIL` line.
 - `title`: the title with VS PLAYDATE chosen (frame 1), PRACTICE after two right presses
-  (frame 2), and A must leave with `practice`.
+  (frame 2), and A must leave with `practice`; frame 3 a new player's title (the HOW TO
+  THROW line), frame 4 a resume line with long team names cut to `RESUME TURN 12`.
+- `cards-fit`: the winner card with a team name too wide for display 32 beside the burst
+  (drawn in display 16, its first stats line without the name) and six ten-letter
+  players packed by width (frame 1), and one that fits (frame 2).
 - `soak`: the device soak for one short match (soak.lua), the save read back after every
   throw; `soak.txt` must end with `soak done`, no error and no failed save check.
 - `resume`: a match driven to turn 3, saved by the scene, read back through the
@@ -900,7 +906,7 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   tipping thresholds against the analytic values, dominoes, baton hits and misses,
   surfaces, stakes, determinism, playback). Outcomes are tested with tolerances.
 - Benchmark: `make bench` on the desktop; on the device the System Menu "Pitch" item, set to
-  "bench", runs the identical `core/bench` scenario a chunk of steps per frame, then times
+  "bench" (shown only with the `debug` flag file, below), runs the identical `core/bench` scenario a chunk of steps per frame, then times
   30 draws of the throw scene, shows ms per step, steps per 20 ms frame (overall and in
   the collision phase), total time and draw ms per frame, and appends one line to
   `bench.txt` in the Data folder. Real time needs 4.8 steps per 20 ms frame.
@@ -1117,6 +1123,11 @@ For hours of testing over USB (benches and installs with nobody at the device), 
 empty file named `nolock` in the same Data folder: while it is there the game never
 auto-locks (`main.lua` reads it once at launch). Delete it when the testing is done.
 
+An empty file named `debug` in the same Data folder shows the developer's items on the
+practice pitch's System Menu "Pitch": "readout" and "bench" (`tw.debug`, read once at
+launch). Without it a player sees only play, how to, reset, drill, batons, the surfaces and
+title (RC review, 2026-11-15: a stranger could start the bench, which cannot be stopped).
+
 ## Drawing speed
 
 On the device a graphics call costs 20 to 50 us (a small `fillPolygon` 41 us,
@@ -1170,7 +1181,7 @@ and copying a full-screen image about 0.7 ms. So:
   places it at 351 207, r 30, under the prompt flag. Its calls (the `clock-gauge`
   self-test counts them): 13 a frame while the hand moves with a peak, 6 for an idle
   crank, 1 for a frame that repeats the last, about 66 once when the targets change.
-  `hud.verdicts(powerV, releaseV, steady)` (one plate, 73 222 158 15, misses white on
+  `hud.verdicts(powerV, releaseV, steady)` (one plate, 73 222 180 15, misses white on
   black) and `hud.planChip(kind, value)` (250 182, `TILT R 5°`, `SPIN L 2`, nothing at 0)
   are plates keyed on their arguments; `hud.cutFlag(text)` in the same place gives a
   drilled kubb's rest distance (never at the same time as the plan chip). The result flag
@@ -1282,7 +1293,8 @@ most (Level, Record, Pitch), so Pitch is an options item that acts when the menu
 and then reads "play" again; its "how to" starts HOW TO THROW over the pitch (or ends it
 while it runs), its "title" goes back to the title screen, its "readout"
 turns the debug line under the rail on or off (debug only, 2026-11-15: it was the first
-item, a checkmark, which "Level" took). Its "drill" turns
+item, a checkmark, which "Level" took; it and "bench" are listed only with the `debug`
+flag file, "Measuring on the device"). Its "drill" turns
 the pitch to drilling kubbs (next section) and "batons" back; chosen mid-throw, the switch
 waits until the scene aims again. "reset" also clears the drilled kubbs.
 
@@ -1567,7 +1579,9 @@ own item). Practice is the throw scene exactly as before.
   `notation.Sheet` metatables back.
   `tests/lua/test_save.lua` plays 40 seeded games saved and restored every 7th action
   and needs the same game file as straight through. With a save, the title shows `B
-  RESUME <A> V <B>, TURN n` beside A START (a save that does not read back is ignored,
+  RESUME <A> V <B>, TURN n` beside A START (`RESUME TURN n` when the teams' names would
+  run into it, `title.resumeText`); without one, while HOW TO THROW has not been seen, the
+  same place says `NEW? PRACTICE > HOW TO THROW` (`title.new`'s hint) (a save that does not read back is ignored,
   never a crash at launch); `main.lua` opens `resume` from it (the match
   scene's `opts.resume`, its names and VS kept for a rematch). Self-test `resume`.
 - Games list (`scenes/games.lua`, board `Games.png`; `core/gamefile.lua` pure and tested
@@ -1785,7 +1799,9 @@ Hz 16-bit (about 16 KB each). A rumble the filters let through is dropped by lev
 To tell the deliberate slow motion from dropped frames, every throw (practice and match)
 appends one JSON line to `frames.jsonl` in the Data folder (`source/framelog.lua`, on outside
 self-tests, no menu item; the line is `core/frametel.encode`, written once in the throw
-scene's `landed`, never during the flight; not in instant mode). Collected with a dozen
+scene's `landed`, never during the flight; not in instant mode). Past
+`logcap.maxBytes` (1 MB) the file becomes `frames-1.jsonl` (replacing an older one) and a
+new one starts (`source/logcap.lua`; checked before each line). Collected with a dozen
 number fields on one table per throw scene (`s.ft`, reset at launch) and two maxima on the
 playback table; nothing is allocated per frame. `traces.jsonl` is separate and unchanged.
 
@@ -1818,7 +1834,11 @@ The System Menu has "Record" (and the practice pitch's "Pitch: readout", the deb
 after each throw). Record is
 on by default while the throw is being tuned (self-tests leave it off). With
 Record on, every swing is appended as one JSON line to `traces.jsonl` in the game's Data
-folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/`).
+folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/`). It
+stays on in the builds for players (their recordings are how the throw gets tuned), so the
+file is capped: past `logcap.maxBytes` (1 MB, about 750 swings) it becomes
+`traces-1.jsonl`, replacing an older one, and a new one starts (`source/logcap.lua`;
+checked before each line; at most about 4 MB of logs in all). Read both when collecting.
 The format is documented at the top of `source/core/trace.lua` (samples are
 `[dt, raw crank degrees]` per frame from the first wind-up frame to release or let-down,
 not the cooldown after a release, plus the result: what the swing measured, then the

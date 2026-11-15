@@ -72,8 +72,8 @@ local STEPS = {
 		after = { "THE LEFT MARK IS THE POWER THIS THROW NEEDS: IT",
 			"MOVES WITH THE DISTANCE. THE DRILLS FIND IT." } },
 	{ id = "arc", title = "4  WHERE YOU STOP IS THE ARC",
-		say = { "5 LOW, 4 FIELD KUBBS, 3 BASE KUBBS, HALF PAST 3 THE",
-			"KING, HALF PAST 1 A DRILL. STOP IN THE RIGHT MARK." },
+		say = { "STOP AT 5 O'CLOCK FOR LOW, 4 FOR FIELD KUBBS,",
+			"3 FOR BASE KUBBS, HALF PAST 3 FOR THE KING." },
 		afterOn = { "RELEASE ON. STOP EARLY AND IT FLIES LOW, LATE",
 			"AND IT FLIES HIGH." },
 		after = { "STOP EARLY AND IT FLIES LOW, LATE AND IT FLIES",
@@ -93,7 +93,10 @@ local STEPS = {
 			"SWINGS OUT TO SHOW IT. LEFT AND RIGHT TILT A",
 			"BATON, OR SPIN A DRILLED KUBB." },
 		after = { "TILT STEERS A BATON THROUGH A GROUP. SPIN ROLLS",
-			"A DRILLED KUBB SIDEWAYS WHEN IT LANDS." } },
+			"A DRILLED KUBB SIDEWAYS WHEN IT LANDS." },
+		-- one line kept on screen while B holds the camera out (the panel folds
+		-- to a strip then; the RC review of 2026-11-15: its words went with it)
+		held = "B HELD: UP/DOWN THE ARC, LEFT/RIGHT TILT OR SPIN" },
 	{ id = "done", title = "THAT IS THE THROW",
 		say = { "A AND B ARE EXTRAS: POINT AND THROW IS ENOUGH.",
 			"PRACTICE'S DRILLS ARE WHERE TO GET GOOD." } },
@@ -192,6 +195,12 @@ end
 
 -- What to show now: the title, three lines (nil for none) and the footer.
 -- Strings only (render/howto draws them, once per h.rev).
+-- The step's one line for the folded panel while B holds the camera out
+-- (nil: the title strip alone).
+function howto.heldLine(h)
+	return STEPS[h.step].held
+end
+
 function howto.lines(h)
 	local st = STEPS[h.step]
 	local L

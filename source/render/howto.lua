@@ -1,8 +1,8 @@
 -- HOW TO THROW's panel (core/howto) over the practice pitch while aiming: a
 -- black band under the rail with the step's title in the display font, its
 -- lines and the footer (A: NEXT, TAP B: SKIP) in the label font, white on
--- black; only its title strip while B holds the camera out over the
--- shoulder. One image, drawn again only when what the walkthrough says
+-- black; while B holds the camera out over the shoulder only a strip: the
+-- step's held line (core/howto.heldLine), else its title. One image, drawn again only when what the walkthrough says
 -- changes (h.rev), so a frame makes no text call (AGENTS.md "Drawing speed").
 import "CoreLibs/graphics"
 import "core/tw"
@@ -49,9 +49,34 @@ local function render(h)
 	end
 end
 
--- compact: the title strip only (the camera is out over the shoulder)
+-- The folded panel for a step with a held line (core/howto.heldLine): one
+-- strip with that line, cached by its text.
+local strip, stripText = nil, nil
+local function drawStrip(text)
+	local t = rhowto.tune
+	if not strip or stripText ~= text or not t.cache then
+		strip = strip or gfx.image.new(400, t.titleH + t.shadow, gfx.kColorClear)
+		gfx.pushContext(strip)
+		gfx.clear(gfx.kColorClear)
+		gfx.setColor(gfx.kColorBlack)
+		gfx.fillRect(0, 0, 400, t.titleH + t.shadow)
+		gfx.setColor(gfx.kColorWhite)
+		gfx.fillRect(0, t.titleH, 400, 1)
+		ui.text(ui.label(), text, t.pad, t.titleY + 3, true)
+		gfx.popContext()
+		stripText = text
+	end
+	strip:draw(0, t.y)
+end
+
+-- compact: the camera is out over the shoulder (B held): the step's held
+-- line in a strip when it has one, else the title strip only
 function rhowto.draw(h, compact)
 	local t = rhowto.tune
+	if compact then
+		local held = howto.heldLine(h)
+		if held then drawStrip(held); return end
+	end
 	if compact then gfx.setClipRect(0, t.y, 400, t.titleH) end
 	if not t.cache then
 		gfx.setDrawOffset(0, t.y)
@@ -83,6 +108,9 @@ function rhowto.widest()
 				if lw > w then w = lw end
 			end
 		end
+	end
+	for _, st in ipairs(howto.STEPS) do
+		if st.held and label:getTextWidth(st.held) > w then w = label:getTextWidth(st.held) end
 	end
 	local v = label:getTextWidth("THAT ONE: SHORT  HIGH  STEADY")
 	if v > w then w = v end

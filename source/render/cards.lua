@@ -40,6 +40,9 @@ rcards.tune = {
 	map = { x = 290, y = 36, w = 94, h = 148, cx = 337, base = 175, far = 45, mPerX = 18 },
 	-- winner
 	winNameTop = 36,            -- the winner's cap top (display 32)
+	winNameRoom = 205,          -- px of the name line clear of the burst; a wider name drops to
+	                            -- display 16 (cap top winNameTop + 12), then the label font
+	winHowRoom = 236,           -- px of the first stats line clear of the burst's lower points
 	winsTop = 82,               -- WINS
 	winRuleY = 128, winRuleW = 150,
 	statsY = 140, statsStep = 14,
@@ -76,7 +79,7 @@ local function drawMap(c)
 		end
 	end
 	ui.text(label, c.toName, m.cx, m.y + m.h + 4, true, "center")
-	ui.textDots(label, { "TURN " .. c.turn, "BASE " .. c.base[1] .. " V " .. c.base[2] }, rcards.tune.right,
+	ui.textDots(label, { "TURN " .. c.turn, c.baseText[1], c.baseText[2] }, rcards.tune.right,
 		rcards.tune.buttonY + 1, true, "right")
 end
 
@@ -258,7 +261,15 @@ function rcards.winner(c, how, saved)
 	local label, d32 = ui.label(), ui.display(32)
 	gfx.pushContext(img)
 	burst:draw(0, 0)
-	ui.text(d32, c.winnerName, t.left - 1, t.winNameTop - 1, true)
+	-- a long name would run into the burst: smaller faces until it fits
+	local name = string.upper(c.winnerName)
+	if d32:getTextWidth(name) <= t.winNameRoom then
+		ui.text(d32, name, t.left - 1, t.winNameTop - 1, true)
+	elseif ui.display(16):getTextWidth(name) <= t.winNameRoom then
+		ui.text(ui.display(16), name, t.left - 1, t.winNameTop + 11, true)
+	else
+		ui.text(label, name, t.left, t.winNameTop + 14, true)
+	end
 	ui.text(d32, "wins", t.left - 1, t.winsTop - 1, true)
 	white()
 	gfx.fillRect(t.left, t.winRuleY, t.winRuleW, 3)
@@ -267,7 +278,15 @@ function rcards.winner(c, how, saved)
 		ui.textDots(label, parts, t.left, y, true)
 		y = y + t.statsStep
 	end
-	if how and how ~= "" then line { how } end
+	if how and how ~= "" then
+		-- the first line runs beside the burst's lower points: a long one drops
+		-- the winner's name, which is just above it ("TOPPLED THE KING")
+		if label:getTextWidth(string.upper(how)) > t.winHowRoom then
+			local n = #c.winnerName
+			if how:sub(1, n):upper() == c.winnerName:upper() then how = how:sub(n + 2) end
+		end
+		line { how }
+	end
 	local first = { plural(c.turns, "turn", "turns") }
 	if c.minutes then first[2] = c.minutes < 1 and "under a min" or (c.minutes .. " min") end
 	-- a team of several needs the room for its players: "saved" joins this line
@@ -277,15 +296,30 @@ function rcards.winner(c, how, saved)
 		line { string.format("baton hits %d%%", math.floor(100 * c.hits / c.thrown + 0.5)) }
 	end
 	if c.players then
-		-- each player's hits over batons, three to a line
-		for from = 1, #c.players, 3 do
-			local parts = {}
-			for i = from, math.min(#c.players, from + 2) do
-				local p = c.players[i]
-				parts[#parts + 1] = p.name .. " " .. p.hits .. "/" .. p.thrown
+		-- each player's hits over batons, as many to a line as fit between the
+		-- margins; when that takes more lines than there is room for above the
+		-- buttons, the names are cut to their first six letters
+		local room = math.max(1, (t.buttonY - 4 - y) // t.statsStep)
+		local function pack(cut)
+			local lines, parts, w = {}, {}, 0
+			for _, p in ipairs(c.players) do
+				local nm = cut and string.sub(p.name, 1, 6) or p.name
+				local s = nm .. " " .. p.hits .. "/" .. p.thrown
+				local sw = label:getTextWidth(string.upper(s))
+				local add = (#parts > 0) and (sw + 10) or sw
+				if #parts > 0 and w + add > t.right - t.left then
+					lines[#lines + 1] = parts
+					parts, w, add = {}, 0, sw
+				end
+				parts[#parts + 1] = s
+				w = w + add
 			end
-			line(parts)
+			if #parts > 0 then lines[#lines + 1] = parts end
+			return lines
 		end
+		local lines = pack(false)
+		if #lines > room then lines = pack(true) end
+		for i = 1, math.min(#lines, room) do line(lines[i]) end
 	else
 		line { saved and "game saved" or "not saved" }
 	end

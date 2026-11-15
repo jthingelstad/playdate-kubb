@@ -33,9 +33,24 @@ title.tune = {
 }
 
 -- saved: a line about the match in progress ("ASH V BIRCH, TURN 7"), or
--- nil; with it, B resumes that match.
-function title.new(provider, saved)
-	return { input = provider, choice = 1, exit = nil, images = {}, saved = saved }
+-- nil; with it, B resumes that match. hint: HOW TO THROW has not been seen
+-- yet, so the title says where it is (only when there is no match to
+-- resume: the line sits where B RESUME would).
+function title.new(provider, saved, hint)
+	return { input = provider, choice = 1, exit = nil, images = {}, saved = saved, hint = hint }
+end
+
+title.HINT = "NEW? PRACTICE > HOW TO THROW"
+
+-- The resume button's text: the teams and the turn, or only the turn when
+-- the teams' names would run into A START.
+function title.resumeText(saved)
+	local t = title.tune
+	local room = t.startRight - ui.buttonWidth("START") - 12 - 12
+	local full = "RESUME " .. saved
+	if ui.buttonWidth(full) <= room then return full end
+	local turn = saved:match("TURN (%d+)$")
+	return turn and ("RESUME TURN " .. turn) or "RESUME"
 end
 
 function title.update(s)
@@ -51,7 +66,7 @@ end
 
 local background = nil
 
-local function render(choice, saved)
+local function render(choice, saved, hint)
 	local t = title.tune
 	background = background or gfx.image.new("images/title")
 	local img = gfx.image.new(400, 240, gfx.kColorBlack)
@@ -81,7 +96,11 @@ local function render(choice, saved)
 		end
 	end
 	ui.button("A", "START", t.startRight - ui.buttonWidth("START"), t.startY, true)
-	if saved then ui.button("B", "RESUME " .. saved, 12, t.startY, true) end
+	if saved then
+		ui.button("B", title.resumeText(saved), 12, t.startY, true)
+	elseif hint then
+		ui.text(ui.label(), title.HINT, 12, t.startY + 2, true)
+	end
 	gfx.popContext()
 	return img
 end
@@ -89,7 +108,7 @@ end
 function title.draw(s)
 	local img = s.images[s.choice]
 	if not img then
-		img = render(s.choice, s.saved)
+		img = render(s.choice, s.saved, s.hint)
 		s.images[s.choice] = img
 	end
 	img:draw(0, 0)

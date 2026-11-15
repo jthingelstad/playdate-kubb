@@ -18,6 +18,11 @@
 --   ui.buttonWidth(word)  the width ui.button will take.
 --   ui.textDots(font, parts, x, y, white, align)
 --                         parts of one line with a middle dot between them.
+--   ui.capBox(y, pad)     the top and height of a highlight box round a line
+--                         of display 16 drawn at y: the caps fill rows 1 to 16
+--                         of the font's cell, so the box is centred on them with
+--                         pad px above and below (2 at the least, so the
+--                         box never cuts the caps).
 --
 -- A text call costs about 0.6 ms on the device: draw these into a cached
 -- image (the title's and the cards' do) and copy that.
@@ -44,6 +49,11 @@ function ui.display(cap)
 		assert(fonts[key], "no display font at cap " .. tostring(cap))
 	end
 	return fonts[key]
+end
+
+function ui.capBox(y, pad)
+	if pad < 2 then pad = 2 end
+	return y + 1 - pad, 16 + 2 * pad
 end
 
 function ui.label()

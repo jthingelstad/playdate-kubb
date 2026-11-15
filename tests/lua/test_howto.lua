@@ -26,6 +26,7 @@ test("howto: every line fits the panel and a throw step leaves its third line fo
 				expect.eq(line, line:upper(), "capitals")
 			end
 		end
+		if st.held then expect.truthy(#st.held <= 52 and st.held == st.held:upper(), st.id .. " held: " .. st.held) end
 		if st.id == "throw" or st.id == "power" or st.id == "arc" then
 			expect.truthy(#st.say <= 2 and #(st.after or {}) <= 2 and #(st.afterOn or {}) <= 2, st.id)
 		end

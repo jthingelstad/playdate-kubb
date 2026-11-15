@@ -125,9 +125,15 @@ local function nameDone(s)
 		keep(s)
 	elseif what == "new" then
 		local p = roster.add(s.r, name, nil, players.today())
-		if p then players.save(s.r) end
+		if p then
+			players.save(s.r)
+			-- onto an empty team at once (lineup.seatNew)
+			if lineup.seatNew(s.L, lineup.entry(p)) then keep(s) end
+		end
 	elseif what == "guest" then
-		s.guests[#s.guests + 1] = lineup.guest(name)
+		local g = lineup.guest(name)
+		s.guests[#s.guests + 1] = g
+		lineup.seatNew(s.L, g)
 	end
 	changed(s)
 end
@@ -238,7 +244,8 @@ local function render(s)
 			local ink = onBlack
 			if on then
 				gfx.setColor(onBlack and WHITE or BLACK)
-				gfx.fillRect(x0 + 4, y - 2, t.colW - 8, t.rowH)
+				local by, bh = ui.capBox(y, 2)   -- centred on the caps (it cut their foot)
+				gfx.fillRect(x0 + 4, by, t.colW - 8, bh)
 				ink = not onBlack
 			end
 			local text, right
