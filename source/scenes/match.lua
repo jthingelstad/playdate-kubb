@@ -60,6 +60,8 @@ import "core/names"
 import "core/save"
 import "scenes/sheet"
 import "core/wind"
+import "core/history"
+import "players"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
@@ -78,9 +80,12 @@ scene.tune = {
 	cpuScatter = 1.0,    -- times core/autothrow's scatter (lower: a steadier opponent)
 }
 
--- the teams: opts.names = { A = name, B = name } (scenes/names), else
--- "You" against "Playdate", or "Team A" and "Team B"
+-- the teams: opts.teams (scenes/teams: core/lineup's, players with their
+-- roster keys and levels), else opts.names = { A = name, B = name } (one
+-- player a team, named as it), else "You" against "Playdate", or "Team A"
+-- and "Team B"
 local function teams(opts)
+	if opts.teams then return opts.teams end
 	local n = opts.names or {}
 	if opts.vs then return tw.names.teams { A = n.A or "You", B = "Playdate" } end
 	if n.A and n.B then return tw.names.teams(n) end
@@ -128,8 +133,8 @@ local function persist(s)
 	if cmatch.over(s.m) then
 		playdate.datastore.delete(key)
 	else
-		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, autoSettle = s.opts.autoSettle, set = s.opts.set,
-			wind = s.opts.wind },
+		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, teams = s.opts.teams, autoSettle = s.opts.autoSettle,
+			set = s.opts.set, wind = s.opts.wind },
 			function(d) playdate.datastore.write(d, key) end)
 	end
 end
@@ -145,8 +150,35 @@ local function archive(s)
 	if not s.opts.noFile then s.file, s.fileError = writeFile(s, s.finish) end
 end
 
+-- A finished match goes into its saved players' histories (core/history:
+-- totals, recent games, at the level each played). Not for scripted
+-- matches; guests and the Playdate are not saved. A failure here must not
+-- stop the winner card.
+local function foldHistory(s)
+	if s.opts.seed or s.opts.instant or s.folded then return end
+	s.folded = true
+	local m = s.m
+	local keys, levels, any = {}, {}, false
+	for _, side in ipairs { "A", "B" } do
+		for _, e in ipairs(m.lineup and m.lineup[side] or {}) do
+			if e.key then keys[e.id], levels[e.id], any = e.key, e.level, true end
+		end
+	end
+	if not any then return end
+	pcall(function()
+		local r = tw.players.load()
+		local hs = {}
+		for _, key in pairs(keys) do hs[key] = tw.players.history(key) end
+		local done = tw.history.foldGame(r, hs, m.game, { keys = keys, levels = levels, date = tw.players.now(),
+			file = s.file and s.file:match("[^/]+$") })
+		tw.players.save(r)
+		for _, key in ipairs(done) do tw.players.saveHistory(key, hs[key]) end
+	end)
+end
+
 local function over(s)
 	archive(s)
+	foldHistory(s)
 	persist(s)
 	s.phase = "over"
 	s.setup = nil
@@ -155,6 +187,20 @@ local function over(s)
 	s.win = cards.winner(s.m, finish)
 	s.winHow = cmatch.howText(s.m)
 	s.card = nil
+end
+
+-- The rail's first text: the team, and for a team of several who throws.
+local function railName(s, setup)
+	local name = cmatch.teamName(setup.side, s.m.game)
+	if #s.m.game.teams[setup.side].players > 1 and setup.thrower then name = name .. ": " .. setup.thrower.name end
+	return string.upper(name)
+end
+
+-- Whether the Playdate is passed inside this team (pass card, change):
+-- a team of several players on the Playdate's own screen, not the
+-- Playdate's team, and not a scripted match without cards.
+local function passes(s, setup)
+	return not s.opts.skipHandoff and setup.side ~= s.cpu and #s.m.game.teams[setup.side].players > 1
 end
 
 -- Set the next throw up (or end the match).
@@ -213,7 +259,8 @@ local function nextThrow(s)
 		r2 = throw.railBase[base] or ("BASE " .. base)
 		if not r1 then r1, r2 = r2, nil end
 	end
-	throw.setRail(s.ts, string.upper(cmatch.teamName(setup.side, m.game)), setup.projectile, setup.n, setup.of, r1, r2)
+	s.rail = { r1, r2 }
+	throw.setRail(s.ts, railName(s, setup), setup.projectile, setup.n, setup.of, r1, r2)
 	if setup.side ~= s.side then
 		-- a new turn: the other team takes the Playdate
 		s.side = setup.side
@@ -227,6 +274,15 @@ local function nextThrow(s)
 	else
 		s.phase = "play"
 	end
+	-- a team of several: the pass card when another of its players throws
+	-- next (the hand-off card names the turn's first thrower)
+	local th = setup.thrower
+	if s.phase == "play" and passes(s, setup) and th and th.id ~= s.lastThrower then
+		s.phase = "pass"
+		s.pass = cards.pass(m, setup)
+		s.card = nil
+	end
+	s.lastThrower = th and th.id
 	s.cpuWait, s.cpuAim = 0, nil
 	s.ts.watching = s.cpu ~= nil and setup.side == s.cpu
 end
@@ -324,7 +380,7 @@ function scene.update(s)
 		openSheet(s)
 		return
 	end
-	if s.resignWanted and (s.phase == "handoff" or ts.mode == "aim" or ts.mode == "done") then
+	if s.resignWanted and (s.phase == "handoff" or s.phase == "pass" or ts.mode == "aim" or ts.mode == "done") then
 		s.resignWanted = false
 		if not s.resolved and ts.mode == "done" then
 			cmatch.resolve(s.m, ts.result, not ts.last.legal)
@@ -338,9 +394,36 @@ function scene.update(s)
 			s.resignWanted = true   -- not that side's turn yet: wait for it
 		end
 	end
-	if s.phase == "handoff" then
+	if s.phase == "handoff" or s.phase == "pass" then
 		s.input:advance()
-		if s.input:pressed("a") then s.phase = "play" end
+		local p = s.input
+		if s.changing then
+			-- who throws instead (core/match.candidates)
+			local c = s.changing
+			if p:pressed("up") then c.i = (c.i - 2) % #c.list + 1; s.card = nil end
+			if p:pressed("down") then c.i = c.i % #c.list + 1; s.card = nil end
+			if p:pressed("a") and c.list[c.i].ok then
+				cmatch.changeThrower(s.m, c.list[c.i].id)
+				local setup = s.setup
+				s.lastThrower = setup.thrower.id
+				throw.setRail(s.ts, railName(s, setup), setup.projectile, setup.n, setup.of, s.rail[1], s.rail[2])
+				if s.phase == "handoff" then s.handoff = cards.handoff(s.m, setup)
+				else s.pass = cards.pass(s.m, setup) end
+				persist(s)
+				s.changing, s.card = nil, nil
+			elseif p:pressed("b") then
+				s.changing, s.card = nil, nil
+			end
+			return
+		end
+		if p:pressed("a") then
+			s.phase, s.card = "play", nil
+		elseif p:pressed("b") and s.setup and passes(s, s.setup) then
+			local list = cmatch.candidates(s.m)
+			local i = 1
+			for k, e in ipairs(list) do if e.current then i = k end end
+			s.changing, s.card = { list = list, i = i }, nil
+		end
 		return
 	end
 	if s.phase == "settle" then
@@ -408,11 +491,17 @@ end
 function scene.draw(s)
 	if s.sheet then return sheet.draw(s.sheet) end
 	s.ts.covered = (s.phase ~= "play")
-	if s.phase == "over" or s.phase == "handoff" then
+	if s.phase == "over" or s.phase == "handoff" or s.phase == "pass" then
 		-- a full-screen card, built once
 		if not s.card then
-			if s.phase == "over" then
+			if s.changing then
+				local st = s.setup
+				s.card = rcards.change(s.changing.list, s.changing.i,
+					st.kind == "toss" and "the kubbs" or ("baton " .. st.n))
+			elseif s.phase == "over" then
 				s.card = rcards.winner(s.win, s.winHow, s.file ~= nil)
+			elseif s.phase == "pass" then
+				s.card = rcards.pass(s.pass)
 			else
 				s.card = rcards.handoff(s.handoff)
 			end

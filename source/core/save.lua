@@ -16,7 +16,9 @@ local rules, notation = tw.rules, tw.notation
 
 local save = {}
 
-save.version = 1
+-- 2: teams of several players, with the throwing order and the lineup
+-- (docs/PLAYERS.md); a version 1 save is not resumed (Jamie, 2026-11-15)
+save.version = 2
 
 local function plain(v, seen, path)
 	local t = type(v)
@@ -41,7 +43,7 @@ end
 save.plain = function(v) return plain(v, {}, "") end
 
 -- Hands writer(d) what a resume needs of match `m`, plus `opts` (the match
--- scene's options: names, vs, autoSettle, set, wind; the surface and opening are the
+-- scene's options: names, teams, vs, autoSettle, set, wind; the surface and opening are the
 -- engine's own): the live tables, not a copy (copying the game
 -- cost 43 ms on the device at turn 4), so writer must write it at once
 -- (playdate.datastore.write). The score sheet's current turn is also its
@@ -57,8 +59,8 @@ function save.write(m, opts, writer)
 	local ok, err = pcall(writer, {
 		v = save.version, currentIndex = ci,
 		game = m.game, start = m.start, mode = m.mode, turn = m.turn, tossed = m.tossed,
-		text = m.text, debris = m.debris, order = m.order,
-		opts = { vs = opts and opts.vs, names = opts and opts.names,
+		text = m.text, debris = m.debris, order = m.order, lineup = m.lineup,
+		opts = { vs = opts and opts.vs, names = opts and opts.names, teams = opts and opts.teams,
 			autoSettle = opts and opts.autoSettle or nil,   -- the match options' raising
 			set = opts and opts.set or nil,                 -- kubb set
 			wind = opts and opts.wind or nil },             -- and wind
@@ -89,7 +91,7 @@ function save.unpack(d)
 		sheet.currentIndex = nil
 	end
 	local m = { game = g, start = d.start, mode = d.mode, turn = d.turn, tossed = d.tossed, text = d.text,
-		settled = nil, setup = nil, debris = d.debris, order = d.order }
+		settled = nil, setup = nil, debris = d.debris, order = d.order, lineup = d.lineup }
 	return m, d.opts or {}
 end
 

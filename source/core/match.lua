@@ -47,6 +47,32 @@ function match.teamName(side, g)
 	return t and t.name or ("Team " .. side)
 end
 
+-- Each engine player's saved player and throw level, from the teams given
+-- to match.new (core/lineup's: { name, key, level, guest }), by side and in
+-- order: { A = { { id, key, level, guest } }, B = ... }. rules.new keeps the
+-- players in order, so the two lists line up.
+function match.lineupOf(g, teams)
+	local out = {}
+	for _, side in ipairs { "A", "B" } do
+		local given = teams and teams[side] and teams[side].players or {}
+		local list = {}
+		for i, p in ipairs(g.teams[side].players) do
+			local q = given[i] or {}
+			list[i] = { id = p.id, key = q.key, level = q.level, guest = q.guest or nil }
+		end
+		out[side] = list
+	end
+	return out
+end
+
+-- A player's lineup entry by id ({ id, key, level, guest }), or nil.
+function match.member(m, side, id)
+	for _, e in ipairs(m.lineup and m.lineup[side] or {}) do
+		if e.id == id then return e end
+	end
+	return nil
+end
+
 function match.new(opts)
 	opts = opts or {}
 	local g = rules.new {
@@ -67,6 +93,7 @@ function match.new(opts)
 		setup = nil,              -- the current throw (match.setup)
 		debris = debris.new(),    -- batons and downed kubbs lying on the pitch this turn
 		order = order.new(g.teams),   -- who throws (core/order)
+		lineup = match.lineupOf(g, opts.teams),   -- each player's roster key and level
 	}
 end
 
@@ -91,7 +118,57 @@ function match.thrower(m)
 	local pid = order.thrower(orderOf(m), g)
 	if not pid then return nil end
 	local p = match.player(m, g.attacker, pid)
-	return { id = pid, name = p and p.name or pid }
+	local e = match.member(m, g.attacker, pid)
+	return { id = pid, name = p and p.name or pid, key = e and e.key, level = e and e.level }
+end
+
+-- Hand the throw set up (m.setup) to another player of its team: the kubbs
+-- (the inkaster, core/order.setInkaster) or this baton (core/order.change).
+-- Returns ok, why ("team", "cap", "distinct"); on ok m.setup.thrower is the
+-- new player's.
+function match.changeThrower(m, pid)
+	local s, g = m.setup, m.game
+	if not s then return false, "none" end
+	local o = orderOf(m)
+	local ok, why
+	if s.kind == "toss" then ok, why = order.setInkaster(o, pid)
+	else ok, why = order.change(o, s.n, pid, s.n - 1) end
+	if ok then s.thrower = match.thrower(m) end
+	return ok, why
+end
+
+-- Who may take the throw set up, for the change list: every player of the
+-- team, in order, { id, name, ok, why } (why as match.changeThrower's).
+function match.candidates(m)
+	local s, g = m.setup, m.game
+	local out = {}
+	if not s then return out end
+	local o = orderOf(m)
+	for _, p in ipairs(g.teams[s.side].players) do
+		local ok, why
+		if s.kind == "toss" then ok = true else ok, why = order.allowed(o, s.n, p.id, s.n - 1) end
+		out[#out + 1] = { id = p.id, name = p.name, ok = ok and true or false, why = why,
+			current = s.thrower and s.thrower.id == p.id }
+	end
+	return out
+end
+
+-- This turn's batons by player, in order: { { id, name, n }, ... } (runs of
+-- one player together), for the hand-off card.
+function match.turnOrder(m)
+	local g = m.game
+	local o = orderOf(m)
+	order.sync(o, g)
+	local out = {}
+	for _, pid in ipairs(o.deal or {}) do
+		local last = out[#out]
+		if last and last.id == pid then last.n = last.n + 1
+		else
+			local p = match.player(m, o.side, pid)
+			out[#out + 1] = { id = pid, name = p and p.name or pid, n = 1 }
+		end
+	end
+	return out, o.inkaster and match.player(m, o.side, o.inkaster)
 end
 
 function match.over(m) return m.game.phase == "over" end

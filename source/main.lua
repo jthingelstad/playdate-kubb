@@ -48,6 +48,7 @@ import "core/save"
 import "scenes/games"
 import "scenes/drills"
 import "scenes/players"
+import "scenes/teams"
 import "benchscreen"
 import "autobench"
 import "soak"
@@ -105,6 +106,8 @@ import "selftest/clock-drill"
 import "selftest/clock-letdown"
 import "selftest/drills-new"
 import "selftest/players"
+import "selftest/teams"
+import "selftest/match-teams"
 
 local function launchArgs()
 	local args = {}
@@ -221,6 +224,14 @@ else
 		end
 	end
 
+	-- A match saved by a build before teams of several players (save
+	-- version 1) is not resumed: it is deleted at launch (Jamie, 2026-11-15,
+	-- docs/PLAYERS.md decision 9).
+	pcall(function()
+		local d = playdate.datastore.read("match")
+		if type(d) == "table" and d.v ~= tw.save.version then playdate.datastore.delete("match") end
+	end)
+
 	-- A line about the match saved in progress ("ASH V BIRCH, TURN 7"), or
 	-- nil when there is none (or it cannot be read back).
 	-- A save that does not read back as expected (a damaged file) is no
@@ -253,10 +264,10 @@ else
 			current = throw.new(device)
 			throw.enter()
 		elseif which == "match" or which == "vs" then
-			-- PASS + PLAY or VS PLAYDATE: the names first (scenes/names)
-			kind = "names"
-			current = names.new(device, which)
-			names.enter(current)
+			-- PASS + PLAY or VS PLAYDATE: the teams first (scenes/teams)
+			kind = "teams"
+			current = tw.scenes.teams.new(device, which)
+			tw.scenes.teams.enter()
 		elseif which == "players" then
 			-- the saved players (scenes/players)
 			kind = "players"
@@ -282,11 +293,11 @@ else
 			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
 			-- a rematch keeps the resumed match's options (surface and opening
 			-- are the engine's own)
-			lastMatch = { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, set = opts.set, wind = opts.wind,
-				surface = m.game.surface, opening = m.game.opening }
+			lastMatch = { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle, set = opts.set,
+				wind = opts.wind, surface = m.game.surface, opening = m.game.opening }
 			kind = "match"
-			current = match.new(device, { vs = opts.vs, names = opts.names, autoSettle = opts.autoSettle, set = opts.set,
-				wind = opts.wind, resume = m })
+			current = match.new(device, { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle,
+				set = opts.set, wind = opts.wind, resume = m })
 			match.enter()
 		else
 			kind = "title"
@@ -355,6 +366,15 @@ else
 			games.update(current)
 			if current.exit then return open(current.exit) end
 			games.draw(current)
+		elseif kind == "teams" then
+			tw.scenes.teams.update(current)
+			if current.done then
+				-- then the match options
+				nextMatch = { vs = (current.mode == "vs") and "B" or nil, teams = tw.scenes.teams.teams(current) }
+				return open("options")
+			end
+			if current.exit then return open(current.exit) end
+			tw.scenes.teams.draw(current)
 		elseif kind == "names" then
 			names.update(current)
 			if current.done then
