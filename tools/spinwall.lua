@@ -1,43 +1,40 @@
--- Drill spin: how far the cut rolls a drilled kubb sideways, and whether
--- drills rolled into the centerline stake build a wall. A headless,
--- deterministic experiment on core/world and core/drill (the ground texture
--- seed is fixed per throw, so two spins at the same marker meet the same
--- ground).
+-- Drill spin: how far the planned spin rolls a drilled kubb sideways, and
+-- whether drills rolled into the centerline stake build a wall. A headless,
+-- deterministic experiment on core/world, core/drill and core/throwplan (the
+-- ground texture seed is fixed per throw, so two spins at the same marker
+-- meet the same ground).
 --
---   lua5.4 tools/spinwall.lua [--quick] [--lofts low,47] [--sand]
+--   lua5.4 tools/spinwall.lua [--quick] [--lofts 47,30] [--no-sand] [--no-wall]
 --
--- Every drill is clean (smoothness 1, power on the band, no tilt), launched
--- by world.launchDrill with drill.launch's numbers except the spin, which is
--- set directly (rad/s about the forward long axis; negative rolls right,
--- toward +x, as drill.CUT_A does). Two lofts: "low" is drill.solve's own
--- (26 to 30 degrees by distance); a number is that loft with the speed that
--- carries the same clean drill to the same marker (drill.solve's formula,
--- the same slideAllow), noseDown and rollLand as drill.tune has them.
+-- Every drill is the plan's clean drill (core/throwplan): drill.solveAt onto
+-- the marker at the loft, launched by world.launchDrill with drill.body's
+-- numbers, the spin `taps` * plan.tune.spinPerStep (+ rolls right, toward +x).
+-- The lofts are launch angles: 47 is the drill's default arc (half past 1 on
+-- the clock), 30 a low arc (about 3 o'clock).
 --
--- 1. Roll: for spins k * drill.tune.cutSpin (k listed below), at
---    markers 4.5 to 7 m out at three x: per spin, over markers and grounds,
---      side    rest x minus the spin-0 drill's rest x (same marker, ground), m
---      roll    rest x minus the center's x at the first touch (the roll after landing)
---      fwd     rest y minus the center's y at the first touch (the forward slide)
+-- 1. Roll: for taps -spinSteps .. +spinSteps at markers 4.6 to 7.2 m out at
+--    three x, on several grounds; per tap, over markers and grounds:
+--      side    rest x minus the 0-tap drill's rest x (same marker, ground), m
+--      roll    rest x minus the centre's x at the first touch (after landing)
+--      fwd     rest y minus the centre's y at the first touch (the forward slide)
 --      miss    distance from the rest to the marker
---      hop     highest the center rose after the first touch, above a lying kubb's 0.035 m
---      lying/end/other  how it rests: long axis within 10 degrees of horizontal,
---              within 30 of vertical (on an end), or neither
---      flip    share of drills whose long axis passed 60 degrees from
---              horizontal after landing (went end over end)
+--      hop     highest the centre rose after the first touch, above a lying kubb's 0.035 m
+--      lying/end/other  how it rests: long axis within 10 degrees of horizontal and
+--              a face down (within 10 degrees), on an end (within 30 of vertical),
+--              or neither (on an edge, propped)
+--      nose    share of drills whose first touch was ahead of the centre
+--              along the long axis (nose first)
 --      sd      spread (standard deviation) of side over markers and grounds
---    Spins k = 0, +-0.5, 1, 1.5, 2, 3, 4, 6. The full run also gives sand (fewer
---    markers and spins).
--- 2. Wall: markers short of the stake at (2.5, 4) by o inward along x and at a
---    few y about 4, spins that roll toward it. The first kubb is classed
+-- 2. Wall: markers inward of the stake at (2.5, 4) by o along x at a few y
+--    just past 4, rolled toward it with 1, 2 and 3 taps. The first kubb is
 --      against  rests within 1.5 cm of the stake
 --      bounced  touched the stake, rests farther than that
 --      short    never touched it, rests inward of it
 --      past     never touched it, went by it (beyond in y, or out past x = 2.5)
 --    Per cell: gap = the first kubb's mean distance from the stake (m), its rest y
---    mean and spread. Then a second and a third kubb at the same marker and spin, on the same
---    ground, the earlier ones lying where they came to rest (asleep, toppled,
---    as core/debris carries them). Each later kubb is classed
+--    mean and spread. Then a second and a third kubb at the same marker and taps,
+--    on the same ground, the earlier ones lying where they came to rest (asleep,
+--    toppled, as core/debris carries them). Each later kubb is
 --      beside   rests touching the wall (an earlier kubb or the stake) within
 --               1.5 cm, lying, centre within 12 cm of y = 4, and no earlier
 --               kubb moved more than 3 cm
@@ -47,12 +44,12 @@
 --      apart    none of these (stopped short of the wall or went elsewhere)
 --    and "wall n" counts series whose final kubbs make a chain of n from the
 --    stake (each within 1.5 cm of the one before, centre within 12 cm of y = 4).
+--    "best" lists, per tap count, the offset that built the most walls of 3.
 --    The full run repeats the wall with the marker moved 7 cm (a kubb's width)
 --    inward for each later kubb, as a player who sees the wall would.
 --
--- --quick: fewer markers, grounds and wall cells, no sand, no stepped wall
--- (under a second; the full run about 45 s). --sand adds sand to --quick.
--- --lofts: comma list, "low" for drill.solve's loft (default low,47).
+-- --quick: fewer markers, grounds and wall cells, no stepped wall (about 10
+-- seconds; the full run about two minutes).
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -65,77 +62,70 @@ end
 
 import "core/world"
 import "core/drill"
-import "core/flight"
+import "core/throwplan"
 import "core/rect"
 import "core/raising"
 import "core/pitch"
-local world, drill, flight, rect, raising, pitch = tw.world, tw.drill, tw.flight, tw.rect, tw.raising, tw.pitch
+local world, drill, plan, rect, raising, pitch = tw.world, tw.drill, tw.plan, tw.rect, tw.raising, tw.pitch
 
-local quick, sand, loftArg = false, false, "low,47"
+local quick, sand, wall, loftArg = false, true, true, "47,30"
 local i = 1
 while i <= #arg do
 	local a = arg[i]
 	if a == "--quick" then quick = true
-	elseif a == "--sand" then sand = true
+	elseif a == "--no-sand" then sand = false
+	elseif a == "--no-wall" then wall = false
 	elseif a == "--lofts" then loftArg = arg[i + 1]; i = i + 1
 	else error("unknown argument " .. a) end
 	i = i + 1
 end
 local LOFTS = {}
-for s in loftArg:gmatch("[^,]+") do LOFTS[#LOFTS + 1] = (s == "low") and "low" or tonumber(s) end
+for s in loftArg:gmatch("[^,]+") do LOFTS[#LOFTS + 1] = tonumber(s) end
 
 local fmt = string.format
-local sqrt, sin, cos, atan, rad, deg, abs, max, min = math.sqrt, math.sin, math.cos, math.atan, math.rad,
-	math.deg, math.abs, math.max, math.min
-local CUT = drill.tune.cutSpin
+local sqrt, sin, cos, atan, rad, abs, max, min = math.sqrt, math.sin, math.cos, math.atan, math.rad,
+	math.abs, math.max, math.min
+local PER, STEPS = plan.tune.spinPerStep, plan.tune.spinSteps
 local STAKE_X, STAKE_Y, STAKE_R = 2.5, 4, pitch.stakeRadius
 
 -- ---------------------------------------------------------------------------
 -- The launch
 
--- drill.solve, with the loft fixed instead of chosen by distance.
-local function solveAt(mx, my, loft)
-	local sol = drill.solve(mx, my, 0, {})
-	if loft == "low" then return sol end
-	local t, ft = drill.tune, flight.tune
-	local h0 = ft.handHeight - t.landZ
-	local e = rad(loft)
-	local R = max(0.5, sol.dist - t.slideAllow)
-	local c = cos(e)
-	sol.speed = sqrt(ft.g * R * R / (2 * c * c * (R * sin(e) / c + h0)))
-	sol.loft = loft
-	return sol
-end
+local function solveAt(mx, my, loft) return drill.solveAt(mx, my, 0, loft, {}) end
 
-local CLEAN = { smoothness = 1, tilt = 0, how = "passed" }
+local BODY = {}
 
 -- One clean drill as body `id` into world w at the solution sol with this
--- spin. Steps it to rest and fills `out`: land (center at the first touch),
--- hop, flip, the body.
-local function drillInto(w, id, sol, spin, out)
-	CLEAN.power = sol.band
-	local L = drill.launch(sol, CLEAN, 0)
-	local b = world.launchDrill(w, id, sol.x, 0, L.swivel, sol.loft, L.speed, L.noseDown, L.rollLand,
-		spin, L.wobble, L.digGain)
-	local landX, landY, hop, flip = nil, nil, 0, false
+-- many taps of spin. Steps it to rest and fills `out`: land (centre at the
+-- first touch), nose (first touch ahead of the centre), hop, the body.
+local function drillInto(w, id, sol, taps, out)
+	local L = drill.body(1, 1, taps * PER, BODY)
+	local b = world.launchDrill(w, id, sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
+		L.spin, L.wobble, L.digGain)
+	local landX, landY, hop, nose = nil, nil, 0, false
 	while not world.isAtRest(w) do
 		world.step(w)
-		if w.firstContact then
-			if not landX then landX, landY = b.x, b.y end
+		local fc = w.firstContact
+		if fc then
+			if not landX then
+				landX, landY = b.x, b.y
+				nose = (fc.x - b.x) * b.r13 + (fc.y - b.y) * b.r23 + (fc.z - b.z) * b.r33 > 0
+			end
 			if b.z - 0.035 > hop then hop = b.z - 0.035 end
-			if abs(b.r33) > 0.866 then flip = true end
 		end
 	end
-	out.b, out.landX, out.landY, out.hop, out.flip = b, landX or b.x, landY or b.y, hop, flip
-	out.time = w.time
+	out.b, out.landX, out.landY, out.hop, out.nose = b, landX or b.x, landY or b.y, hop, nose
 	return out
 end
 
--- How a box rests: "lying", "end" or "other".
+-- How a box rests: "lying" (on a face), "end" or "other".
 local function restKind(b)
 	local a = abs(b.r33)
-	if a < sin(rad(10)) then return "lying" end
 	if a > cos(rad(30)) then return "end" end
+	if a < sin(rad(10)) then
+		-- a face down: one cross axis within 10 degrees of vertical
+		if abs(b.r31) > cos(rad(10)) or abs(b.r32) > cos(rad(10)) then return "lying" end
+	end
 	return "other"
 end
 
@@ -159,33 +149,33 @@ local function stats(list)
 	return m, sqrt(max(0, s2 / n - m * m))
 end
 
-local function loftName(l) return l == "low" and "low (26-30)" or fmt("%d deg", l) end
-
 -- ---------------------------------------------------------------------------
 -- 1. Roll
 
-local MULTS = { 0, 0.5, -0.5, 1, -1, 1.5, -1.5, 2, -2, 3, -3, 4, -4, 6, -6 }
 local MARKERS = quick
-	and { { -1.2, 4.5 }, { 0, 5.75 }, { 1.2, 7 } }
-	or { { -1.2, 4.5 }, { 0, 4.5 }, { 1.2, 4.5 }, { -1.2, 5.25 }, { 0, 5.25 }, { 1.2, 5.25 },
-		{ -1.2, 6.25 }, { 0, 6.25 }, { 1.2, 6.25 }, { -1.2, 7 }, { 0, 7 }, { 1.2, 7 } }
+	and { { -1.2, 4.6 }, { 0, 5.8 }, { 1.2, 7.2 } }
+	or { { -1.2, 4.6 }, { 0, 4.6 }, { 1.2, 4.6 }, { -1.2, 5.4 }, { 0, 5.4 }, { 1.2, 5.4 },
+		{ -1.2, 6.3 }, { 0, 6.3 }, { 1.2, 6.3 }, { -1.2, 7.2 }, { 0, 7.2 }, { 1.2, 7.2 } }
 local GROUNDS = quick and { 11, 12 } or { 11, 12, 13, 14, 15, 16, 17, 18 }
 
-local function rollTable(surface, loft, mults, markers, grounds)
+local function rollTable(surface, loft, markers, grounds)
 	local t0, sims = os.clock(), 0
-	print(fmt("  %s, loft %s: %d markers x %d grounds per spin", surface, loftName(loft), #markers, #grounds))
-	print("   spin rad/s   side m (sd)       roll m   fwd m (sd)      miss m  hop cm  lying end other  flip")
-	local base = {}
-	local out = {}
-	for _, k in ipairs(mults) do
-		local spin = -k * CUT   -- k > 0: rolls right (as CUT_A)
+	print(fmt("  %s, loft %d: %d markers x %d grounds per tap (%g rad/s a tap)", surface, loft, #markers,
+		#grounds, PER))
+	print("   taps  spin   side m (sd)      roll m   fwd m (sd)      miss m  hop cm     lying end other  nose")
+	local base, out = {}, {}
+	local rows = {}
+	for k = -STEPS, STEPS do rows[#rows + 1] = k end
+	table.sort(rows, function(p, q) return abs(p) < abs(q) or (abs(p) == abs(q) and p > q) end)
+	local summary = {}
+	for _, k in ipairs(rows) do
 		local side, roll, fwd, miss, hop = {}, {}, {}, {}, {}
-		local kinds, flips = { lying = 0, ["end"] = 0, other = 0 }, 0
+		local kinds, noses = { lying = 0, ["end"] = 0, other = 0 }, 0
 		for mi, m in ipairs(markers) do
 			local sol = solveAt(m[1], m[2], loft)
 			for gi, g in ipairs(grounds) do
 				local w = world.new { surface = surface, groundSeed = g }
-				drillInto(w, "d1", sol, spin, out)
+				drillInto(w, "d1", sol, k, out)
 				sims = sims + 1
 				local b = out.b
 				local key = mi * 100 + gi
@@ -197,7 +187,7 @@ local function rollTable(surface, loft, mults, markers, grounds)
 				hop[#hop + 1] = out.hop
 				local rk = restKind(b)
 				kinds[rk] = kinds[rk] + 1
-				if out.flip then flips = flips + 1 end
+				if out.nose then noses = noses + 1 end
 			end
 		end
 		local n = #side
@@ -205,30 +195,52 @@ local function rollTable(surface, loft, mults, markers, grounds)
 		local rm = stats(roll)
 		local fm, fs = stats(fwd)
 		local mm = stats(miss)
-		local hm, hs = stats(hop)
+		local hm = stats(hop)
 		local hmax = 0
 		for _, v in ipairs(hop) do if v > hmax then hmax = v end end
-		print(fmt("   %+5.1f %+6.0f  %+6.3f (%5.3f)  %+6.3f  %+6.3f (%5.3f)  %5.2f  %4.1f/%4.1f  %3d %3d %3d  %3d%%",
-			k, spin, sm, ss, rm, fm, fs, mm, hm * 100, hmax * 100,
-			kinds.lying, kinds["end"], kinds.other, math.floor(100 * flips / n + 0.5)))
+		print(fmt("   %+3d  %+5.1f  %+6.3f (%5.3f)  %+6.3f  %+6.3f (%5.3f)  %5.2f  %4.1f/%4.1f  %3d %3d %3d  %3d%%",
+			k, k * PER, sm, ss, rm, fm, fs, mm, hm * 100, hmax * 100,
+			kinds.lying, kinds["end"], kinds.other, math.floor(100 * noses / n + 0.5)))
+		summary[k] = { side = sm, sd = ss, fwd = fm, roll = rm }
 	end
-	print(fmt("   (%d drills, %.1f s; spin k = multiple of cutSpin %g, + rolls right; hop mean/max)", sims, os.clock() - t0, CUT))
+	print(fmt("   (%d drills, %.1f s; hop mean/max)", sims, os.clock() - t0))
+	return summary
 end
 
-print("1. Roll: clean drills, spin set directly (side = rest x vs the spin-0 drill on the same ground)")
-for _, loft in ipairs(LOFTS) do rollTable("grass", loft, MULTS, MARKERS, GROUNDS) end
-if sand or not quick then
-	local SM = { 0, 1, -1, 2, -2, 4, -4 }
-	local SMK = { { -1.2, 4.5 }, { 0, 5.75 }, { 1.2, 7 } }
-	for _, loft in ipairs(LOFTS) do rollTable("sand", loft, SM, SMK, { 11, 12 }) end
+print(fmt("1. Roll: the plan's clean drills, spin in taps of %g rad/s (side = rest x vs the 0-tap drill"
+	.. " on the same ground)", PER))
+local rolls = {}
+for _, loft in ipairs(LOFTS) do rolls["grass" .. loft] = rollTable("grass", loft, MARKERS, GROUNDS) end
+if sand then
+	local SMK = quick and { { -1.2, 4.6 }, { 0, 5.8 }, { 1.2, 7.2 } }
+		or { { -1.2, 4.6 }, { 0, 5.4 }, { 1.2, 6.3 }, { -0.5, 7.2 } }
+	local SGR = quick and { 11, 12 } or { 11, 12, 13, 14 }
+	for _, loft in ipairs(LOFTS) do rolls["sand" .. loft] = rollTable("sand", loft, SMK, SGR) end
 end
+print()
+print("   summary: side m (fwd m) by taps 1 / 2 / 3, the mean of + and - taps signed toward the spin:")
+for _, surface in ipairs { "grass", "sand" } do
+	for _, loft in ipairs(LOFTS) do
+		local r = rolls[surface .. loft]
+		if r then
+			local parts = {}
+			for k = 1, STEPS do
+				parts[#parts + 1] = fmt("%.2f (%+.2f)", (r[k].side - r[-k].side) / 2, (r[k].fwd + r[-k].fwd) / 2)
+			end
+			print(fmt("     %-5s loft %d: %s", surface, loft, table.concat(parts, " / ")))
+		end
+	end
+end
+
+if not wall then return end
 
 -- ---------------------------------------------------------------------------
 -- 2. Wall
 
-local OFFSETS = quick and { 0.05, 0.1, 0.2 } or { 0.05, 0.08, 0.11, 0.15, 0.2, 0.3, 0.45 }
-local YS = quick and { 3.95, 4.05 } or { 3.85, 3.95, 4.05, 4.15, 4.25 }
-local WALL_MULTS = quick and { 0, 1, 2 } or { 0, 0.5, 1, 1.5, 2, 3 }
+local OFFSETS = quick and { 0.15, 0.3, 0.5, 0.8 }
+	or { 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 }
+local YS = quick and { 4.05, 4.15 } or { 4.0, 4.05, 4.1, 4.15, 4.2 }
+local WALL_TAPS = { 1, 2, 3 }
 local WALL_GROUNDS = quick and { 21 } or { 21, 22, 23, 24, 25, 26 }
 local TOUCH = 0.015
 local ONLINE = 0.12
@@ -260,23 +272,20 @@ end
 local function wallRun(loft, step)
 	local t0, sims = os.clock(), 0
 	local out = {}
-	print(fmt("  loft %s, %s: %d y's x %d grounds per cell (marker y %s)", loftName(loft),
+	print(fmt("  loft %d, %s: %d y's x %d grounds per cell (marker y %s)", loft,
 		step and fmt("marker stepped %.0f cm inward per kubb", step * 100) or "same marker every kubb",
 		#YS, #WALL_GROUNDS, table.concat(YS, "/")))
-	print("   spin   off  | gap  rest y/sd | 1st: against bounced short past | 2nd: beside shoved knocked ontop apart"
+	print("   taps  off  | gap  rest y/sd | 1st: against bounced short past | 2nd: beside shoved knocked ontop apart"
 		.. " | 3rd: beside shoved knocked ontop apart | wall>=2 wall3")
 	local best = {}
-	for _, k in ipairs(WALL_MULTS) do
-		local spin = -k * CUT
+	for _, k in ipairs(WALL_TAPS) do
 		for _, o in ipairs(OFFSETS) do
 			local c1 = { against = 0, bounced = 0, short = 0, past = 0 }
 			local c2 = { beside = 0, shoved = 0, knocked = 0, ontop = 0, apart = 0 }
 			local c3 = { beside = 0, shoved = 0, knocked = 0, ontop = 0, apart = 0 }
 			local w2, w3, n = 0, 0, 0
 			local gaps, rys = {}, {}
-			local w3y, a1y = {}, {}
-			for yi, y in ipairs(YS) do
-				w3y[yi], a1y[yi] = 0, 0
+			for _, y in ipairs(YS) do
 				local sols = {}
 				for throw = 1, 3 do sols[throw] = solveAt(STAKE_X - o - (throw - 1) * (step or 0), y, loft) end
 				for _, g in ipairs(WALL_GROUNDS) do
@@ -288,7 +297,7 @@ local function wallRun(loft, step)
 						local before = {}
 						for _, p in ipairs(lying) do before[p.id] = { p.x, p.y } end
 						local id = "d" .. throw
-						drillInto(w, id, sols[throw], spin, out)
+						drillInto(w, id, sols[throw], k, out)
 						sims = sims + 1
 						local b = out.b
 						local res = world.result(w)
@@ -297,7 +306,7 @@ local function wallRun(loft, step)
 						if throw == 1 then
 							local gap = stakeGap(b)
 							gaps[#gaps + 1], rys[#rys + 1] = gap, b.y
-							if gap < TOUCH then c1.against, a1y[yi] = c1.against + 1, a1y[yi] + 1
+							if gap < TOUCH then c1.against = c1.against + 1
 							elseif stakeHit then c1.bounced = c1.bounced + 1
 							elseif b.x < STAKE_X - 0.04 and b.y < STAKE_Y + 0.11 then c1.short = c1.short + 1
 							else c1.past = c1.past + 1 end
@@ -334,37 +343,33 @@ local function wallRun(loft, step)
 						end
 						if throw == 2 and chainLength(fps) >= 2 then w2 = w2 + 1 end
 					end
-					local cl = chainLength(fps)
-					if cl >= 3 then w3, w3y[yi] = w3 + 1, w3y[yi] + 1 end
+					if chainLength(fps) >= 3 then w3 = w3 + 1 end
 				end
 			end
 			local gm = stats(gaps)
 			local ym, ysd = stats(rys)
-			print(fmt("   %+4.1f  %4.2f | %5.2f %5.2f/%4.2f | %7d %7d %5d %4d | %11d %6d %7d %5d %5d | %11d %6d %7d %5d %5d | %4d/%d %3d/%d",
+			print(fmt("   %3d  %4.2f | %5.2f %5.2f/%4.2f | %7d %7d %5d %4d | %11d %6d %7d %5d %5d | %11d %6d %7d %5d %5d | %4d/%d %3d/%d",
 				k, o, gm, ym, ysd, c1.against, c1.bounced, c1.short, c1.past,
 				c2.beside, c2.shoved, c2.knocked, c2.ontop, c2.apart,
 				c3.beside, c3.shoved, c3.knocked, c3.ontop, c3.apart, w2, n, w3, n))
-			best[#best + 1] = { k = k, o = o, a = c1.against, w2 = w2, w3 = w3, n = n,
-				w3y = table.concat(w3y, "/"), a1y = table.concat(a1y, "/") }
+			local bk = best[k]
+			if not bk or w3 > bk.w3 or (w3 == bk.w3 and (w2 > bk.w2 or (w2 == bk.w2 and c1.against > bk.a))) then
+				best[k] = { o = o, a = c1.against, w2 = w2, w3 = w3, n = n }
+			end
 		end
 	end
-	table.sort(best, function(p, q)
-		if p.w3 ~= q.w3 then return p.w3 > q.w3 end
-		if p.w2 ~= q.w2 then return p.w2 > q.w2 end
-		return p.a > q.a
-	end)
 	local tops = {}
-	for j = 1, min(4, #best) do
-		local b = best[j]
-		tops[#tops + 1] = fmt("k %+.1f off %.2f: 1st against %d, wall2 %d, wall3 %d of %d;"
-			.. " by marker y: 1st against %s, wall3 %s (of %d)", b.k, b.o, b.a, b.w2, b.w3, b.n, b.a1y, b.w3y, #WALL_GROUNDS)
+	for _, k in ipairs(WALL_TAPS) do
+		local b = best[k]
+		tops[#tops + 1] = fmt("%d tap%s, %.2f m inward: 1st against %d, wall of 2 %d, wall of 3 %d of %d",
+			k, k == 1 and "" or "s", b.o, b.a, b.w2, b.w3, b.n)
 	end
 	print("   best:\n     " .. table.concat(tops, "\n     "))
 	print(fmt("   (%d drills, %.1f s)", sims, os.clock() - t0))
 end
 
 print()
-print(fmt("2. Wall at the stake (%.1f, %.0f): marker o inward of it, spin k * %g rolling toward it", STAKE_X, STAKE_Y, CUT))
+print(fmt("2. Wall at the stake (%.1f, %.0f): marker o inward of it, rolled toward it", STAKE_X, STAKE_Y))
 for _, loft in ipairs(LOFTS) do wallRun(loft) end
 if not quick then
 	-- a player who sees the wall moves the marker in one kubb width each time

@@ -16,8 +16,8 @@
 --   smoothness a clean flick keeps the nose down and the kubb dies near the
 --              marker; a jerky one wobbles it and it runs on
 --   tilt       pushes the line a little sideways, the way pull says (+1 right)
---   cut        spins the kubb about its long axis, and the ground turns that
---              into a curve after landing
+--   cut        spins the kubb about its long axis; once it is down the spin
+--              rolls it sideways, face over face (+ right)
 --
 -- All in one frame: x across, y away from the thrower (the throw scene's view
 -- frame). world.launchDrill (core/world) makes the body from drill.body's
@@ -45,20 +45,41 @@ drill.tune = {
 	loftNearDeg = 26,       -- loft for the nearest marker (guess; a low drill)
 	loftFarDeg = 30,        -- loft for the farthest (higher, so a full swing reaches it)
 	landZ = 0.07,           -- m: the kubb's center height when its lowest edge reaches the grass
-	slideAllow = 0.1,       -- m a clean drill moves on after its first touch (measured
-	                        -- on grass: tests/lua/test_drill.lua); it is aimed this much short
+	slideAllow = -0.02,     -- m a clean drill moves on after its first touch; it is aimed this
+	                        -- much short (negative: long, it stops a little short of where the
+	                        -- edge first touches) ...
 	slideLoftDeg = 30,      -- ... at lofts up to this (the distance's lofts above)
 	slideHighDeg = 47,      -- at this loft and over (half past 1, the plan's drill arc) ...
-	slideAllowHigh = -0.03, -- ... aimed this much long (measured on grass, 9 markers x 4 grounds:
-	                        -- aimed with slideAllow a clean drill at 47 rested 0.13 m short;
-	                        -- with this 0.04 m off on average, 0.05 worst; test_throwplan)
+	slideAllowHigh = -0.03, -- ... aimed this much long. Measured on grass (2026-11-15, 5 markers x
+	                        -- 4 grounds, the nose-down drill): a clean drill rests 0.01 m long at
+	                        -- loft 30 (0.26 m worst), within 0.01 m at 37 to 57 (0.01 m worst)
 	-- the body at release (world.launchDrill)
-	noseDownDeg = 10,       -- the long axis this far below the horizontal: the nose leads
-	rollLandDeg = 45,       -- roll about the long axis when it lands: on a long edge, so
-	                        -- the cut always bites the same way (the release roll is
-	                        -- solved backwards from the flight time and the spin)
-	digGain = 3,            -- how much harder a drilled kubb's first touches dig in than a
-	                        -- baton's (body.digGain); 1 lets a clean drill skid 1 to 4 m
+	noseDownDeg = 15,       -- the long axis this far below the horizontal, held through the flight
+	                        -- (the spin about the long axis does not move it): its front bottom
+	                        -- edge catches the grass first (Jamie, 2026-11-15: "about 15 degrees")
+	rollLandDeg = -15,      -- roll about the long axis when the nose first touches: this far short of
+	                        -- flat on its bottom face, the spin turning it flat during the catch (flat
+	                        -- with no spin; the release roll is solved backwards from the time to the
+	                        -- first touch and the spin; -15 rolled the most evenly of -30..30)
+	digGain = 25,           -- how much harder a drilled kubb's first touches dig in than a
+	                        -- baton's (body.digGain)
+	                        -- (the nose meets the grass with a whole edge across the face, which
+	                        -- world.pointed counts about an eighth as pointed as a corner: 25 is
+	                        -- the 3 of the old corner-first landing again)
+	-- on the ground (world.launchDrill sets them on the body; AGENTS.md "Drilling").
+	-- Measured with tools/spinwall.lua (2026-11-15) against the per-tap targets
+	edgeRound = 0.032,      -- m: its long edges roll on the turf as if rounded to this (of a 0.035 m
+	                        -- half side): a sharp square keeps a quarter of its roll at each edge it
+	                        -- tips onto and cannot roll past one face; the grass mat and worn edges
+	                        -- make the section roll nearly round, and it still settles on a face
+	rollDrag = 0.8,         -- share of the grass texture's drag that brushes its roll (viscous: the
+	                        -- roll dies in proportion to its speed, so the distance grows ~ the spin)
+	bumpGain = 0,           -- share of the texture's landing bump: none (the nose plugs into the turf,
+	                        -- it does not glance off a tilted patch; with it a 0-tap drill rolled off
+	                        -- 0.3 m at random)
+	plugGain = 10,          -- how much harder the plug holds its tumble and turn (not its roll) than
+	                        -- a plain dig: without it a low drill (loft 30) vaulted onto its nose
+	                        -- and, spinning, fell any way
 	-- the swing against the band
 	bandNear = 0.35,        -- swing power the nearest marker needs (gauge band center)
 	bandFar = 0.85,         -- ... and the farthest; leaves room above to throw long
@@ -70,7 +91,8 @@ drill.tune = {
 	wobbleRate = 10,        -- rad/s of nose-over wobble at smoothness 0 (scales with how far
 	                        -- under cleanAbove the swing was)
 	tiltPushDeg = 0.05,     -- degrees of line per degree of swing tilt
-	cutSpin = 25,           -- rad/s about the long axis with A or B held at release
+	cutSpin = 25,           -- rad/s about the long axis with A or B held at release (drill.launch;
+	                        -- the plan's spin is plan.tune.spinPerStep a tap)
 }
 
 drill.CUT_NONE, drill.CUT_A, drill.CUT_B = 0, 1, -1
@@ -178,9 +200,9 @@ function drill.launch(sol, r, cut, out)
 	local pull = (r.pull or 1) < 0 and -1 or 1
 	out.swivel = sol.swivel + pull * rad(t.tiltPushDeg * (r.tilt or 0))
 	out.loft = sol.loft
-	-- positive spin about the forward long axis curves the kubb to the left
-	-- (measured: test_drill), so A (+1) spins it negative and curves right
-	return drill.body(r.smoothness or 1, pull, -(cut or 0) * t.cutSpin, out)
+	-- positive spin about the forward long axis rolls the kubb to the right
+	-- once it is down (the bottom face moves left), so A (+1) spins it positive
+	return drill.body(r.smoothness or 1, pull, (cut or 0) * t.cutSpin, out)
 end
 
 -- The drilled kubb's body at release (world.launchDrill's arguments after

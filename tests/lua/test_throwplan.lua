@@ -279,10 +279,9 @@ test("plan: a planned drill from a stance rests on the target; spin and shake re
 	expect.eq(L.noseDown, drill.tune.noseDownDeg); expect.eq(L.digGain, drill.tune.digGain)
 	local b = drillRest(0.5, L, 3)
 	expect.truthy(dist(b.x, b.y, 0, 6) < 0.4, string.format("rests %.2f m off", dist(b.x, b.y, 0, 6)))
-	-- spin: + taps roll it right (negative spin about the forward axis, as drill's CUT_A)
+	-- spin: + taps roll it right (positive spin about the forward axis, as drill's CUT_A)
 	local R = plan.launch(sol, cleanSwing(sol), { projectile = "kubb", spin = 2 }, {})
-	expect.near(R.spin, -2 * plan.tune.spinPerStep, 1e-9)
-	expect.near(R.spin, -drill.tune.cutSpin, 1e-9, "two taps are the old cut")
+	expect.near(R.spin, 2 * plan.tune.spinPerStep, 1e-9)
 	-- a shaky drill wobbles, worse overpowered
 	local s1 = plan.launch(sol, cleanSwing(sol, { smoothness = 0.5 }), { projectile = "kubb" }, {})
 	local s2 = plan.launch(sol, cleanSwing(sol, { smoothness = 0.5, back = sol.powerHi + 20 }), { projectile = "kubb" }, {})

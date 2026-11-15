@@ -136,10 +136,123 @@ test("drill: the launch is from the baseline, the thrower behind the marker with
 	expect.truthy(x < -2.5 and y < 4, "short of the middle line too")
 end)
 
-test("drill: the baton and lob launches are unchanged by digGain", function()
+test("drill: the baton and lob launches are unchanged by the drill's ground flags", function()
 	local w = world.new { surface = "grass", stakes = false }
-	local b = world.launchKubb(w, "p", 0, 0, 0, 40, 6.5, 3)
-	expect.eq(b.digGain, 1)
+	for _, b in ipairs { world.launchKubb(w, "p", 0, 0, 0, 40, 6.5, 3), world.launchBaton(w, 0, 0, 0, 30, 8, 5, 0) } do
+		expect.eq(b.digGain, 1); expect.eq(b.edgeRound, 0); expect.eq(b.bumpGain, 1)
+		expect.truthy(b.digBySpin and not b.slipDrag, "a plain body")
+	end
+	local d = world.launchDrill(w, "d", 0, 0, 0, 47, 7, 15, -15, 22, 0, 25)
+	expect.eq(d.edgeRound, drill.tune.edgeRound); expect.truthy(not d.digBySpin and d.slipDrag, "a drilled kubb")
+end)
+
+-- ---------- the attitude and the planned spin (core/throwplan's drill) ----------
+
+import "core/throwplan"
+local plan = tw.plan
+
+-- The plan's clean drill onto (mx, my) at a loft with `taps` of spin: the
+-- centre at the first touch, the rest, and whether the nose touched first.
+local function planDrill(mx, my, loft, taps, surface, seed, pieces)
+	local sol = drill.solveAt(mx, my, 0, loft, {})
+	local L = drill.body(1, 1, taps * plan.tune.spinPerStep, {})
+	local w = world.new { surface = surface or "grass", groundSeed = seed, pieces = pieces }
+	local b = world.launchDrill(w, "d", sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
+		L.spin, L.wobble, L.digGain)
+	local land, noseDown, nose
+	while not world.isAtRest(w) do
+		local ax, ay, az = b.r13, b.r23, b.r33
+		world.step(w)
+		local fc = w.firstContact
+		if fc and not land then
+			land = { x = b.x, y = b.y }
+			noseDown = math.deg(math.asin(-az))   -- the attitude in the step before the touch
+			nose = (fc.x - b.x) * ax + (fc.y - b.y) * ay + (fc.z - b.z) * az
+		end
+	end
+	return { land = land, rest = b, noseDown = noseDown, nose = nose, w = w }
+end
+
+local SPIN_MARKERS = { { -1, 4.8 }, { 0, 6 }, { 1, 7.2 } }
+local SPIN_SEEDS = { 3, 7, 11 }
+
+-- Mean sideways roll (rest x - landing x) and forward slide per tap.
+local function perTap(loft, surface, taps)
+	local side, fwd, n, worstFwd, wrong = 0, 0, 0, 0, 0
+	for _, m in ipairs(SPIN_MARKERS) do
+		for _, seed in ipairs(SPIN_SEEDS) do
+			local t = planDrill(m[1], m[2], loft, taps, surface, seed)
+			local dx, dy = t.rest.x - t.land.x, t.rest.y - t.land.y
+			side, fwd, n = side + dx, fwd + dy, n + 1
+			if abs(dy) > worstFwd then worstFwd = abs(dy) end
+			if taps ~= 0 and dx * taps <= 0.03 then wrong = wrong + 1 end
+			expect.truthy(abs(t.rest.r33) < 0.17, string.format("%d taps at (%.1f, %.1f) ends lying (axis %.2f)",
+				taps, m[1], m[2], t.rest.r33))
+		end
+	end
+	return side / n, fwd / n, worstFwd, wrong
+end
+
+test("drill: the kubb flies nose down and lands nose first, at every planned arc and spin", function()
+	for _, loft in ipairs { 30, 47, 57 } do
+		for _, taps in ipairs { 0, 3 } do
+			local t = planDrill(0.5, 6, loft, taps, "grass", 5)
+			expect.near(t.noseDown, drill.tune.noseDownDeg, 0.5,
+				string.format("loft %d, %d taps: nose %.1f degrees down at the touch", loft, taps, t.noseDown))
+			expect.truthy(t.nose > 0.03, string.format("loft %d, %d taps: first touch %.3f m ahead of the centre",
+				loft, taps, t.nose))
+		end
+	end
+end)
+
+test("drill: planned spin rolls the kubb sideways, more with every tap, either way", function()
+	-- measured on grass at loft 47 (tools/spinwall.lua, 2026-11-15): 0.27, 0.61, 0.90 m
+	local lo = { [0] = -0.1, 0.15, 0.4, 0.7 }
+	local hi = { [0] = 0.1, 0.4, 0.8, 1.15 }
+	local last = -1
+	for taps = 0, 3 do
+		local side, fwd, worstFwd, wrong = perTap(47, "grass", taps)
+		local where = string.format("loft 47, %d taps: side %.2f m, forward %.2f m (worst %.2f)", taps, side, fwd, worstFwd)
+		expect.truthy(side >= lo[taps] and side <= hi[taps], where)
+		expect.truthy(side > last, "more with every tap: " .. where)
+		expect.truthy(worstFwd < (taps == 0 and 0.1 or 0.35), "the forward slide stays small: " .. where)
+		expect.eq(wrong, 0, "every drill rolls the spin's way: " .. where)
+		if taps > 0 then
+			local back = perTap(47, "grass", -taps)
+			expect.truthy(abs(back + side) < 0.15, string.format("-%d taps rolls %.2f m, +%d %.2f m", taps, back, taps, side))
+		end
+		last = side
+	end
+	-- a low arc (loft 30) too: monotone, about as far
+	last = -1
+	for taps = 1, 3 do
+		local side = perTap(30, "grass", taps)
+		expect.truthy(side > last + 0.1, string.format("loft 30, %d taps: %.2f m", taps, side))
+		last = side
+	end
+	expect.truthy(last > 0.6 and last < 1.1, string.format("loft 30, 3 taps: %.2f m", last))
+	-- sand holds it: about half as far
+	local g3, s3 = perTap(47, "grass", 3), perTap(47, "sand", 3)
+	expect.truthy(s3 > 0.3 * g3 and s3 < 0.7 * g3, string.format("sand %.2f m against grass %.2f m", s3, g3))
+end)
+
+test("drill: a rolling kubb stops against the stake and against a lying kubb", function()
+	-- the stake at (2.5, 4): two taps from 0.45 m inward
+	for _, seed in ipairs { 1, 2, 3 } do
+		local t = planDrill(2.05, 4.03, 47, 2, "grass", seed)
+		local b = t.rest
+		expect.truthy(b.x < 2.5 - 0.03 and b.x > 2.5 - 0.08 and abs(b.y - 4) < 0.05,
+			string.format("rests against the stake: (%.3f, %.3f)", b.x, b.y))
+	end
+	-- a kubb lying along the throw at (1, 5.5): two taps from 0.55 m to its left
+	local h = math.sqrt(0.5)
+	for _, seed in ipairs { 1, 2, 3 } do
+		local k = { id = "k", kind = "kubb", x = 1, y = 5.5, z = 0.035, qw = h, qx = -h, qy = 0, qz = 0, toppled = true }
+		local t = planDrill(0.45, 5.5, 47, 2, "grass", seed, { k })
+		local b, q = t.rest, t.w.byId.k
+		expect.truthy(b.x > 1 - 0.1 and b.x < 1 - 0.065, string.format("rests beside it: x %.3f", b.x))
+		expect.truthy(dist(q.x, q.y, 1, 5.5) < 0.03, "the lying kubb stays put")
+	end
 end)
 
 -- ---------- the rules path ----------
