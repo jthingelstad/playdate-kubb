@@ -791,8 +791,8 @@ The autobench measures a build on the Playdate with nobody pressing anything:
    and appends to `bench.txt` in the Data folder: the micro benchmarks, the `core/bench`
    physics line (also with the collector stopped, and with a full turn's debris asleep on
    the pitch) and its per-phase profile, the draw
-   timings of the throw scene by frame type (aim with the camera still, swivelling,
-   walking, then a full throw split into wind-up, flight, impact and rest, with
+   timings of the throw scene by frame type (aim with the camera still, moving the circle,
+   walking, then the hit throw on the plan's swing split into wind-up, flight, impact and rest, with
    `render/world` and HUD part timings), a few drawing primitives, memory and
    `playdate.getStats`, then the match case: three scripted match throws (a hit, a miss and
    a drill) played through the throw scene exactly as in a match, each with its
@@ -907,8 +907,11 @@ and copying a full-screen image about 0.7 ms. So:
   rest). Before the Woodcut look: 45/126/99/16 mean; with it: 41/150/110/17; after the
   speed fix (no tufts, no speed lines): 39/134/111/17; with the camera's half circle
   (2026-11-14): 39/134/160/20, the impact frames full draws while the camera turns (paid
-  for by `swingPeriod`, measured on the device). Keep flight and impact within about 30 of
-  those.
+  for by `swingPeriod`, measured on the device); the same throw before the clock
+  (2026-11-15, gauge and plaque, its old swing): 61/132/158/20; with the clock, the circle
+  and the plan's clean throw onto b3: 55/128/140/21 (the clock and the plates are layers
+  and images; the circle is two polygons and four lines a pass). Keep flight and impact
+  within about 30 of those.
 - A new part of the HUD that depends on something must put it in its layer's key, or the
   layer will show a stale image. `make selftest` frames compared pixel for pixel before
   and after (`cache = false` against `true`) catch this.
@@ -961,13 +964,18 @@ hit rate (records in `playdate.datastore` "drills").
   `result.toppled`, `result.bodies` and `last.restCm` once it is `done`); the rail counts throws and the
   score. A card gives the score and any new best; A runs it again, B goes back to the menu.
   During a run the System Menu's third item is "Drill": menu (`drills.quit`: leave the run
-  part way, nothing recorded) or title. Readout reaches the run's throw scene as in
-  practice (`main.lua` `throwScene`).
-- In drill mode (BLAST, THE WALL, and a match's kubb tosses) the rail shows the marker's distance
+  part way, nothing recorded) or title. The readout set on the practice pitch reaches the
+  run's throw scene (`main.lua` `throwScene`). Each throw's trace line names the drill
+  (`s.drillRun`, `drillId`). AROUND THE PITCH's stance is the setup's (`setup.playerX`,
+  `throw.prepare`); the circle starts on the nearest kubb. THE HOUSE's kubbs are base kubbs
+  to the plan (its arc is 3 o'clock).
+- In drill mode (BLAST, THE WALL, and a match's kubb tosses) the rail shows the circle's distance
   and beside it what the caller gave (`throw.setRail`'s first right-hand text: a drill's
   score).
 - Self-tests `drills` (the menu, a whole KING SHOTS run with straight scripted batons, the
-  result card and the record it leaves, then a second run quit part way) and `drills-blast` (BLAST's rail keeps its score).
+  result card and the record it leaves, then a second run quit part way), `drills-blast`
+  (BLAST's rail keeps its score) and `drills-new` (DOUBLES and THE WALL: the menu, each
+  run's first aim and its first throw at rest on the plan's swing).
 
 ## Throw scene practice
 
@@ -981,8 +989,10 @@ Toppled kubbs stay down between throws at their rest poses (the scene's item lis
 render items of `render/world`, carries every piece's pose). System Menu "Pitch" set to
 "reset" stands everything back up (`throw.reset`); it also happens by itself after the
 throw that leaves every far base kubb down. The System Menu holds three custom items at
-most (Readout, Record, Pitch), so Pitch is an options item that acts when the menu closes
-and then reads "play" again; its "title" goes back to the title screen. Its "drill" turns
+most (Level, Record, Pitch), so Pitch is an options item that acts when the menu closes
+and then reads "play" again; its "title" goes back to the title screen, its "readout"
+turns the debug line under the rail on or off (debug only, 2026-11-15: it was the first
+item, a checkmark, which "Level" took). Its "drill" turns
 the pitch to drilling kubbs (next section) and "batons" back; chosen mid-throw, the switch
 waits until the scene aims again. "reset" also clears the drilled kubbs.
 
@@ -993,35 +1003,33 @@ DESIGN.md section 4 "Kubbs (drilling)". The pure part is `source/core/drill.lua`
 the throw scene with `s.drill` on.
 
 - **Where it shows up.** The match's kubb throws (`throw.prepare` turns `s.drill` on for a
-  `projectile == "kubb"` setup; the marker stays where that team left it). The computer
-  thrower drills too: `core/autothrow` gives `a.drill` (the basket as the marker and
+  `projectile == "kubb"` setup; the circle stays where that team left it). The computer
+  thrower drills too: `core/autothrow` gives `a.drill` (the basket as the circle and
   `world.launchDrill`'s arguments from `plan.launch`), which `tools/physmatch.lua` launches
-  with `autothrow.launch`; `throw.autoLaunch` drills a clean `drill.solve` launch at
-  `a.drill`'s marker. The practice pitch drills after "Pitch: drill"
+  with `autothrow.launch` and `throw.autoLaunch` with `a`'s own speed, loft and swivel. The
+  practice pitch drills after "Pitch: drill"
   (`throw.setDrill`): each drilled kubb gets its own id (`d1`, `d2`, ...) and becomes a piece
   of the pitch at rest (`keepDrilled`, the newest `drillKeep`), so later throws hit it; the
   auto stand-up after all far base kubbs are down is skipped while drilling.
-- **Aim.** The d-pad moves `s.markerX, s.markerY` (view frame), clamped by
-  `drill.clampMarker`, faster the longer it is held. `drill.solve` puts the thrower on the
-  baseline straight behind it (x clamped to `throwerXMax`) and solves the clean launch: loft by
-  distance, the speed that lands the kubb's edge `slideAllow` short of the marker
-  (`flight.tune.handHeight` down to `landZ`), the band center (power) for that distance and
-  the flight time. A or B held sets `s.cut` (`drill.CUT_A` = 1 curls right, `CUT_B` = -1
-  curls left), read every frame up to the release; in drill mode A and B never swivel or
-  loft and do not stop a wind-up. The aim camera is `camera.drillAim`, which steps sideways
-  with the thrower so the player lines up behind the marker (the world frame is redrawn
-  while it moves, as in a baton walk); the marker ring, cross and dotted line are drawn over it each frame
-  in `throw.draw` (`drawMarker`), and the minimap's aim line goes to the marker.
-- **Swing to launch** (`drill.launch`): the power error against the band is shrunk by
-  `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower` per unit
-  (never under `speedMinFrac`); the loft is the solved one (the release angle is not read:
-  the plan's launch, `plan.launch`, judges the stop and gives the body through `drill.body`).
-  Smoothness under `cleanAbove` gives a nose-over wobble of up to `wobbleRate` rad/s (its
-  sign is `r.pull`, +1 by default). Tilt pushes the swivel by `tiltPushDeg` per degree the
-  way `r.pull` says. The cut is `cutSpin` rad/s about the long axis. This band launch is
-  kept for core/bench, the tools and tests that throw a clean drill (`{ power = band,
-  smoothness = 1, tilt = 0 }`, unchanged bit for bit) and the throw scene until it
-  launches drills through the plan.
+- **Aim and launch** are the throw's ("The throw"): the d-pad moves the circle (it never
+  snaps), the thrower stands behind it on the baseline (A walks along it or back), the arc
+  starts at half past 1 (`plan.tune.arc.drill`), B + left/right is spin in taps
+  (`plan.tune.spinPerStep` rad/s about the long axis each). `plan.solve` solves the clean
+  drill onto the circle at the arc's loft (`drill.solveAt`: the speed that lands the kubb's
+  edge `drill.slideFor` short of the circle); `plan.launch` judges the swing and gives the
+  body through `drill.body` (noseDown, rollLand, spin, wobble, digGain). The aim camera is
+  `camera.drillAim`, which steps sideways with the thrower so the player lines up behind
+  the circle; the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
+  and the minimap's aim line goes to the circle. Self-test `clock-drill` (a drill at half
+  past 1 rests 0.04 m from the circle on the Simulator).
+- **The band launch** (`drill.launch`, `drill.solve`): the power error against the band is
+  shrunk by `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower`
+  per unit (never under `speedMinFrac`); the loft is the solved one. Smoothness under
+  `cleanAbove` gives a nose-over wobble of up to `wobbleRate` rad/s (its sign is `r.pull`,
+  +1 by default). Tilt pushes the swivel by `tiltPushDeg` per degree the way `r.pull` says.
+  The cut is `cutSpin` rad/s about the long axis. No throw in the game uses it since
+  2026-11-15; it is kept for core/bench, the tools and tests that throw a clean drill
+  (`{ power = band, smoothness = 1, tilt = 0 }`, unchanged bit for bit).
 - **The body** (`world.drillLaunchState`): long axis along the horizontal line of flight, the
   nose `noseDownDeg` below the horizontal, spinning at the cut rate; the release roll is
   solved backwards from the flight time so it lands rolled `rollLandDeg` onto a long edge
@@ -1036,28 +1044,17 @@ the throw scene with `s.drill` on.
   to 1.65 m long. The cut moves the rest point 5 to 17 cm (10 cm mean), the same both ways.
   A clean drill slides 0.13 m after landing on average (0.35 m worst); a jerky one
   (smoothness 0.35) 2.1 m (0.1 to 5 m). On sand: cut 7 cm mean, slides 0.05 and 0.8 m.
-- **HUD.** `hud.plaque` marks the band beside the power fill; `hud.gauge` draws the band
-  as a wedge on the disc and its prompt says `WIND TO BAND`, `FLICK!` (inverted) or
-  `EASE OFF` while winding; the cut flag says `CUT RIGHT` or `CUT LEFT` while A or B is
-  held. After the throw `hud.callout` gives the verdict (`SHORT`, `ON`, `LONG`) in a black
-  block and a ruler from SHORT to LONG with the rest point's distance from the marker (cm
-  under 1 m). The `hud-drill` scenario shows the band prompts and a long callout.
-  `hud.drillReadoutText`: `P <power>/<band> <verdict>  S <smoothness>  cut R|L|-  off
-  <land>/<rest> m` (distances from the marker).
-- **Telemetry.** A drill's `traces.jsonl` line is a baton line plus `"mode":"drill"`, `band`,
-  `verdict`, `cut`, `markerX/Y`, `landX/Y` (first contact), `restX/Y` and `throwerX`, in
-  meters with y from the thrower's baseline (`core/trace.lua` header); `launchSpeed` is the
-  drill's own. `frames.jsonl` writes `"proj":"drill"`.
+- **HUD.** The clock, the verdicts and the plan chip ("The throw"); at rest the kubb's
+  distance from the circle (`18 CM AWAY`) in the plan chip's place.
+- **Telemetry.** A drill's `traces.jsonl` line is a baton line ("The throw") plus
+  `"mode":"drill"`, `markerX/Y`, `landX/Y` (first contact), `restX/Y` and `throwerX`, in
+  meters with y from the thrower's baseline (`core/trace.lua` header), and its `spin`.
+  `frames.jsonl` writes `"proj":"drill"`.
 - **Rules.** A drilled kubb's rest goes through `core/outcome.toss` and `core/match` like a
   lobbed one: short of the middle line or out when its round is judged is a rethrow, out
   twice a punishment kubb (tested in `test_drill.lua` with real physics).
-- **Self-test** `drill`: the practice pitch, marker moved, A held, a wind-up to the band and
-  a clean flick; its marker note gives power, band and the landing and rest distances (the
-  old release). `drill-stop`: the release where the crank stops, wound into the band and
-  stopped on the drill's notch: ON THE NOTCH, the solved loft, rests 0.19 m from the
-  marker. `drill-early`: stopped 40 degrees before it: EARLY: LOW, leaves at 17.6 against
-  27.6. Both check the flight the camera follows is the one thrown (Codex on #85: the
-  prediction kept the solved loft, so the camera looked 1 m past an early drill).
+- **Self-tests** `clock-drill` (above), `clock-plan` (the drill's spin and arc, the circle
+  moved by the d-pad), `drills-new` (THE WALL's first kubb by the stake).
 
 ## Woodcut type, title, cards and launcher
 
@@ -1100,7 +1097,7 @@ The look is `docs/design/` (README and boards). What is built of it here:
 The title (`scenes/title.lua`, Woodcut look below) offers "VS PLAYDATE" (a match against
 the computer), "PASS + PLAY" (the match) and "PRACTICE" (the drills menu, whose OPEN PITCH
 is the practice pitch); `main.lua` opens one
-scene at a time and rebuilds the System Menu for it (Readout, Record, then the scene's
+scene at a time and rebuilds the System Menu for it (Level, Record, then the scene's
 own item). Practice is the throw scene exactly as before.
 
 - `core/frame.lua`: the thrower's view frame. Team B's throws are made in the pitch turned
@@ -1245,24 +1242,26 @@ own item). Practice is the throw scene exactly as before.
   engine's team names, so cards, labels and the game file say so; mode "Vs Playdate").
   Its throws come from `core/autothrow` (`choose(setup, rng, scale)`, scatter times
   `scene.tune.cpuScatter`, seeded from the clock): it chooses as its turn comes up, the
-  scene shows that stance and aim (`throw.showAim`, `s.watching`: the gauge and loft
-  plaque give way to a WATCH prompt; its kubb tosses are lobs aimed like a baton, so
-  `showAim` turns the drill marker off for them) for `cpuThink` s, then
-  `throw.autoLaunch`. It raises
+  scene shows that stance and aim (`throw.showAim`, `s.watching`: a WATCH prompt over the
+  clock, its circle where its plan says, the clock with its plan's targets) for
+  `cpuThink` s, then `throw.autoLaunch`: its arm plays on the clock (back, then forward
+  to where it stops, `cpuSwingTime`) and the throw leaves as it made it, mistakes
+  included; its kubbs are drilled ("The throw"). It raises
   and places punishment kubbs with the engine's policies (no settle screen); the player
   settles by hand. No hand-off card before the Playdate's turn. The System Menu resign is
   always the player's and waits for the player's turn. Self-test `match-vs` (a whole
   match, the player's throws seeded, its game file gated).
-- Kubb toss: the same aim, loft and crank swing as a baton, always from the baseline; the
-  kubb is a real body (`world.launchKubb`) turning at `throw.tune.tossTumble` of the
-  swing's tumble with no tilt (no helicopter), drawn as one more box item.
+- Kubb toss: a drilled kubb, always from the baseline ("Drilling"); a kubb with no
+  `a.drill` from the computer is lobbed (`world.launchKubb`, end over end, no tilt), drawn
+  as one more box item.
 - Stay put (Jamie, 2026-11-14): in `throw.prepare` a team's batons after its first of a
-  turn keep the last baton's stance (`playerX`, `playerY`, swivel, loft; `s.stanceSide`,
+  turn keep a stance the player walked to with A (`s.stanceSet`, `s.stanceSide`,
   `s.stanceKind`), clamped to where this baton may stand (a king shot pulls it back to
-  the baseline). The first baton of a turn and every kubb start from the middle of the
-  baseline. Self-test `match-opening` checks both.
-- Advantage line: the d-pad walks between `backMax` behind the baseline and `forwardY` (the
-  engine's advantage line; king shots are from the baseline). A turn's first baton starts
+  the baseline), and the circle stays on its target while that stands. Otherwise, and
+  for every kubb, the stance is behind the circle, which starts on the nearest live target.
+  Self-test `match-opening` checks both.
+- Advantage line: A + d-pad walks between `backMax` behind the baseline and `forwardY` (the
+  engine's advantage line; king shots are from the baseline). A baton's stance starts
   on the line (Jamie, 2026-11-14: from there you are far more accurate, so the camera comes
   up with you, not held back at the baseline). While aiming, yours or the Playdate's, an
   inverted flag under the rail says `ADVANTAGE LINE  2.4 M` (`hud.advantage`, its text made
@@ -1473,14 +1472,16 @@ picture behind the physics. The `flight` self-test reads its line back.
 
 ## Crank traces
 
-The System Menu has "Readout" (the debug line after each throw) and "Record". Record is
+The System Menu has "Record" (and the practice pitch's "Pitch: readout", the debug line
+after each throw). Record is
 on by default while the throw is being tuned (self-tests leave it off). With
 Record on, every swing is appended as one JSON line to `traces.jsonl` in the game's Data
 folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/`).
 The format is documented at the top of `source/core/trace.lua` (samples are
 `[dt, raw crank degrees]` per frame from the first wind-up frame to release or let-down,
-plus the result). `lua5.4 tools/replay_traces.lua <file>` replays each line through the
-current `core/swing.lua` and prints recorded vs replayed results; `--current-sign`
-replays with today's `forwardSign` instead of the recorded one. The test fixture is
-`tests/fixtures/traces/sample.jsonl`. Drill lines add the fields in "Drilling" above;
-`replay_traces` reads them like any other line (the swing is the same).
+not the cooldown after a release, plus the result: what the swing measured, then the
+plan and the launch, "The throw"). `lua5.4 tools/replay_traces.lua <file>` replays each
+line through the current `core/swing.lua` and prints recorded vs replayed results;
+`--current-sign` replays with today's `forwardSign` instead of the recorded one. The test
+fixture is `tests/fixtures/traces/sample.jsonl`. Drill lines add the fields in "Drilling"
+above; `replay_traces` reads them like any other line (the swing is the same).

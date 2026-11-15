@@ -61,12 +61,13 @@ behind the thrower: 3 m behind the throwing line, 3.4 m up, long lens (focal len
 
 **HUD** (the Woodcut layout, `docs/design/README.md`). The pitch keeps a clear area in the
 middle of the screen; the HUD sits around it: a black rail along the top (team, projectile
-and number of it, targets left), the minimap at the bottom left, the loft plaque (angle and
-power fill) and the crank gauge disc at the bottom right with a prompt above the disc
-(`WIND BACK`, an inverted `FLICK!`, `WIND TO BAND`, `EASE OFF`, `CRANK DOWN`). After the
-release the plaque gives way to the power chip and a result flag (`3 DOWN`, `MISS`,
-`HELICOPTER`); a drill's result is a callout with its verdict and a ruler from short to
-long. The debug readout is off unless "Readout" is on.
+and number of it, targets left), the minimap at the bottom left, the clock (section 4) at
+the bottom right with a prompt above it (`WIND BACK`, an inverted `FLICK!`, `EASE OFF`,
+`CRANK DOWN`) and the planned tilt or spin beside it. After the release a result flag
+(`3 DOWN`, `MISS`, `HELICOPTER`) sits left of the clock, and at rest the verdicts (power,
+release, steadiness) along the bottom and a drill's distance from its circle. The debug
+readout is off unless the practice pitch's "Pitch: readout" is on (2026-11-15: the loft
+plaque, power chip and drill callout went with the stop on the notch).
 
 **Minimap.** A 45 x 72 px top-down pitch in the bottom left corner at 9 px per meter: every kubb
 as a 2 px dot, the king as 3 px, the aim line, the advantage line. It is the only view of the
