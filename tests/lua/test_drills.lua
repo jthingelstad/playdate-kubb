@@ -328,3 +328,13 @@ test("drills: records keep DOUBLES and THE WALL like the others", function()
 		expect.eq(drills.rate(r), math.floor(100 * 3 / d.of + 0.5))
 	end
 end)
+
+test("drills: THE HOUSE's kubbs are field kubbs, so the aim takes the field-kubb arc", function()
+	local d = drills.byId("house")
+	local s = drills.setup(d, drills.newRun(d))
+	local n = 0
+	for _, p in ipairs(s.pieces) do
+		if p.kind == "kubb" then n = n + 1; expect.eq(p.role, "field", p.id) end
+	end
+	expect.eq(n, 5)
+end)
