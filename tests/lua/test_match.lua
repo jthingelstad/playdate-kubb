@@ -10,6 +10,7 @@ import "core/world"
 import "core/notation"
 import "core/cards"
 import "core/save"
+import "core/gamefile"
 local frame, outcome, match, autothrow, world, notation =
 	tw.frame, tw.outcome, tw.match, tw.autothrow, tw.world, tw.notation
 
@@ -572,3 +573,13 @@ test("match: the lineup's keys and levels, the turn's order, handing a throw to 
 	expect.eq(back.order.A.ids[3], "ray")
 end)
 
+test("match: the game file names each player's throw level", function()
+	local m = match.new { teams = {
+		A = { name = "Snow Kubbs", players = { { name = "Kim", key = "p1", level = "pro" }, { name = "Max", key = "p2", level = "club" } } },
+		B = { name = "Playdate", players = { { name = "Playdate" } } } } }
+	match.resign(m)
+	local text = match.file(m, { year = 2026, month = 11, day = 15, hour = 10, min = 0 }, "0.0.1")
+	expect.truthy(text:find('[Throw Levels "kim pro, max club"]', 1, true), text)
+	local g = tw.gamefile.parse(text)
+	expect.eq(g.players.A .. "v" .. g.players.B, "2v1")
+end)

@@ -246,7 +246,8 @@ gauge. Its level sets the target ranges' widths and the error gains. This plan o
 where the level comes from and how it reaches the throw:
 
 - **It lives on the player** (`player.level`, an integer `1..levels.count`, default
-  `levels.default`). Its names, its count and what each changes belong to the throw
+  `levels.default`; as built, the name of one of the new throw's levels, `tw.plan.LEVELS`:
+  beginner, club, pro, default club). Its names, its count and what each changes belong to the throw
   design (`core/levels.lua` or wherever that session puts them); the roster stores only
   the number and refuses one out of range.
 - **It is fixed for a match.** At the start, `core/match` copies each player's key, id,
@@ -321,19 +322,26 @@ every game.
    *Built* (AGENTS.md "Throwing order").
 2. **The roster and history, no screens.** `core/roster.lua`, `core/history.lua`, the
    datastore files, the migration; tests that fold the fixture games into histories and
-   that a saved roster reads back.
+   that a saved roster reads back. *Built* (AGENTS.md "Saved players"; the histories are
+   tested on generated games).
 3. **Players screens.** Players, Player, New player, remove; self-test `players` (frames:
-   the list, a player, the keyboard step, the remove card).
+   the list, a player, the keyboard step, the remove card). *Built*.
 4. **Teams screen.** Replaces the names step for PASS + PLAY and VS PLAYDATE; lineup
    remembered; self-test `teams` (a 3-v-2 built with the d-pad, reordered, started).
+   *Built*, in one pull request with step 5.
 5. **Teams in a match.** Hand-off card with the order, pass card, change thrower, rail,
    winner card lines, save and resume with the lineup, history folded at the end;
    self-tests `match-teams` (a scripted 3-v-3 to a winner, game file gated) and `pass`.
+   *Built* as one self-test, `match-teams` (three against two, a baton handed over, the
+   sheet checked against the order's rules).
 6. **Throw level wiring.** `setup.thrower.level` to the throw scene, the drills menu's
    player row, drill records per player. Waits on the throw redesign's level interface;
-   until then the level is stored and shown but changes nothing.
+   until then the level is stored and shown but changes nothing. *Built* on the new throw
+   (#91): `throw.levelFor(s)` reads the thrower's level; the levels are its beginner,
+   club and pro.
 7. **Game file and games list.** The `[Throw Levels]` header (if agreed), the games
-   list's players, a player's recent games opening their sheets.
+   list's players, a player's recent games opening their sheets. *Built*, in one pull
+   request with step 6.
 
 Steps 1 and 2 do not depend on each other; 3 needs 2; 4 needs 2 (and 3 for NEW PLAYER);
 5 needs 1 and 4; 6 needs 5 and the throw redesign.

@@ -44,6 +44,7 @@ local function listFiles(dir)
 	return out
 end
 
+-- A file's text, or nil (also scenes/players: a player's recent games).
 local function readFile(path)
 	local size = playdate.file.getSize(path)
 	if not size or size == 0 then return nil end
@@ -160,6 +161,10 @@ local function renderList(s)
 		if ra then parts[#parts + 1] = string.upper(g.a) .. " " .. ra .. "% HITS" end
 		if rb then parts[#parts + 1] = string.upper(g.b) .. " " .. rb .. "%" end
 		if g.kingBaton then parts[#parts + 1] = "KING ON BATON " .. g.kingBaton end
+		-- teams of several players (docs/PLAYERS.md)
+		if (g.players.A or 0) > 1 or (g.players.B or 0) > 1 then
+			parts[#parts + 1] = g.players.A .. " V " .. g.players.B .. " PLAYERS"
+		end
 		if #parts > 0 then ui.textDots(label, parts, 10, t.footY + 7, true) end
 		ui.button("A", "SCORESHEET", 10, t.footY + 24, true)
 	end
@@ -219,5 +224,7 @@ end
 function scene.enter()
 	playdate.display.setRefreshRate(30)
 end
+
+scene.readFile = readFile
 
 tw.scenes.games = scene

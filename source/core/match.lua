@@ -438,7 +438,14 @@ end
 function match.file(m, finish, version)
 	local start = m.start or finish
 	local g = m.game
-	local text = notation.render(g, { start = start, finish = finish, version = version, mode = m.mode })
+	local levels = {}
+	for _, side in ipairs { "A", "B" } do
+		for _, e in ipairs(m.lineup and m.lineup[side] or {}) do
+			if e.level then levels[#levels + 1] = e.id .. " " .. e.level end
+		end
+	end
+	local text = notation.render(g, { start = start, finish = finish, version = version, mode = m.mode,
+		levels = levels })
 	return text, notation.filename(start, g.teams.A.name, g.teams.B.name)
 end
 

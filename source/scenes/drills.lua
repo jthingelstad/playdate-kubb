@@ -10,12 +10,21 @@
 -- (records in playdate.datastore "drills"); A runs it again, B goes back to
 -- the menu. During a run the System Menu's "Drill" leaves it unrecorded, for
 -- the menu or the title (main.lua). Every screen but the throws is one image redrawn on a change.
+--
+-- Who is practising (docs/PLAYERS.md section 6): left/right on the menu go
+-- through NO PLAYER and the saved players; the choice is kept (datastore
+-- "practice"). With a player, every throw (OPEN PITCH too, main.lua) is at
+-- their throw level and their records are their own (core/history); with
+-- none, the System Menu's "Level" and the Playdate's own records ("drills").
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/drills"
 import "core/pitch"
 import "scenes/throw"
 import "render/ui"
+import "core/roster"
+import "core/history"
+import "players"
 
 local gfx <const> = playdate.graphics
 local drills, pitch, throw, ui = tw.drills, tw.pitch, tw.scenes.throw, tw.render.ui
@@ -35,9 +44,39 @@ scene.tune = {
 
 local OPEN <const> = { id = "open", name = "OPEN PITCH", lines = { "THE PRACTICE PITCH", "THROW AS YOU LIKE", "SYSTEM MENU: PITCH" } }
 
+-- The player practising: their roster record, or nil (NO PLAYER).
+local function practising(r)
+	local d = playdate.datastore.read(tw.players.fileKey("practice"))
+	return d and d.key and tw.roster.find(r, d.key) or nil
+end
+
+-- The throw level for practice: the practising player's, or nil (the
+-- System Menu's). main.lua gives it to OPEN PITCH.
+function scene.practiceLevel()
+	local ok, p = pcall(function() return practising(tw.players.load()) end)
+	return ok and p and p.level or nil
+end
+
 local function loadRecords(s)
 	if s.scripted then return {} end
+	if s.player then
+		s.h = tw.players.history(s.player.key)
+		return s.h.drills
+	end
 	return playdate.datastore.read(scene.tune.recordsKey) or {}
+end
+
+-- Left/right on the menu: the next player (NO PLAYER, then the roster).
+local function nextPlayer(s, dir)
+	local list = { false }
+	for _, p in ipairs(tw.roster.sorted(s.r)) do list[#list + 1] = p end
+	local at = 1
+	for i, p in ipairs(list) do if p and s.player and p.key == s.player.key then at = i end end
+	local q = list[(at - 1 + dir) % #list + 1]
+	s.player = q or nil
+	playdate.datastore.write({ key = s.player and s.player.key or nil }, tw.players.fileKey("practice"))
+	s.records = loadRecords(s)
+	s.img = nil
 end
 
 -- opts.scripted: no records read or written (self-tests)
@@ -46,6 +85,10 @@ function scene.new(provider, opts)
 	local s = { input = provider, phase = "menu", choice = 1, scripted = opts.scripted, img = nil, exit = nil }
 	s.items = { OPEN }
 	for _, d in ipairs(drills.list) do s.items[#s.items + 1] = d end
+	if not s.scripted then
+		s.r = tw.players.load()
+		s.player = practising(s.r)
+	end
 	s.records = loadRecords(s)
 	return s
 end
@@ -131,7 +174,9 @@ local function renderMenu(s)
 	gfx.fillRect(0, 0, t.panelW, 240)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, "PRACTICE", 6, 2, true)
-	ui.text(label, "GRASS", 394, 2, true, "right")
+	-- who is practising (left/right), and at what level
+	ui.text(label, s.player and (s.player.name .. "  " .. s.player.level .. "  < >") or "NO PLAYER  < >",
+		394, 2, true, "right")
 	-- rows a little closer together when the list would run into the buttons
 	local n = #s.items
 	local rowH = math.min(t.itemH, floor((t.listBottom - t.itemY) / n))
@@ -189,6 +234,7 @@ local function startRun(s, d)
 	s.ts = s.ts or throw.new(s.input)
 	s.ts.sceneName = "practice"
 	s.ts.drillRun = d.id   -- each throw's trace line names the drill
+	s.ts.level = s.player and s.player.level or nil   -- nil: the System Menu's
 	s.ts.showReadout = s.showReadout or false
 	throw.enter()
 	s.phase = "run"
@@ -197,8 +243,15 @@ end
 scene.startRun = startRun
 
 local function finishRun(s)
-	local r, best = drills.record(s.records, s.drill, s.run)
-	if not s.scripted then playdate.datastore.write(s.records, scene.tune.recordsKey) end
+	local r, best
+	if s.player and not s.scripted then
+		r, best = tw.history.foldDrill(s.r, s.h, s.player.key, s.drill, s.run, tw.players.now())
+		tw.players.save(s.r)
+		tw.players.saveHistory(s.player.key, s.h)
+	else
+		r, best = drills.record(s.records, s.drill, s.run)
+		if not s.scripted then playdate.datastore.write(s.records, scene.tune.recordsKey) end
+	end
 	s.newBest, s.phase, s.img = best, "result", nil
 end
 
@@ -252,6 +305,8 @@ function scene.update(s)
 		local n = #s.items
 		if p:pressed("down") then s.choice = s.choice % n + 1; s.img = nil
 		elseif p:pressed("up") then s.choice = (s.choice - 2) % n + 1; s.img = nil end
+		if s.r and p:pressed("left") then nextPlayer(s, -1)
+		elseif s.r and p:pressed("right") then nextPlayer(s, 1) end
 		if p:pressed("a") then
 			local d = s.items[s.choice]
 			if d.id == "open" then s.exit = "practice" else startRun(s, d) end
