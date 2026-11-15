@@ -73,7 +73,7 @@ tw.selftest.scenarios.players = {
 				function() names.type(s.sub, "Maxine"); names.ok(s.sub) end,
 				function() if s.player.name ~= "Maxine" then return "rename gave " .. s.player.name end
 					inp.want = "up" end,                                -- REMOVE (wraps)
-				function() if s.row ~= 3 then return "row " .. s.row end inp.want = "a" end,
+				function() if s.row ~= 4 then return "row " .. s.row end inp.want = "a" end,
 				"capture4",
 				function() if s.mode ~= "confirm" then return "no remove card" end inp.want = "a" end,
 				function()

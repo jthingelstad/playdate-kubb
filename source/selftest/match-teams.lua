@@ -6,8 +6,9 @@
 -- Frames: 1 the first hand-off of Team A naming its first thrower and the
 -- turn's order, 2 the first pass card, 3 the change list, 4 the winner
 -- card with each player's hits.
--- The check: each pass card names the thrower set up, the change took, and
--- every turn keeps Rules V4.0 II.A.4 and II.B.5 (core/order.checkSheet).
+-- The check: each pass card names the thrower set up and the throw is at
+-- their level, the change took, every turn keeps Rules V4.0 II.A.4 and
+-- II.B.5 (core/order.checkSheet), and the game file names the levels.
 import "selftest/_match"
 import "core/order"
 
@@ -49,6 +50,11 @@ st.scenarios["match-teams"] = st.matchScenario {
 			h.pressA()
 		elseif ms.phase == "pass" then
 			if ms.pass.name ~= ms.setup.thrower.name then error("the pass card names " .. ms.pass.name) end
+			-- the throw is at the thrower's own level (nil: the System Menu's)
+			if ms.ts.level ~= ms.setup.thrower.level then
+				error("the throw's level is " .. tostring(ms.ts.level) .. ", " .. ms.setup.thrower.name .. "'s "
+					.. tostring(ms.setup.thrower.level))
+			end
 			if not shot.pass then ctx:capture(); shot.pass = true end
 			if changedTo and not changeDone then
 				if ms.setup.thrower.id ~= changedTo then
@@ -71,6 +77,10 @@ st.scenarios["match-teams"] = st.matchScenario {
 				shot.winner = true
 				local bad = tw.order.checkSheet(ms.m.game)
 				if #bad > 0 then error(bad[1]) end
+				local text = tw.match.file(ms.m, nil, "0.0.1")
+				if not text:find('[Throw Levels "kim pro, lee beginner"]', 1, true) then
+					error("the game file's levels")
+				end
 				notes = notes .. string.format(" winner=%s turns=%d", ms.win.winner, ms.win.turns)
 				h.pressA()
 				pressed = true

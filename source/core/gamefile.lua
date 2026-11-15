@@ -59,6 +59,14 @@ function gamefile.parse(text)
 	local s = { headers = h, a = h["Team A"], b = h["Team B"], first = first or "A", turns = turns,
 		winner = (win == "Team A") and "A" or ((win == "Team B") and "B" or nil),
 		start = h["Start"], mode = h["Mode"], hits = hits, kingBaton = kingBaton, lines = lines }
+	-- players a team ("Kim (kim), Max (max)": a comma between each)
+	s.players = {}
+	for _, side in ipairs { "A", "B" } do
+		local v = h["Team " .. side .. " Players"]
+		local n = 0
+		if v then for _ in v:gmatch("%(") do n = n + 1 end end
+		s.players[side] = n
+	end
 	s.minutes = tonumber((h["Duration"] or ""):match("^(%d+)m")) or 0
 	local _, mo, d = (h["Start"] or ""):match("^(%d+)-(%d+)-(%d+)")
 	s.date = mo and (MONTHS[tonumber(mo)] .. " " .. tonumber(d)) or ""

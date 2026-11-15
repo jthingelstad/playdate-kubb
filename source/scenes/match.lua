@@ -233,6 +233,9 @@ local function nextThrow(s)
 	s.setup = setup
 	s.resolved = false
 	throw.prepare(s.ts, setup)
+	-- the thrower's own throw level (docs/PLAYERS.md section 6); nil (a
+	-- match without saved players) is the System Menu's
+	s.ts.level = setup.thrower and setup.thrower.level or nil
 	s.ts.instant = s.opts.instant
 	-- the wind (match option WIND): a direction and speed for each turn, a
 	-- gust of it for each throw, in this side's view frame
@@ -408,6 +411,7 @@ function scene.update(s)
 				cmatch.changeThrower(s.m, c.list[c.i].id)
 				local setup = s.setup
 				s.lastThrower = setup.thrower.id
+				s.ts.level = setup.thrower.level
 				throw.setRail(s.ts, railName(s, setup), setup.projectile, setup.n, setup.of, s.rail[1], s.rail[2])
 				if s.phase == "handoff" then s.handoff = cards.handoff(s.m, setup)
 				else s.pass = cards.pass(s.m, setup) end

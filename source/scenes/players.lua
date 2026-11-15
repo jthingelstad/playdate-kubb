@@ -9,9 +9,12 @@
 --            the last ten games as bars. Up/down choose (the list scrolls),
 --            A opens (or makes a new player), B the title.
 --   player   one player: rows NAME (A: the keyboard), LEVEL (left/right
---            change it, saved at once and logged in the history) and
---            REMOVE (A: the confirm card); on the right the figures and the
---            drill bests. B back to the list.
+--            change it, saved at once and logged in the history), GAMES (A:
+--            their recent games) and REMOVE (A: the confirm card); on the
+--            right the figures and the drill bests. B back to the list.
+--   games    their recent games, newest first (date, the other team, won or
+--            lost, hits over batons); A opens the game file's score sheet
+--            (scenes/sheet, from games/ in the Data folder), B back.
 --   confirm  REMOVE <NAME>?: A removes the player and their history file
 --            (game files stay), B keeps them.
 --   name     scenes/names in mode "player" (a new player, then the LEVEL row
@@ -30,6 +33,8 @@ import "core/throwplan"
 import "render/ui"
 import "scenes/names"
 import "players"
+import "scenes/sheet"
+import "scenes/games"
 
 local gfx <const> = playdate.graphics
 local roster, history, drills, plan, ui = tw.roster, tw.history, tw.drills, tw.plan, tw.render.ui
@@ -47,7 +52,7 @@ scene.tune = {
 	barsY = 196,        -- the last ten games' bars sit on this line
 }
 
-local ROWS <const> = { "NAME", "LEVEL", "REMOVE" }
+local ROWS <const> = { "NAME", "LEVEL", "GAMES", "REMOVE" }
 
 -- A level's word on screen.
 function scene.levelText(l) return string.upper(l or "") end
@@ -137,6 +142,11 @@ end
 
 function scene.update(s)
 	local p = s.input
+	if s.mode == "sheet" then
+		tw.scenes.sheet.update(s.sheet, false)
+		if s.sheet.done then s.mode, s.sheet, s.img = "games", nil, nil end
+		return
+	end
 	if s.mode == "name" then
 		names.update(s.sub)
 		if s.sub.done then nameDone(s)
@@ -166,9 +176,24 @@ function scene.update(s)
 		end
 		if p:pressed("a") then
 			if ROWS[s.row] == "NAME" then askName(s, true)
+			elseif ROWS[s.row] == "GAMES" then s.mode, s.gi, s.img = "games", 1, nil
 			elseif ROWS[s.row] == "REMOVE" then s.mode, s.img = "confirm", nil end
 		elseif p:pressed("b") then
 			s.mode, s.img = "list", nil
+		end
+	elseif s.mode == "games" then
+		local list = historyOf(s, s.player.key).games
+		local n = #list
+		if n > 0 and p:pressed("up") then s.gi = (s.gi - 2) % n + 1; s.img = nil end
+		if n > 0 and p:pressed("down") then s.gi = s.gi % n + 1; s.img = nil end
+		if p:pressed("a") and n > 0 then
+			local e = list[n - s.gi + 1]
+			local text = e.f and tw.scenes.games.readFile("games/" .. e.f)
+			s.sheet = tw.scenes.sheet.new(p, text and tw.scenes.sheet.split(text) or { "(this game file is not on the Playdate)" },
+				string.upper(e.team .. " V " .. e.vs), { e.d or "", string.upper(e.res or "") })
+			s.mode = "sheet"
+		elseif p:pressed("b") then
+			s.mode, s.img = "player", nil
 		end
 	elseif s.mode == "confirm" then
 		if p:pressed("a") then
@@ -289,16 +314,17 @@ local function renderPlayer(s)
 	rail(label, "PLAYERS", "GAME FILE ID " .. string.upper(s.player.id))
 	local p = s.player
 	for i, row in ipairs(ROWS) do
-		local y = t.itemY + (i - 1) * 46
+		local y = t.itemY + (i - 1) * 40
 		local on = i == s.row
 		if on then
 			gfx.setColor(WHITE)
-			gfx.fillRect(8, y - 3, t.panelW - 16, 42)
+			gfx.fillRect(8, y - 3, t.panelW - 16, 37)
 		end
 		ui.text(label, row, 16, y, not on)
 		local value
 		if row == "NAME" then value = p.name
 		elseif row == "LEVEL" then value = scene.levelText(p.level)
+		elseif row == "GAMES" then value = (#historyOf(s, p.key).games) .. " RECENT"
 		else value = "REMOVE " .. p.name end
 		local f = (big:getTextWidth(string.upper(value)) <= t.panelW - 48) and big or label
 		local vx = row == "LEVEL" and 30 or 16
@@ -310,10 +336,39 @@ local function renderPlayer(s)
 			gfx.fillTriangle(vx + w + 6, y + 17, vx + w + 6, y + 31, vx + w + 13, y + 24)
 		end
 	end
-	local hint = ({ NAME = "A RENAME", LEVEL = "LEFT, RIGHT: THE LEVEL", REMOVE = "A REMOVE" })[ROWS[s.row]]
-	ui.text(label, hint, 16, 168, true)
+	local hint = ({ NAME = "A RENAME", LEVEL = "LEFT, RIGHT: THE LEVEL", GAMES = "A THEIR GAMES",
+		REMOVE = "A REMOVE" })[ROWS[s.row]]
+	ui.text(label, hint, 16, 190, true)
 	ui.button("B", "BACK", 16, 216, true)
 	figures(s, p, true)
+end
+
+local function renderGames(s)
+	local t = scene.tune
+	local big, label = ui.display(16), ui.label()
+	gfx.clear(WHITE)
+	gfx.setColor(BLACK)
+	gfx.fillRect(0, 0, 400, 240)
+	rail(label, string.upper(s.player.name) .. ": RECENT GAMES", "NEWEST FIRST")
+	local list = historyOf(s, s.player.key).games
+	local n = #list
+	if n == 0 then ui.text(label, "NO GAMES YET", 16, 40, true) end
+	local visible = 8
+	local top = math.max(1, math.min(s.gi - 3, n - visible + 1))
+	for i = top, math.min(n, top + visible - 1) do
+		local e = list[n - i + 1]
+		local y = 24 + (i - top) * 22
+		local on = i == s.gi
+		if on then
+			gfx.setColor(WHITE)
+			gfx.fillRect(8, y - 3, 384, 20)
+		end
+		ui.text(label, (e.d or ""):sub(1, 10), 16, y + 1, not on)
+		ui.text(big, ((e.res == "won") and "WON V " or "LOST V ") .. e.vs, 110, y, not on)
+		ui.text(label, (e.h or 0) .. "/" .. (e.b or 0) .. " HITS", 386, y + 1, not on, "right")
+	end
+	if n > 0 then ui.button("A", "SCORESHEET", 16, 216, true) end
+	ui.button("B", "BACK", 150, 216, true)
 end
 
 local function renderConfirm(s)
@@ -331,11 +386,13 @@ end
 
 function scene.draw(s)
 	if s.mode == "name" then return names.draw(s.sub) end
+	if s.mode == "sheet" then return tw.scenes.sheet.draw(s.sheet) end
 	if not s.img then
 		s.img = gfx.image.new(400, 240, WHITE)
 		gfx.pushContext(s.img)
 		if s.mode == "list" then renderList(s)
 		elseif s.mode == "player" then renderPlayer(s)
+		elseif s.mode == "games" then renderGames(s)
 		else renderConfirm(s) end
 		gfx.popContext()
 	end

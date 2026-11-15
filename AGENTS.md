@@ -332,7 +332,7 @@ every baton and kubb before the throw, within Rules V4.0 as far as a team's size
 
 ## Saved players
 
-docs/PLAYERS.md (the agreed plan; steps 1 to 5 built). Pure: `core/roster.lua`
+docs/PLAYERS.md (the agreed plan; built). Pure: `core/roster.lua`
 (`tw.roster`, `test_roster.lua`) and `core/history.lua` (`tw.history`, `test_history.lua`);
 the datastore part is `source/players.lua` (`tw.players`).
 
@@ -362,8 +362,8 @@ the datastore part is `source/players.lua` (`tw.players`).
   first, each with their level) and the chosen player's figures (games, wins, hit rate,
   kings, kubbs in, the last ten games as bars of hits over batons with a dot for a win). A
   opens a player: NAME (A: the keyboard), LEVEL (left/right, saved at once and logged in
-  the history), REMOVE (a confirm card: the history goes, game files stay), with their
-  drill bests. A new player is typed (scenes/names in mode `"player"`, which refuses a
+  the history), GAMES (their recent games), REMOVE (a confirm card: the history goes, game
+  files stay), with their drill bests. A new player is typed (scenes/names in mode `"player"`, which refuses a
   taken name and shows why) and lands on their LEVEL row. Self-test `players`.
 - **The title** has four items in two rows of two (four do not fit across at 16 px):
   VS PLAYDATE, PASS + PLAY / PRACTICE, PLAYERS; left/right go in reading order, up/down
@@ -397,6 +397,22 @@ the datastore part is `source/players.lua` (`tw.players`).
   one baton handed over, `order.checkSheet` on the sheet).
 - **The save** is version 2 (`m.order`, `m.lineup`, `opts.teams`); a version 1 save is
   deleted at launch and never resumed (Jamie, 2026-11-15, decision 9).
+- **The throw level** is the thrower's (docs/PLAYERS.md section 6): `throw.levelFor(s)`
+  reads `s.level` before the System Menu's "Level". The match sets `s.ts.level` from
+  `setup.thrower.level` for every throw (and again when the thrower is changed); a player
+  without one (a guest at the default, a match without saved players: nil) and the
+  Playdate's team fall back to the System Menu. Practice: left/right on the drills menu
+  choose who is practising (NO PLAYER, then the roster; kept in datastore `practice`),
+  shown on the menu's rail; a drill run and OPEN PITCH (`main.lua`,
+  `drills.practiceLevel()`) throw at that player's level, and the run's record goes to
+  their history (`history.foldDrill`); NO PLAYER keeps the System Menu's level and the
+  Playdate's own `drills` records. Levels are the throw's: beginner, club, pro.
+- **The game file** writes `[Throw Levels "kim pro, max club"]` after `[Mode]` when the
+  match had levels (`notation.render`'s `meta.levels`, from `m.lineup`); the vendored
+  grammar and kubb.js accept the extra header. The games list's footer adds `3 V 2
+  PLAYERS` for teams of several (`gamefile.parse`'s `players`). A player's page has a
+  GAMES row: their recent games, newest first, each opening its file's score sheet
+  (`scenes/sheet`, the file read from `games/`).
 
 ## Simulator self-tests
 

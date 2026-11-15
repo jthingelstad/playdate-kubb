@@ -262,6 +262,8 @@ else
 		elseif which == "pitch" then
 			kind = "practice"
 			current = throw.new(device)
+			-- the practising player's throw level (scenes/drills), else the System Menu's
+			current.level = drillsScene.practiceLevel()
 			throw.enter()
 		elseif which == "match" or which == "vs" then
 			-- PASS + PLAY or VS PLAYDATE: the teams first (scenes/teams)

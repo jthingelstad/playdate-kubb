@@ -229,7 +229,9 @@ end
 local function teamLabel(side) return "Team " .. side end
 
 -- The game file. `game` is a rules game (tw.rules) that has ended; meta is
--- { start, finish (time tables), version, mode, event, location }.
+-- { start, finish (time tables), version, mode, event, location, levels }.
+-- levels: { "kim pro", "sam club", ... } (player id and throw level), written
+-- as [Throw Levels "..."] after [Mode] when given.
 function notation.render(game, meta)
 	meta = meta or {}
 	local lines = {}
@@ -253,6 +255,8 @@ function notation.render(game, meta)
 	if game.winner then h("Win", teamLabel(game.winner)) end
 	h("Scored by", notation.scorer .. " " .. (meta.version or "0.0.0"))
 	if meta.mode then h("Mode", meta.mode) end
+	-- each player's throw level (docs/PLAYERS.md decision 7): "kim pro, sam club"
+	if meta.levels and #meta.levels > 0 then h("Throw Levels", concat(meta.levels, ", ")) end
 	h("Rules", game.opening == "six" and "U.S. Championship 4.0, six from the start"
 		or "U.S. Championship 4.0, 2-4-6")
 	lines[#lines + 1] = ""
