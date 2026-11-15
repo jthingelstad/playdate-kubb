@@ -13,8 +13,10 @@ import "core/tw"
 import "core/notation"
 import "core/frame"
 import "core/pitch"
+import "core/match"
+import "core/history"
 
-local notation, frame, pitch = tw.notation, tw.frame, tw.pitch
+local notation, frame, pitch, cmatch, history = tw.notation, tw.frame, tw.pitch, tw.match, tw.history
 
 local cards = {}
 
@@ -81,6 +83,11 @@ end
 --                     down }: the ten base slots (down = that base kubb is
 --                     no longer standing there), every field kubb on the
 --                     pitch, then the king
+-- and for a team of several players (core/order, docs/PLAYERS.md 5):
+--   thrower           the name of the player who throws first (the card is
+--                     passed to them)
+--   order             this turn's batons by player: { { name, n }, ... }
+--   inkaster          the name of the player who throws the kubbs in
 function cards.handoff(m, setup)
 	local g = m.game
 	local to = setup.side
@@ -117,6 +124,35 @@ function cards.handoff(m, setup)
 	local kx, ky = frame.point(to, kp.x, kp.y)
 	pieces[#pieces + 1] = { id = "king", x = kx, y = ky, kind = "king", down = false }
 	c.pieces = pieces
+	if #g.teams[to].players > 1 and setup.thrower then
+		c.thrower = setup.thrower.name
+		local list, ink = cmatch.turnOrder(m)
+		c.order = {}
+		for i, e in ipairs(list) do c.order[i] = { name = e.name, n = e.n } end
+		c.inkaster = ink and ink.name
+	end
+	return c
+end
+
+-- The pass card inside a team (docs/PLAYERS.md 5), before a throw by a
+-- player other than the last one:
+--   name       who takes the Playdate
+--   team       the team's name
+--   level      their throw level (nil when not known)
+--   kind       "kubbs" (the kubbs in, and any rethrows) or "batons"
+--   from, to   the batons they throw in a row from this one (baton numbers)
+function cards.pass(m, setup)
+	local g = m.game
+	local th = setup.thrower or {}
+	local c = { name = th.name or "", team = team(setup.side, g), level = th.level }
+	if setup.kind == "toss" then
+		c.kind = "kubbs"
+	else
+		c.kind = "batons"
+		c.from, c.to = setup.n, setup.n
+		local deal = m.order and m.order.deal or {}
+		while deal[c.to + 1] == th.id do c.to = c.to + 1 end
+	end
 	return c
 end
 
@@ -129,6 +165,16 @@ function cards.winner(m, finish)
 	local c = { winner = g.winner, winnerName = team(g.winner, g), turns = g.turn }
 	if m.start and finish then c.minutes = notation.minutesBetween(m.start, finish) end
 	c.hits, c.thrown = cards.hitRate(g, g.winner)
+	-- a team of several: each player's hits and batons
+	local ps = g.teams[g.winner].players
+	if #ps > 1 then
+		local stats = history.gameStats(g)
+		c.players = {}
+		for i, p in ipairs(ps) do
+			local st = stats[p.id]
+			c.players[i] = { name = p.name, hits = st.hits, thrown = st.batons }
+		end
+	end
 	return c
 end
 

@@ -332,7 +332,7 @@ every baton and kubb before the throw, within Rules V4.0 as far as a team's size
 
 ## Saved players
 
-docs/PLAYERS.md (the agreed plan; steps 1 and 2 built). Pure: `core/roster.lua`
+docs/PLAYERS.md (the agreed plan; steps 1 to 5 built). Pure: `core/roster.lua`
 (`tw.roster`, `test_roster.lua`) and `core/history.lua` (`tw.history`, `test_history.lua`);
 the datastore part is `source/players.lua` (`tw.players`).
 
@@ -368,6 +368,35 @@ the datastore part is `source/players.lua` (`tw.players`).
 - **The title** has four items in two rows of two (four do not fit across at 16 px):
   VS PLAYDATE, PASS + PLAY / PRACTICE, PLAYERS; left/right go in reading order, up/down
   change row.
+- **TEAMS** (`scenes/teams.lua`, pure state in `core/lineup.lua`, `test_lineup.lua`):
+  PASS + PLAY and VS PLAYDATE open it in place of the names step (title -> teams ->
+  options -> play). Three columns: Team A, the black bench (START, + PLAYER, + GUEST, then
+  the saved players on no team), Team B (the Playdate against VS PLAYDATE). Left/right on
+  a player send them toward that side (bench to a team, a team to the bench), anywhere else
+  change column; hold A + up/down moves a team's player up or down the order (the order
+  is the rotation of "Throwing order"); A on a team's name types it; + PLAYER makes a saved
+  player, + GUEST one for this match only (not saved, no key). Six a side
+  (`lineup.tune.size`); a player is on one side. A team's name is the one typed, else the
+  player's for a team of one, else `Team <first player>`. The lineup is kept per mode
+  (datastore `teams`, saved players only) and offered again. `lineup.teams(L)` is
+  `core/match`'s teams: players `{ name, key, level, guest }`. Self-test `teams`.
+- **In a match** (`core/match`, `scenes/match`): `m.lineup` (`match.lineupOf`) keeps each
+  engine player's key, level and guest flag beside the engine's ids; `s.thrower` is
+  `{ id, name, key, level }`. The hand-off card names the turn's first thrower (passed the
+  Playdate), the team on the throw line, the kubbs' inkaster when someone else, and the
+  turn's batons by player (`KIM 2 · MAX 2 · ALEX 1 · DANA 1`). Before a throw by another
+  player of the same team the **pass card** (`cards.pass`, `rcards.pass`) says who takes
+  the Playdate, for which batons (`BATONS 3 AND 4`) or the kubbs, at what level. On either
+  card B opens the **change list** (`match.candidates`, `rcards.change`): the team's
+  players, those the rules refuse with why (`TWO BATONS ALREADY`, `NEEDS ANOTHER
+  THROWER`); A hands the throw over (`match.changeThrower`), saved at once. The rail reads
+  `TEAM: PLAYER` for a team of several. The winner card gives each of the winning team's
+  players' hits over batons, three to a line. A finished match is folded into its saved
+  players' histories (`core/history.foldGame`, not for scripted matches). No pass card for
+  the Playdate's team or with `skipHandoff`. Self-test `match-teams` (three against two,
+  one baton handed over, `order.checkSheet` on the sheet).
+- **The save** is version 2 (`m.order`, `m.lineup`, `opts.teams`); a version 1 save is
+  deleted at launch and never resumed (Jamie, 2026-11-15, decision 9).
 
 ## Simulator self-tests
 

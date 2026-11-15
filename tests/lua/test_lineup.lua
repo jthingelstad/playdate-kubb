@@ -1,0 +1,74 @@
+-- core/lineup: the two teams before a match (docs/PLAYERS.md section 4).
+import "core/lineup"
+import "core/roster"
+import "core/save"
+local lineup, roster, save = tw.lineup, tw.roster, tw.save
+
+local function rosterOf(...)
+	local r = roster.new()
+	for _, n in ipairs { ... } do roster.add(r, n, nil, "2026-11-15") end
+	return r
+end
+
+test("lineup: sides of up to six, a player on one side, the order", function()
+	local r = rosterOf("Kim", "Max", "Alex", "Sam", "Lee", "Dana", "Rae", "Sol")
+	local L = lineup.new(false)
+	for i = 1, 6 do expect.truthy(lineup.add(L, "A", lineup.entry(r.players[i]))) end
+	expect.eq(select(2, lineup.add(L, "A", lineup.entry(r.players[7]))), "full")
+	expect.eq(select(2, lineup.add(L, "B", lineup.entry(r.players[1]))), "taken")
+	expect.eq(lineup.ready(L), false)
+	expect.truthy(lineup.add(L, "B", lineup.entry(r.players[7])))
+	expect.truthy(lineup.ready(L))
+	expect.eq(lineup.move(L, "A", 1, 1), 2)
+	expect.eq(L.A[1].name .. L.A[2].name, "MaxKim")
+	expect.eq(lineup.move(L, "A", 1, -1), 1, "the top stays")
+	expect.eq(lineup.remove(L, "A", 2).name, "Kim")
+	expect.eq(lineup.find(L, lineup.entry(r.players[1])), nil)
+	-- guests: not saved, one of a name
+	expect.truthy(lineup.add(L, "B", lineup.guest("Ray")))
+	expect.eq(select(2, lineup.add(L, "A", lineup.guest("ray"))), "taken")
+end)
+
+test("lineup: team names and core/match's teams", function()
+	local r = rosterOf("Kim", "Max")
+	local L = lineup.new(false)
+	expect.eq(lineup.teamName(L, "A"), "Team A")
+	lineup.add(L, "A", lineup.entry(r.players[1]))
+	expect.eq(lineup.teamName(L, "A"), "Kim")
+	lineup.add(L, "A", lineup.entry(r.players[2]))
+	expect.eq(lineup.teamName(L, "A"), "Team Kim")
+	lineup.setName(L, "A", "Snow Kubbs!")
+	expect.eq(lineup.teamName(L, "A"), "Snow Kubbs")
+	lineup.add(L, "B", lineup.guest("Ray", "pro"))
+	local t = lineup.teams(L)
+	expect.eq(t.A.name, "Snow Kubbs")
+	expect.eq(t.A.players[2].key, "p2")
+	expect.eq(t.B.players[1].guest, true)
+	expect.eq(t.B.players[1].level, "pro")
+	-- against the Playdate
+	local V = lineup.new(true)
+	expect.eq(select(2, lineup.add(V, "B", lineup.entry(r.players[1]))), "vs")
+	lineup.add(V, "A", lineup.entry(r.players[1]))
+	expect.truthy(lineup.ready(V))
+	local vt = lineup.teams(V)
+	expect.eq(vt.B.name, "Playdate")
+	expect.eq(vt.B.players[1].name, "Playdate")
+end)
+
+test("lineup: kept and offered again, without guests or removed players", function()
+	local r = rosterOf("Kim", "Max", "Sam")
+	local L = lineup.new(false)
+	lineup.add(L, "A", lineup.entry(r.players[2]))
+	lineup.add(L, "A", lineup.entry(r.players[1]))
+	lineup.add(L, "B", lineup.entry(r.players[3]))
+	lineup.add(L, "B", lineup.guest("Ray"))
+	lineup.setName(L, "B", "Birch")
+	local d = save.plain(save.plain(lineup.pack(L)))
+	roster.remove(r, "p3")
+	local back = lineup.unpack(d, r, false)
+	expect.eq(#back.A, 2)
+	expect.eq(back.A[1].name, "Max")
+	expect.eq(#back.B, 0, "Sam removed, the guest not kept")
+	expect.eq(lineup.teamName(back, "B"), "Birch")
+	expect.eq(#lineup.unpack("junk", r, false).A, 0)
+end)
