@@ -143,7 +143,8 @@ end
 function scene.update(s)
 	local p = s.input
 	if s.mode == "sheet" then
-		tw.scenes.sheet.update(s.sheet, false)
+		-- the sheet reads the input itself (scroll, B back)
+		tw.scenes.sheet.update(s.sheet)
 		if s.sheet.done then s.mode, s.sheet, s.img = "games", nil, nil end
 		return
 	end

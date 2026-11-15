@@ -11,6 +11,7 @@ import "core/tw"
 import "scenes/players"
 import "scenes/names"
 import "players"
+import "core/history"
 
 local scene, names, players = tw.scenes.players, tw.scenes.names, tw.players
 
@@ -67,7 +68,18 @@ tw.selftest.scenarios.players = {
 				function() inp.want = "a" end,
 				function() inp.want = "down" end,                       -- LEVEL
 				"capture2",
-				function() inp.want = "b" end,
+				-- GAMES: a recent game whose file is not here opens its sheet, and B comes back
+				function()
+					s.hs[s.player.key] = s.hs[s.player.key] or tw.history.new()
+					s.hs[s.player.key].games[1] = { d = "2026-11-15 10:00", f = "none.txt", team = "Kim", vs = "Max",
+						res = "won", b = 6, h = 3 }
+					inp.want = "down"
+				end,
+				function() if s.row ~= 3 then return "not on GAMES" end inp.want = "a" end,
+				function() if s.mode ~= "games" then return "no games list" end inp.want = "a" end,
+				function() if s.mode ~= "sheet" then return "no score sheet" end inp.want = "b" end,
+				function() if s.mode ~= "games" then return "B left the sheet for " .. s.mode end inp.want = "b" end,
+				function() if s.mode ~= "player" then return "B left the games for " .. s.mode end inp.want = "b" end,
 				function() s.choice = 3; s.img = nil; inp.want = "a" end, -- Max
 				function() inp.want = "a" end,                          -- NAME: rename
 				function() names.type(s.sub, "Maxine"); names.ok(s.sub) end,
