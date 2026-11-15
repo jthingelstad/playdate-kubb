@@ -445,6 +445,14 @@ the datastore part is `source/players.lua` (`tw.players`).
 - The Simulator connects to a Playdate plugged in over USB when it starts. Self-tests do not
   touch the device, but do not unplug or reboot it.
 - Screenshots for Jamie are the 2x frames. The 1x frames are for agent checks.
+- Film mode: with `film=1` after `out=` the runner also saves every frame (1x) as
+  `<out>/<name>-f00001.png` and on, 50 to a second of shown time (the scripted input's
+  pace). `sh tools/film.sh` builds the game, films the scenarios in `tools/film.py`'s
+  `REEL`, cuts them into one reel (plays and held stills, in order) and encodes
+  `build/film/throwing-wood-<version>.mp4` (800 x 480, 50 fps, H.264, about 0.8 MB for 26
+  s) and `.gif` (400 x 240, 25 fps, two colours, about 0.5 MB), with ffmpeg. The same
+  build gives the same files. For the sites (thingelstad.xyz shows a GIF inline; an MP4
+  artifact there downloads).
 - Files in `source/selftest/` whose names start with `_` are helpers, not scenarios (the
   Makefile skips them). A scenario may set `ctx.note` to a one-line string; the runner
   appends it to the `DONE` marker (the throw scenarios put `avg_ms`/`max_ms` of

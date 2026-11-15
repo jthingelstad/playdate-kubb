@@ -8,6 +8,8 @@
 -- writes "DONE <name> frames=<n>" (or "FAIL <name>: <why>") to the marker
 -- Data/com.thingelstad.throwingwood/selftest/<name>.done and quits the
 -- Simulator. The Makefile checks the marker and copies it into out.
+-- With film=1 (selftest.start's film) every frame is also saved, 1x, as
+-- <out>/<name>-f00001.png and so on, for cutting a video (tools/film.sh).
 import "core/tw"
 
 local gfx <const> = playdate.graphics
@@ -43,8 +45,8 @@ local function capture(self)
 	playdate.simulator.writeToFile(img:scaledImage(2), base .. "@2x.png")
 end
 
-function selftest.start(name, out)
-	ctx = { name = name, out = out, frame = 0, shots = 0, capture = capture }
+function selftest.start(name, out, film)
+	ctx = { name = name, out = out, frame = 0, shots = 0, capture = capture, film = film }
 	if not playdate.isSimulator then
 		print("SELFTEST FAIL " .. name .. ": self-tests run only in the Simulator")
 		ctx.finished = true
@@ -62,5 +64,9 @@ function selftest.update()
 	ctx.frame = ctx.frame + 1
 	local ok, done = pcall(ctx.scenario.step, ctx)
 	if not ok then return finish(false, done) end
+	if ctx.film then
+		playdate.simulator.writeToFile(gfx.getWorkingImage(),
+			string.format("%s/%s-f%05d.png", ctx.out, ctx.name, ctx.frame))
+	end
 	if done then finish(true) end
 end
