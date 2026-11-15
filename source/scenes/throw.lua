@@ -41,6 +41,8 @@ import "framelog"
 import "core/frametel"
 import "core/drill"
 import "core/throwplan"
+import "core/howto"
+import "render/howto"
 import "sound"
 
 local gfx <const> = playdate.graphics
@@ -60,6 +62,8 @@ throw.tune = {
 	halfWidth = 2.5,      -- the line is 5 m wide (DESIGN 2)
 	backMax = 3.0,        -- m the player may step back from the throwing line
 	snapRadius = 0.25,    -- m: throw.aimAt puts the circle onto a standing kubb or the king this near
+	howtoTap = 0.3,       -- s: B let go within this, with no d-pad while it was down, is
+	                      -- HOW TO THROW's tap (skip a step)
 	keepNear = 1.0,       -- m: a circle moved by hand stays put for the next throw while a live
 	                      -- target stands this near it (else it goes onto the nearest target)
 	                      -- snaps onto it (the circle's radius, DESIGN 4)
@@ -515,6 +519,10 @@ function throw.new(provider)
 		vPower = 0, vRelease = 0, vSteady = true,
 		restText = nil,          -- a drilled kubb's rest distance from the circle ("18 CM AWAY")
 		drillSeq = 0,            -- practice: drilled kubbs thrown (their ids)
+		howto = nil,             -- HOW TO THROW running over the pitch (core/howto), or nil
+		howtoObs = {},           -- what it sees each frame (reused)
+		howtoThrows = 0,         -- s.throws it has seen come back to aiming
+		howtoB = nil, howtoPad = false, -- B's time down, and whether the d-pad moved meanwhile
 	}
 	throw.standUp(s)
 	updateTargets(s)
@@ -1222,6 +1230,7 @@ function throw.update(s)
 			s.planDirty = true
 		end
 	end
+	if s.howto then throw.howtoFrame(s, p, dt) end
 	-- the camera for this frame
 	if s.mode == "aim" or s.mode == "cpuswing" then
 		s.viewCam = s.aimCam
@@ -1240,6 +1249,54 @@ function throw.update(s)
 		camera.follow(s.view, s.aimCam, s.impactCam, flight.progress(fl), bx, by, fl.z)
 		s.viewCam = s.view
 	end
+end
+
+-- HOW TO THROW (core/howto, render/howto) over the practice pitch: every step
+-- is done with the real crank, circle, walk and plan, and real throws. It
+-- starts on batons (a drilling pitch turns back, as "Pitch: batons" does) with
+-- the plan fresh; throw.howtoDone(s) runs when it ends (main.lua: remember it
+-- was seen).
+function throw.showHowTo(s)
+	if s.drill then throw.setDrill(s, false) end
+	freshPlan(s)
+	s.howto = tw.howto.new()
+	s.howtoThrows = s.throws
+	s.howtoB, s.howtoPad = nil, false
+end
+
+function throw.stopHowTo(s)
+	if not s.howto then return end
+	s.howto = nil
+	if throw.howtoDone then throw.howtoDone(s) end
+end
+
+-- One frame of HOW TO THROW: what it sees (s.howtoObs) and its step, only
+-- while aiming (a throw in the air is the throw's).
+function throw.howtoFrame(s, p, dt)
+	-- B's tap: let go quickly with no d-pad while it was down
+	local tapB = false
+	if p:pressed("b") then s.howtoB, s.howtoPad = 0, false end
+	if s.howtoB then
+		if p:held("b") then
+			s.howtoB = s.howtoB + dt
+			if p:held("left") or p:held("right") or p:held("up") or p:held("down") then s.howtoPad = true end
+		else
+			tapB = s.howtoB <= throw.tune.howtoTap and not s.howtoPad
+			s.howtoB = nil
+		end
+	end
+	if s.mode ~= "aim" then return end
+	local o = s.howtoObs
+	o.arm, o.docked = s.arm, p:docked()
+	o.thrown = s.throws > s.howtoThrows
+	if o.thrown then
+		s.howtoThrows = s.throws
+		o.powerV, o.releaseV, o.steady = s.vPower, s.vRelease, s.vSteady
+	end
+	o.markerX, o.markerY, o.playerX, o.playerY = s.markerX, s.markerY, s.playerX, s.playerY
+	o.release, o.tilt, o.spin = s.release, s.tilt, s.spin
+	o.pressA, o.tapB = p:pressed("a"), tapB
+	if tw.howto.update(s.howto, o) == "close" then throw.stopHowTo(s) end
 end
 
 -- The practice pitch's surface (System Menu "Pitch"): the next throw is on
@@ -1616,6 +1673,8 @@ function throw.drawFrame(s)
 		end
 		if s.showReadout and s.readout then hud.readout(s.readout) end
 	end
+	-- HOW TO THROW's panel under the rail, while aiming
+	if s.howto and s.mode == "aim" then tw.render.howto.draw(s.howto, s.camMix > 0) end
 end
 
 -- The rail's targets on the right. Practice: the far base kubbs standing,

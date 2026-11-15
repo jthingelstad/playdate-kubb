@@ -15,7 +15,8 @@
 --   "Record"   append each swing's crank samples to traces.jsonl in the
 --              Data folder (replay with tools/replay_traces.lua). On by
 --              default while the throw is being tuned; self-tests leave it off.
---   "Pitch"    practice only: play (nothing) / reset (stand every piece back
+--   "Pitch"    practice only: play (nothing) / how to (HOW TO THROW over the
+--              pitch, core/howto; chosen while it runs, it ends it) / reset (stand every piece back
 --              up and clear the drilled kubbs) / readout (the debug line after
 --              each throw, on or off: back, stop, flick, shake) / drill (drill
 --              kubbs at the far half; they stay where they end) / batons
@@ -108,6 +109,7 @@ import "selftest/drills-new"
 import "selftest/players"
 import "selftest/teams"
 import "selftest/match-teams"
+import "selftest/howto"
 
 local function launchArgs()
 	local args = {}
@@ -163,6 +165,11 @@ else
 		return tw.plan.tune.defaultLevel
 	end
 	throw.level = readLevel()
+	-- HOW TO THROW ended (finished, skipped through or stopped from the menu):
+	-- remembered, so the drills menu no longer starts on it (scenes/drills)
+	throw.howtoDone = function()
+		if not tw.selftestRun then playdate.datastore.write({ seen = 2 }, "howto") end
+	end
 
 	-- Level and Record on every scene, then the scene's own options item,
 	-- whose choice acts when the menu closes and then reads "play" again.
@@ -178,9 +185,11 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			item = menu:addOptionsMenuItem("Pitch", { "play", "reset", "readout", "drill", "batons", "grass", "sand",
-				"snow", "bench", "title" }, "play", function(v)
-				if v == "readout" then
+			item = menu:addOptionsMenuItem("Pitch", { "play", "how to", "reset", "readout", "drill", "batons", "grass",
+				"sand", "snow", "bench", "title" }, "play", function(v)
+				if v == "how to" then
+					if current.howto then throw.stopHowTo(current) else throw.showHowTo(current) end
+				elseif v == "readout" then
 					-- debug only: the line under the rail after each throw
 					showReadout = not showReadout
 					current.showReadout = showReadout
@@ -259,11 +268,13 @@ else
 			current = drillsScene.new(device)
 			current.showReadout = showReadout
 			drillsScene.enter()
-		elseif which == "pitch" then
+		elseif which == "pitch" or which == "howto" then
+			-- OPEN PITCH, or HOW TO THROW over it (the drills menu's last item)
 			kind = "practice"
 			current = throw.new(device)
 			-- the practising player's throw level (scenes/drills), else the System Menu's
 			current.level = drillsScene.practiceLevel()
+			if which == "howto" then throw.showHowTo(current) end
 			throw.enter()
 		elseif which == "match" or which == "vs" then
 			-- PASS + PLAY or VS PLAYDATE: the teams first (scenes/teams)

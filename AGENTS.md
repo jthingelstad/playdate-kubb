@@ -503,7 +503,7 @@ the datastore part is `source/players.lua` (`tw.players`).
   (first person and the plan view for targets across the half, every release and stances
   at both ends: "The aim camera"), `camera-swing` (B held and let go, a baton's and a
   drill's; its note counts the aim frames' graphics calls, camera still and moving), `clock-gauge` (the clock's states drawn alone, cache on and
-  off).
+  off), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below).
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
   from `source/selftest/_match.lua`: `opts` are `scenes/match` options (`seed` for
   `core/autothrow` throws instead of the crank, `instant`, `skipHandoff`, `maxTurns`),
@@ -533,8 +533,8 @@ plan to the clock's targets, and a measured swing to a launch) and `render/hud`'
 verdicts and plan chip; `scenes/throw.lua` puts them together, the same for batons and
 drilled kubbs. It replaced the stop on the notch, the A/B + crank swivel and loft, the
 double taps, `flight.loftBoost` in the player's throw, the loft plaque, the power chip,
-the stop and cut flags, the drill callout and HOW TO THROW (to be written again for this
-throw).
+the stop and cut flags, the drill callout and the first HOW TO THROW (written again for
+this throw: "HOW TO THROW" below).
 
 - **Controls** (aim mode). The d-pad alone moves the target circle (`s.markerX`,
   `s.markerY`, view frame; 0.5 m across, `throw.tune.markerRadius`), faster the longer it
@@ -610,6 +610,47 @@ throw).
   `swivelOff` (degrees off the plan's swivel), `tumbleRate`, `tilt`, `legal`, `powerV`,
   `releaseV`, `steady`, `distance`, and a drill's `mode`, marker, landing, rest and
   thrower. `frames.jsonl` is unchanged.
+
+## HOW TO THROW
+
+The walkthrough of the clock throw (Jamie, 2026-11-14, of the first one: "an interactive
+thing that walks the player through the different steps and meaning of the crank for the
+throw"; written again for the clock throw 2026-11-15). It runs over the practice pitch,
+so every step is the real thing: the real crank and dial, the real circle, walk and plan,
+and real throws at the far base kubbs (recorded like any practice throw). Pure part
+`core/howto.lua` (`tw.howto`, `test_howto.lua`); panel `render/howto.lua`; glue in
+`scenes/throw.lua` (`throw.showHowTo`, `throw.stopHowTo`, `throw.howtoFrame`).
+
+- **Steps** (`howto.STEPS`, DESIGN 4's order): 1 the crank is your arm (turn it down to 6
+  o'clock, not docked: within `howto.tune.bottomDeg`); 2 point and throw (any throw); 3 how
+  far back is how far (a throw with the power ON, or `tries` throws); 4 where you stop is
+  the arc (the release ON, or `tries`); 5 the d-pad moves the circle (`circleMove` m from
+  where it was when the step began); 6 hold A to walk (`walkMove` m); 7 hold B to plan (the
+  arc moved and a tilt or spin set); 8 that is the throw. Each step says what to do; once it
+  is done it says what it meant (after a throw, that throw's verdicts first: `THAT ONE: ON
+  HIGH STEADY`) and A goes on. A quick tap of B (let go within `throw.tune.howtoTap`, 0.3
+  s, no d-pad while it was down) skips a step; the last step ends on A or a tap.
+- **The panel** (`render.howto.tune`): a black band under the rail (y 14, 64 px: it ends
+  above the far base kubbs of the first-person aim), the title in the display font and
+  the footer (`TAP B: SKIP`, `A: NEXT`, `A: PLAY`) on its first row, up to three lines in
+  the label font; only the title strip while B holds the camera out over the shoulder
+  (the plan view's target half starts at y 24). Shown while aiming only (a throw in the
+  air is the throw's). One image, redrawn only when `h.rev` changes.
+- **The scene** sees the walkthrough's world once a frame (`s.howtoObs`, reused): the crank
+  arm, docked, a throw come back to aiming (`s.throws` against `s.howtoThrows`) with its
+  verdicts (`s.vPower`, `s.vRelease`, `s.vSteady`), the circle, the stance, the planned
+  release, tilt and spin, A pressed and B's tap. `throw.showHowTo` turns a drilling pitch
+  back to batons and starts the plan fresh.
+- **Where it lives**: the drills menu's last item, HOW TO THROW (`scenes/drills`; main.lua
+  opens the practice pitch with it on, `"howto"`), and the practice pitch's System Menu
+  "Pitch: how to" (chosen while it runs, it ends it). The drills menu starts on HOW TO
+  THROW until it has been seen: main.lua's `throw.howtoDone` writes the datastore "howto"
+  as `{ seen = 2 }` when it ends (finished, skipped through or stopped; not in self-tests;
+  0.2.0's walkthrough wrote `seen = true`, so a player who saw that one sees this one).
+- Self-test `howto` (above): every step with scripted input fed as the step comes up (the
+  throws on the plan's clean swing as it then is, ON ON STEADY), the plan step with B held
+  and the camera out, A on the last step, then a second run skipped through with eight
+  taps of B; it also checks every line fits the panel in the label font.
 
 ## The aim arc
 
@@ -759,7 +800,11 @@ Every number that is a guess lives in one table per module, with a comment:
   may record, impact-camera
   slew and baton framing radius, the tossed kubb's tumble (`tossTumble`), the instant
   rest hold, the drilled kubbs kept on the practice pitch (`drillKeep`), the target
-  circle (`markerRadius`, `markerSegments`) and the aim arc ("The aim arc").
+  circle (`markerRadius`, `markerSegments`), the aim arc ("The aim arc") and HOW TO
+  THROW's tap of B (`howtoTap`).
+- `tw.howto.tune` (`source/core/howto.lua`) and `tw.render.howto.tune`: HOW TO THROW's
+  pass thresholds (crank at the bottom, tries, how far the circle and the walk must move)
+  and its panel ("HOW TO THROW").
 - `tw.drill.tune` (`source/core/drill.lua`): every drilling mapping (AGENTS.md
   "Drilling").
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
@@ -1158,6 +1203,9 @@ hit rate (records in `playdate.datastore` "drills").
   result card and the record it leaves, then a second run quit part way), `drills-blast`
   (BLAST's rail keeps its score) and `drills-new` (DOUBLES and THE WALL: the menu, each
   run's first aim and its first throw at rest on the plan's swing).
+- HOW TO THROW is the menu's last item (after THE WALL: the self-tests' menu presses are
+  unchanged); it opens the practice pitch with the walkthrough over it ("HOW TO THROW"),
+  and the menu starts on it until it has been seen.
 
 ## Throw scene practice
 
@@ -1172,7 +1220,8 @@ render items of `render/world`, carries every piece's pose). System Menu "Pitch"
 "reset" stands everything back up (`throw.reset`); it also happens by itself after the
 throw that leaves every far base kubb down. The System Menu holds three custom items at
 most (Level, Record, Pitch), so Pitch is an options item that acts when the menu closes
-and then reads "play" again; its "title" goes back to the title screen, its "readout"
+and then reads "play" again; its "how to" starts HOW TO THROW over the pitch (or ends it
+while it runs), its "title" goes back to the title screen, its "readout"
 turns the debug line under the rail on or off (debug only, 2026-11-15: it was the first
 item, a checkmark, which "Level" took). Its "drill" turns
 the pitch to drilling kubbs (next section) and "batons" back; chosen mid-throw, the switch

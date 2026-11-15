@@ -2,7 +2,9 @@
 -- on the left OPEN PITCH (the free practice pitch, as before) and the drills
 -- of core/drills; on the right the chosen drill's pitch from above, what it
 -- is, its best, its last ten runs as bars and its hit rate. Up/down chooses,
--- A starts, B goes to the title.
+-- A starts, B goes to the title. HOW TO THROW, last on the list, opens the
+-- practice pitch with the walkthrough over it (main.lua "howto"); the menu
+-- starts on it until it has been seen.
 --
 -- A run is the drill's throws on its own pitch through the throw scene, set
 -- up one throw at a time like the match (throw.prepare); the rail counts the
@@ -43,6 +45,15 @@ scene.tune = {
 }
 
 local OPEN <const> = { id = "open", name = "OPEN PITCH", lines = { "THE PRACTICE PITCH", "THROW AS YOU LIKE", "SYSTEM MENU: PITCH" } }
+-- HOW TO THROW (core/howto over the practice pitch), last on the list; the
+-- menu starts on it until it has been seen once (datastore "howto", seen = 2:
+-- the clock throw's; 0.2.0's walkthrough wrote seen = true)
+local HOWTO <const> = { id = "howto", name = "HOW TO THROW", lines = { "THE THROW, STEP BY STEP,", "ON THE PRACTICE PITCH", "WITH THE REAL CRANK" } }
+
+function scene.howtoSeen()
+	local d = playdate.datastore.read("howto")
+	return d ~= nil and type(d.seen) == "number" and d.seen >= 2
+end
 
 -- The player practising: their roster record, or nil (NO PLAYER).
 local function practising(r)
@@ -85,9 +96,11 @@ function scene.new(provider, opts)
 	local s = { input = provider, phase = "menu", choice = 1, scripted = opts.scripted, img = nil, exit = nil }
 	s.items = { OPEN }
 	for _, d in ipairs(drills.list) do s.items[#s.items + 1] = d end
+	s.items[#s.items + 1] = HOWTO
 	if not s.scripted then
 		s.r = tw.players.load()
 		s.player = practising(s.r)
+		if not scene.howtoSeen() then s.choice = #s.items end
 	end
 	s.records = loadRecords(s)
 	return s
@@ -109,7 +122,7 @@ local function drawMap(d)
 	local _, cy = mapPoint(0, 4)
 	local x = t.mapX
 	while x < t.mapX + t.mapW do gfx.drawLine(x, cy, x + 4, cy); x = x + 7 end
-	if d.id == "open" then return end
+	if d.id == "open" or d.id == "howto" then return end
 	if d.kind == "doubles" then
 		-- the six groups, one per baton, drawn as marks a few px apart
 		for _, g in ipairs(drills.tune.doubles) do
@@ -198,7 +211,7 @@ local function renderMenu(s)
 	drawMap(d)
 	-- what it is, under the map
 	for i, line in ipairs(d.lines) do ui.text(label, line, t.mapX, t.mapY + t.mapH + 8 + (i - 1) * 13) end
-	if d.id ~= "open" then
+	if d.id ~= "open" and d.id ~= "howto" then
 		local r = s.records[d.id]
 		local x = t.mapX + t.mapW + 14
 		ui.text(label, "BEST", x, t.mapY + 4)
@@ -309,7 +322,9 @@ function scene.update(s)
 		elseif s.r and p:pressed("right") then nextPlayer(s, 1) end
 		if p:pressed("a") then
 			local d = s.items[s.choice]
-			if d.id == "open" then s.exit = "practice" else startRun(s, d) end
+			if d.id == "open" then s.exit = "practice"
+			elseif d.id == "howto" then s.exit = "howto"
+			else startRun(s, d) end
 		elseif p:pressed("b") then
 			s.exit = "title"
 		end
