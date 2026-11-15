@@ -1,40 +1,46 @@
--- The crank swing (DESIGN.md section 4, "The throw"). Pure Lua: no playdate.*.
+-- The crank swing: the crank as a clock (DESIGN.md section 4, "The throw: the
+-- crank as a clock"). Pure Lua: no playdate.*.
 --
--- Fed one crank sample per frame: the change in degrees since the last frame
--- (as playdate.getCrankChange returns it) and the frame time in seconds.
+-- The crank is the throwing arm. Read as a clock, 6 is the arm hanging
+-- straight down; the backswing goes up the left side (7 .. 12) and the forward
+-- swing up the right (5 .. 1). This module only measures the crank: how far
+-- back it went, where it stopped going forward, how fast and how steadily the
+-- flick was. What a throw makes of that (power, launch angle, error) is the
+-- plan's (core/throwplan), not this file's.
 --
---   idle      -> crank back past windStartDeg      -> winding
---                (the throw scene only feeds the crank while idle once it
---                has crossed the bottom of the turn going back: armAngle,
---                crossedBack)
---   winding   -> more back: the backswing grows (capped at backswingMaxDeg)
---             -> slow forward: lets the wind-up down; back at the start
---                angle = "letdown", no throw
---             -> forward faster than swingStartDps -> swinging
---   swinging  -> released where the crank stops (Jamie and Tyler, 2026-11-14:
---                "you stop the crank where you release the baton"): when the
---                forward speed falls below releaseStopDps, the crank all but
---                halted -> "release", with swing.result filled in. (It was
---                half the flick's peak: on the device that fired while the
---                hand was still turning the crank at 300 deg/s, or well after
---                the stop Jamie meant; 13 swings of 2026-11-14 left from -27
---                to 137 degrees against a 25 to 35 target.) The crank is the throwing arm, and a
---                hand swung on an arm leaves at right angles to it, so the
---                arm's angle past the bottom of the turn at the stop is the
---                launch angle (result.releaseAngle; the throw scene turns it
---                into the loft, swing.releaseLoft): within releaseTolDeg of
---                the notch (the loft set) is perfect; beyond it, stop early
---                and the baton goes lower, late and it goes higher, by
---                releaseGain of the miss (Jamie, 2026-11-14: a forgiving
---                notch; the crank moves 20 to 30 degrees a frame in a flick,
---                so a degree for a degree threw batons into the ground). The power is the
---                flick's peak speed. A swing that never stops is released at
---                releaseMaxDeg. (Before 2026-11-14 the baton was released as
---                the arm passed the bottom, at the loft set by hand; a state
---                with passRelease keeps that, for traces recorded then.)
+-- Angles are "forward degrees from the bottom": the raw crank change times
+-- tune.forwardSign, so forward is positive. On the backswing 7 o'clock is
+-- -30, 9 is -90, 10 is -120, 12 is -180; forward 5 is +30, 3 is +90, 1 is
+-- +150, 12 is +180.
 --
--- Angles inside are "forward degrees": the raw crank change times
--- tune.forwardSign, so forward is positive and the wind-up is negative.
+-- Fed one sample per frame: swing.update(s, delta, dt), delta the crank change
+-- in degrees as playdate.getCrankChange gives it (the sign is applied here),
+-- dt the frame time in seconds. The throw scene feeds the crank while idle
+-- only once it has crossed the bottom of the turn going back (armAngle,
+-- crossedBack), and then only the part past the bottom, so the arm starts at 0.
+--
+--   idle      back motion moves the arm behind the bottom (s.pending; forward
+--             motion takes it off again). Past startBackDeg (7 o'clock: 6 to 7
+--             is a dead zone) -> winding.
+--   winding   s.arm is the real crank, never capped; s.back the farthest back
+--             it has been (capped at backswingMaxDeg). Forward slower than
+--             swingStartDps lets the arm down: back past the bottom it is a
+--             "letdown" (no throw) -> idle. Forward at swingStartDps or faster
+--             -> swinging (that frame is the flick's first).
+--   swinging  every frame's forward speed goes into s.speeds. The crank has
+--             stopped when the forward speed (averaged over speedWindow
+--             frames) falls below releaseStopDps: the throw leaves where the
+--             arm got farthest forward (releaseAngle). Stopped at or short of
+--             the bottom it is a "letdown"; past it, a "release" with
+--             how = "stopped". An arm that passes skyDeg (12 o'clock forward)
+--             before stopping is released at once, how = "sky".
+--   cooldown  after a release, cooldownS of frame time in which every crank
+--             change is ignored (the crank swinging back after a throw must
+--             not start the next one) -> idle.
+--
+-- update returns nil, "letdown" or "release"; after a release s.result holds
+-- what was measured (fields at release() below). s.back stays as it was until
+-- the next wind-up so the dial can keep its dot.
 --
 -- Crank sign. getCrankChange is negative anti-clockwise. Tried on hardware
 -- (2026-11-13): with forwardSign = 1 the wind-up and the throw felt swapped,
@@ -42,64 +48,65 @@
 -- It is the one constant to flip; nothing else changes.
 import "core/tw"
 
-local abs, min, max = math.abs, math.min, math.max
+local abs = math.abs
 
 local swing = {}
 
 swing.tune = {
-	forwardSign = -1,       -- -1: anti-clockwise (negative getCrankChange) is the forward swing
-	windStartDeg = 6,       -- back motion from idle needed before it counts as a wind-up
-	backswingMaxDeg = 180,  -- the backswing stops growing here; more back motion is ignored
-	fullBackswingDeg = 120, -- backswing that allows full power; less caps power at backswing / this
-	swingStartDps = 200,    -- forward speed (deg/s) that starts the swing; slower forward lets the wind-up down
-	fullSpeedDps = 1100,    -- forward speed (deg/s) at release that gives power 1
-	speedWindow = 2,        -- frames averaged for "forward speed" (release test and release speed),
-	                        -- so one slow sample in a jittery flick does not release it early
-	releaseDropFrac = 0.5,  -- the old release (passRelease): let go early when the speed falls below
-	                        -- this fraction of its peak ("slowed")
-	releaseStopDps = 150,   -- release when the forward speed (speedWindow frames) falls below this: the
-	                        -- crank has all but stopped (3 degrees a 20 ms frame)
-	releaseMaxDeg = 150,    -- forward degrees past the bottom: a swing that has not stopped by here
-	                        -- is released (straight up and over)
-	releaseTolDeg = 10,     -- a stop within this of the notch (the loft set) launches at the loft set
-	releaseGain = 1 / 3,    -- beyond it, this much of the rest of the miss goes into the launch angle
-	releaseLoftMin = -30,   -- degrees: the launch angle's range (below 0 the baton is thrown down)
-	releaseLoftMax = 85,
-	launchMin = 4.0,        -- m/s at power 0 (a mid-loft throw lands about 2 m out)
-	launchMax = 9.2,        -- m/s at power 1 (a mid-loft throw lands about 8.9 m out)
-	tumbleMin = 4.5,        -- rad/s at power 0
-	tumbleMax = 7.0,        -- rad/s at power 1: about 1.2 turns over 8 m at mid loft
-	roughFull = 3.0,        -- roughness (mean second difference of speed / mean speed) that gives
-	                        -- smoothness 0. Hardware traces (2026-11-13): a flick is only 4 to 7
-	                        -- frames at about 41 ms each and honest flicks measure up to 0.67
-	                        -- from sampling jitter alone, so only a clearly stuttered swing
-	                        -- (roughness over 1.0) is a helicopter
-	tiltMaxDeg = 90,        -- tilt of the rotation plane at smoothness 0 (a full helicopter)
-	legalTiltDeg = 30,      -- tilt at or under this is a legal end-over-end throw
-	maxSamples = 512,       -- swing samples kept (about 10 s at 50 fps); later ones are dropped
+	forwardSign = -1,      -- -1: anti-clockwise (negative getCrankChange) is the forward swing
+	startBackDeg = 30,     -- back from the bottom before the wind-up starts: 6 to 7 o'clock is a
+	                       -- dead zone, crossing 7 starts the throw
+	backswingMaxDeg = 200, -- s.back and result.back stop growing here (a little past 12 o'clock,
+	                       -- 180); the arm itself keeps counting
+	swingStartDps = 200,   -- forward speed (deg/s) that starts the flick; slower forward is the
+	                       -- arm being let down
+	speedWindow = 2,       -- frames averaged for "forward speed" (the stop test and the flick
+	                       -- speed), so one slow sample in a jittery flick does not stop it
+	releaseStopDps = 150,  -- the crank has stopped when the forward speed falls below this
+	                       -- (3 degrees a 20 ms frame)
+	skyDeg = 180,          -- forward degrees: an arm past 12 o'clock before stopping is a sky
+	                       -- ball, released there
+	cooldownS = 0.3,       -- seconds of frame time after a release in which the crank is ignored
+	fullFlickDps = 1000,   -- flick speed (deg/s, the peak speedWindow average) that gives
+	                       -- flickFrac 1: all the power of the backswing
+	minFlickFrac = 0.2,    -- flickFrac of the slowest flick (swingStartDps and under)
+	pullFrames = 2,        -- pull = +1 when the flick's fastest frame is one of its last
+	                       -- pullFrames frames (still speeding up into the stop), else -1
+	roughFull = 3.0,       -- roughness (mean second difference of speed / mean speed) that gives
+	                       -- smoothness 0. Hardware traces (2026-11-13): a flick is only 4 to 7
+	                       -- frames at about 41 ms each and honest flicks measure up to 0.67
+	                       -- from sampling jitter alone, so only a clearly stuttered swing
+	                       -- (roughness over 1.0) is shaky enough to be a helicopter
+	maxSamples = 512,      -- flick speed samples kept (about 10 s at 50 fps); later ones dropped
+
+	-- The launch range. Not used by the swing (it only measures the crank): kept here
+	-- because core/autothrow, core/drill, tools/compound and the flight, camera and
+	-- physics tests read them from swing.tune. They belong with the plan
+	-- (core/throwplan) and move there with their readers.
+	launchMin = 4.0,       -- m/s at power 0 (a mid-loft throw lands about 2 m out)
+	launchMax = 9.2,       -- m/s at power 1 (a mid-loft throw lands about 8.9 m out)
+	tumbleMin = 4.5,       -- rad/s at power 0
+	tumbleMax = 7.0,       -- rad/s at power 1: about 1.2 turns over 8 m at mid loft
 }
 
 function swing.new()
 	return {
 		phase = "idle",
-		angle = 0,        -- forward degrees from where the wind-up started (negative = wound;
-		                  -- held at -backswingMaxDeg while winding: the power's backswing)
-		arm = 0,          -- the same, never held: where the crank really is (the release angle;
-		                  -- Codex on #73: wound past the cap, `angle` no longer was)
-		pending = 0,      -- back motion seen while idle, before it counts as a wind-up
-		backswing = 0,    -- degrees wound back at the start of the swing (or now, while winding)
-		peak = 0,         -- peak forward speed of this swing, deg/s
-		n = 0,            -- forward-swing speed samples
-		speeds = {},      -- deg/s per frame of the forward swing (reused)
-		lastSpeed = 0,    -- previous frame's forward speed
-		passRelease = false, -- true: the old release as the arm passes the bottom (old traces)
-		result = {},      -- filled at release (reused)
+		pending = 0,   -- idle: degrees the arm is behind the bottom, before the wind-up starts
+		arm = 0,       -- forward degrees from the bottom: where the crank really is (winding, swinging)
+		back = 0,      -- farthest back this wind-up (positive degrees, capped at backswingMaxDeg)
+		far = 0,       -- farthest forward this flick (forward degrees)
+		n = 0,         -- flick speed samples
+		speeds = {},   -- deg/s per frame of the flick (reused)
+		cool = 0,      -- cooldown seconds left
+		result = {},   -- filled at a release (reused)
 	}
 end
 
+-- Back to idle at once (no cooldown). s.back is kept for the dial; the caller
+-- clears it if it wants.
 function swing.reset(s)
-	s.phase, s.angle, s.pending, s.backswing, s.peak, s.n, s.lastSpeed = "idle", 0, 0, 0, 0, 0, 0
-	s.arm = 0
+	s.phase, s.pending, s.arm, s.far, s.n, s.cool = "idle", 0, 0, 0, 0, 0
 end
 
 -- Where the crank is, as the throwing arm: forward degrees from the bottom of
@@ -118,11 +125,6 @@ function swing.crossedBack(prev, a)
 	return prev ~= nil and prev >= 0 and a < 0 and (prev - a) < 90
 end
 
--- Power cap from the current (or swing-start) backswing, 0..1.
-function swing.powerCap(s)
-	return min(1, s.backswing / swing.tune.fullBackswingDeg)
-end
-
 -- Smoothness 0..1 of speeds[1..n]: one minus the mean absolute second
 -- difference relative to the mean speed. A flick that speeds up evenly has
 -- small second differences; alternating fast and slow frames have large ones.
@@ -138,151 +140,137 @@ function swing.smoothness(speeds, n)
 		r = r + abs(speeds[i] - 0.5 * (speeds[i - 1] + speeds[i + 1]))
 	end
 	r = r / (n - 2) / mean
-	return max(0, min(1, 1 - r / swing.tune.roughFull))
+	r = 1 - r / swing.tune.roughFull
+	if r < 0 then return 0 end
+	if r > 1 then return 1 end
+	return r
 end
 
-local function windowSpeed(s, upto)
-	local w = swing.tune.speedWindow
-	local lo = max(1, upto - w + 1)
+-- The forward speed: the mean of speeds over the speedWindow frames ending at `upto`.
+local function windowSpeed(speeds, upto)
+	local lo = upto - swing.tune.speedWindow + 1
+	if lo < 1 then lo = 1 end
 	local sum = 0
-	for i = lo, upto do sum = sum + s.speeds[i] end
+	for i = lo, upto do sum = sum + speeds[i] end
 	return sum / (upto - lo + 1)
 end
 
-local function release(s, releaseSpeed, nUsed, how)
+-- Fill s.result and go to the cooldown. `how` is "stopped" or "sky".
+--   back          degrees: the farthest back the wind-up reached (capped at backswingMaxDeg)
+--   releaseAngle  forward degrees from the bottom: the farthest forward the arm got (where
+--                 the throw leaves; skyDeg or a little over for a sky ball)
+--   flickDps      deg/s: the flick's peak speedWindow average
+--   flickFrac     minFlickFrac .. 1: the share of the backswing's power the flick gives
+--   smoothness    0..1 over the flick's frames (swing.smoothness)
+--   shake         1 - smoothness
+--   pull          +1: the flick's fastest frame was one of its last pullFrames (still
+--                 speeding up into the stop); -1: it peaked earlier and was falling off
+--                 before the stop. Which way a shaky throw pulls.
+--   how           "stopped" or "sky"
+--   frames        frames in the flick (the trailing frames below releaseStopDps not counted)
+local function release(s, how)
 	local t = swing.tune
 	local r = s.result
-	local cap = swing.powerCap(s)
-	local p = max(0, min(releaseSpeed / t.fullSpeedDps, cap, 1))
-	local sm = swing.smoothness(s.speeds, nUsed)
-	r.power = p
-	r.powerCap = cap
-	r.backswing = s.backswing
-	r.releaseSpeed = releaseSpeed
-	r.peakSpeed = s.peak
-	r.frames = nUsed
-	r.how = how
-	r.releaseAngle = s.arm     -- forward degrees past the bottom of the turn at the release
-	r.launchSpeed = t.launchMin + (t.launchMax - t.launchMin) * p
-	r.tumbleRate = t.tumbleMin + (t.tumbleMax - t.tumbleMin) * p
+	local speeds, n = s.speeds, s.n
+	-- the flick is its frames up to the last one still turning at speed
+	local used = n
+	while used > 1 and speeds[used] < t.releaseStopDps do used = used - 1 end
+	local flick, fast, fastAt = 0, -math.huge, 1
+	for i = 1, used do
+		local w = windowSpeed(speeds, i)
+		if w > flick then flick = w end
+		if speeds[i] >= fast then fast, fastAt = speeds[i], i end
+	end
+	local f = (flick - t.swingStartDps) / (t.fullFlickDps - t.swingStartDps)
+	if f < 0 then f = 0 elseif f > 1 then f = 1 end
+	local sm = swing.smoothness(speeds, used)
+	r.back = s.back
+	r.releaseAngle = s.far
+	r.flickDps = flick
+	r.flickFrac = t.minFlickFrac + (1 - t.minFlickFrac) * f
 	r.smoothness = sm
-	r.tilt = t.tiltMaxDeg * (1 - sm)
-	r.legal = r.tilt <= t.legalTiltDeg
-	s.phase, s.angle, s.pending, s.peak, s.n, s.arm = "idle", 0, 0, 0, 0, 0
-	-- s.backswing is kept until the next wind-up so the HUD can show it
+	r.shake = 1 - sm
+	r.pull = (fastAt > used - t.pullFrames) and 1 or -1
+	r.how = how
+	r.frames = used
+	s.phase, s.pending, s.arm, s.n, s.cool = "cooldown", 0, 0, 0, t.cooldownS
 	return "release"
 end
 
 -- Feed one frame. Returns nil, "letdown" or "release" (then s.result holds
--- the throw).
+-- the measurements).
 function swing.update(s, delta, dt)
 	local t = swing.tune
 	if dt <= 0 then return nil end
-	local fwd = delta * t.forwardSign
 	local phase = s.phase
 
+	if phase == "cooldown" then
+		s.cool = s.cool - dt
+		if s.cool <= 0 then s.phase, s.cool = "idle", 0 end
+		return nil
+	end
+
+	local fwd = delta * t.forwardSign
+
 	if phase == "idle" then
-		if fwd < 0 then
-			s.pending = s.pending - fwd
-			if s.pending >= t.windStartDeg then
-				s.phase = "winding"
-				s.angle = -min(s.pending, t.backswingMaxDeg)
-				s.arm = -s.pending
-				s.backswing = -s.angle
-			end
-		elseif fwd > 0 then
-			s.pending = 0
+		local p = s.pending - fwd
+		if p < 0 then p = 0 end
+		s.pending = p
+		if p >= t.startBackDeg then
+			s.phase = "winding"
+			s.arm = -p
+			s.back = (p < t.backswingMaxDeg) and p or t.backswingMaxDeg
+			s.far, s.n = -p, 0
 		end
 		return nil
 	end
 
 	if phase == "winding" then
-		local speed = fwd / dt
-		if fwd <= 0 then
-			s.arm = s.arm + fwd
-			s.angle = max(s.angle + fwd, -t.backswingMaxDeg)
-		elseif speed >= t.swingStartDps then
+		if fwd > 0 and fwd / dt >= t.swingStartDps then
 			s.phase = "swinging"
-			s.backswing = -s.angle
-			s.n, s.peak = 0, 0
-			return swing.update(s, delta, dt)
+			s.far, s.n = s.arm, 0
+			-- and this frame is the flick's first: on to swinging below
 		else
-			s.angle = s.angle + fwd
-			s.arm = s.arm + fwd
-			if s.angle >= 0 then
-				s.phase, s.angle, s.pending, s.backswing, s.arm = "idle", 0, 0, 0, 0
+			local a = s.arm + fwd
+			s.arm = a
+			if -a > s.back then
+				s.back = (-a < t.backswingMaxDeg) and -a or t.backswingMaxDeg
+			end
+			if a >= 0 then
+				swing.reset(s)
 				return "letdown"
 			end
+			return nil
 		end
-		s.backswing = -s.angle
-		return nil
 	end
 
 	-- swinging
-	local speed = fwd / dt
 	local n = s.n
 	if n < t.maxSamples then
 		n = n + 1
-		s.speeds[n] = speed
+		s.speeds[n] = fwd / dt
 		s.n = n
 	end
-	s.angle = s.angle + fwd
-	s.arm = s.arm + fwd
-	local w = windowSpeed(s, n)
-	if w > s.peak then s.peak = w end
-	if s.passRelease then
-		if s.angle >= 0 then
-			return release(s, w, n, "passed")
+	local a = s.arm + fwd
+	s.arm = a
+	if a > s.far then s.far = a end
+	if s.far >= t.skyDeg then return release(s, "sky") end
+	if windowSpeed(s.speeds, n) < t.releaseStopDps then
+		if s.far <= 0 then
+			swing.reset(s)
+			return "letdown"
 		end
-		if w < t.releaseDropFrac * s.peak then
-			-- the hand let go in the frames before this one
-			local used = max(1, n - 1)
-			return release(s, windowSpeed(s, used), used, "slowed")
-		end
-		return nil
-	end
-	if w < t.releaseStopDps then
-		-- stopped: released here, at the flick's speed (the frames since it
-		-- slowed are not part of the throw)
-		local used = n
-		while used > 1 and s.speeds[used] < t.releaseStopDps do used = used - 1 end
-		return release(s, s.peak, used, "stopped")
-	end
-	if s.arm >= t.releaseMaxDeg then
-		return release(s, s.peak, n, "over")
+		return release(s, "stopped")
 	end
 	return nil
-end
-
--- The launch angle for a release at arm angle `releaseAngle` with the loft
--- set to `target` (degrees; releaseTolDeg, releaseGain, releaseLoftMin/Max).
-function swing.releaseLoft(target, releaseAngle)
-	local t = swing.tune
-	local miss, tol = releaseAngle - target, t.releaseTolDeg
-	if miss > tol then miss = miss - tol elseif miss < -tol then miss = miss + tol else miss = 0 end
-	local a = target + t.releaseGain * miss
-	if a < t.releaseLoftMin then return t.releaseLoftMin end
-	if a > t.releaseLoftMax then return t.releaseLoftMax end
-	return a
-end
-
--- Where a stop at arm angle `releaseAngle` fell against the notch (the loft
--- set, `target`): 0 on it (within releaseTolDeg), -1 early (lower), 1 late
--- (higher). The throw scene's verdict flag after a throw.
-function swing.releaseMiss(target, releaseAngle)
-	local miss, tol = releaseAngle - target, swing.tune.releaseTolDeg
-	if miss > tol then return 1 elseif miss < -tol then return -1 end
-	return 0
 end
 
 -- Run a recorded swing through a fresh state. `samples` is a flat array
 -- {dt1, delta1, dt2, delta2, ...}. Returns the first event ("release" or
 -- "letdown") and, for a release, the result table; or nil if the samples end
--- mid-swing. passRelease: the old release at the bottom of the turn (traces
--- recorded before 2026-11-14).
-function swing.replay(samples, passRelease)
+-- mid-swing.
+function swing.replay(samples)
 	local s = swing.new()
-	s.passRelease = passRelease or false
 	for i = 1, #samples - 1, 2 do
 		local ev = swing.update(s, samples[i + 1], samples[i])
 		if ev then return ev, (ev == "release") and s.result or nil end
