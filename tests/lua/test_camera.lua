@@ -373,3 +373,34 @@ test("camera.blend runs first person to the plan view; the follow starts from ei
 	camera.follow(f, b, imp, 1)
 	expect.near(f.cx, imp.cx, 1e-9, "to the impact camera's")
 end)
+
+test("first person from a forward stance keeps a close target on screen (fitNear; Codex on #96)", function()
+	local c = camera.new()
+	local t = camera.tune.aim
+	local R = 0.25
+	-- advantage lines near the middle, targets just past them, straight and angled
+	for _, case in ipairs({ { 0, 3.5, 0, 4.2 }, { 0, 3.0, 0.3, 4.1 }, { -1, 3.5, -0.6, 4.4 },
+		{ 1.5, 2.5, 1.9, 4.3 }, { 0, 3.8, 0, 4.3 } }) do
+		local px, py, tx, ty = case[1], case[2], case[3], case[4]
+		local sw = math.atan(tx - px, ty - py)
+		camera.aim(c, px, py, sw, nil, 0, camera.lookDistAt(px, py, tx, ty))
+		local dx, dy = tx - px, ty - py
+		local d = math.sqrt(dx * dx + dy * dy)
+		camera.fitNear(c, tx - dx * R / d, ty - dy * R / d)
+		local what = string.format("stance %.1f %.1f target %.1f %.1f", px, py, tx, ty)
+		for k = 0, 11 do
+			local a = k * math.pi / 6
+			local sx, sy = camera.project(c, tx + R * math.cos(a), ty + R * math.sin(a), 0)
+			expect.truthy(sx and sx >= 0 and sx <= 400 and sy >= 14 and sy <= t.fitBottom + 1,
+				what .. ": ring at " .. tostring(sx) .. ", " .. tostring(sy))
+		end
+		local _, top = camera.project(c, tx, ty, 0.15)
+		expect.truthy(top and top >= 14 and top <= 240, what .. ": kubb top at " .. tostring(top))
+		expect.truthy(c.f >= t.fitFMin and c.cy >= t.fitCyMin, what .. ": within the fit's limits")
+	end
+	-- a far target is left alone
+	camera.aim(c, 0, 0, 0, nil, 0, camera.lookDistAt(0, 0, 0, 8))
+	local f, cy = c.f, c.cy
+	camera.fitNear(c, 0, 7.75)
+	expect.eq(c.f, f); expect.eq(c.cy, cy)
+end)

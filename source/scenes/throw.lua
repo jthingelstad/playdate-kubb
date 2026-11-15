@@ -300,6 +300,18 @@ local function aimCamera(s, k)
 	local back = s.lineY - s.playerY
 	if back < 0 then back = 0 end
 	camera.aim(fp, s.playerX, s.playerY, s.swivel, s.targets, back, look)
+	-- a close target (an advantage line near the middle) stays on screen:
+	-- the circle's near edge, along the line from the thrower (Codex on #96)
+	do
+		local dx, dy = s.markerX - s.playerX, s.markerY - s.playerY
+		local d = sqrt(dx * dx + dy * dy)
+		local r = throw.tune.markerRadius or 0.25
+		if d > r then
+			camera.fitNear(fp, s.markerX - dx * r / d, s.markerY - dy * r / d)
+		else
+			camera.fitNear(fp, s.playerX, s.playerY)
+		end
+	end
 	if mix <= 0 then
 		s.shF = nil
 		return
