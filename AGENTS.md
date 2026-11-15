@@ -540,10 +540,13 @@ throw).
   area (3 m either side, 3.5 to 8.6 m out). It stays where the d-pad leaves it: no
   snapping (Tyler's play test, 2026-11-15: the circle locking onto the kubb made 8 m too
   easy and left no way to aim off it for the wind). A circle moved with the d-pad
-  (`s.markerSet`) stays put for the team's next throw (`retarget`); one never moved starts
+  (`s.markerSet`) stays put for the team's next throw while a live target stands within
+  `keepNear` (1 m) of it, its default arc read again from the nearest target (`retarget`;
+  Codex on #98); one never moved starts
   each throw on a live target (`s.markerOn`, kept while that target stands).
   `throw.aimAt` (self-tests, callers aiming at a piece) still snaps onto a standing target
-  within `snapRadius` (0.25 m; `plan.snap` over `s.snaps`). A + d-pad walks (`walkSpeed`, along the line, back to `backMax`, up to
+  within `snapRadius` (0.25 m; `plan.snap` over `s.snaps`). A + d-pad walks (`walkSpeed`,
+  along the line, back to `backMax`, up to
   the advantage line for a baton, the baseline for a kubb) and sets `s.stanceSet`; until
   then the stance is `plan.stance`, straight behind the circle as far forward as allowed.
   B + up/down taps move the planned release `plan.tune.arcStepDeg` (15) within
@@ -745,7 +748,8 @@ Every number that is a guess lives in one table per module, with a comment:
   were removed 2026-11-15, as were `swing.tune`'s launch and tumble ranges: the plan's
   scales set the speed, `plan.tumbleFor` the tumble.)
 - `tw.scenes.throw.tune` (`source/scenes/throw.lua`): refresh rate, walk speed, how far
-  back the player may step, the circle's snap radius (`snapRadius`), where the clock shows
+  back the player may step, the circle's snap radius (`snapRadius`, `throw.aimAt` only) and how near a live target
+  a circle moved by hand must be to stay put (`keepNear`), where the clock shows
   overpowered (`overDeg`), the Playdate's arm on the clock (`cpuSwingTime`,
   `cpuBackShare`), rest hold, practice
   surface, the flight's pacing (`flightRate`, `framePeriod`, `tailPeriod`, `minBudget`;
