@@ -89,11 +89,8 @@ for gi = 1, games do
 		if not s then break end
 		local a = autothrow.choose(s, r)
 		local w = world.new { surface = "grass", pieces = match.worldPieces(s) }
-		if s.projectile == "kubb" then
-			world.launchKubb(w, s.kubb, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate)
-		else
-			world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt, s.batonId)
-		end
+
+		autothrow.launch(w, s, a)
 		n = n + 1
 		match.resolve(m, run(fmt("game %d throw %d", gi, n), w), not a.legal)
 	end

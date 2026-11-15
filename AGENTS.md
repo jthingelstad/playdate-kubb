@@ -255,16 +255,33 @@ of this turn lying out near the target half and knocks it toward the middle (`ch
 so games have kubbs knocked in before the round is judged; `make games` prints
 `knockedIn`/`knockedOut` and the sheets' `R`, `P`, `Q`, `N` counts.
 
-`core/autothrow.lua` is a scripted thrower for physics: for a match setup it picks where to
-stand, swivel, loft, launch speed and tumble (seeded scatter, `autothrow.tune`), aiming
-batons at the nearest live target (from the advantage line, but never nearer than
-`minRange`, 2 m: a slow lofted baton under 2 m nearly always missed) and tosses at the
-basket (Jamie, 2026-11-14): the corner of the far half nearest the centre line by a
-sideline (`basketX`, `basketY`), the one that already has more field kubbs near it, so a
-turn's kubbs group and one that runs goes out for a rethrow. Over 30 physics matches (seed
-7) against the old random spot: 18.9 turns a game against 23.5, 3 resigned at the turn
-limit against 5, a rethrow in 20% of inkasts against 18%, advantage lines 2.4 m on average
-against 1.1. `tools/physmatch.lua [--n --seed --out --maxturns -v]` plays whole matches through
+`core/autothrow.lua` is the computer thrower, and it throws the player's way (DESIGN 4):
+for a match setup it picks a target, stands behind it (`plan.stance`), takes the default arc
+(`plan.arcFor`), solves the plan at a level (`plan.solve`, `autothrow.tune.level`, club),
+makes a synthetic swing (`autothrow.swing`: core/swing's result fields with seeded mistakes)
+and launches it with `plan.launch`. `choose(setup, rng, scale, level)` returns the launch
+fields (`x, y, swivel, loftDeg, speed, tumbleRate, tilt, legal`), the solve as `a.plan`
+(target `tx, ty`, `back`, `release`, the gauge's ranges) and the swing as `a.swing` (`back`,
+`releaseAngle`: where the computer's arm goes on the gauge), and for a kubb `a.drill`
+(`markerX`, `markerY` from the line, and world.launchDrill's `noseDown, rollLand, spin,
+wobble, digGain`); `autothrow.launch(w, s, a)` puts it into a world. Batons go at the
+nearest live target's center (from the advantage line, but never nearer than `minRange`, 2
+m: a slow lofted baton under 2 m nearly always missed; the king from the baseline). Kubbs
+are drilled at the drill arc to the basket (Jamie, 2026-11-14): the corner of the far half
+nearest the centre line by a sideline (`basketX`, `basketY`), the one that already has more
+field kubbs near it, so a turn's kubbs group and one that runs goes out for a rethrow. The
+swing's mistakes (`scale` multiplies them all; 0 is the clean swing): backswing sd
+`backSd` 5 degrees, release sd `releaseSd` 9, a flick between 1050 and 1400 deg/s (full
+power) except `softChance` 5% between 850 and 1000 (short), shake even between 0 and
+`shakeMax` 0.44 (shake is the only sideways error, as for a player) except `shakyChance`
+1.5% between 0.25 and 0.6, pull either way. Measured with physics on grass at club
+(2026-11-15, 300 to 400 throws each): a base kubb from 8 m 41%, a field kubb from 2 to 5 m
+56 to 59%, the king from 4 m 49%, 1% helicopters; a drill rests 0.29 m from the basket on
+average, 3% out. Over 40 physics matches (seed 2): 25.3 turns a game, batons hit a base
+kubb 45% and a field kubb 59% of the time, 1% helicopters, 2% of drilled kubbs rethrown,
+30 won on the king and 10 resigned at the turn limit (the old lobbing thrower over 20:
+5 resigned). `tools/physmatch.lua` prints these counts after its games.
+`tools/physmatch.lua [--n --seed --out --maxturns -v]` plays whole matches through
 `core/match` with every throw run by `core/world` to rest (the match scene's path without
 the screen; about 0.7 s a match on a Mac) and writes the game files. Past `--maxturns`
 (40) the team on turn resigns. With no scatter every baton hits and a game never ends
@@ -526,8 +543,8 @@ Every number that is a guess lives in one table per module, with a comment:
   "Drilling"). `tw.camera.tune.drill`: the fixed drill aim camera.
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
   turned, and how high a tossed kubb must rest to be on another.
-- `tw.autothrow.tune` (`source/core/autothrow.lua`): the scripted thrower's loft, aim and
-  scatter.
+- `tw.autothrow.tune` (`source/core/autothrow.lua`): the computer thrower's level, aim, basket
+  and the synthetic swing's mistakes.
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
   margin, bounce threshold and passes, wood-on-wood friction and bounce, sleep and wake
   thresholds, topple angle, out margin, maximum throw time, stake height (0.15 m: a real stake, 6 inches out of the ground).
@@ -932,8 +949,10 @@ the throw scene with `s.drill` on.
 
 - **Where it shows up.** The match's kubb throws (`throw.prepare` turns `s.drill` on for a
   `projectile == "kubb"` setup; the marker stays where that team left it). The computer
-  thrower (`throw.autoLaunch`, `s.scripted`) still lobs with `launchKubb`, as do
-  `core/autothrow` and `tools/physmatch.lua`. The practice pitch drills after "Pitch: drill"
+  thrower drills too: `core/autothrow` gives `a.drill` (the basket as the marker and
+  `world.launchDrill`'s arguments from `plan.launch`), which `tools/physmatch.lua` launches
+  with `autothrow.launch`; `throw.autoLaunch` drills a clean `drill.solve` launch at
+  `a.drill`'s marker. The practice pitch drills after "Pitch: drill"
   (`throw.setDrill`): each drilled kubb gets its own id (`d1`, `d2`, ...) and becomes a piece
   of the pitch at rest (`keepDrilled`, the newest `drillKeep`), so later throws hit it; the
   auto stand-up after all far base kubbs are down is skipped while drilling.
@@ -950,16 +969,14 @@ the throw scene with `s.drill` on.
   in `throw.draw` (`drawMarker`), and the minimap's aim line goes to the marker.
 - **Swing to launch** (`drill.launch`): the power error against the band is shrunk by
   `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower` per unit
-  (never under `speedMinFrac`). The angle is a baton's (Jamie, 2026-11-14: one throw to
-  learn, the band kept): the solved loft is the dial's notch, and where the crank stops
-  against it sets the launch angle by the same forgiving rule (`swing.releaseLoft`: within
-  10 degrees the solved loft, beyond it a third of the rest of the miss), with the same
-  flag (`ON THE NOTCH`, `EARLY: LOW`, `LATE: HIGH`) and dot; a swing under the old release
-  keeps the solved loft. Early (for the push and wobble below) is a stop before the
-  notch. Smoothness under `cleanAbove` gives a nose-over wobble of up
-  to `wobbleRate` rad/s (its sign follows the swing's `how`). Tilt pushes the swivel by
-  `tiltPushDeg` per degree (right, left when early). The cut is
-  `cutSpin` rad/s about the long axis.
+  (never under `speedMinFrac`); the loft is the solved one (the release angle is not read:
+  the plan's launch, `plan.launch`, judges the stop and gives the body through `drill.body`).
+  Smoothness under `cleanAbove` gives a nose-over wobble of up to `wobbleRate` rad/s (its
+  sign is `r.pull`, +1 by default). Tilt pushes the swivel by `tiltPushDeg` per degree the
+  way `r.pull` says. The cut is `cutSpin` rad/s about the long axis. This band launch is
+  kept for core/bench, the tools and tests that throw a clean drill (`{ power = band,
+  smoothness = 1, tilt = 0 }`, unchanged bit for bit) and the throw scene until it
+  launches drills through the plan.
 - **The body** (`world.drillLaunchState`): long axis along the horizontal line of flight, the
   nose `noseDownDeg` below the horizontal, spinning at the cut rate; the release roll is
   solved backwards from the flight time so it lands rolled `rollLandDeg` onto a long edge

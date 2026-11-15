@@ -421,7 +421,7 @@ be read.
 - Kubbs are lobbed, not drilled: the baton's swing, a kubb body turning end over end at
   half the swing's tumble, no cut. The follow and impact cameras are the baton's.
   (Superseded for the players' own kubbs by the drilling prototype: section 4 "Kubbs
-  (drilling)"; the computer thrower still lobs.)
+  (drilling)"; the computer thrower drills too, through the plan, since 2026-11-15.)
 - Raising and punishment placement are automatic (the engine's policies); there is no
   raising view yet.
 - The aim camera frames the live targets (field kubbs, else base kubbs, else the king) and,
