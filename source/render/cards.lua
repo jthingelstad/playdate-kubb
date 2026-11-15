@@ -36,6 +36,7 @@ rcards.tune = {
 	kubbPip = { w = 8, h = 15, step = 13 },
 	batonPip = { w = 4, h = 15, step = 7 },
 	buttonY = 215,
+	orderY = 196,               -- a team of several: who throws which batons
 	map = { x = 290, y = 36, w = 94, h = 148, cx = 337, base = 175, far = 45, mPerX = 18 },
 	-- winner
 	winNameTop = 36,            -- the winner's cap top (display 32)
@@ -87,7 +88,8 @@ function rcards.handoff(c)
 	local label, d16, d32 = ui.label(), ui.display(16), ui.display(32)
 	gfx.pushContext(img)
 	ui.text(label, "PASS THE PLAYDATE TO", t.left, 18, true)
-	ui.text(d32, c.toName, t.left - 1, t.nameTop - 1, true)
+	-- a team of several: the first thrower's name (the team's on the throw line)
+	ui.text(d32, c.thrower or c.toName, t.left - 1, t.nameTop - 1, true)
 	white()
 	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
 
@@ -124,10 +126,11 @@ function rcards.handoff(c)
 	end
 
 	-- what this team throws
-	ui.text(label, "you throw", t.left, t.throwY, true)
+	ui.text(label, c.thrower and (c.toName .. " throws") or "you throw", t.left, t.throwY, true)
 	local lines = {}
 	if c.kubbs > 0 then
-		lines[#lines + 1] = { pip = t.kubbPip, n = c.kubbs, text = plural(c.kubbs, "kubb", "kubbs") .. " in" }
+		lines[#lines + 1] = { pip = t.kubbPip, n = c.kubbs, text = plural(c.kubbs, "kubb", "kubbs") .. " in"
+			.. ((c.inkaster and c.inkaster ~= c.thrower) and (": " .. c.inkaster) or "") }
 	end
 	lines[#lines + 1] = { pip = t.batonPip, n = c.batons,
 		text = (c.kubbs > 0 and "then " or "") .. plural(c.batons, "baton", "batons") }
@@ -142,8 +145,15 @@ function rcards.handoff(c)
 		-- display 16: the caps sit one row into the cell; line them up with the pips
 		ui.text(d16, l.text, x + 6, y - 1, true)
 	end
+	-- who throws which batons, in order
+	if c.order then
+		local parts = {}
+		for i, e in ipairs(c.order) do parts[i] = e.name .. " " .. e.n end
+		ui.textDots(label, parts, t.left, t.orderY, true)
+	end
 
-	ui.button("A", "ready", t.left, t.buttonY, true)
+	local w = ui.button("A", "ready", t.left, t.buttonY, true)
+	if c.thrower then ui.button("B", "change", t.left + w + t.buttonGap, t.buttonY, true) end
 	drawMap(c)
 	gfx.popContext()
 	return img
@@ -187,6 +197,58 @@ function rcards.settle(c)
 	return img
 end
 
+-- The pass card inside a team (core/cards.pass): who takes the Playdate,
+-- for which throws, at what level; A throws, B changes the thrower.
+function rcards.pass(c)
+	local t = rcards.tune
+	local img = gfx.image.new(400, 240, gfx.kColorBlack)
+	local label, d16, d32 = ui.label(), ui.display(16), ui.display(32)
+	gfx.pushContext(img)
+	ui.text(label, "PASS THE PLAYDATE TO", t.left, 18, true)
+	ui.text(d32, c.name, t.left - 1, t.nameTop - 1, true)
+	white()
+	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
+	local parts = { c.team }
+	if c.level then parts[2] = "level " .. c.level end
+	ui.textDots(label, parts, t.left, t.tookY, true)
+	local what
+	if c.kind == "kubbs" then what = "the kubbs in"
+	elseif c.from == c.to then what = "baton " .. c.from
+	elseif c.to == c.from + 1 then what = "batons " .. c.from .. " and " .. c.to
+	else what = "batons " .. c.from .. " to " .. c.to end
+	ui.text(d16, what, t.left, t.throwY + 4, true)
+	local w = ui.button("A", "throw", t.left, t.buttonY, true)
+	ui.button("B", "change", t.left + w + t.buttonGap, t.buttonY, true)
+	gfx.popContext()
+	return img
+end
+
+-- Who takes the throw instead (core/match.candidates): the team's players,
+-- the chosen one boxed, those the rules refuse with why.
+rcards.WHY = { cap = "two batons already", distinct = "needs another thrower", team = "not on the team" }
+function rcards.change(list, chosen, what)
+	local t = rcards.tune
+	local img = gfx.image.new(400, 240, gfx.kColorBlack)
+	local label, d16 = ui.label(), ui.display(16)
+	gfx.pushContext(img)
+	ui.text(label, "who throws " .. what, t.left, 18, true)
+	for i, e in ipairs(list) do
+		local y = 40 + (i - 1) * 26
+		local on = i == chosen
+		if on then
+			white()
+			gfx.fillRect(t.left - 6, y - 4, 260, 24)
+		end
+		ui.text(d16, e.name, t.left, y, not on)
+		local note = e.current and "now" or ((not e.ok) and (rcards.WHY[e.why] or "not now") or nil)
+		if note then ui.text(label, note, t.left + 250, y + 3, not on, "right") end
+	end
+	local w = ui.button("A", "this one", t.left, t.buttonY, true)
+	ui.button("B", "back", t.left + w + t.buttonGap, t.buttonY, true)
+	gfx.popContext()
+	return img
+end
+
 local burst = nil
 
 function rcards.winner(c, how, saved)
@@ -208,11 +270,25 @@ function rcards.winner(c, how, saved)
 	if how and how ~= "" then line { how } end
 	local first = { plural(c.turns, "turn", "turns") }
 	if c.minutes then first[2] = c.minutes < 1 and "under a min" or (c.minutes .. " min") end
+	-- a team of several needs the room for its players: "saved" joins this line
+	if c.players then first[#first + 1] = saved and "game saved" or "not saved" end
 	line(first)
 	if c.thrown and c.thrown > 0 then
 		line { string.format("baton hits %d%%", math.floor(100 * c.hits / c.thrown + 0.5)) }
 	end
-	line { saved and "game saved" or "not saved" }
+	if c.players then
+		-- each player's hits over batons, three to a line
+		for from = 1, #c.players, 3 do
+			local parts = {}
+			for i = from, math.min(#c.players, from + 2) do
+				local p = c.players[i]
+				parts[#parts + 1] = p.name .. " " .. p.hits .. "/" .. p.thrown
+			end
+			line(parts)
+		end
+	else
+		line { saved and "game saved" or "not saved" }
+	end
 	local w = ui.button("A", "rematch", t.left, t.buttonY, true)
 	ui.button("B", "title", t.left + w + t.buttonGap, t.buttonY, true)
 	gfx.popContext()

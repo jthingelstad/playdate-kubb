@@ -8,6 +8,8 @@ import "core/match"
 import "core/autothrow"
 import "core/world"
 import "core/notation"
+import "core/cards"
+import "core/save"
 local frame, outcome, match, autothrow, world, notation =
 	tw.frame, tw.outcome, tw.match, tw.autothrow, tw.world, tw.notation
 
@@ -530,3 +532,43 @@ test("match: teams of three and two, the thrower named before each throw and on 
 	local t = m.game.sheet.turns[m.game.turn]
 	expect.eq(t.batons[1].player .. ":" .. t.batons[1].token, "sam:G")
 end)
+
+test("match: the lineup's keys and levels, the turn's order, handing a throw to another player", function()
+	local m = match.new { teams = {
+		A = { name = "Snow Kubbs", players = { { name = "Kim", key = "p1", level = "pro" }, { name = "Max", key = "p2" },
+			{ name = "Ray", guest = true, level = "beginner" } } },
+		B = { name = "Baton Rouge", players = { { name = "Sam", key = "p3" } } } } }
+	local s = setup(m, "baton")
+	expect.eq(s.thrower.id, "kim")
+	expect.eq(s.thrower.key, "p1")
+	expect.eq(s.thrower.level, "pro")
+	local list, ink = match.turnOrder(m)
+	expect.eq(#list, 2)
+	expect.eq(list[1].name .. list[1].n .. list[2].name .. list[2].n, "Kim1Max1")
+	expect.eq(ink.name, "Kim")
+	-- the second baton: Kim may not take it (two throwers in the opening), Ray may
+	match.resolve(m, still(s.pieces), false)
+	s = setup(m, "baton")
+	expect.eq(s.thrower.id, "max")
+	local c = match.candidates(m)
+	expect.eq(c[1].ok, false)
+	expect.eq(c[1].why, "distinct")
+	expect.truthy(c[2].current)
+	expect.truthy(c[3].ok)
+	expect.eq(select(2, match.changeThrower(m, "kim")), "distinct")
+	expect.truthy(match.changeThrower(m, "ray"))
+	expect.eq(m.setup.thrower.id, "ray")
+	expect.eq(m.setup.thrower.level, "beginner")
+	expect.eq(m.setup.thrower.key, nil, "a guest has no key")
+	local pc = tw.cards.pass(m, m.setup)
+	expect.eq(pc.name, "Ray")
+	expect.eq(pc.from .. "-" .. pc.to, "2-2")
+	match.resolve(m, still(s.pieces), false)
+	expect.eq(m.game.sheet.turns[1].batons[2].player, "ray")
+	-- the save keeps the lineup and the order
+	local d = tw.save.plain(tw.save.plain(tw.save.pack(m, nil)))
+	local back = tw.save.unpack(d)
+	expect.eq(back.lineup.A[1].key, "p1")
+	expect.eq(back.order.A.ids[3], "ray")
+end)
+
