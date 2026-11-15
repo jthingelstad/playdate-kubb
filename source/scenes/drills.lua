@@ -185,6 +185,7 @@ end
 function scene.quit(s)
 	if s.phase == "menu" then return end
 	playdate.display.setInverted(false)   -- a king burst's flash
+	if s.ts then throw.suspend(s.ts) end  -- the drill's tilt: no sensor under the menu
 	s.phase, s.img = "menu", nil
 	scene.enter()
 end

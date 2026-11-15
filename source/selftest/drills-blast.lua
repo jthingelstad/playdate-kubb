@@ -1,7 +1,8 @@
 -- Scenario "drills-blast": a BLAST run's rail keeps its score beside the
 -- marker distance (scenes/drills, throw's drawRail in drill mode), and its
 -- marker is fixed at 6 m: holding up on the d-pad does not move it. Frame 1:
--- the first BLAST throw's aim view.
+-- the first BLAST throw's aim view. The accelerometer runs while it is aimed
+-- (the tilt cut) and "Drill: menu" puts it to sleep (Codex on #88).
 import "core/tw"
 import "scenes/drills"
 import "core/drills"
@@ -25,6 +26,9 @@ tw.selftest.scenarios["drills-blast"] = {
 			error("BLAST marker moved to " .. tostring(ts.markerY))
 		end
 		ctx:capture()
+		if not ts.input.accelOn then error("the accelerometer is off while BLAST is aimed") end
+		scene.quit(s)
+		if ts.input.accelOn then error("the accelerometer still runs under the drills menu") end
 		return true
 	end,
 }

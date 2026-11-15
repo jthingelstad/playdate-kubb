@@ -282,6 +282,8 @@ function scene.showSheet(s)
 end
 
 local function openSheet(s)
+	-- the throw scene waits under the sheet: no accelerometer while it does
+	if s.ts then throw.suspend(s.ts) end
 	local m = s.m
 	local g = m.game
 	local text = cmatch.file(m, nil, scene.version)

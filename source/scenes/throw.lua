@@ -936,6 +936,15 @@ local function tiltInput(s, p, dt)
 	end
 end
 
+-- The scene stops being updated without leaving through main.lua's open (a
+-- drill run quit to the drills menu, a match's score sheet over it): put the
+-- accelerometer to sleep now, not at the next throw.update (Codex on #88).
+-- The next update turns it on again if a drill is still being aimed.
+function throw.suspend(s)
+	s.input:setAccel(false)
+	s.roll, s.tiltCuts = nil, false
+end
+
 function throw.update(s)
 	local p = s.input
 	p:advance()
