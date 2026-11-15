@@ -852,14 +852,41 @@ hit rate (records in `playdate.datastore` "drills").
   the setup's `markerY`, `throw` keeps it still, `s.markerFixed`), so bests compare.
   AROUND THE PITCH: five batons, each from in front of the next base kubb. An illegal
   throw (a helicopter) scores nothing.
+- DOUBLES: six batons from the baseline, each at its own group of standing field kubbs
+  (`drills.tune.doubles`, in order: a pair side by side 3 cm apart, a pair in line 3 cm, a
+  triple side by side 3 cm, a pair side by side 7 cm, a triple in line 7 cm, a pair side by
+  side 15 cm; gaps face to face as in `tools/compound.lua`, centers 4.6 to 6 m out, no
+  king). Each baton gets its group stood fresh and the last group's kubbs are cleared
+  (`drills.group`, ids `g<baton>k<n>`): every run faces the same six shots, so bests
+  compare; a played-down set would leave lone kubbs after a part hit and make the doubles
+  depend on earlier misses. A point for each kubb of that baton's group down, and
+  `doublesBonus` (1) more when one baton takes two or more (`run.multi` counts them; the
+  result card says it). Out of 20 (14 kubbs, six bonuses); always six batons.
+- THE WALL: six kubbs drilled (drill mode, marker free: no `markerY`) at the centerline
+  stake on the thrower's right (`wallStake`, `pitch.stakes[4]`: x = 2.5, y = 4; no king, it
+  stands on the centerline). Each kubb is its own piece (`w1` .. `w6`) and stays on the
+  pitch where it rests: `drills.setup` gives every earlier one back with its exact rest
+  pose and z. After each throw `drills.tally` takes `res.bodies` (the throw's
+  `world.result` bodies, which `scenes/drills` passes from `ts.result`: no accessor in
+  `throw` needed), updates every wall kubb's pose (later kubbs move earlier ones) and
+  scores `drills.wall(kubbs, n, stakeX, stakeY, out)`: a kubb is in the wall when it lies
+  (long axis within 45 degrees of horizontal), its center is on the pitch's width and
+  within `wallBand` (0.15 m) of y = 4 with its footprint touching or crossing into the far
+  half, and its footprint (an oriented 15 x 7 cm `core/rect`) is within `wallGap` (0.12 m,
+  edge to edge) of the stake's circle or of a kubb already in the wall, chained from the
+  stake. The score is the wall as it stands after the last throw: a kubb knocked out of it,
+  or cut off from the stake, stops counting (the rail's score can go down). Out of 6. On
+  the desktop six clean drills stepping in from the stake at 4.1 m build a wall of 4.
+- The menu's rows shrink to fit the list above `listBottom` (31 px for six rows, 23 for
+  eight). DOUBLES' map draws the six groups as marks, THE WALL's the stake and a wall.
 - A run goes through the throw scene one throw at a time, like the match
   (`drills.setup` -> `throw.prepare`, `s.auto = false`; `drills.tally` on the throw's
-  `result.toppled` and `last.restCm` once it is `done`); the rail counts throws and the
+  `result.toppled`, `result.bodies` and `last.restCm` once it is `done`); the rail counts throws and the
   score. A card gives the score and any new best; A runs it again, B goes back to the menu.
   During a run the System Menu's third item is "Drill": menu (`drills.quit`: leave the run
   part way, nothing recorded) or title. Readout reaches the run's throw scene as in
   practice (`main.lua` `throwScene`).
-- In drill mode (BLAST, and a match's kubb tosses) the rail shows the marker's distance
+- In drill mode (BLAST, THE WALL, and a match's kubb tosses) the rail shows the marker's distance
   and beside it what the caller gave (`throw.setRail`'s first right-hand text: a drill's
   score).
 - Self-tests `drills` (the menu, a whole KING SHOTS run with straight scripted batons, the

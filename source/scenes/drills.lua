@@ -27,7 +27,8 @@ local scene = {}
 
 scene.tune = {
 	panelW = 194,      -- the black list panel
-	itemY = 24, itemH = 31,
+	itemY = 24, itemH = 31,   -- the list: first row and row pitch (shrinks to fit above listBottom)
+	listBottom = 210,         -- px: rows fit between itemY and this (31 px rows for six, 23 for eight)
 	mapX = 204, mapY = 22, mapW = 56, mapH = 90,   -- the pitch from above (5 x 8 m)
 	recordsKey = "drills",
 }
@@ -66,6 +67,36 @@ local function drawMap(d)
 	local x = t.mapX
 	while x < t.mapX + t.mapW do gfx.drawLine(x, cy, x + 4, cy); x = x + 7 end
 	if d.id == "open" then return end
+	if d.kind == "doubles" then
+		-- the six groups, one per baton, drawn as marks a few px apart
+		for _, g in ipairs(drills.tune.doubles) do
+			local gx, gy = mapPoint(g.x, g.y)
+			local n = (g.kind == "triple" or g.kind == "inline3") and 3 or 2
+			local inline = g.kind == "inline2" or g.kind == "inline3"
+			local step = (g.gap >= 0.1) and 4 or 3
+			for k = 1, n do
+				local o = floor((k - (n + 1) / 2) * step + 0.5)
+				if inline then gfx.fillRect(gx - 1, gy - o - 1, 2, 2) else gfx.fillRect(gx + o - 1, gy - 1, 2, 2) end
+			end
+		end
+	elseif d.kind == "wall" then
+		-- the right-hand stake, a wall growing from it along the centerline,
+		-- and a drill's line toward it
+		local st = pitch.stakes[drills.tune.wallStake]
+		local sx, sy = mapPoint(st.x, st.y)
+		gfx.fillCircleAtPoint(sx, sy, 3)
+		for k = 1, 3 do gfx.drawRect(sx - 3 - k * 6, sy - 2, 6, 4) end
+		local tx, ty = mapPoint(1.6, 0.2)
+		gfx.drawCircleAtPoint(sx - 10, sy + 4, 5)
+		gfx.drawLine(tx, ty, sx - 10, sy + 9)
+	end
+	if d.kind == "doubles" or d.kind == "wall" then
+		for i = 1, d.throws do
+			local hx = t.mapX + 8 + (i - 1) * 6 + ((i > 3) and 4 or 0)
+			gfx.fillRect(hx, t.mapY + t.mapH - 14, 2, 10)
+		end
+		return
+	end
 	local run = drills.newRun(d)
 	local s = drills.setup(d, run)
 	for _, p in ipairs(s.pieces) do
@@ -101,11 +132,15 @@ local function renderMenu(s)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, "PRACTICE", 6, 2, true)
 	ui.text(label, "GRASS", 394, 2, true, "right")
+	-- rows a little closer together when the list would run into the buttons
+	local n = #s.items
+	local rowH = math.min(t.itemH, floor((t.listBottom - t.itemY) / n))
+	local boxH = math.min(28, rowH)
 	for i, d in ipairs(s.items) do
-		local y = t.itemY + (i - 1) * t.itemH
+		local y = t.itemY + (i - 1) * rowH
 		if i == s.choice then
 			gfx.setColor(WHITE)
-			gfx.fillRect(8, y - 6, t.panelW - 16, 28)
+			gfx.fillRect(8, y - floor(boxH * 6 / 28), t.panelW - 16, boxH)
 		end
 		-- a name too wide for the panel at cap 16 goes in the label font
 		local f = (big:getTextWidth(d.name) <= t.panelW - 28) and big or label
@@ -175,6 +210,9 @@ local function renderResult(s)
 	ui.text(label, d.name, 200, 40, true, "center")
 	ui.text(big, run.score .. "/" .. d.of, 200, 80, true, "center")
 	ui.text(label, s.newBest and "A NEW BEST" or ("BEST " .. s.records[d.id].best .. "/" .. d.of), 200, 132, true, "center")
+	if d.kind == "doubles" then
+		ui.text(label, run.multi .. ((run.multi == 1) and " BATON" or " BATONS") .. " TOOK TWO OR MORE", 200, 152, true, "center")
+	end
 	ui.button("A", "AGAIN", 120, 200, true)
 	ui.button("B", "DRILLS", 220, 200, true)
 end
@@ -196,7 +234,9 @@ function scene.update(s)
 		local ts = s.ts
 		throw.update(ts)
 		if ts.mode == "done" then
-			local res = { toppled = ts.result and ts.result.toppled or {}, restCm = ts.last and ts.last.restCm }
+			-- bodies: every body's rest pose by id (core/world result), for THE WALL
+			local res = { toppled = ts.result and ts.result.toppled or {}, restCm = ts.last and ts.last.restCm,
+				bodies = ts.result and ts.result.bodies }
 			-- an illegal throw (a helicopter, II.B.1) scores nothing
 			if ts.last and ts.last.legal == false then res.toppled, res.restCm = {}, nil end
 			if drills.tally(s.drill, s.run, res) then
