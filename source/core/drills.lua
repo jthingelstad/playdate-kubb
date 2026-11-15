@@ -170,7 +170,11 @@ local function pieces(d, run)
 	elseif d.kind == "house" then
 		for i, p in ipairs(drills.tune.house) do
 			local id = "f" .. i
-			if not run.down[id] then out[#out + 1] = standing(id, "kubb", p[1], p[2]) end
+			if not run.down[id] then
+				local k = standing(id, "kubb", p[1], p[2])
+				k.role = "field" -- field kubbs: the aim takes the field-kubb arc (4 o'clock)
+				out[#out + 1] = k
+			end
 		end
 	elseif d.kind == "doubles" then
 		-- this baton's group only, standing fresh
