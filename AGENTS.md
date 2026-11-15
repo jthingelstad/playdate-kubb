@@ -330,6 +330,34 @@ every baton and kubb before the throw, within Rules V4.0 as far as a team's size
 - `order.checkSheet(g)`: every turn of a finished sheet against both rules and the teams
   (`kubb.js` checks neither); `test_games`, `make games` and `tools/physmatch.lua` run it.
 
+## Saved players
+
+docs/PLAYERS.md (the agreed plan; steps 1 and 2 built). Pure: `core/roster.lua`
+(`tw.roster`, `test_roster.lua`) and `core/history.lua` (`tw.history`, `test_history.lua`);
+the datastore part is `source/players.lua` (`tw.players`).
+
+- **A player** (`core/roster`): `{ key, name, id, level, made, last, totals }`. `key` is
+  `p<n>`, never reused (`r.nextKey`); `name` keeps `core/names` rules; `id` is
+  `notation.baseId(name)` and unique on the roster (`roster.canName`: `empty`, `taken`,
+  `full`), so a player has the same id in every game file; `level` is one of
+  `tw.plan.LEVELS` (the throw's); `totals` are counters (`roster.TOTALS`: games, wins,
+  resigned, batons, hits, field, base, kings, kingMisses, illegal, I, R, P, Q). At most
+  `roster.tune.max` (40). `roster.valid(d)` cleans what the datastore gives back (never an
+  error at launch); `roster.sorted` is most recently played first.
+- **A history** (`core/history`, one file per player): the last `history.tune.games` (20)
+  games `{ d, f, team, side, res, vs, b, h, k, lv }`, drill records as `core/drills.record`
+  keeps them (by drill id), and the last 10 level changes. `history.gameStats(g)` reads a
+  finished sheet by player id (a baton with `E` is not a hit, as in kubb.js);
+  `history.foldGame(r, hs, g, { keys, levels, date, file })` adds a game to the saved
+  players in it (`keys`: player id to roster key; guests and the Playdate have none);
+  `history.foldDrill`, `history.setLevel` (logs the change).
+- **Files** (`source/players.lua`): datastore `players` (the roster, about 300 bytes a
+  player) and `player-<key>` (a history, about 3 KB); self-test runs use `selftest-`
+  in front of both. `players.load()` makes the roster the first time from the old files:
+  the names typed for matches (`names`) become players (the defaults aside), and the drill
+  records (`drills`) go to the first of them (`You` when there was none); the old files
+  are left as they were. `players.today()`, `players.now()` give the dates.
+
 ## Simulator self-tests
 
 - `Playdate Simulator <abs pdx> selftest=<name> out=<abs dir>`: arguments after the pdx
