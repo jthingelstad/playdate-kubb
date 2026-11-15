@@ -178,10 +178,8 @@ local function nextThrow(s)
 	local d = s.drill
 	local setup = drills.setup(d, s.run)
 	if not setup then return false end
+	-- (a drill's own stance, setup.playerX: AROUND THE PITCH, is throw.prepare's)
 	throw.prepare(s.ts, setup)
-	if setup.playerX then
-		throw.showAim(s.ts, { x = setup.playerX, y = setup.lineY, swivel = 0, loftDeg = s.ts.loftDeg })
-	end
 	throw.setRail(s.ts, d.name, setup.projectile, setup.n, setup.of, "SCORE " .. s.run.score, nil)
 	return true
 end
@@ -190,6 +188,7 @@ local function startRun(s, d)
 	s.drill, s.run = d, drills.newRun(d)
 	s.ts = s.ts or throw.new(s.input)
 	s.ts.sceneName = "practice"
+	s.ts.drillRun = d.id   -- each throw's trace line names the drill
 	s.ts.showReadout = s.showReadout or false
 	throw.enter()
 	s.phase = "run"

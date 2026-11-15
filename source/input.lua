@@ -16,6 +16,7 @@
 --                      frame-time log's measure
 -- Button names: "left", "right", "up", "down", "a", "b".
 import "core/tw"
+import "core/swing"
 
 local input = {}
 
@@ -98,6 +99,40 @@ function input.scripted(steps, dt, startPos)
 	function p:dt() return self.fixed end
 	function p:finished() return self.steps[self.i] == nil end
 	return p
+end
+
+-- Steps for a scripted swing (self-tests, the autobench), in input.scripted's
+-- form: `lead` idle frames, the crank wound `back` degrees behind the bottom
+-- of the turn over `frames` frames, `pause` frames still, then a flick that
+-- stops `release` degrees past the bottom (forward degrees: 90 = 3 o'clock).
+-- The flick ramps up a third of `peak` a frame to `peak` degrees a frame (24
+-- at 50 fps is 1200 deg/s: a full flick) and ends on the remainder, so the
+-- arm stops exactly there and core/swing measures back and releaseAngle as
+-- given. `shaky` alternates fast and slow frames (a stuttered flick). The
+-- crank sign (swing.tune.forwardSign) is applied here. Returns a new list.
+function input.swingSteps(back, release, opts)
+	opts = opts or {}
+	local sign = tw.swing.tune.forwardSign
+	local frames, peak = opts.frames or 30, opts.peak or 24
+	local steps = {}
+	if (opts.lead or 5) > 0 then steps[#steps + 1] = { n = opts.lead or 5 } end
+	steps[#steps + 1] = { crank = -sign * back / frames, n = frames }
+	if (opts.pause or 5) > 0 then steps[#steps + 1] = { n = opts.pause or 5 } end
+	local c, left, k = {}, back + release, 0
+	while left > 1e-9 do
+		k = k + 1
+		local d = peak
+		if opts.shaky then
+			d = (k % 2 == 1) and peak * 1.6 or peak * 0.2
+		elseif k <= 3 then
+			d = peak * k / 3
+		end
+		if d > left then d = left end
+		c[k] = sign * d
+		left = left - d
+	end
+	steps[#steps + 1] = { cranks = c }
+	return steps
 end
 
 tw.input = input

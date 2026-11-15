@@ -81,18 +81,15 @@ local function profLines(P, frames, title)
 	return "  " .. title .. " (ms/frame): " .. table.concat(parts, ", ")
 end
 
--- The hit throw of the self-tests: center of the baseline, loft 30, onto b3.
-local function hitScript()
-	local sign = tw.swing.tune.forwardSign
-	local flick = {}
-	for i, d in ipairs { 6, 12, 18, 22, 24, 24, 24 } do flick[i] = sign * d end
-	return {
-		{ n = 5 },
-		{ crank = -sign * 120 / 30, n = 30 },
-		{ n = 5 },
-		{ cranks = flick },
-		{ n = 400 },
-	}
+-- The hit throw of the self-tests: the default aim (the circle on b3, the
+-- stance behind it, the base kubb arc) and a swing exactly on the plan's
+-- targets (input.swingSteps), filled into `steps` once the scene has solved
+-- its plan (input.scripted reads its steps lazily).
+local function hitScript(steps, s)
+	local sol = s.sol
+	for _, st in ipairs(tw.input.swingSteps(sol.back, sol.release)) do steps[#steps + 1] = st end
+	steps[#steps + 1] = { n = 400 }
+	return steps
 end
 
 -- The match case: core/bench's match setup (a turn in progress: field kubbs,
@@ -161,7 +158,7 @@ function auto.matchCase(y, label, tune, prof)
 	if prof then
 		local list = { { render, "draw", "world" }, { tw.render.burst, "draw", "burst" } }
 		for k, v in pairs(hud) do
-			if type(v) == "function" and k ~= "short" and k ~= "readoutText" and k ~= "drillReadoutText" then
+			if type(v) == "function" and k ~= "short" and k ~= "readoutText" then
 				list[#list + 1] = { hud, k, "hud" }
 			end
 		end
@@ -413,10 +410,10 @@ local function body()
 	l[#l + 1] = "  hud (ms): " .. table.concat({
 		each("minimap", function() hud.minimap(hs) end),
 		each("rail", function() hud.rail("PRACTICE", "baton", 2, 6, "FIELD 2", "BASE 5") end),
-		each("plaque", function() hud.plaque(s.loftDeg, nil) end),
-		each("gauge", function() hud.gauge("idle", 0, 0, tw.swing.tune.fullBackswingDeg, 0) end),
-		each("chip", function() hud.chip(0.8) end),
-		each("readout", function() hud.readout("P 0.80  S 0.90  tilt 3  LEGAL  7.10 m  down 1") end),
+		each("clock", function() hud.clock(s.dial) end),
+		each("verdicts", function() hud.verdicts(-1, 0, true) end),
+		each("plan chip", function() hud.planChip("baton", 5) end),
+		each("readout", function() hud.readout("back 118/120 stop 92/90 flick 1100 shake 0.12 8.20 m down 1") end),
 	}, ", ")
 	-- primitives
 	local img = gfx.image.new(400, 240, gfx.kColorWhite)
@@ -451,11 +448,10 @@ local function body()
 	out(l)
 	y()
 
-	-- swivelling and walking
-	local sign = tw.swing.tune.forwardSign
+	-- moving the target circle (the stance follows it) and walking (A held)
 	for _, case in ipairs {
-		{ "aim swivel", { { n = 60, hold = { "b" }, crank = -2 * sign } } },
-		{ "aim walk", { { n = 60, hold = { "right" } } } },
+		{ "aim target", { { n = 60, hold = { "right" } } } },
+		{ "aim walk", { { n = 60, hold = { "a", "right" } } } },
 	} do
 		s = throw.new(tw.input.scripted(case[2]))
 		throw.enter()
@@ -476,8 +472,9 @@ local function body()
 	-- a full throw: the hit of the self-tests
 	collectgarbage("collect")
 	local m0 = kb()
-	s = throw.new(tw.input.scripted(hitScript()))
-	s.loftDeg = 30
+	local hitSteps = {}
+	s = throw.new(tw.input.scripted(hitSteps))
+	hitScript(hitSteps, s)
 	throw.enter()
 	local mMax, frames2, thrown = m0, 0, false
 	local RPf, RPi = { clock = clock }, { clock = clock }

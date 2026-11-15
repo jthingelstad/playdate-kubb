@@ -3,25 +3,23 @@
 --
 --   rail      0 0 400 14, always: pennant, team name, baton or kubb pips
 --             (hollow = thrown, underlined = this one), the targets on the right
---   prompt    316 158 70 15, aiming: what to do next; white on black for FLICK
---   gauge     disc at 346 205, r 27, aiming: the arm turning with the crank, the
---             wind-up arc, the full-power mark, a drill's band as a grey wedge
---   plaque    250 199 62 34, aiming: the loft and the wind-up's power bar
---   cut flag  250 182 62 15, drilling while A or B is held
---   minimap   frame 4 162 49 76, always
---   chip      318 203 76 32 and the result flag 318 185 76 15, after a release
---   callout   59 185 234 48, after a drilled kubb stops: SHORT / ON / LONG
---   clock     the throw as a clock (hud.clock, replacing the gauge): face at
---             351 207, r 30 with a 2 px drop shadow (319 177 to 383 239)
+--   prompt    316 158 70 15, aiming: what to do next; white on black for FLICK!
+--   clock     the throw as a clock (hud.clock): face at 351 207, r 30 with a
+--             2 px drop shadow (319 177 to 383 239), always in the throw scene
+--   plan chip 250 182 62 15, aiming: TILT or SPIN set (widening to the left)
+--   rest flag 250 182 62 15 (hud.cutFlag, the plan chip's place), after a
+--             drilled kubb stops: how far from the target circle it rests
+--   flag      right edge 316, 199, h 15, after a release: the result
+--   slow      right edge 316, 182, h 15, in flight while the slow motion plays
 --   verdicts  73 222 158 15, after a throw: power, release, steadiness
---   plan chip 250 182 62 15 (the cut flag's place), aiming: TILT or SPIN set
+--   minimap   frame 4 162 49 76, always
 -- Everything else stays out of the clear area (the full width down to y 156,
 -- then x 58 to 246 down to y 222).
 --
 -- Speed (AGENTS.md, "Drawing speed"): a graphics call costs 20 to 50 us on the
 -- device and a line of text about 0.6 ms. The rail and every plaque is an
 -- image drawn again only when a value it shows changes, so a normal frame
--- makes no text call. The gauge and the minimap are layers: drawn straight to
+-- makes no text call. The clock and the minimap are layers: drawn straight to
 -- the screen while their inputs change from frame to frame, and once a frame
 -- repeats the last one's inputs, drawn into an image that is copied until an
 -- input changes. A layer image is filled through gfx.setDrawOffset, so the
@@ -46,31 +44,28 @@ local hud = {}
 hud.tune = {
 	-- Labels: Roobert 10 Bold from the system, capitals only (DESIGN "Type").
 	labelFont = "/System/Fonts/Roobert-10-Bold.pft",
-	-- The display font: big numbers and words (the power chip's percent, the
-	-- drill callout's verdict). Throwing Wood Display at cap 16 (render/ui,
-	-- AGENTS.md "Woodcut type"); the system font if it cannot be loaded.
+	-- The display font: big numbers and words. Throwing Wood Display at cap 16
+	-- (render/ui, AGENTS.md "Woodcut type"); the system font if it cannot be loaded.
 	displayFont = "fonts/ThrowingWoodDisplay-16",
 	labelTop = 2,       -- px from a label's box top to its font's cell top (centres the caps)
-	displayTop = -2,    -- the same for the display font in the chip and the callout
+	displayTop = -2,    -- the same for the display font
 	shadow = 2,         -- px the plaques' drop shadow sits right and down
 	rail = { h = 14, pennantX = 4, nameX = 17, pipsX = 188, rightX = 395, gap = 6, dotGap = 4 },
 	prompt = { x = 316, y = 158, w = 70, h = 15 },
-	gauge = { x = 346, y = 205, r = 27, halo = 2, track = 22, arcW = 6, arm = 21, knob = 4, hub = 3,
-		bandIn = 12, tickOut = 6, notchIn = 9, stopIn = 6, stopR = 3 },
-	plaque = { x = 250, y = 199, w = 62, h = 34 },
+	-- a flag in the plan chip's place (a drilled kubb's rest distance after it stops)
 	cutFlag = { x = 250, y = 182, w = 62, h = 15 },
-	chip = { x = 318, y = 203, w = 76, h = 32 },
-	flag = { x = 318, y = 185, w = 76, h = 15 },
+	-- the result after a release, left of the clock (x + w is its right
+	-- edge; a long word widens it to the left)
+	flag = { x = 240, y = 199, w = 76, h = 15 },
 	-- while the slow motion around a hit plays (playback.speed below 1): an
 	-- inverted flag over the result flag, so a deliberate slow-down reads
 	-- apart from the physics falling behind (which shows nothing)
-	slow = { x = 318, y = 166, w = 76, h = 15, text = "SLOW MOTION" },
+	slow = { x = 240, y = 182, w = 76, h = 15, text = "SLOW MOTION" },
 	-- throwing from the advantage line (Jamie, 2026-11-14: "a big deal"): an
 	-- inverted flag centred under the rail, with how far up the line is
 	advantage = { y = 18, h = 15 },
 	-- the wind: its label above the minimap, and the arrow's length on it
 	wind = { x = 4, y = 145, h = 15, baseLen = 10, perMps = 2.5, maxLen = 30 },
-	callout = { x = 59, y = 185, w = 234, h = 48, block = 66, rulerW = 144, rulerBands = 3 },
 	-- The throw as a clock (DESIGN 4, hud.clock): a white face in a 2 px black
 	-- frame with a drop shadow, centred under the prompt flag. ring: the band
 	-- inside the frame that holds the zones and targets; ticks inside it
@@ -80,8 +75,8 @@ hud.tune = {
 	clock = { x = 351, y = 207, r = 30, frame = 2, ring = 5, tick = 3, tickLong = 5, sliceIn = 5, hand = 20,
 		crankHand = 20, hub = 3, dotR = 3 },
 	-- After a throw (hud.verdicts): power, release, steadiness as one plate of
-	-- three cells, a miss white on black. Below the clear area, between the
-	-- minimap and the loft plaque.
+	-- three cells, a miss white on black. Below the clear area, right of the
+	-- minimap.
 	verdicts = { x = 73, y = 222, w = 158, h = 15 },
 	-- While aiming (hud.planChip): the tilt or spin B has set, in the cut
 	-- flag's place (widening to the left)
@@ -116,7 +111,7 @@ local function text(f, s, x, y, white)
 	if white then gfx.setImageDrawMode(gfx.kDrawModeCopy) end
 end
 
--- ---------- layers (gauge, minimap) ----------
+-- ---------- layers (clock, minimap) ----------
 
 -- A layer: an image covering screen x0..x1, y0..y1, widened to the 8 px
 -- grid so patterns and dithers keep their phase.
@@ -441,88 +436,9 @@ function hud.wind(text, wx, wy)
 	P.img:draw(P.x, P.y)
 end
 
--- ---------- the loft and power plaque ----------
+-- ---------- after the release: the result flag ----------
 
-local loftPlate
--- loftDeg; cap: the wind-up's power cap (0..1) or nil; band, half: a drill's
--- band (power units) or nil.
-function hud.plaque(loftDeg, cap, band, half)
-	local t = hud.tune.plaque
-	local sh = hud.tune.shadow
-	loftPlate = loftPlate or newPlate(t.x, t.y, t.w + sh, t.h + sh)
-	local deg = floor(loftDeg + 0.5)
-	local bh = 22
-	local fill = cap and floor(bh * min(1, cap) + 0.5) or 0
-	band = band or false
-	if plateBegin(loftPlate, deg, band, half) then
-		plaque(0, 0, t.w, t.h)
-		-- the loft: the ground, the throw's angle and an arc between them
-		local bx, by = 6, 27
-		local a = rad(deg)
-		gfx.setLineWidth(2)
-		gfx.drawLine(bx, by, bx + 18, by)
-		gfx.drawLine(bx, by, bx + floor(19 * cos(a) + 0.5), by - floor(19 * sin(a) + 0.5))
-		gfx.setLineWidth(1)
-		gfx.drawArc(bx, by, 13, 90 - deg, 90)
-		local f = hud.labelFont()
-		local s = tostring(deg)
-		local tx, ty = 25, 9 + hud.tune.labelTop
-		text(f, s, tx, ty)
-		-- the degree sign (the font has none): a 3 px ring
-		gfx.drawRect(tx + f:getTextWidth(s) + 1, ty + 1, 3, 3)
-		-- the power bar (its fill is drawn over the image, below)
-		local x, y = 50, 6
-		gfx.drawRect(x, y, 6, bh)
-		if band then
-			local c = y + bh - floor(bh * band + 0.5)
-			gfx.setPattern(GREY)
-			gfx.fillRect(x - 2, c - 3, 10, 6)
-			gfx.setColor(BLACK)
-			gfx.drawRect(x - 2, c - 3, 10, 6)
-		end
-		plateEnd(loftPlate)
-	end
-	loftPlate.img:draw(t.x, t.y)
-	-- the wind-up's cap fills the bar from the bottom: one rectangle a frame,
-	-- inside the bar's frame so a drill band's block still shows either side
-	if fill > 0 then
-		gfx.setColor(BLACK)
-		gfx.fillRect(t.x + 51, t.y + 6 + bh - fill, 4, fill)
-	end
-end
-
--- ---------- after the release: the power chip and the result flag ----------
-
-local chipPlate, flagPlate, slowPlate, advPlate
--- power: the throw's power (0..1); band, half: a drill's band or nil.
-function hud.chip(power, band, half)
-	local t = hud.tune.chip
-	local sh = hud.tune.shadow
-	chipPlate = chipPlate or newPlate(t.x, t.y, t.w + sh, t.h + sh)
-	local pct = floor((power or 0) * 100 + 0.5)
-	band = band or false
-	if plateBegin(chipPlate, pct, band, half) then
-		plaque(0, 0, t.w, t.h)
-		local f = hud.displayFont()
-		local x, y, bh = t.w - 10, 6, 20
-		-- the percent, centred in the room left of the bar
-		local s = pct .. "%"
-		text(f, s, max(3, floor((x - f:getTextWidth(s)) / 2)), floor((t.h - f:getHeight()) / 2) + hud.tune.displayTop + 2)
-		gfx.drawRect(x, y, 6, bh)
-		local fill = floor(bh * min(1, pct / 100) + 0.5)
-		if fill > 0 then gfx.fillRect(x, y + bh - fill, 6, fill) end
-		if band then
-			local c = y + bh - floor(bh * band + 0.5)
-			gfx.setPattern(GREY)
-			gfx.fillRect(x - 2, c - 3, 10, 6)
-			gfx.setColor(BLACK)
-			gfx.drawRect(x - 2, c - 3, 10, 6)
-		end
-		plateEnd(chipPlate)
-	end
-	chipPlate.img:draw(t.x, t.y)
-end
-
+local flagPlate, slowPlate, advPlate
 -- s: the result in 12 characters or fewer (hud.short), or nil.
 -- The slow motion flag (hud.tune.slow): one cached image.
 function hud.slow()
@@ -532,7 +448,7 @@ function hud.slow()
 	if not P then
 		-- as wide as the word needs, widening to the left
 		local w = max(t.w, hud.labelFont():getTextWidth(t.text) + 10)
-		P = newPlate(min(t.x, 398 - sh - w), t.y, w + sh, t.h + sh)
+		P = newPlate(t.x + t.w - w, t.y, w + sh, t.h + sh)
 		slowPlate = P
 	end
 	if plateBegin(P, t.text) then
@@ -576,7 +492,7 @@ function hud.flag(s)
 			P = newPlate(0, t.y, w + sh, t.h + sh)
 			flagPlate = P
 		end
-		P.x = min(t.x, 398 - sh - w)
+		P.x = t.x + t.w - w
 	end
 	if plateBegin(P, s) then
 		flagIn(0, 0, P.w - sh, t.h, s, false)
@@ -611,46 +527,6 @@ function hud.short(s)
 	return first:upper():sub(1, 12)
 end
 
--- ---------- the drill result callout ----------
-
-local calloutPlate
--- verdict "short" | "on" | "long"; err: power - band; half: the band's half
--- width; cm: how far from the marker the kubb came to rest.
-function hud.callout(verdict, err, half, cm)
-	local t = hud.tune.callout
-	local sh = hud.tune.shadow
-	calloutPlate = calloutPlate or newPlate(t.x, t.y, t.w + sh, t.h + sh)
-	local u = err / (half * t.rulerBands)
-	if u < -1 then u = -1 elseif u > 1 then u = 1 end
-	local uq = floor(u * 72 + 0.5)
-	if plateBegin(calloutPlate, verdict, uq, cm) then
-		plaque(0, 0, t.w, t.h)
-		local df, lf = hud.displayFont(), hud.labelFont()
-		local v = string.upper(verdict or "")
-		-- the verdict's black block widens for a wide word; the ruler takes the rest
-		local block = max(t.block, df:getTextWidth(v) + 12)
-		local rw = min(t.rulerW, t.w - block - 20)
-		local px = floor(rw / 2 + uq / 72 * rw / 2 + 0.5)
-		gfx.fillRect(0, 0, block, t.h)
-		text(df, v, floor((block - df:getTextWidth(v)) / 2), floor((t.h - df:getHeight()) / 2) + hud.tune.displayTop + 2, true)
-		local rx, ry = block + 11, 17
-		gfx.drawRect(rx, ry, rw, 8)
-		local third = floor(rw / t.rulerBands + 0.5)
-		gfx.fillRect(rx + floor((rw - third) / 2), ry, third, 8)
-		local cx = rx + px
-		gfx.fillPolygon(cx, ry - 2, cx - 5, ry - 10, cx + 5, ry - 10)
-		local ly = ry + 11 + hud.tune.labelTop - 2
-		text(lf, "SHORT", rx, ly)
-		-- the distance, centred between the two words (a metre or more in metres)
-		local d = (cm < 100) and (cm .. " CM") or string.format("%.1f M", cm / 100)
-		local ws, wl = lf:getTextWidth("SHORT"), lf:getTextWidth("LONG")
-		text(lf, d, rx + ws + floor((rw - ws - wl - lf:getTextWidth(d)) / 2), ly)
-		text(lf, "LONG", rx + rw - wl, ly)
-		plateEnd(calloutPlate)
-	end
-	calloutPlate.img:draw(t.x, t.y)
-end
-
 -- ---------- the debug readout (System Menu "Readout") ----------
 
 -- A boxed text label: white box, black frame, the text inside. Cached as an
@@ -678,28 +554,24 @@ local function textBox(s, padL, padT, padR, padB)
 	return b
 end
 
--- The debug readout text for a throw: power, smoothness, tilt,
--- LEGAL/HELICOPTER, distance. Built once per throw, not per frame.
--- r.down (kubbs toppled by the throw) is added when the physics gave it.
--- The readout for a drill: power against the band and the verdict,
--- smoothness, the cut, and how far from the marker it first landed / came
--- to rest.
-function hud.drillReadoutText(r)
-	local function off(x, y)
-		if not x then return 0 end
-		return math.sqrt((x - r.markerX) ^ 2 + (y - r.markerY) ^ 2)
+-- The debug readout for a throw (the practice pitch's "Pitch: readout"),
+-- built once per throw, not per frame: the backswing against the power
+-- target's centre, the stop against the release target's (degrees on the
+-- clock), the flick's speed (deg/s) and the shake (0 steady .. 1); then
+-- HELICOPTER for an illegal throw, and how far it carried and what fell, or
+-- for a drilled kubb how far from the target circle it rests. `l` is the
+-- throw scene's s.last.
+function hud.readoutText(l)
+	local s = string.format("back %d/%d stop %d/%d flick %d shake %.2f", floor((l.back or 0) + 0.5),
+		floor((l.planBack or 0) + 0.5), floor((l.stop or 0) + 0.5), floor((l.plan or 0) + 0.5),
+		floor((l.flick or 0) + 0.5), l.shake or 0)
+	if l.legal == false then s = s .. " HELICOPTER" end
+	if l.drill then
+		if l.restCm then s = s .. string.format(" rest %.2f m", l.restCm / 100) end
+	else
+		s = s .. string.format(" %.2f m", l.distance or 0)
+		if l.down then s = s .. string.format(" down %d", l.down) end
 	end
-	local cut = (r.cut or 0) > 0 and "R" or ((r.cut or 0) < 0 and "L" or "-")
-	return string.format("P %.2f/%.2f %s  S %.2f  cut %s  off %.2f/%.2f m",
-		r.power, r.band, string.upper(r.verdict or ""), r.smoothness, cut, off(r.landX, r.landY), off(r.restX, r.restY))
-end
-
-function hud.readoutText(r)
-	local s = string.format("P %.2f  S %.2f  tilt %d  %s  %.2f m",
-		r.power, r.smoothness, floor(r.tilt + 0.5), r.legal and "LEGAL" or "HELICOPTER", r.distance or 0)
-	-- the launch angle the crank's stop gave, against the loft set
-	if r.launchLoft then s = s .. string.format("  loft %d/%d", floor(r.launchLoft + 0.5), floor(r.loft + 0.5)) end
-	if r.down then s = s .. string.format("  down %d", r.down) end
 	return s
 end
 
@@ -708,187 +580,6 @@ function hud.readout(s)
 	local t = hud.tune
 	local b = textBox(s, 2, 2, 2, 1)
 	b.img:draw(t.readoutX - 2, t.readoutY - 2)
-end
-
--- ---------- the throw gauge ----------
-
-local gt = hud.tune.gauge
-local gaugeLayer = newLayer(gt.x - gt.r - gt.tickOut - 2, gt.y - gt.r - gt.tickOut - 2,
-	gt.x + gt.r + gt.tickOut + 2, 239)
-local gaugeKey = {}
-local discImg, discKey1, discKey2, discKey3, discKey4, discKey5 = nil, nil, nil, nil, nil, nil
-local dx0, dy0 = gaugeLayer.x, gaugeLayer.y
-
--- the point at radius r for a backswing of `deg` degrees (0 = straight down,
--- winding back turns it to the left and up)
-local function onDial(cx, cy, r, deg)
-	local a = rad(deg)
-	return cx - r * sin(a), cy + r * cos(a)
-end
-
--- The disc: what changes only with the full-power backswing, a drill's band
--- or the release target.
-local function drawDisc(cx, cy, fullDeg, band, half, target, stop)
-	local t = hud.tune.gauge
-	local r = t.r
-	gfx.setColor(WHITE)
-	gfx.fillCircleAtPoint(cx, cy, r + t.halo)
-	gfx.setColor(BLACK)
-	gfx.fillCircleAtPoint(cx, cy, r)
-	-- the track the wind-up arc runs on: a dotted white ring
-	gfx.setColor(WHITE)
-	local tr = t.track
-	local nd = floor(2 * math.pi * tr / 4)
-	for i = 0, nd - 1 do
-		local a = 2 * math.pi * i / nd
-		gfx.drawPixel(floor(cx + tr * sin(a) + 0.5), floor(cy + tr * cos(a) + 0.5))
-	end
-	if band then
-		-- the band: a grey wedge from radius bandIn to the rim, a white edge,
-		-- and a black tick outside the rim at each end
-		local lo, hi = max(0, band - half) * fullDeg, min(1, band + half) * fullDeg
-		local ax, ay = onDial(cx, cy, t.bandIn, lo)
-		local bx, by = onDial(cx, cy, r, lo)
-		local mx, my = onDial(cx, cy, r, (lo + hi) / 2)
-		local ex, ey = onDial(cx, cy, r, hi)
-		local fx, fy = onDial(cx, cy, t.bandIn, hi)
-		gfx.setPattern(GREY)
-		gfx.fillPolygon(ax, ay, bx, by, mx, my, ex, ey, fx, fy)
-		gfx.setColor(WHITE)
-		gfx.drawPolygon(ax, ay, bx, by, mx, my, ex, ey, fx, fy)
-		gfx.setColor(BLACK)
-		gfx.setLineWidth(2)
-		for k = 1, 2 do
-			local d = (k == 1) and lo or hi
-			local x0, y0 = onDial(cx, cy, r + 1, d)
-			local x1, y1 = onDial(cx, cy, r + t.tickOut, d)
-			gfx.drawLine(x0, y0, x1, y1)
-		end
-		gfx.setColor(WHITE)
-	end
-	if target then
-		-- where to stop the crank (Jamie and Tyler, 2026-11-14: the release
-		-- is where the crank stops, and the loft set is the target): a notch
-		-- on the forward side at the loft, drawn as the full-power notch at
-		-- the back is, a little longer (Jamie: "a notch on the forward swing
-		-- too ... this would be perfect"), so the pair reads at a glance:
-		-- back to the one, forward to stop on the other
-		gfx.setColor(WHITE)
-		gfx.setLineWidth(3)
-		local x0, y0 = onDial(cx, cy, r - t.notchIn, -target)
-		local x1, y1 = onDial(cx, cy, r - 1, -target)
-		gfx.drawLine(x0, y0, x1, y1)
-		gfx.setLineWidth(1)
-	end
-	if stop then
-		-- where the crank stopped last throw (Jamie, 2026-11-14: "I'm not able
-		-- to see the connection between the crank and what is happening"): a
-		-- white dot inside the rim, beside the notch; shown while aiming until
-		-- the next wind-up
-		gfx.setColor(WHITE)
-		local x, y = onDial(cx, cy, r - t.stopIn, -stop)
-		gfx.fillCircleAtPoint(x, y, t.stopR)
-	end
-	-- the full-power mark, near the rim at the full backswing (10 o'clock)
-	gfx.setLineWidth(3)
-	local x0, y0 = onDial(cx, cy, r - 7, fullDeg)
-	local x1, y1 = onDial(cx, cy, r - 1, fullDeg)
-	gfx.drawLine(x0, y0, x1, y1)
-	gfx.setLineWidth(1)
-	-- the start: a white triangle at the bottom, pointing up
-	gfx.fillPolygon(cx, cy + r - 1, cx - 3, cy + r - 7, cx + 3, cy + r - 7)
-	gfx.setColor(BLACK)
-end
-
--- The throw gauge (aiming only): the throwing arm seen from the side,
--- turning with the crank, so the player sees which way is the wind-up, how
--- far back counts as full power and the moment the baton leaves.
---   phase: the swing phase ("idle" | "winding" | "swinging")
---   angle: forward degrees from the start of the wind-up (negative = wound back)
---   backswing: degrees wound back; fullDeg: the backswing that allows full power
---   crank: where the crank really is, forward degrees from the bottom. While
---   idle the arm shows it, and an arrow shows the way back to wind up (the
---   wind-up only starts when the crank crosses the bottom going back).
---   band, half: a drill's target band (power units: the backswing that caps
---   power there), drawn as a grey wedge; nil for a baton.
--- Returns the prompt for the flag over it and whether it is inverted.
--- target: the release target (the loft set, forward degrees past the bottom)
--- marked on the disc, or nil (a drill, the Playdate's throw).
-function hud.gauge(phase, angle, backswing, fullDeg, crank, band, half, target, stop)
-	local t = hud.tune.gauge
-	local cx, cy, r = t.x, t.y, t.r
-	local idle = (phase == "idle")
-	local behind = idle and crank < -3   -- the crank sits on the wind-up side: bring it down first
-	local K = gaugeKey
-	local ang = idle and crank or angle
-	band = band or false
-	target = target or false
-	stop = stop or false
-	local same = K[1] == phase and K[2] == ang and K[3] == backswing and K[4] == fullDeg and K[6] == band
-		and K[7] == half and K[8] == target and K[9] == stop
-	K[1], K[2], K[3], K[4], K[6], K[7], K[8], K[9] = phase, ang, backswing, fullDeg, band, half, target, stop
-	local ox, oy = begin(gaugeLayer, same)
-	if ox then
-		-- the disc, from its own image
-		if not discImg or discKey1 ~= fullDeg or discKey2 ~= band or discKey3 ~= half or discKey4 ~= target
-			or discKey5 ~= stop or not hud.tune.cache then
-			discImg = discImg or gfx.image.new(gaugeLayer.w, gaugeLayer.h, CLEAR)
-			discImg:clear(CLEAR)
-			gfx.pushContext(discImg)
-			drawDisc(cx - dx0, cy - dy0, fullDeg, band, half, target or nil, stop or nil)
-			gfx.popContext()
-			discKey1, discKey2, discKey3, discKey4, discKey5 = fullDeg, band, half, target, stop
-		end
-		discImg:draw(dx0, dy0)
-		local x, y = cx + ox, cy + oy
-		gfx.setColor(WHITE)
-		-- the wind-up so far: a thick white arc on the track (drawArc: 0 = up,
-		-- clockwise; straight down = 180)
-		if backswing > 1 then
-			gfx.setLineWidth(t.arcW)
-			gfx.drawArc(x, y, t.track, 180, 180 + min(backswing, 180))
-			-- the start mark turns black on the arc
-			gfx.setColor(BLACK)
-			gfx.fillPolygon(x, y + r - 1, x - 3, y + r - 7, x + 3, y + r - 7)
-			gfx.setColor(WHITE)
-		end
-		if idle and not behind then
-			-- the arrow: turn back (to the left of the bottom) to wind up
-			gfx.setLineWidth(2)
-			gfx.drawArc(x, y, 16, 202, 245)
-			gfx.fillPolygon(x - 19, y + 7, x - 11, y + 6, x - 16, y - 1)
-		end
-		-- the arm, the hand (a knob) and the hub
-		local ka = -ang
-		local kx, ky = onDial(x, y, t.arm, ka)
-		gfx.setLineWidth(3)
-		gfx.drawLine(x, y, kx, ky)
-		gfx.setLineWidth(1)
-		gfx.fillCircleAtPoint(kx, ky, t.knob)
-		if not idle then
-			gfx.setColor(BLACK)
-			gfx.drawCircleAtPoint(kx, ky, t.knob)
-			gfx.setColor(WHITE)
-		end
-		gfx.fillCircleAtPoint(x, y, t.hub)
-		gfx.setColor(BLACK)
-		finish(gaugeLayer)
-	end
-	gfx.setColor(BLACK)
-	gfx.setLineWidth(1)
-	-- what to do next (12 characters at most)
-	if phase == "swinging" then return nil end
-	if phase == "winding" and band then
-		local p = backswing / fullDeg
-		if p < band - half then return "WIND TO BAND", false end
-		if p <= band + half then return "FLICK!", true end
-		return "EASE OFF", false
-	elseif phase == "winding" then
-		if backswing >= fullDeg then return "FLICK!", true end
-		return "WIND BACK", false
-	end
-	if behind then return "CRANK DOWN", false end
-	return band and "WIND TO BAND" or "WIND BACK", false
 end
 
 -- ---------- the throw as a clock (DESIGN 4, "The throw: the crank as a clock") ----------
