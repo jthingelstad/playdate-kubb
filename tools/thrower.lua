@@ -15,8 +15,9 @@
 import "core/rules"
 import "core/raising"
 import "core/pitch"
+import "core/order"
 
-local rules, raising, pitch = tw.rules, tw.raising, tw.pitch
+local rules, raising, pitch, order = tw.rules, tw.raising, tw.pitch, tw.order
 local sqrt, log, cos, sin, pi, abs, floor = math.sqrt, math.log, math.cos, math.sin, math.pi, math.abs, math.floor
 
 local thrower = {}
@@ -43,6 +44,8 @@ thrower.tune = {
 	resignBaton = 0.0012,      -- per baton, a team behind on kubbs resigns
 	resignToss = 0.002,        -- per toss
 	maxTurns = 80,             -- then the team on turn resigns
+	changeThrower = 0.08,      -- per baton, the team tries another player on it (core/order)
+	changeInkaster = 0.15,     -- per turn with kubbs, another player throws them in
 }
 
 -- Park-Miller minimal standard generator: integers only, same on every Lua 5.4.
@@ -250,12 +253,16 @@ end
 -- ---------- a whole game ----------
 
 -- Invented teams. Names exercise id derivation: punctuation, a clash
--- ("Dana" twice), several players.
+-- ("Dana" twice), and every team size from one to six (core/order).
 local TEAMS = {
 	{ "Jamie", { "Jamie" } }, { "Playdate", { "Club" } }, { "Field Day", { "Ann-Marie O'Neil", "Robin" } },
 	{ "Snow Kubbs", { "Alex", "Kim", "Max" } }, { "Twin Pines", { "Dana", "Dana" } },
 	{ "Wood Chucks", { "Lee" } }, { "Corner Stakes", { "Jo", "Pat" } }, { "Baton Rouge", { "Sam" } },
 	{ "Backyard", { "Backyard" } }, { "Long Lob", { "Ray", "Kit" } },
+	{ "Four Corners", { "Nell", "Otto", "Pia", "Quin" } },
+	{ "High Five", { "Rae", "Sol", "Tam", "Uma", "Vic" } },
+	{ "Six Pack", { "Wes", "Xan", "Yara", "Zed", "Abe", "Bea" } },
+	{ "Full House", { "Cy", "Di", "Eli", "Fay", "Gus", "Hal" } },
 }
 
 -- Random game options from a seed.
@@ -283,15 +290,40 @@ end
 
 -- Plays one game to the end. Returns the game and the thrower (its stats).
 -- `check(g)` is called after every action when given (for invariant tests).
--- check(g) runs after every action; swap(g), if given, may return a game
--- to carry on with instead (tests: a game saved and restored mid-match).
+-- check(g) runs after every action; swap(g, o), if given, may return a
+-- game and an order (core/order) to carry on with instead (tests: a game
+-- saved and restored mid-match).
+-- Who throws is core/order's; now and then the team changes a baton's
+-- thrower or its inkaster, drawn from its own generator so the throws
+-- themselves are the same with or without it.
 function thrower.playGame(seed, check, swap)
 	local t = thrower.new(seed)
 	local r = t.r
 	local g = rules.new(thrower.options(r))
-	local function playerFor(side, i)
+	local o = order.new(g.teams)
+	local ro = thrower.rng(seed * 31 + 7)
+	local function member(side)
 		local ps = g.teams[side].players
-		return ps[(i - 1) % #ps + 1].id
+		return ps[ro.int(1, #ps)].id
+	end
+	local inkastTried = nil
+	local function tosser()
+		order.thrower(o, g)
+		if g.phase == "toss" and inkastTried ~= g.turn then
+			inkastTried = g.turn
+			if ro.chance(thrower.tune.changeInkaster) and order.setInkaster(o, member(g.attacker)) then
+				t:count("changeInkaster")
+			end
+		end
+		return order.thrower(o, g)
+	end
+	local function batonThrower(need)
+		order.thrower(o, g)
+		if ro.chance(thrower.tune.changeThrower) then
+			if order.change(o, need.n, member(need.side), need.n - 1) then t:count("changeThrower")
+			else t:count("changeRefused") end
+		end
+		return order.thrower(o, g)
 	end
 	local steps = 0
 	while true do
@@ -300,14 +332,14 @@ function thrower.playGame(seed, check, swap)
 		if steps > 20000 then error("game did not end") end
 		if need.kind == "over" then break end
 		if g.turn > thrower.tune.maxTurns and (need.kind == "toss" or need.kind == "baton") then
-			g:resign(g.attacker)
+			g:resign(g.attacker, order.thrower(o, g))
 			t:count("resignLong")
 		elseif need.kind == "toss" then
 			if r.chance(thrower.tune.resignToss) then
-				g:resign(need.side)
+				g:resign(need.side, order.thrower(o, g))
 				t:count("resignToss")
 			else
-				g:toss(t:toss(g, need), playerFor(need.side, need.left))
+				g:toss(t:toss(g, need), tosser())
 			end
 		elseif need.kind == "raise" then
 			local choice, policy = t:raise(g, need)
@@ -317,14 +349,17 @@ function thrower.playGame(seed, check, swap)
 		elseif need.kind == "baton" then
 			local behind = standingCount(g, need.side) - standingCount(g, pitch.other(need.side)) >= 4
 			if behind and r.chance(thrower.tune.resignBaton * 10) or r.chance(thrower.tune.resignBaton) then
-				g:resign(need.side)
+				g:resign(need.side, order.thrower(o, g))
 				t:count("resign")
 			else
-				g:throwBaton(t:baton(g, need), playerFor(need.side, need.n))
+				g:throwBaton(t:baton(g, need), batonThrower(need))
 			end
 		end
 		if check then check(g) end
-		if swap then g = swap(g) or g end
+		if swap then
+			local g2, o2 = swap(g, o)
+			g, o = g2 or g, o2 or o
+		end
 	end
 	t:count("winBy_" .. g.how)
 	return g, t

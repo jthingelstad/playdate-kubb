@@ -1,7 +1,9 @@
 -- Headless matches with real physics: core/match driven by core/autothrow,
 -- every throw simulated by core/world to rest, the same path as the match
 -- scene without the screen. Writes each game file; the notation gate checks
--- them (`make physgames`).
+-- them (`make physgames`). Team sizes go round one to six (game i: Team A
+-- has (i - 1) % 6 + 1 players, Team B (i + 1) % 6 + 1), and every sheet is
+-- checked against the throwing order's rules (core/order: II.A.4, II.B.5).
 --
 --   lua5.4 tools/physmatch.lua [--n 3] [--seed 1] [--out build/physgames] [--maxturns 40]
 --     [--surface Grass|Sand|Snow] [-v]
@@ -19,7 +21,17 @@ import "core/match"
 import "core/world"
 import "core/autothrow"
 import "core/notation"
-local match, world, autothrow, notation = tw.match, tw.world, tw.autothrow, tw.notation
+import "core/order"
+local match, world, autothrow, notation, order = tw.match, tw.world, tw.autothrow, tw.notation, tw.order
+
+local NAMES = { A = { "Alex", "Kim", "Max", "Nell", "Otto", "Pia" }, B = { "Sam", "Lee", "Dana", "Rae", "Sol", "Tam" } }
+
+-- Team `side` of `size` players.
+local function team(side, size)
+	local ps = {}
+	for j = 1, size do ps[j] = { name = NAMES[side][j] } end
+	return { name = "Team " .. side, players = ps }
+end
 
 local n, seed, out, maxTurns, verbose, surface = 3, 1, "build/physgames", 40, false, "Grass"
 local i = 1
@@ -61,7 +73,8 @@ local function targetKind(s)
 end
 for gi = 1, n do
 	local start = notation.addMinutes(base, (gi - 1) * 41)
-	local m = match.new { start = start, first = (gi % 2 == 0) and "B" or "A", surface = surface }
+	local m = match.new { start = start, first = (gi % 2 == 0) and "B" or "A", surface = surface,
+		teams = { A = team("A", (gi - 1) % 6 + 1), B = team("B", (gi + 1) % 6 + 1) } }
 	local r = autothrow.rng(seed * 7919 + gi)
 	while not match.over(m) do
 		if m.game.turn > maxTurns then
@@ -93,6 +106,8 @@ for gi = 1, n do
 		end
 		if verbose then print(string.format("turn %d %s -> %s", m.game.turn, s.label, m.text)) end
 	end
+	local bad = order.checkSheet(m.game)
+	if #bad > 0 then error("physmatch " .. gi .. ": " .. bad[1]) end
 	local finish = notation.addMinutes(start, 5 + m.game.turn * 2)
 	local text, name = match.file(m, finish, "0.0.1")
 	local f = assert(io.open(out .. "/" .. name, "w"))
