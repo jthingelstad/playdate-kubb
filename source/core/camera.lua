@@ -38,6 +38,14 @@ camera.tune = {
 		circleBeyond = 1.5,  -- m past the target circle the first-person camera looks
 		                     -- (camera.lookDistAt), between lookMin and lookDist: the circle
 		                     -- stays on screen wherever the d-pad puts it
+		-- A target close in front of the thrower (an advantage line near the
+		-- middle: Codex on #96) projects under the screen at the long lens:
+		-- camera.fitNear lifts it above fitBottom, first by raising the
+		-- principal row (as far as fitCyMin), then by widening the lens (never
+		-- wider than fitFMin).
+		fitBottom = 200,     -- px: the near edge of the circle stays above this row
+		fitCyMin = 40,       -- px: the principal row may rise this far
+		fitFMin = 360,       -- px: the widest lens the fit may use
 	},
 	-- The plan view (Jamie, 2026-11-15: "when we hold down B to adjust loft we
 	-- should move the camera to that over the shoulder view to see the loft
@@ -193,6 +201,29 @@ function camera.aim(c, playerX, lineY, swivel, targets, stepBack, lookDist)
 	end
 	local fMax = t.fMax * (1 + (stepBack or 0) / t.stepBackRef)
 	c.f = min(fMax, max(t.fMin, need))
+	return c
+end
+
+-- Keep the ground point (x, y) (the near edge of the target circle) above
+-- tune.aim.fitBottom on camera c: raise the principal row, then widen the
+-- lens, within fitCyMin and fitFMin. Nothing changes when it is already
+-- above. Returns c.
+function camera.fitNear(c, x, y)
+	local t = camera.tune.aim
+	local _, sy = camera.project(c, x, y, 0)
+	if not sy or sy <= t.fitBottom then return c end
+	local lift = sy - t.fitBottom
+	local cy = c.cy - lift
+	if cy < t.fitCyMin then cy = t.fitCyMin end
+	sy = sy - (c.cy - cy)
+	c.cy = cy
+	if sy > t.fitBottom then
+		-- the point sits (sy - cy) under the principal row; scale the lens so
+		-- it sits (fitBottom - cy) under it
+		local f = c.f * (t.fitBottom - cy) / (sy - cy)
+		if f < t.fitFMin then f = t.fitFMin end
+		c.f = f
+	end
 	return c
 end
 

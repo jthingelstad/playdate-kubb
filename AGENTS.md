@@ -512,8 +512,11 @@ out to see more of the pitch". The same for batons and drilled kubbs (`aimCamera
   the swivel (the plan's: at the circle), the long lens of the framing rule (the farthest
   live target at least `minTargetPx` tall, `fMin`..`fMax`). It looks `circleBeyond` (1.5 m)
   past the target circle (`camera.lookDistAt`, between `lookMin` and `lookDist`), so the
-  circle stays on screen wherever the d-pad puts it. The Playdate's aims with no circle
-  shown look as before (`lookDistFor` its targets, or `lookDist`).
+  circle stays on screen wherever the d-pad puts it. A target close in front (an advantage
+  line near the middle: at the long lens it fell under the screen, Codex on #96) is lifted by
+  `camera.fitNear`: the circle's near edge stays above `fitBottom` (200), first by raising the
+  principal row (to `fitCyMin`), then by widening the lens (to `fitFMin`). The Playdate's aims
+  with no circle shown look as before (`lookDistFor` its targets, or `lookDist`).
 - **The plan view** (B held, `camera.shoulder` into `s.shCam`, `camera.tune.shoulder`): a
   crane `side` (2.6 m) to the thrower's right, `back` (3.6 m) behind along the aim, `height`
   (3.4 m), turned to the middle of the target half (`lookY` 6 m out, x = 0). Its lens and
