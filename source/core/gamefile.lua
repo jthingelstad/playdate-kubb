@@ -76,6 +76,13 @@ function gamefile.parse(text)
 	return s
 end
 
+-- A game file's line as the score sheet shows it on screen: without the
+-- positions on the pitch (" (@ 4.39,4.61 4.34,5.21)"), which are for readers
+-- that draw the pitch and would fill the 400 px screen. Other comments stay.
+function gamefile.shown(line)
+	return (line:gsub(" ?%(@[^()]*%)", ""))
+end
+
 -- A team's hit rate as a whole percent, or nil when it threw no batons.
 function gamefile.rate(s, side)
 	local r = s.hits[side]

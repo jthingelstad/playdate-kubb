@@ -69,3 +69,10 @@ test("gamefile: not a game file", function()
 	expect.eq((gamefile.parse("hello")), nil)
 	expect.eq((gamefile.parse(nil)), nil)
 end)
+
+test("gamefile: the score sheet on screen leaves positions out", function()
+	expect.eq(gamefile.shown("3. max:2I (@ 4.39,4.61 4.34,5.21) max:F (@ 4.39,4.61) kim:Z # b3 note (II.B.11)"),
+		"3. max:2I max:F kim:Z # b3 note (II.B.11)")
+	expect.eq(gamefile.shown("2. ash:I (windy) ash:F"), "2. ash:I (windy) ash:F")
+	expect.eq(gamefile.shown('[Rules "U.S. Championship 4.0, 2-4-6"]'), '[Rules "U.S. Championship 4.0, 2-4-6"]')
+end)

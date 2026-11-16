@@ -6,6 +6,7 @@
 -- is one image redrawn only when the scroll changes.
 import "CoreLibs/graphics"
 import "core/tw"
+import "core/gamefile"
 import "render/ui"
 
 local gfx <const> = playdate.graphics
@@ -49,14 +50,15 @@ end
 sheet.rail = rail
 
 -- the text, wrapped at a space with the rest of a long line indented (the
--- sheet only scrolls up and down), drawn once
+-- sheet only scrolls up and down), drawn once; positions on the pitch are
+-- left out (gamefile.shown): the file keeps them
 local function textImage(s)
 	local t = sheet.tune
 	local label = ui.label()
 	local lines = {}
 	for _, line in ipairs(s.lines) do
 		local cur, indent = "", ""
-		for word in line:gmatch("%S+") do
+		for word in tw.gamefile.shown(line):gmatch("%S+") do
 			local try = (cur == "") and (indent .. word) or (cur .. " " .. word)
 			if cur ~= "" and label:getTextWidth(try) > t.maxW then
 				lines[#lines + 1] = cur
