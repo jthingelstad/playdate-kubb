@@ -49,6 +49,34 @@ autothrow.tune = {
 	basketX = 1.9,           -- m from the middle: just inside the sideline's middle stake
 	basketY = 4.75,          -- m from the baseline (view y): just past the centre line
 	basketNear = 1.5,        -- m: field kubbs within this of a basket count for it
+	-- The spot (2026-11-16): a kubb drilled onto one already lying in the
+	-- basket lands on it and skips a metre away, so each kubb goes beside
+	-- the group instead: the clear spot nearest the basket on a small grid.
+	spotStepX = 0.12,        -- m between spots across (a kubb's width and a gap)
+	spotStepY = 0.16,        -- m between spots along the throw (a kubb's length and a finger)
+	spotCols = 3,            -- spots tried this many steps either side of the basket ...
+	spotRows = 4,            -- ... and this many short of it and past it
+	spotClearX = 0.11,       -- m: a spot is taken when a kubb's centre is within this across ...
+	spotClearY = 0.15,       -- ... and this along (an ellipse: kubbs lie along the throw)
+	spotLane = 0.10,         -- m: half the width of the lane the kubb comes down in
+	spotShortLying = 0.12,   -- m: a lying kubb this far short of the spot in its lane is in the way ...
+	spotShortStanding = 0.6, -- ... a standing one this far
+	spotCostY = 0.1,         -- how much a step along counts against a step across: low, so the
+	                         -- kubbs go in one line along the throw, where a baton takes two
+	spotMinY = 4.05,         -- m from the baseline: no spot nearer the centre line than this
+	spotMaxX = 2.2,          -- m from the middle: no spot nearer the sideline than this
+	-- How the mistakes go with the throw (2026-11-16, against the recorded
+	-- tournament games, AGENTS.md "Real games"): real players miss more the
+	-- farther they throw, and drill their kubbs closer than they throw batons.
+	-- The lane (2026-11-16): a baton takes two kubbs when one stands behind
+	-- the other along its flight, so it aims down the lane with the most
+	-- field kubbs in it, at the front one.
+	laneHalf = 0.07,         -- m: kubbs within this across of the front one are in its lane ...
+	laneDeep = 0.6,          -- ... and within this behind it
+	rangeRef = 7,            -- m: a baton thrown this far has the mistakes below as they are ...
+	rangeMin = 0.45,         -- ... nearer, less in proportion, never under this ...
+	rangeMax = 1.2,          -- ... farther, more, never over this
+	drillScale = 0.2,        -- a drilled kubb's mistakes are this much of a baton's
 	-- The synthetic swing: the mistakes, each multiplied by choose's scale.
 	-- With none every baton hits and a game never ends (every toppled field
 	-- kubb comes straight back).
@@ -120,6 +148,44 @@ function autothrow.basket(s, r)
 	return (r.next() < 0.5) and -1 or 1
 end
 
+-- Where a toss to basket `side` should rest (view frame): the basket when
+-- nothing is near it, else the clear spot nearest it (tune.spot*): not on a
+-- kubb and with none in the lane it comes down in. The basket itself when
+-- every spot is taken.
+function autothrow.spot(s, side)
+	local t = autothrow.tune
+	local bx, by = side * t.basketX, s.lineY + t.basketY
+	local best, bestX, bestY
+	for i = -t.spotCols, t.spotCols do
+		for j = -t.spotRows, t.spotRows do
+			local x, y = bx + i * t.spotStepX, by + j * t.spotStepY
+			local ax = x < 0 and -x or x
+			if ax <= t.spotMaxX and y >= s.lineY + t.spotMinY then
+				local clear = true
+				for _, p in ipairs(s.pieces) do
+					if p.role == "field" and p.half ~= s.side then
+						local dx, dy = (p.x - x) / t.spotClearX, (p.y - y) / t.spotClearY
+						if dx * dx + dy * dy < 1 then clear = false; break end
+						local lx, short = p.x - x, y - p.y
+						if lx < 0 then lx = -lx end
+						if lx < t.spotLane and short > 0
+							and short < (p.toppled and t.spotShortLying or t.spotShortStanding) then
+							clear = false; break
+						end
+					end
+				end
+				if clear then
+					local cx, cy = i, j * t.spotCostY
+					local cost = cx * cx + cy * cy
+					if not best or cost < best - 1e-9 then best, bestX, bestY = cost, x, y end
+				end
+			end
+		end
+	end
+	if not best then return bx, by end
+	return bestX, bestY
+end
+
 -- The swing a thrower makes at solution sol, with seeded mistakes scaled by
 -- scale (0: the clean swing, every field on its target). Always draws the
 -- same number of values from r. Fills and returns out: core/swing's result
@@ -170,7 +236,7 @@ function autothrow.choose(s, r, scale, level)
 	local tx, ty, py, arc
 	if s.kind == "toss" then
 		local side = autothrow.basket(s, r)
-		tx, ty = side * t.basketX, s.lineY + t.basketY
+		tx, ty = autothrow.spot(s, side)
 		q.projectile, arc = "kubb", plan.arcFor("drill")
 		py = s.lineY
 	else
@@ -182,7 +248,31 @@ function autothrow.choose(s, r, scale, level)
 			local p = pos[id]
 			if p and p.y < target.y then target = p end
 		end
-		tx, ty = target.x, target.y - t.batonShort
+		tx = target.x
+		if target.role == "field" then
+			-- the lane with the most standing field kubbs; the nearest front on a tie
+			local bestN = 0
+			for _, id in ipairs(s.targets) do
+				local f = pos[id]
+				if f and f.role == "field" then
+					local n, lo, hi = 0, f.x, f.x
+					for _, id2 in ipairs(s.targets) do
+						local p = pos[id2]
+						if p and p.role == "field" then
+							local dx, dy = p.x - f.x, p.y - f.y
+							if dx < t.laneHalf and dx > -t.laneHalf and dy >= 0 and dy <= t.laneDeep then
+								n = n + 1
+								if p.x < lo then lo = p.x elseif p.x > hi then hi = p.x end
+							end
+						end
+					end
+					if n > bestN or (n == bestN and f.y < target.y) then
+						bestN, target, tx = n, f, (lo + hi) / 2
+					end
+				end
+			end
+		end
+		ty = target.y - t.batonShort
 		q.projectile = "baton"
 		if s.kingShot or target.role == "king" then arc = plan.arcFor("king")
 		elseif target.role == "field" then arc = plan.arcFor("field")
@@ -194,6 +284,14 @@ function autothrow.choose(s, r, scale, level)
 	local st = plan.stance(tx, ty, s.lineY, py, t.halfWidth, {})
 	q.px, q.py, q.tx, q.ty, q.release = st.x, st.y, tx, ty, arc
 	local sol = plan.solve(q, {})
+	if q.projectile == "kubb" then
+		scale = scale * t.drillScale
+	else
+		local dx, dy = tx - st.x, ty - st.y
+		local k = sqrt(dx * dx + dy * dy) / t.rangeRef
+		if k < t.rangeMin then k = t.rangeMin elseif k > t.rangeMax then k = t.rangeMax end
+		scale = scale * k
+	end
 	local sw = autothrow.swing(sol, r, scale, {})
 	local L = plan.launch(sol, sw, { projectile = q.projectile, tilt = 0, spin = 0 }, {})
 	local a = { x = st.x, y = st.y, swivel = L.swivel, loftDeg = L.loft, speed = L.speed,

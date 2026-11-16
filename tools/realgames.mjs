@@ -61,7 +61,8 @@ export function addGame(s, g) {
       }
     }
     for (const b of r.batons) {
-      if (b.kind === 'unthrown') continue;
+      // not throws: X, the batons after the game is over, and a resign
+      if (b.void || b.kind === 'unthrown' || b.kind === 'resign' || b.kind === 'win') continue;
       s.batons++;
       if (b.kind === 'illegal') { s.illegal++; continue; }
       if (b.kind === 'king' || b.kind === 'kingmiss') {
@@ -123,7 +124,7 @@ export function rows(a, b) {
   add('of those that hit: two or more', s => pct(s.field.took[2] + s.field.took[3], s.field.batons - s.field.took[0]));
   add('field kubbs a baton', s => num(s.field.kubbs, s.field.batons));
   add('most kubbs with one baton', s => String(s.maxTook));
-  add('base kubb down early (II.B.4a)', s => pct(s.field.base, s.field.batons));
+  add('base kubbs credited to those batons, a baton', s => num(s.field.base, s.field.batons, 3));
   out.push(['Clearing the field (turns that began with field kubbs)']);
   add('turns', s => String(s.clear.turns));
   add('cleared every field kubb', s => pct(s.clear.cleared, s.clear.turns));
