@@ -61,8 +61,11 @@ end)
 
 test("ground: on textured grass a baton hardly ever slides on an end and stops sooner", function()
 	-- over 80 throws, against the same throws on flat grass (tools/groundstats
-	-- gives the full picture). On an end: under 0.01 s a throw on average
-	-- (0.006 measured). Before 2026-11-15 the flat ground was the comparison
+	-- gives the full picture). On an end: under 0.015 s a throw on average
+	-- (0.011 measured; 0.007 with the trip, taken out 2026-11-16: what is left
+	-- is mostly a baton vaulting up over an end at the end of a tumble and
+	-- falling back, its centre moving at 0.2 to 0.4 m/s, which the trip's
+	-- added spin cut short). Before 2026-11-15 the flat ground was the comparison
 	-- (2.3 s over these 80 against 0.44 textured), but a baton that keeps the
 	-- spin it lands with (the turn and roll held apart, AGENTS.md "Physics")
 	-- hardly slides on an end on flat grass either now (0.2 s)
@@ -72,7 +75,7 @@ test("ground: on textured grass a baton hardly ever slides on an end and stops s
 		local _, _, _, s2 = throw(i, { texture = false })
 		endT, slideT, slideF = endT + e1, slideT + s1, slideF + s2
 	end
-	expect.truthy(endT / 80 < 0.01, string.format("on an end %.2f s over 80 throws", endT))
+	expect.truthy(endT / 80 < 0.015, string.format("on an end %.2f s over 80 throws", endT))
 	expect.truthy(slideT < 0.85 * slideF, string.format("slide %.1f m against %.1f flat", slideT, slideF))
 end)
 

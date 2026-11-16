@@ -4,7 +4,7 @@
 -- end-over-end spin and tilt), each run to rest. Reports per surface:
 --   onEnd    s a throw's baton spent sliding on an end (long axis within 30
 --            degrees of upright, touching the ground, moving faster than
---            0.2 m/s): what never happens on grass
+--            0.2 m/s): rare on every surface
 --   creep    s it spent touching the ground and moving slower than 0.6 m/s
 --            but not yet stopped: the slow slide to a stop
 --   slide    m it travelled after it first touched the ground

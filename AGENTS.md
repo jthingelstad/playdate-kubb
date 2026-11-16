@@ -1540,11 +1540,35 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     and 1.88 before in the same run); toppled 11.7%, 8.0% and 13.7% (11.7, 6.7, 13.0).
     Physics matches (20 each, seed 7, `tools/physmatch.lua --surface`): 21.1, 29.6 and
     21.6 turns; on sand a baton has to land on its kubb.
-  - **Nothing slides on an end.** A baton within 30 degrees of upright, touching the
-    ground and sliding faster than `tripSpeed`, is tipped toward the way it is going
-    (`trip` rad/s^2 per m/s): its foot catches.
+  - **Nothing slides on an end**, by friction alone (physics audit item 2, 2026-11-16).
+    Until then a baton within 30 degrees of upright sliding on the ground faster than
+    `tripSpeed` had spin added toward the way it was going (`trip`, 60 rad/s^2 per m/s,
+    120 on sand, 70 on snow) with nothing pushed back and the ground's push ignored. The
+    friction at its end already tips it: on grass (0.7) and sand (0.9) a baton leaning
+    up to 30 degrees either way cannot stay up (it would need friction under the tangent
+    of its lean), so the trip went with no replacement. On snow (0.25) a baton leaning
+    back about 14 degrees balances on its end and skates (set down at 4 m/s leaning back
+    10 degrees, 0.58 s and 1.58 m on its end without the trip), so a baton on an end
+    ploughs snow at its foot like a kubb (below). Measured (a baton set down on an end
+    sliding at 0.5 / 1 / 2 / 4 m/s, leaning 10 degrees forward, upright and 10 back, 20
+    grounds; seconds on its end, trip -> none): grass 0.08 to 0.40 -> 0.08 to 0.58 s,
+    the slides the same within 2 cm (the long ones are at 0.5 m/s, 12 cm); sand 0.07 to
+    0.42 -> 0.07 to 0.48 s, within 2 cm; snow 0.09 to 0.43 -> 0.08 to 0.50 s with the
+    plough, 0.47 -> 0.48 m at the worst. `tools/groundstats.lua` (300 batons; s on an end
+    a throw, slide, toppled): grass 0.007 -> 0.009 s, 1.67 -> 1.64 m, 10.7% -> 11.0%;
+    snow 0.006 -> 0.008 s, 1.98 -> 1.90 m, 13.7% -> 13.3%; sand 0.009 -> 0.010 s, 0.61
+    -> 0.55 m, 7.3% -> 8.0%. The longer ones are a baton tumbling up over an end and
+    falling back, its centre moving at 0.2 to 0.9 m/s, which the trip's spin hurried.
+    `tools/batonprobe.lua --quick`: toppled 204 of 233 -> 205 of 229, end-first landings
+    that lost their spin 24 of 133 both. `tools/compound.lua --quick` and
+    `tools/drillscatter.lua --only 3` unchanged (drills never met the trip). 40 physics
+    matches (seed 2): 23.9 -> 25.6 turns, base 36% -> 39%, field 74% both. `make bench`:
+    the match case's steps cost the same (ground 0.011, multi 0.017 ms); the bench's own
+    throw comes to rest again (1.97 s; 255 collision steps). Not bit-identical: every
+    textured throw where a baton slides on an end.
   - **A kubb's foot ploughs snow** (Jamie, 2026-11-15: the texture "does not apply to
-    kubbs"; honest since 2026-11-16, physics audit item 1). Flat snow's friction (0.25) is
+    kubbs"; honest since 2026-11-16, physics audit item 1; a baton on an end too since
+    item 2). Flat snow's friction (0.25) is
     under the 0.47 a kubb's footprint needs to tip (half its width over half its height),
     so on the corners' friction alone a kubb shoved at its centre glides standing and never
     falls. On snow a standing kubb or the king (within 30 degrees of upright, on the
