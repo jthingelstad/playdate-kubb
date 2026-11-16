@@ -278,11 +278,14 @@ fields (`x, y, swivel, loftDeg, speed, tumbleRate, tilt, legal`), the solve as `
 `releaseAngle`: where the computer's arm goes on the gauge), and for a kubb `a.drill`
 (`markerX`, `markerY` from the line, and world.launchDrill's `noseDown, rollLand, spin,
 wobble, digGain`); `autothrow.launch(w, s, a)` puts it into a world. Batons go at the
-nearest live target's center (from the advantage line, but never nearer than `minRange`, 2
+nearest live target's center, or among field kubbs down the lane with the most of them
+("Tuned toward the real games" below) (from the advantage line, but never nearer than `minRange`, 2
 m: a slow lofted baton under 2 m nearly always missed; the king from the baseline). Kubbs
 are drilled at the drill arc to the basket (Jamie, 2026-11-14): the corner of the far half
 nearest the centre line by a sideline (`basketX`, `basketY`), the one that already has more
-field kubbs near it, so a turn's kubbs group and one that runs goes out for a rethrow. The
+field kubbs near it, so a turn's kubbs group and one that runs goes out for a rethrow; since
+2026-11-16 to the clear spot nearest the basket (`autothrow.spot`), not onto the kubbs
+already there. The
 swing's mistakes (`scale` multiplies them all; 0 is the clean swing): backswing sd
 `backSd` 5 degrees, release sd `releaseSd` 9, a flick between 1050 and 1400 deg/s (full
 power) except `softChance` 5% between 850 and 1000 (short), shake even between 0 and
@@ -298,6 +301,9 @@ hits pass ("Physics", "Baton hits"; `tools/batonprobe.lua --rates 400`, its own 
 base kubbs 44% -> 48%, a field kubb 2 to 5 m out 64% -> 71%, the king 51% either way;
 40 physics matches (seed 2) 20.4 -> 25.9 turns, base 42% -> 48%, field 58% -> 61% (more
 kubbs knocked down means more come back as field kubbs, so games run longer).
+After the tight groups ("Tuned toward the real games", 2026-11-16) 150 physics matches
+(seed 2): 14.6 turns a game, batons hit a base kubb 39% and a field kubb 79%, 149 won on
+the king and 1 resigned.
 `tools/physmatch.lua [--n --seed --out --maxturns --surface --scatter -v]` plays whole matches through
 `core/match` with every throw run by `core/world` to rest (the match scene's path without
 the screen; about 0.7 s a match on a Mac) and writes the game files. Team sizes go round
@@ -332,7 +338,8 @@ are the computer at club level against itself.
 - **How it counts.** A baton is "at field kubbs" when a field kubb stood when it was thrown
   (the turn's `startField` less what earlier batons took), "at base kubbs" when none did
   and a base kubb was left; king shots are `K` and `=`; `X` is not a throw. Clearing the
-  field is kubb.js's `btc`. `make test` runs it over the fixtures against themselves (that
+  field is kubb.js's `btc`. Not throws either: the batons kubb.js marks `void` (written
+  after the game ended) and a resign or a win token. `make test` runs it over the fixtures against themselves (that
   it runs, nothing more).
 - **First figures** (2026-11-16; 150 real games, 150 physics matches seed 2 after the foot
   catch; real -> the game):
@@ -404,8 +411,50 @@ seed 2:
   meets the same ground (the ground's seed is the throw's), so the likely floor is the
   ground's patches and kubbs knocking the ones already there, not the swing. That is the
   next thing to measure before anything is tuned.
-- Not measured: a player's drills (the tool throws the computer's), and aiming a baton at
-  a group's middle instead of the nearest kubb (`autothrow.choose` never does).
+- Not measured: a player's drills (the tool throws the computer's).
+
+### Tuned toward the real games
+
+Jamie (2026-11-16): "You have standing approval to. Pursue this work, update both web and
+play date versions, deploy as needed." The first pass changes only how the computer throws
+(`core/autothrow`); the physics, the rules and a player's own throw are as they were.
+
+- **Why its groups were loose.** One drill is accurate (it rests 26 cm from its mark, 9 cm
+  with half the mistakes, 5 cm with a quarter). But every drill went to the same mark, came
+  down on the kubb already lying there and skipped about a metre. That, not the swing, is
+  why a steadier arm did not tighten the group.
+- **The spot** (`autothrow.spot(s, side)`, `tune.spot*`). A toss goes to the clear spot
+  nearest the basket on a small grid: not within a kubb of a field kubb in the far half, and
+  with none in the lane it comes down in (a lying kubb 12 cm short of the spot, a standing
+  one 60 cm). Steps along the throw cost a tenth of steps across (`spotCostY`), so the
+  kubbs go down in one line along the throw: `tools/compound.lua` has two kubbs one
+  behind the other both falling 60 to 72% of the time at gaps to 15 cm, side by side about
+  10%. No spot nearer the centre line than `spotMinY` or the sideline than `spotMaxX`.
+- **The lane** (`tune.laneHalf`, `laneDeep`). A baton at field kubbs aims at the front kubb
+  of the lane with the most kubbs standing in it (within 7 cm across and 60 cm behind),
+  across the middle of the lane; the nearest front on a tie, so a lone kubb is thrown at
+  as before.
+- **Mistakes by range and for a drill.** A baton's mistakes are multiplied by its range
+  over `rangeRef` 7 m (never under `rangeMin` 0.45 or over `rangeMax` 1.2): a 3 m throw at
+  a field kubb is not as wild as an 8 m one. A drilled kubb's are multiplied by
+  `drillScale` 0.2: tournament players drill to a hand's width.
+- **Measured** (150 real games; 150 physics matches seed 2; real / before / after): turns a
+  game 8.9 / 21.9 / 14.6; a baton at field kubbs missed 25% / 37% / 21%, took one 49% /
+  56% / 57%, took two 16% / 7% / 18%, three or more 10% / 0.4% / 3.4%; cleared the field
+  83% / 46% / 70% (five kubbs 85% / 40% / 82%, eight 68% / 4% / 30%); a base kubb from 8 m
+  33% / 41% / 42%; the king 84% / 46% / 77%; turns from an advantage line 14% / 50% / 27%;
+  kubbs rethrown 14% / 2.5% / 0.4%. `tools/clusters.lua` (60 matches): a field kubb's
+  nearest neighbour 39 -> 20 cm, within 15 cm 18% -> 49%, largest group 1.4 -> 2.4 kubbs.
+- **Still off.** Three or more with one baton (10% real, 3.4%), so fields of seven and up
+  are cleared half as often as real players clear them; games are still half as long
+  again; the computer never pays for its group with a rethrow (0.4% against 14%: its
+  basket is a safe 25 cm past the centre line and its drill is steadier than its spot is
+  bold); it hits a base kubb from 8 m more often than tournament players. The engine still
+  raises kubbs apart; raising them together took two or more 26% in the sweeps and is
+  Jamie's call. `tools/clusters.lua --set name=value` sets any `autothrow.tune` number for
+  a sweep.
+- The desktop dumps are not bit-identical with the ones before: the Playdate's throws in
+  a match changed on purpose.
 
 ## Throwing order
 
@@ -956,8 +1005,9 @@ Every number that is a guess lives in one table per module, with a comment:
   "Drilling").
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
   turned, and how high a tossed kubb must rest to be on another.
-- `tw.autothrow.tune` (`source/core/autothrow.lua`): the computer thrower's level, aim, basket
-  and the synthetic swing's mistakes.
+- `tw.autothrow.tune` (`source/core/autothrow.lua`): the computer thrower's level, aim, basket,
+  the spot beside the group (`spot*`), the baton's lane (`lane*`), mistakes by range and
+  for a drill (`range*`, `drillScale`) and the synthetic swing's mistakes.
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
   margin, bounce threshold and passes, wood-on-wood friction and bounce (`boxMu` between
   two boxes), sleep and wake

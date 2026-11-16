@@ -166,3 +166,55 @@ test("the synthetic swing's mistakes: their sizes, scaled by scale", function()
 	expect.truthy(soft2 < soft and heli2 <= heli, "fewer mistakes")
 	expect.truthy(max2 <= t.shaky[2] + 1e-9)
 end)
+
+test("a toss goes beside a kubb lying at the basket, never onto it or over it", function()
+	local t = autothrow.tune
+	local lying = { id = "f1", kind = "kubb", role = "field", half = "B", x = t.basketX, y = t.basketY, toppled = true }
+	local s = toss { lying }
+	local x, y = autothrow.spot(s, 1)
+	-- clear of the kubb: outside its ellipse
+	local dx, dy = (x - lying.x) / t.spotClearX, (y - lying.y) / t.spotClearY
+	expect.truthy(dx * dx + dy * dy >= 1)
+	-- and close: within two steps
+	expect.truthy(math.abs(x - lying.x) <= 2 * t.spotStepX and math.abs(y - lying.y) <= 2 * t.spotStepY)
+	-- not in the lane just behind it, where the drill would come down on it
+	expect.truthy(not (math.abs(x - lying.x) < t.spotLane and y > lying.y and y - lying.y < t.spotShortLying))
+	local a = autothrow.choose(s, autothrow.rng(1), 0)
+	expect.near(a.plan.tx, x, 1e-9)
+	expect.near(a.plan.ty, y, 1e-9)
+	expect.near(a.drill.markerX, x, 1e-9)
+	-- an empty far half: the basket itself
+	local bx, by = autothrow.spot(toss(), -1)
+	expect.near(bx, -t.basketX, 1e-9)
+	expect.near(by, t.basketY, 1e-9)
+end)
+
+test("a baton aims down the lane with the most field kubbs, not at the nearest", function()
+	local function f(id, x, y) return { id = id, kind = "kubb", role = "field", half = "B", x = x, y = y } end
+	local s = { kind = "baton", side = "A", lineY = 0, forwardY = 0, batonId = "baton1",
+		targets = { "n", "c1", "c2", "c3" },
+		pieces = { f("n", -1.0, 4.9), f("c1", 1.90, 5.2), f("c2", 1.94, 5.4), f("c3", 1.88, 5.65) } }
+	local a = autothrow.choose(s, autothrow.rng(1), 0)
+	-- the front kubb of the three in line, across the middle of the lane
+	expect.near(a.plan.ty, 5.2, 1e-9)
+	expect.near(a.plan.tx, (1.88 + 1.94) / 2, 1e-9)
+	-- alone or tied, the nearest
+	s.targets = { "n", "c3" }
+	a = autothrow.choose(s, autothrow.rng(1), 0)
+	expect.near(a.plan.tx, -1.0, 1e-9)
+	expect.near(a.plan.ty, 4.9, 1e-9)
+end)
+
+test("the computer's mistakes shrink for a drill and with a baton's range", function()
+	local t = autothrow.tune
+	local function back(s, seed)
+		local clean = autothrow.choose(s, autothrow.rng(seed), 0)
+		local a = autothrow.choose(s, autothrow.rng(seed), 1)
+		return math.abs(a.swing.back - clean.swing.back)
+	end
+	-- same seed, same draw: the error is in proportion to the scale
+	local far, near = back(baton("base", 0, 8), 5), back(baton("field", 0, 3.5, 0), 5)
+	expect.truthy(far > 0)
+	expect.near(near / far, (3.5 / t.rangeRef) / (8 / t.rangeRef), 1e-6)
+	expect.truthy(t.drillScale < 1)
+end)

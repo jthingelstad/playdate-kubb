@@ -11,10 +11,11 @@
 -- field kubbs each took. A measuring tool; it changes nothing in the game.
 --
 --   lua5.4 tools/clusters.lua [--n 60] [--seed 2] [--drill 1] [--baton 1]
---     [--raise apart|together] [--maxturns 40]
+--     [--raise apart|together] [--maxturns 40] [--set name=value ...]
 --
 -- --drill and --baton multiply every mistake of the computer's swing for
 -- kubbs and for batons (1: the game's Playdate; 0: the plan's clean throw).
+-- --set changes a number in autothrow.tune for the run.
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -43,6 +44,10 @@ while i <= #arg do
 	elseif a == "--baton" then baton = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "--raise" then raise = arg[i + 1]; i = i + 1
 	elseif a == "--maxturns" then maxTurns = tonumber(arg[i + 1]); i = i + 1
+	elseif a == "--set" then
+		local k, v = arg[i + 1]:match("^([%w_]+)=(.+)$")
+		assert(k and autothrow.tune[k] ~= nil, "--set: no autothrow.tune." .. tostring(k))
+		autothrow.tune[k] = tonumber(v); i = i + 1
 	else error("unknown argument " .. a) end
 	i = i + 1
 end
