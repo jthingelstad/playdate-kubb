@@ -2349,7 +2349,7 @@ own item). Practice is the throw scene exactly as before.
   within 1 degree of upright; the 11 that did not (1.6 to 23.6 degrees) each had a lying
   baton or a downed kubb within 25 cm holding them, debris that is picked up at the end of
   the turn. With the change 13 throws in those 80 matches met a tilted kubb. So when what may have propped one has gone
-  (a new turn, the inkast's kubbs raised, a judgment's lifted kubbs: `d.settle`),
+  (a new turn, the inkast's kubbs raised, a judgment that lifted kubbs or picked any up for a rethrow, a rescue or a punishment: `d.settle`),
   `match.setup` calls `match.settleStanding`: the world runs every carried piece tilted over
   `settleDeg` or raised over `settleGap` to rest once, from the pitch as it is now, and the
   engine's pose follows where it settled. One that topples or leaves the pitch while settling
