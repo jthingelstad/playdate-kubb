@@ -634,6 +634,8 @@ range. Now one model in `core/throwplan` serves both throwers.
   - `throw.nerves` (true) or `s.nerves` switches the player's nerves.
   - The self-test runner sets `throw.nerves` from the scenario's `nerves` field (off
     unless it asks), so a scripted clean swing stays the plan's clean throw.
+    The device autobench's hit throw sets `s.nerves = false` for the same
+    reason, so its impact and rest timings stay comparable.
   - `s.vSide` holds the verdict.
   - `s.last` and the trace line carry `sideDeg`, `lenShare`, `sideV` and `lenV`.
   - Self-test `nerves` shows the clean planned swing of `clock-throw`, which now goes
