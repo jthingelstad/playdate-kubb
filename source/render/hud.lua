@@ -11,7 +11,8 @@
 --             drilled kubb stops: how far from the target circle it rests
 --   flag      right edge 316, 199, h 15, after a release: the result
 --   slow      right edge 316, 182, h 15, in flight while the slow motion plays
---   verdicts  73 222 158 15, after a throw: power, release, steadiness
+--   verdicts  73 222 158 15, after a throw: power, release, steadiness, and
+--             the nerves' sideways verdict (a fourth cell, wider plate)
 --   minimap   frame 4 162 49 76, always
 -- Everything else stays out of the clear area (the full width down to y 156,
 -- then x 58 to 246 down to y 222).
@@ -77,7 +78,10 @@ hud.tune = {
 	-- After a throw (hud.verdicts): power, release, steadiness as one plate of
 	-- three cells, a miss white on black. Below the clear area, right of the
 	-- minimap.
-	verdicts = { x = 73, y = 222, w = 180, h = 15 },   -- w: STEADY needs room in its third (it touched at 158)
+	-- With the nerves' sideways verdict (2026-11-16) a fourth cell: each cell
+	-- is as wide as its longest word plus pad, so the plate grows to the
+	-- right, short of the clock.
+	verdicts = { x = 73, y = 222, w = 180, h = 15, pad = 4 },   -- w: STEADY needs room in its third (it touched at 158)
 	-- While aiming (hud.planChip): the tilt or spin B has set, in the cut
 	-- flag's place (widening to the left)
 	planChip = { x = 250, y = 182, w = 62, h = 15 },
@@ -756,36 +760,78 @@ end
 
 -- ---------- after the throw: the verdicts; while aiming: the plan chip ----------
 
-local verdictPlate
+local verdictPlate, sidePlate
 local POWER_V <const> = { [-2] = "SLOW", [-1] = "SHORT", [0] = "ON", [1] = "LONG" }
 local RELEASE_V <const> = { [-1] = "LOW", [0] = "ON", [1] = "HIGH" }
+local SIDE_V <const> = { [-1] = "PULLED LEFT", [0] = "STRAIGHT", [1] = "PULLED RIGHT" }
+local CELL_WORDS <const> = { POWER_V, RELEASE_V, { "STEADY", "SHAKY" }, SIDE_V }
+local sideCells
+
+-- The four cells' widths: each its longest word plus the pad.
+local function cellWidths(f, pad)
+	if sideCells then return sideCells end
+	sideCells = { total = 4 }
+	for i, words in ipairs(CELL_WORDS) do
+		local w = 0
+		for _, word in pairs(words) do w = math.max(w, f:getTextWidth(word)) end
+		sideCells[i] = w + pad
+		sideCells.total = sideCells.total + w + pad + (i > 1 and 2 or 0)
+	end
+	return sideCells
+end
 
 -- powerV, releaseV: -1 | 0 | 1 (short / on / long, low / on / high; powerV -2: slow flick);
--- steady: true for STEADY, false for SHAKY. One plate of three cells in a
--- row, a miss white on black; drawn again only when a verdict changes.
-function hud.verdicts(powerV, releaseV, steady)
+-- steady: true for STEADY, false for SHAKY; sideV (optional): -1 | 0 | 1
+-- (pulled left / straight / pulled right, the nerves: plan.launch's sideV).
+-- One plate of three cells in a row (four with sideV), a miss white on
+-- black; drawn again only when a verdict changes.
+function hud.verdicts(powerV, releaseV, steady, sideV)
 	local t = hud.tune.verdicts
 	local sh = hud.tune.shadow
-	verdictPlate = verdictPlate or newPlate(t.x, t.y, t.w + sh, t.h + sh)
 	steady = steady and true or false
-	if plateBegin(verdictPlate, powerV, releaseV, steady) then
-		plaque(0, 0, t.w, t.h)
-		local f = hud.labelFont()
-		local cw = floor((t.w - 4 - 4) / 3)   -- three cells inside the frame, 2 px rules between
-		for i = 1, 3 do
-			local s, miss
-			if i == 1 then s, miss = POWER_V[powerV] or "?", powerV ~= 0
-			elseif i == 2 then s, miss = RELEASE_V[releaseV] or "?", releaseV ~= 0
-			else s, miss = steady and "STEADY" or "SHAKY", not steady end
-			local x = 2 + (i - 1) * (cw + 2)
-			local w = (i == 3) and (t.w - 2 - x) or cw
-			if i > 1 then gfx.setColor(BLACK); gfx.fillRect(x - 2, 0, 2, t.h) end
-			if miss then gfx.setColor(BLACK); gfx.fillRect(x, 2, w, t.h - 4) end
-			text(f, s, x + floor((w - f:getTextWidth(s)) / 2), hud.tune.labelTop, miss)
+	local f = hud.labelFont()
+	local P
+	if sideV == nil then
+		verdictPlate = verdictPlate or newPlate(t.x, t.y, t.w + sh, t.h + sh)
+		P = verdictPlate
+		if plateBegin(P, powerV, releaseV, steady) then
+			plaque(0, 0, t.w, t.h)
+			local cw = floor((t.w - 4 - 4) / 3)   -- three cells inside the frame, 2 px rules between
+			for i = 1, 3 do
+				local x = 2 + (i - 1) * (cw + 2)
+				local w = (i == 3) and (t.w - 2 - x) or cw
+				hud.verdictCell(f, i, x, w, t.h, powerV, releaseV, steady)
+			end
+			plateEnd(P)
 		end
-		plateEnd(verdictPlate)
+	else
+		local cells = cellWidths(f, t.pad)
+		sidePlate = sidePlate or newPlate(t.x, t.y, cells.total + sh, t.h + sh)
+		P = sidePlate
+		if plateBegin(P, powerV, releaseV, steady, sideV) then
+			plaque(0, 0, cells.total, t.h)
+			local x = 2
+			for i = 1, 4 do
+				hud.verdictCell(f, i, x, cells[i], t.h, powerV, releaseV, steady, sideV)
+				x = x + cells[i] + 2
+			end
+			plateEnd(P)
+		end
 	end
-	verdictPlate.img:draw(t.x, t.y)
+	P.img:draw(t.x, t.y)
+end
+
+-- One verdict cell i (1 power, 2 release, 3 steadiness, 4 sideways) at x,
+-- w wide, inside a verdicts plate.
+function hud.verdictCell(f, i, x, w, h, powerV, releaseV, steady, sideV)
+	local s, miss
+	if i == 1 then s, miss = POWER_V[powerV] or "?", powerV ~= 0
+	elseif i == 2 then s, miss = RELEASE_V[releaseV] or "?", releaseV ~= 0
+	elseif i == 3 then s, miss = steady and "STEADY" or "SHAKY", not steady
+	else s, miss = SIDE_V[sideV] or "?", sideV ~= 0 end
+	if i > 1 then gfx.setColor(BLACK); gfx.fillRect(x - 2, 0, 2, h) end
+	if miss then gfx.setColor(BLACK); gfx.fillRect(x, 2, w, h - 4) end
+	text(f, s, x + floor((w - f:getTextWidth(s)) / 2), hud.tune.labelTop, miss)
 end
 
 local planPlate

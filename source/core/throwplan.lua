@@ -33,6 +33,7 @@ import "core/flight"
 import "core/drill"
 
 local sqrt, sin, cos, tan, atan, rad, deg = math.sqrt, math.sin, math.cos, math.tan, math.atan, math.rad, math.deg
+local floor, log, pi = math.floor, math.log, math.pi
 
 local plan = {}
 local flight, drill = tw.flight, tw.drill
@@ -91,6 +92,31 @@ plan.tune = {
 	tumbleV1 = 4.0, tumbleAt1 = 4.5,
 	tumbleV2 = 9.2, tumbleAt2 = 7.0,
 	tumbleMin = 3.0, tumbleMax = 9.0,
+	-- Nerves (2026-11-16): before this nothing but the shake put a throw
+	-- left or right, so a long throw was as true as a short one. Every
+	-- throw, the player's and the computer's, gets two seeded draws in plan.launch (opts.nerves): an angle off the planned
+	-- line (degrees, so the miss in metres grows with the range) and a share
+	-- of the throw's length. Their sd is the level's nervesDeg and nervesLen
+	-- (plan.levels) times three things:
+	--   effort     1 + effortGain x (reach / effortRefM - 1), never under
+	--              effortMin: the power of the throw (the backswing as it
+	--              counts) against a baseline baton
+	--   roughness  1 + roughGain x the swing's shake (core/swing): the
+	--              swing's own roughness
+	--   overpower  the same multiplier as the shake's costs (overGain)
+	-- and for a drilled kubb drillNerves of that.
+	effortRefM = 8,        -- m: the reach of a baseline baton: effort 1
+	effortGain = 2.5,      -- how much a longer reach adds (6 m: 0.375, 10 m: 1.625)
+	effortMin = 0.15,      -- effort never goes under this (a 5.2 m reach and under)
+	roughGain = 1,         -- shake 1 doubles the spread
+	drillNerves = 1,       -- a drilled kubb's nerves against a baton's
+	lenMin = -0.5,         -- the length share never takes more than half the throw
+	fanSd = 1,             -- the aim fan (plan.spread) is this many sd either side
+	-- the verdict's sideways cell (plan.launch's sideV): within straightM of
+	-- the planned line at the target is STRAIGHT, else PULLED LEFT or RIGHT;
+	-- the length (lenV) within longM of it is ON
+	straightM = 0.06,      -- m: about a baton's hit either side of a kubb's centre
+	longM = 0.3,           -- m
 }
 
 -- Throw levels (DESIGN 4 "Throw levels"): how wide the gauge's targets are and
@@ -100,10 +126,16 @@ plan.tune = {
 --   inGain       share of an error inside a target that still counts
 --   shakeGain    share of the shake's tilt and pull that counts
 --   overGain     how fast overpowering multiplies the shake's costs
+--   nervesDeg    sd of the angle off the planned line (degrees) at effort 1,
+--                a clean swing and no overpower (plan.tune "Nerves")
+--   nervesLen    sd of the length error, a share of the throw, the same way
 plan.levels = {
-	beginner = { powerHalf = 15, releaseHalf = 30, inGain = 0.1, shakeGain = 0.5,  overGain = 0.5 },
-	club     = { powerHalf = 8,  releaseHalf = 18, inGain = 0.3, shakeGain = 0.75, overGain = 0.75 },
-	pro      = { powerHalf = 4,  releaseHalf = 10, inGain = 0.6, shakeGain = 1,    overGain = 1 },
+	beginner = { powerHalf = 15, releaseHalf = 30, inGain = 0.1, shakeGain = 0.5,  overGain = 0.5,
+		nervesDeg = 1.6, nervesLen = 0.06 },
+	club     = { powerHalf = 8,  releaseHalf = 18, inGain = 0.3, shakeGain = 0.75, overGain = 0.75,
+		nervesDeg = 0.8, nervesLen = 0.03 },
+	pro      = { powerHalf = 4,  releaseHalf = 10, inGain = 0.6, shakeGain = 1,    overGain = 1,
+		nervesDeg = 0.5, nervesLen = 0.02 },
 }
 plan.LEVELS = { "beginner", "club", "pro" }
 
@@ -274,6 +306,101 @@ function plan.solve(q, out)
 end
 
 -- ---------------------------------------------------------------------------
+-- Nerves (plan.tune "Nerves")
+
+-- A seeded stream (Park-Miller with a scrambled seed): r.next() in [0, 1),
+-- r.uniform(a, b), r.normal(sd). core/autothrow's rng is this one.
+function plan.rng(seed)
+	local h = floor(seed) & 0xffffffff
+	h = ((h ~ (h >> 16)) * 0x45d9f3b) & 0xffffffff
+	h = ((h ~ (h >> 16)) * 0x45d9f3b) & 0xffffffff
+	h = h ~ (h >> 16)
+	local s = h % 2147483647
+	if s <= 0 then s = s + 2147483646 end
+	local r = {}
+	function r.next()
+		s = (s * 48271) % 2147483647
+		return (s - 1) / 2147483646
+	end
+	for _ = 1, 8 do r.next() end
+	function r.uniform(a, b) return a + (b - a) * r.next() end
+	function r.normal(sd)
+		local u1 = r.next()
+		if u1 < 1e-12 then u1 = 1e-12 end
+		return sd * sqrt(-2 * log(u1)) * cos(2 * pi * r.next())
+	end
+	return r
+end
+
+-- The seed of a player's throw: from the swing as measured and the plan, the
+-- way world.seedFrom seeds the ground from the launch, so the same swing at
+-- the same plan draws the same nerves (replays, tests) and every other throw
+-- its own.
+local function mix(h, v)
+	return (h ~ floor((v or 0) * 4096)) * 0x9E3779B1 & 0x7fffffff
+end
+local function swingSeed(sol, r)
+	local h = mix(0x2545F491, r.back)
+	h = mix(h, r.releaseAngle)
+	h = mix(h, r.flickDps or r.flickFrac)
+	h = mix(h, r.shake)
+	h = mix(h, sol.tx)
+	h = mix(h, sol.ty)
+	h = mix(h, sol.px)
+	return mix(h, sol.py)
+end
+plan.swingSeed = swingSeed
+
+-- The effort of a throw with backswing back: its reach (plan.reach) against
+-- effortRefM.
+local function effortFor(back)
+	local t = plan.tune
+	local e = 1 + t.effortGain * (plan.reach(back) / t.effortRefM - 1)
+	if e < t.effortMin then return t.effortMin end
+	return e
+end
+
+-- The nerves' two sds for a throw at level lv (name or table) with backswing
+-- back (degrees, as it counts), shake (0..1), overpower multiplier over (1:
+-- none) and kubb (a drilled kubb): the angle off the line (degrees) and the
+-- length share. No tables.
+function plan.nervesSd(lv, back, shake, over, kubb)
+	local t = plan.tune
+	lv = levelOf(lv)
+	local k = effortFor(back) * (1 + t.roughGain * (shake or 0)) * (over or 1)
+	if kubb then k = k * t.drillNerves end
+	return (lv.nervesDeg or 0) * k, (lv.nervesLen or 0) * k
+end
+
+-- The aim fan for solution sol (plan.solve) at its own power with a clean
+-- swing: how far either side of the planned line (m) the throw spreads at
+-- range m from the thrower (fanSd sds), and the sd of the angle (degrees).
+-- (An aim fan drawn from it was tried in the throw scene on 2026-11-16 and
+-- dropped: at club level 1 sd at 8 m is about 0.1 m, inside the target
+-- circle, so the fan read as a narrow lane, not a spread.)
+function plan.spread(sol, range, level)
+	local sd = plan.nervesSd(level or sol.level, sol.back, 0, 1, sol.projectile == "kubb")
+	return tan(rad(sd * plan.tune.fanSd)) * range, sd
+end
+
+-- The aim fan's two edges: from the thrower at px, py to the target tx, ty
+-- (any frame with y down the pitch), the points plan.spread's half width
+-- either side of the target, across the line. Fills and returns out (lx,
+-- ly and rx, ry the two edges, half the half width in m).
+function plan.fan(sol, px, py, tx, ty, level, out)
+	out = out or {}
+	local dx, dy = tx - px, ty - py
+	local range = sqrt(dx * dx + dy * dy)
+	local half = plan.spread(sol, range, level)
+	local nx, ny = 0, 0
+	if range > 0 then nx, ny = -dy / range, dx / range end
+	out.half = half
+	out.lx, out.ly = tx - nx * half, ty - ny * half
+	out.rx, out.ry = tx + nx * half, ty + ny * half
+	return out
+end
+
+-- ---------------------------------------------------------------------------
 -- The launch (once per throw)
 
 -- An error e against a target half width h: inside the target it counts
@@ -298,8 +425,11 @@ end
 -- The launch for swing result `r` against the solution `sol`. r: back,
 -- releaseAngle, flickFrac, smoothness, shake, pull (+1 / -1), how ("stopped"
 -- or "sky"). opts = { projectile, tilt (planned degrees, a baton), spin
--- (planned taps, a kubb: + rolls right), level } (projectile and level
--- default to the solution's). Fills and returns `out`:
+-- (planned taps, a kubb: + rolls right), level, nerves } (projectile and
+-- level default to the solution's; nerves: nil or false none, true draws
+-- them from a stream seeded by the swing and the plan (plan.swingSeed: a
+-- player's throw), or a stream (plan.rng: the computer's own) to draw them
+-- from; two normals either way). Fills and returns `out`:
 --   speed, loft, swivel, tilt, tumble   the launch (world.launchBaton's arguments)
 --   legal      false for a helicopter: |tilt| over legalTiltDeg (a baton; a kubb is always legal)
 --   powerV     -1 short, 0 on, 1 long: the power the throw got (backswing times flick)
@@ -308,6 +438,13 @@ end
 --   steady     shake under steadyBelow
 --   over       how much overpowering multiplied the shake's costs (0 = none)
 --   back, release   the effective backswing and release after the target's forgiveness
+--   sideDeg    degrees off the planned line, + = right: the shake's pull and the nerves
+--   lenShare   the nerves' length error, a share of the throw (the speed is scaled by
+--              sqrt(1 + lenShare), so the carry by about 1 + lenShare)
+--   sideM, lenM   the same in metres at the plan's distance (sol.dist)
+--   sdSide, sdLen  the nerves' sds this throw had (plan.nervesSd)
+--   sideV      -1 pulled left, 0 straight, 1 pulled right (sideM against straightM)
+--   lenV       -1 short, 0 on, 1 long by the nerves alone (lenM against longM)
 -- For a kubb also noseDown, rollLand, spin (rad/s), wobble, digGain, jerk
 -- (drill.body: world.launchDrill's arguments after the loft and speed);
 -- tumble is 0 and tilt is only the shake's.
@@ -339,7 +476,26 @@ function plan.launch(sol, r, opts, out)
 	local m = 1 + lv.overGain * (past > 0 and past or 0) / t.overPerDeg
 	local se = shake * lv.shakeGain * m -- the shake as it counts
 	local shakeTilt = t.shakeTiltDeg * se
-	out.swivel = sol.swivel + rad(pull * t.lateralDeg * se)
+	-- sideways and along: the shake's pull (the swing's roughness, one way)
+	-- and the nerves (two seeded draws, either way: opts.nerves)
+	local zs, zl = 0, 0
+	local nv = opts.nerves
+	if nv then
+		local rng = type(nv) == "table" and nv or plan.rng(swingSeed(sol, r))
+		zs, zl = rng.normal(1), rng.normal(1)
+	end
+	local sdSide, sdLen = plan.nervesSd(lv, effBack, shake, m, kubb)
+	local sideDeg = pull * t.lateralDeg * se + zs * sdSide
+	local len = zl * sdLen
+	if len < t.lenMin then len = t.lenMin end
+	out.speed = out.speed * sqrt(1 + len)
+	out.swivel = sol.swivel + rad(sideDeg)
+	local dist = sol.dist or 0
+	local sideM, lenM = tan(rad(sideDeg)) * dist, len * dist
+	out.sideDeg, out.lenShare, out.sideM, out.lenM = sideDeg, len, sideM, lenM
+	out.sdSide, out.sdLen = sdSide, sdLen
+	out.sideV = side(sideM, -t.straightM, t.straightM)
+	out.lenV = side(lenM, -t.longM, t.longM)
 	-- the power verdict goes by what the throw got: the backswing times the
 	-- flick (Jamie's first play-test throw, 2026-11-15: back on the target, a
 	-- 534 deg/s flick, 2.6 m of an 8 m throw, and the verdict said ON). Short
@@ -369,10 +525,19 @@ end
 local POWER = { [-2] = "SLOW", [-1] = "SHORT", [0] = "ON", [1] = "LONG" }
 local RELEASE = { [-1] = "LOW", [0] = "ON", [1] = "HIGH" }
 
+local SIDE = { [-1] = "PULLED LEFT", [0] = "STRAIGHT", [1] = "PULLED RIGHT" }
+
 -- The HUD's verdicts after a throw, a word each: power (SLOW, SHORT, ON, LONG),
--- release (LOW, ON, HIGH) and steadiness (STEADY, SHAKY).
+-- release (LOW, ON, HIGH), steadiness (STEADY, SHAKY) and which way it went
+-- (plan.sideText).
 function plan.verdictText(out)
-	return POWER[out.powerV or 0], RELEASE[out.releaseV or 0], out.steady and "STEADY" or "SHAKY"
+	return POWER[out.powerV or 0], RELEASE[out.releaseV or 0], out.steady and "STEADY" or "SHAKY",
+		SIDE[out.sideV or 0]
+end
+
+-- Which way a throw went (sideV: -1, 0, 1): PULLED LEFT, STRAIGHT, PULLED RIGHT.
+function plan.sideText(sideV)
+	return SIDE[sideV or 0] or SIDE[0]
 end
 
 tw.plan = plan

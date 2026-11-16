@@ -260,16 +260,23 @@ test("a baton aims down the lane with the most field kubbs, not at the nearest",
 	expect.near(a.plan.ty, 4.9, 1e-9)
 end)
 
-test("the computer's mistakes shrink for a drill and with a baton's range", function()
+test("the computer's swing mistakes do not grow with range; its nerves do", function()
 	local t = autothrow.tune
-	local function back(s, seed)
+	local function off(s, seed)
 		local clean = autothrow.choose(s, autothrow.rng(seed), 0)
 		local a = autothrow.choose(s, autothrow.rng(seed), 1)
-		return math.abs(a.swing.back - clean.swing.back)
+		return math.abs(a.swing.back - clean.swing.back), a.launch
 	end
-	-- same seed, same draw: the error is in proportion to the scale
-	local far, near = back(baton("base", 0, 8), 5), back(baton("field", 0, 3.5, 0), 5)
+	-- same seed, same draw: the swing's error no longer scales with the range
+	local far, Lf = off(baton("base", 0, 8), 5)
+	local near, Ln = off(baton("field", 0, 3.5, 0), 5)
 	expect.truthy(far > 0)
-	expect.near(near / far, (3.5 / t.rangeRef) / (8 / t.rangeRef), 1e-6)
+	expect.near(near, far, 1e-6)
+	-- the shared nerves are wider for the longer throw
+	expect.truthy(Lf.sdSide > Ln.sdSide)
 	expect.truthy(t.drillScale < 1)
+	-- the clean throw has no nerves either
+	local clean = autothrow.choose(baton("base", 0, 8), autothrow.rng(5), 0)
+	expect.near(clean.launch.sideDeg, 0, 1e-12)
+	expect.near(clean.launch.lenShare, 0, 1e-12)
 end)

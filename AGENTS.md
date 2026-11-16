@@ -334,10 +334,12 @@ cluster round the first ones when it has `clusterFrom` (4) or more (Jamie's word
 `drill.slideFor`), and a lying kubb short of a spot by that run on is in its lane, so one
 already down just past a spot is its backstop. The
 swing's mistakes (`scale` multiplies them all; 0 is the clean swing): backswing sd
-`backSd` 5 degrees, release sd `releaseSd` 9, a flick between 1050 and 1400 deg/s (full
+`backSd` 2.5 degrees, release sd `releaseSd` 4.5, a flick between 1050 and 1400 deg/s (full
 power) except `softChance` 5% between 850 and 1000 (short), shake even between 0 and
-`shakeMax` 0.44 (shake is the only sideways error, as for a player) except `shakyChance`
-1.5% between 0.25 and 0.6, pull either way. Measured with physics on grass at club
+`shakeMax` 0.22 except `shakyChance` 1.5% between 0.25 and 0.6, pull either way; then
+`plan.launch` with `nerves` drawn from the same stream (the player's nerves, "Nerves";
+none at scale 0). Before the nerves (2026-11-16) the sds were 5, 9 and 0.44 and the swing
+was the only error, multiplied by the range ("Tuned toward the real games"). Measured with physics on grass at club
 (2026-11-15, 300 to 400 throws each): a base kubb from 8 m 41%, a field kubb from 2 to 5 m
 56 to 59%, the king from 4 m 49%, 1% helicopters; a drill rests 0.29 m from the basket on
 average, 3% out. Over 40 physics matches (seed 2): 25.3 turns a game, batons hit a base
@@ -492,7 +494,9 @@ play date versions, deploy as needed." The first pass changes only how the compu
 - **Mistakes by range and for a drill.** A baton's mistakes are multiplied by its range
   over `rangeRef` 7 m (never under `rangeMin` 0.45 or over `rangeMax` 1.2): a 3 m throw at
   a field kubb is not as wild as an 8 m one. A drilled kubb's are multiplied by
-  `drillScale` 0.2: tournament players drill to a hand's width.
+  `drillScale` 0.2: tournament players drill to a hand's width. (Replaced by the shared
+  nerves on 2026-11-16, below: `rangeRef`, `rangeMin` and `rangeMax` are gone;
+  `drillScale` stays.)
 - **Measured** (150 real games; 150 physics matches seed 2; real / before / after): turns a
   game 8.9 / 21.9 / 14.6; a baton at field kubbs missed 25% / 37% / 21%, took one 49% /
   56% / 57%, took two 16% / 7% / 18%, three or more 10% / 0.4% / 3.4%; cleared the field
@@ -576,6 +580,114 @@ play date versions, deploy as needed." The first pass changes only how the compu
   (`basketY` 4.5 / 4.35 / 4.2) leaves them at 0.8 / 1.1 / 1.2%; only with `spotMinY` 3.9
   and the basket at x 2.25 as well do they reach 8.5% (two 14.1%, three or more 3.4%, 16.9
   turns, 60 matches). That is a play question for Jamie and not in this change.
+
+### Nerves
+
+Added 2026-11-16. Before it nothing but the swing's shake put a throw left or right. So a
+clean swing was a perfect throw at any range, for the player and the computer alike.
+The computer's misses came from a synthetic swing whose mistakes autothrow scaled by
+range. Now one model in `core/throwplan` serves both throwers.
+
+- **The model.** `plan.launch(sol, r, opts, out)` with `opts.nerves` makes two draws, each
+  a unit normal:
+  - `sideDeg = pull x lateralDeg x shake cost + z1 x sdSide`, an angle in degrees added to
+    the swivel. Because it is an angle, the miss in metres grows with the range.
+  - `lenShare = z2 x sdLen`, never under `lenMin` -0.5. The speed is multiplied by
+    `sqrt(1 + lenShare)`, so the carry is about `lenShare` longer or shorter.
+  - `sdSide, sdLen = plan.nervesSd(level, back, shake, over, kubb)`. That is the level's
+    `nervesDeg` and `nervesLen` times effort, times roughness, times overpower:
+    - effort is `1 + effortGain x (plan.reach(back) / effortRefM - 1)`, never under
+      `effortMin`. The tunes are 2.5, 8 m and 0.15. So 6 m gives 0.375 and 10 m gives
+      1.625, and anything at 5.2 m or under is the floor.
+    - roughness is `1 + roughGain x shake`, with `roughGain` 1.
+    - overpower is the shake's own multiplier `m`.
+    - A drilled kubb also takes `drillNerves` 1.
+- **Levels** (`plan.levels`, first guesses):
+
+  | Level | nervesDeg | nervesLen |
+  |---|---|---|
+  | beginner | 1.6 | 6% |
+  | club | 0.8 | 3% |
+  | pro | 0.5 | 2% |
+
+  Each is 1 sd for a baton reaching 8 m.
+- **Where the draws come from.** `opts.nerves` can be:
+  - nil or false: none. This is the default, so every caller and test that does not ask
+    gets the plan's clean throw.
+  - a stream (`plan.rng`): two draws from it. The computer's `autothrow.choose` passes
+    its own `r`, the match's seeded stream, at scale above 0.
+  - true: a stream seeded from the swing and the plan (`plan.swingSeed`, a hash of the
+    back, release, flick, shake, target and stance). The player's throws use this.
+
+  A recorded match replays from its recorded launch either way.
+- **Verdicts.** `out.sideM` and `out.lenM` give the miss at the planned distance, in
+  metres. `out.sideV` is -1, 0 or 1: PULLED LEFT, STRAIGHT (within `straightM` 6 cm) or
+  PULLED RIGHT. `+` is right, as for the swivel. `out.lenV` is -1, 0 or 1 (within
+  `longM` 30 cm). It goes in the trace but is not shown, because the power cell already
+  says SHORT/LONG for the swing.
+  - `plan.verdictText` returns the side as a fourth value, and `plan.sideText(v)` gives it
+    alone.
+  - `hud.verdicts(powerV, releaseV, steady, sideV)` draws a fourth cell. The plate is
+    sized to the longest word in each cell plus `pad` 4, about 243 px from x 73, which
+    stops short of the clock. With no `sideV` it draws the old three-cell plate.
+- **The scene.**
+  - `throw.nerves` (true) or `s.nerves` switches the player's nerves.
+  - The self-test runner sets `throw.nerves` from the scenario's `nerves` field (off
+    unless it asks), so a scripted clean swing stays the plan's clean throw.
+  - `s.vSide` holds the verdict.
+  - `s.last` and the trace line carry `sideDeg`, `lenShare`, `sideV` and `lenV`.
+  - Self-test `nerves` shows the clean planned swing of `clock-throw`, which now goes
+    0.46 degrees right and 3% short: ON ON STEADY PULLED RIGHT, and a miss.
+- **The aim fan** was tried and dropped. `plan.spread(sol, range, level)` and
+  `plan.fan(sol, px, py, tx, ty, level, out)` give the spread and its two edges at the
+  target. Drawn as two dotted ground lines from the thrower's feet, it read as a narrow
+  lane: at club level 1 sd at 8 m is about 10 cm, inside the target circle. The geometry
+  stays in core for the web or a later try.
+- **What it replaced in `core/autothrow`.** The range scaling is gone (`rangeRef` 7,
+  `rangeMin` 0.45, `rangeMax` 1.2), and so are the old copy of the stream (now
+  `autothrow.rng = plan.rng`, the same numbers) and the shake as the only sideways error.
+  Changed or kept:
+  - The synthetic swing is half as rough: `backSd` 5 -> 2.5, `releaseSd` 9 -> 4.5,
+    `shakeMax` 0.44 -> 0.22. The nerves now do most of the missing.
+  - `drillScale` 0.2 stays: the computer drills with a steadier hand than it throws.
+  - `laneHalf` and `laneDeep` are unchanged. There is no `laneAim` or `laneLong` to try
+    again.
+- **Measured.** `make realgames`: 150 physics matches, seed 2, against the 150 real
+  games. Before is main at the start of this change.
+
+  | | real | before | after |
+  |---|---|---|---|
+  | turns a game | 8.9 | 21.3 | 22.4 |
+  | a baton at field kubbs: missed | 24.7% | 22.1% | 22.3% |
+  | took one | 49.4% | 66.0% | 65.5% |
+  | took two | 16.0% | 10.5% | 10.7% |
+  | three or more | 10.0% | 1.4% | 1.5% |
+  | cleared the field | 83.4% | 55.3% | 54.8% |
+  | one field kubb: batons to clear | 1.7 | 1.2 | 1.1 |
+  | five kubbs cleared | 84.5% | 68.9% | 62.8% |
+  | eight kubbs cleared | 67.6% | 22.3% | 26.0% |
+  | a base kubb from 8 m | 32.7% | 41.9% | 33.6% |
+  | a base kubb from an advantage line | 51.7% | 80.0% | 84.6% (227 batons) |
+  | the king | 83.8% | 74.3% | 77.4% |
+  | turns from an advantage line | 14.4% | 41.0% | 41.4% |
+  | illegal throws | 0% | 2.4% | 0.7% |
+  | kubbs rethrown | 14.1% | 0.6% | 0.6% |
+
+  Probe at club (300 throws each, own set-ups; before / after): a base kubb from 8 m
+  41% / 32%, from the advantage line 73% / 73%, a lone field kubb 4 to 7 m out 82% /
+  82%, the king 79% / 82%.
+- **What the range model cannot do.** The 8 m base rate is on target, and the field game
+  and the king are no worse. The base rate from the advantage line stays far above the
+  real 52%. Those throws are 5 to 7 m, the same range as most field throws, so nerves
+  that hit 52% there miss field kubbs far more than real players do. Two tries were not
+  kept:
+  - Gentler effort (`effortGain` 1 to 1.2, floor 0.35 to 0.4, club 0.7 to 0.75 degrees
+    and 4%) brought the advantage line to 62 to 66%. But field misses rose to 30%, the
+    field was cleared 49 to 51% of the time and the king fell to 62 to 69%.
+  - A lane aim with a longer lane (`laneAim`, `laneLong`) does not exist in this code to
+    rerun.
+  Real players likely throw differently at a base kubb from the line, which is a play
+  question. Seeds 3 and 4 were not run.
 
 ### What scatters a drilled kubb
 
@@ -949,8 +1061,9 @@ this throw: "HOW TO THROW" below).
   come down through 6 first), nothing during the flick; `WATCH` for the Playdate. In flight
   and at rest the hand stays where the crank stopped. `s.promptText` keeps the prompt for
   self-tests.
-- **After a throw** `hud.verdicts(powerV, releaseV, steady)` (SHORT/ON/LONG, LOW/ON/HIGH,
-  STEADY/SHAKY, `plan.launch`'s) shows from rest until the next wind-up, the player's
+- **After a throw** `hud.verdicts(powerV, releaseV, steady, sideV)` (SHORT/ON/LONG,
+  LOW/ON/HIGH, STEADY/SHAKY, and the nerves' PULLED LEFT/STRAIGHT/PULLED RIGHT, all
+  `plan.launch`'s; "Nerves") shows from rest until the next wind-up, the player's
   throws only (`s.showVerdicts`; a new team's turn clears them). The result flag and the
   slow motion flag sit left of the clock. A drilled kubb's rest distance from the circle (`18 CM AWAY`,
   `s.restText`) is a flag in the plan chip's place (`hud.cutFlag`), at rest and on the next
@@ -966,7 +1079,7 @@ this throw: "HOW TO THROW" below).
   run's), `tx`, `ty`, `px`, `py` (from the thrower's line), `plan` and `loft`, `powerLo`,
   `powerHi`, `releaseLo`, `releaseHi`, `planTilt` or `spin`, `launchSpeed`, `launchLoft`,
   `swivelOff` (degrees off the plan's swivel), `tumbleRate`, `tilt`, `legal`, `powerV`,
-  `releaseV`, `steady`, `distance`, and a drill's `mode`, marker, landing, rest and
+  `releaseV`, `steady`, the nerves' `sideDeg`, `lenShare`, `sideV`, `lenV`, `distance`, and a drill's `mode`, marker, landing, rest and
   thrower. `frames.jsonl` is unchanged.
 
 ## HOW TO PLAY
@@ -1196,8 +1309,10 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.outcome.tune` (`source/core/outcome.lua`): when a body counts as standing, moved or
   turned, and how high a tossed kubb must rest to be on another.
 - `tw.autothrow.tune` (`source/core/autothrow.lua`): the computer thrower's level, aim, basket,
-  the spot beside the group (`spot*`), the baton's lane (`lane*`), mistakes by range and
-  for a drill (`range*`, `drillScale`) and the synthetic swing's mistakes.
+  the spot beside the group (`spot*`), the baton's lane (`lane*`), a drill's steadier swing
+  (`drillScale`) and the synthetic swing's mistakes. How far off a throw goes with its
+  range is the shared nerves (`tw.plan.tune` "Nerves", `plan.levels` `nervesDeg`,
+  `nervesLen`).
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
   margin, bounce threshold and passes, wood-on-wood friction and bounce (`boxMu` between
   two boxes), sleep and wake

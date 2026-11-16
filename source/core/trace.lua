@@ -24,10 +24,15 @@
 --   "powerLo","powerHi","releaseLo","releaseHi"   the clock's targets
 --   "planTilt"    a baton's planned tilt (degrees); "spin" a kubb's (taps)
 --   "launchSpeed","launchLoft","swivelOff"   the launch (m/s, degrees, degrees
---                 off the plan's swivel: the shake's pull); "tumbleRate", "tilt"
+--                 off the plan's swivel: the shake's pull and the nerves);
+--                 "tumbleRate", "tilt"
 --   "legal"       false for a helicopter
 --   "powerV","releaseV"   -1, 0, 1: short / on / long, low / on / high;
 --                 "steady" true or false
+--   "sideDeg","lenShare"   the nerves (2026-11-16, tw.plan.launch): degrees
+--                 off the line (+ right) and the share long (+) or short;
+--                 "sideV","lenV" -1, 0, 1: pulled left / straight / pulled
+--                 right, short / on / long
 --   "distance"    m from the release to the first touch
 --
 -- "release" says which swing wrote the line: "clock" for the crank as a

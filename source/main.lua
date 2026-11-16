@@ -114,6 +114,7 @@ import "selftest/teams"
 import "selftest/match-teams"
 import "selftest/howto"
 import "selftest/howto-play"
+import "selftest/nerves"
 
 local function launchArgs()
 	local args = {}
