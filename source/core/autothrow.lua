@@ -59,10 +59,18 @@ autothrow.tune = {
 	spotClearX = 0.11,       -- m: a spot is taken when a kubb's centre is within this across ...
 	spotClearY = 0.15,       -- ... and this along (an ellipse: kubbs lie along the throw)
 	spotLane = 0.10,         -- m: half the width of the lane the kubb comes down in
-	spotShortLying = 0.12,   -- m: a lying kubb this far short of the spot in its lane is in the way ...
+	spotShortLying = 0.12,   -- m: a lying kubb this far short of the spot in its lane is in the way
+	                         -- (at least: a drill lands short of its spot by its run on,
+	                         -- drill.slideFor, and a lying kubb that far short is in the way too) ...
 	spotShortStanding = 0.6, -- ... a standing one this far
 	spotCostY = 0.1,         -- how much a step along counts against a step across: low, so the
-	                         -- kubbs go in one line along the throw, where a baton takes two
+	                         -- kubbs go in one line along the throw, where a baton takes two ...
+	-- Jamie, 2026-11-16: "trying to build lines is exactly what drillers do. You
+	-- either, if you have 2 or 3, you would build a line. If you have more than that,
+	-- you build a big cluster."
+	clusterFrom = 4,         -- ... with this many kubbs or more to throw in the turn ...
+	spotCostYCluster = 1,    -- ... a step along counts as much as one across: the spots pack round
+	                         -- the first kubbs in a cluster
 	spotMinY = 4.05,         -- m from the baseline: no spot nearer the centre line than this
 	spotMaxX = 2.2,          -- m from the middle: no spot nearer the sideline than this
 	-- How the mistakes go with the throw (2026-11-16, against the recorded
@@ -150,12 +158,19 @@ end
 
 -- Where a toss to basket `side` should rest (view frame): the basket when
 -- nothing is near it, else the clear spot nearest it (tune.spot*): not on a
--- kubb and with none in the lane it comes down in. The basket itself when
--- every spot is taken.
+-- kubb and with none in the lane it comes down and runs on in (a drill lands
+-- short of its spot by its run on, so a kubb already down just past the spot
+-- is its backstop). Nearest counts a step along the throw as little against
+-- one across (a line along the throw) when the turn has fewer than
+-- clusterFrom kubbs to throw, else the same (a cluster). The basket itself
+-- when every spot is taken.
 function autothrow.spot(s, side)
 	local t = autothrow.tune
 	local bx, by = side * t.basketX, s.lineY + t.basketY
 	local best, bestX, bestY
+	local costY = ((s.of or 0) >= t.clusterFrom) and t.spotCostYCluster or t.spotCostY
+	local shortLying = tw.drill.slideFor(plan.loftFor(plan.arcFor("drill")), s.surface)
+	if shortLying < t.spotShortLying then shortLying = t.spotShortLying end
 	for i = -t.spotCols, t.spotCols do
 		for j = -t.spotRows, t.spotRows do
 			local x, y = bx + i * t.spotStepX, by + j * t.spotStepY
@@ -169,13 +184,13 @@ function autothrow.spot(s, side)
 						local lx, short = p.x - x, y - p.y
 						if lx < 0 then lx = -lx end
 						if lx < t.spotLane and short > 0
-							and short < (p.toppled and t.spotShortLying or t.spotShortStanding) then
+							and short < (p.toppled and shortLying or t.spotShortStanding) then
 							clear = false; break
 						end
 					end
 				end
 				if clear then
-					local cx, cy = i, j * t.spotCostY
+					local cx, cy = i, j * costY
 					local cost = cx * cx + cy * cy
 					if not best or cost < best - 1e-9 then best, bestX, bestY = cost, x, y end
 				end
@@ -232,7 +247,7 @@ end
 function autothrow.choose(s, r, scale, level)
 	scale = scale or 1
 	local t = autothrow.tune
-	local q = { level = level or t.level }
+	local q = { level = level or t.level, surface = s.surface }
 	local tx, ty, py, arc
 	if s.kind == "toss" then
 		local side = autothrow.basket(s, r)

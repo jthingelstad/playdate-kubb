@@ -45,38 +45,63 @@ drill.tune = {
 	loftNearDeg = 26,       -- loft for the nearest marker (guess; a low drill)
 	loftFarDeg = 30,        -- loft for the farthest (higher, so a full swing reaches it)
 	landZ = 0.07,           -- m: the kubb's center height when its lowest edge reaches the grass
-	slideAllow = -0.02,     -- m a clean drill moves on after its first touch; it is aimed this
-	                        -- much short (negative: long, it stops a little short of where the
-	                        -- edge first touches) ...
-	slideLoftDeg = 30,      -- ... at lofts up to this (the distance's lofts above)
-	slideHighDeg = 47,      -- at this loft and over (half past 1, the plan's drill arc) ...
-	slideAllowHigh = -0.03, -- ... aimed this much long. Measured on grass (2026-11-15, 5 markers x
-	                        -- 4 grounds, the nose-down drill): a clean drill rests 0.01 m long at
-	                        -- loft 30 (0.26 m worst), within 0.01 m at 37 to 57 (0.01 m worst)
-	-- the body at release (world.launchDrill)
-	noseDownDeg = 15,       -- the long axis this far below the horizontal, held through the flight
-	                        -- (the spin about the long axis does not move it): its front bottom
-	                        -- edge catches the grass first (Jamie, 2026-11-15: "about 15 degrees")
+	-- The run on (2026-11-16): a clean drill does not stop where it lands; it bounces,
+	-- tumbles and rolls on (Jamie: "it is impossible to stop that much energy with just
+	-- the ground and grass"). It is aimed short by the mean distance along the throw that
+	-- a clean drill rests past its aim, by the loft (these lofts; between them in a line,
+	-- outside them the nearest) and the ground. Measured (tools/drillscatter.lua part 3's
+	-- markers, 8 grounds each, aimed with none) and checked with these in place.
+	slideLofts = { 26, 37, 47, 57 },
+	spinSlide = 0.15,       -- a drill with planned spin (rollSpin and over) plugs and rolls: it runs on
+	                        -- only this share of that along the throw
+	slide = {
+		grass = { 0.91, 0.62, 0.38, 0.24 },
+		sand = { 0.40, 0.19, 0.10, 0.06 },
+		snow = { 1.52, 1.16, 0.81, 0.53 },
+	},
+	-- ... at a marker slideRefM out (about the middle of those markers); a longer drill
+	-- is faster and runs on slidePerM more each metre farther, a shorter one less
+	-- (measured 4 to 8.6 m out, 2026-11-16)
+	slideRefM = 6,
+	slidePerM = { grass = 0.13, sand = 0.07, snow = 0.17 },
+	-- the body in the air (world.launchDrill, world.drillLaunchState). Jamie, 2026-11-16:
+	-- "the Kubbs are still 'flying' flat, that is also totally unrealistic. They change
+	-- angle in the air."
+	noseDownDeg = 15,       -- the clean throw's long axis this far below the horizontal when the nose
+	                        -- first touches (Jamie, 2026-11-15: "about 15 degrees"); the release
+	                        -- attitude is solved back from it through the turn below
+	pitchDps = 70,          -- deg/s it comes nose over in the air (no spin: it leaves the hand nose up
+	                        -- along its flight, 55 degrees up at the 47 arc, 35 at 30, and comes over;
+	                        -- a fast spin holds the axis, so with taps it leaves the hand about as it lands)
+	pitchSdDps = 15,        -- deg/s sd of the swing's own scatter in that turn ...
+	yawSdDps = 15,          -- ... in a turn across the line (about the kubb's own up) ...
+	spinSd = 0.5,           -- ... rad/s in its roll about the long axis ...
+	scatterJerk = 1.5,      -- ... each this much more again for a jerky swing (smoothness 0)
 	rollLandDeg = -15,      -- roll about the long axis when the nose first touches: this far short of
 	                        -- flat on its bottom face, the spin turning it flat during the catch (flat
-	                        -- with no spin; the release roll is solved backwards from the time to the
-	                        -- first touch and the spin; -15 rolled the most evenly of -30..30)
-	digGain = 25,           -- how much harder a drilled kubb's first touches dig in than a
-	                        -- baton's (body.digGain)
-	                        -- (the nose meets the grass with a whole edge across the face, which
-	                        -- world.pointed counts about an eighth as pointed as a corner: 25 is
-	                        -- the 3 of the old corner-first landing again)
-	-- on the ground (world.launchDrill sets them on the body; AGENTS.md "Drilling").
-	-- Measured with tools/spinwall.lua (2026-11-15) against the per-tap targets
+	                        -- with no spin; -15 rolled the most evenly of -30..30)
+	digGain = 1,            -- how much harder a drilled kubb's first touches dig in than a plain
+	                        -- kubb's (body.digGain): none (25 to 2026-11-16, with a plug ten times a
+	                        -- plain dig's and no landing bump: every drill stopped within 2 cm of where
+	                        -- it landed, flat and square to the throw)
+	-- on the ground (world.launchDrill). A drill without planned spin is a plain kubb
+	-- there: it bounces, tumbles and rolls on like any block of wood on grass. One
+	-- with planned spin (2026-11-15, THE WALL) is a drilled kubb on the ground: it
+	-- plugs a little and rolls sideways, face over face (body.lua: edgeRound,
+	-- digBySpin, slipDrag, rollDrag, plugGain, bumpGain). Measured with
+	-- tools/spinwall.lua against the per-tap targets
+	rollSpin = 10,          -- rad/s of planned spin from which it is the rolling body (a tap is 22)
+	spinDigGain = 5,        -- its first touches dig in this much harder than a plain kubb's (25 to
+	                        -- 2026-11-16: it stopped dead; 1 and the plug no longer held the tumble,
+	                        -- and the spin threw it a metre either way)
 	edgeRound = 0.032,      -- m: its long edges roll on the turf as if rounded to this (of a 0.035 m
 	                        -- half side): a sharp square keeps a quarter of its roll at each edge it
 	                        -- tips onto and cannot roll past one face; the grass mat and worn edges
 	                        -- make the section roll nearly round, and it still settles on a face
 	rollDrag = 0.8,         -- share of the grass texture's drag that brushes its roll (viscous: the
 	                        -- roll dies in proportion to its speed, so the distance grows ~ the spin)
-	bumpGain = 0,           -- share of the texture's landing bump: none (the nose plugs into the turf,
-	                        -- it does not glance off a tilted patch; with it a 0-tap drill rolled off
-	                        -- 0.3 m at random)
+	bumpGain = 1,           -- share of the texture's landing bump: all of it, as any piece (0 to
+	                        -- 2026-11-16: the nose was held to plug, never glancing off a tilted patch)
 	plugGain = 10,          -- how much harder the plug holds its tumble and turn (not its roll) than
 	                        -- a plain dig: without it a low drill (loft 30) vaulted onto its nose
 	                        -- and, spinning, fell any way
@@ -140,21 +165,37 @@ function drill.solve(mx, my, lineY, out)
 	return drill.solveAt(mx, my, lineY, lerp(t.loftNearDeg, t.loftFarDeg, f), out, x)
 end
 
--- The aim short of the marker that a clean drill at this loft slides on
--- after its first touch: slideAllow up to slideLoftDeg, falling linearly to
--- slideAllowHigh at slideHighDeg (a steeper drop runs on less).
-function drill.slideFor(loftDeg)
+-- The aim short of the marker that a clean drill at this loft (degrees)
+-- runs on after it lands, on this ground (nil: grass): tune.slide by
+-- tune.slideLofts (a lower, faster drill runs on farther), and by d, the
+-- distance to the marker (m, nil: slideRefM), slidePerM a metre. With
+-- planned spin (rad/s, nil: none) of rollSpin or more, spinSlide of the
+-- loft's share alone (a spun drill plugs and rolls; how far it goes along the
+-- throw hardly grows with the distance).
+function drill.slideFor(loftDeg, surface, spin, d)
 	local t = drill.tune
-	if loftDeg <= t.slideLoftDeg then return t.slideAllow end
-	local f = min(1, (loftDeg - t.slideLoftDeg) / (t.slideHighDeg - t.slideLoftDeg))
-	return lerp(t.slideAllow, t.slideAllowHigh, f)
+	local ground = t.slide[surface or "grass"] and surface or "grass"
+	local v, L = t.slide[ground], t.slideLofts
+	local k = (spin and (spin >= t.rollSpin or spin <= -t.rollSpin)) and t.spinSlide or 1
+	local s = v[#v]
+	if loftDeg <= L[1] then
+		s = v[1]
+	else
+		for i = 2, #L do
+			if loftDeg <= L[i] then s = lerp(v[i - 1], v[i], (loftDeg - L[i - 1]) / (L[i] - L[i - 1])); break end
+		end
+	end
+	if d and k == 1 then s = s + t.slidePerM[ground] * (d - t.slideRefM) end
+	return k * max(0, s)
 end
 
 -- The clean drill onto the marker at a given loft (degrees): the plan's arc
 -- (core/throwplan). px is where the thrower stands on the baseline (nil:
--- straight behind the marker, inside throwerXMax). Fills and returns `out`
--- with the fields of drill.solve. No table is made when `out` is given.
-function drill.solveAt(mx, my, lineY, loftDeg, out, px)
+-- straight behind the marker, inside throwerXMax); surface the ground (nil:
+-- grass) and spin the planned spin (rad/s, nil: none), for how far it runs
+-- on (drill.slideFor). Fills and returns `out` with the fields of
+-- drill.solve. No table is made when `out` is given.
+function drill.solveAt(mx, my, lineY, loftDeg, out, px, surface, spin)
 	local t = drill.tune
 	out = out or {}
 	local x = px or max(-t.throwerXMax, min(t.throwerXMax, mx))
@@ -164,7 +205,7 @@ function drill.solveAt(mx, my, lineY, loftDeg, out, px)
 	local ft = flight.tune
 	local h0 = ft.handHeight - t.landZ
 	local e = rad(loftDeg)
-	local R = max(0.5, d - drill.slideFor(loftDeg))
+	local R = max(0.5, d - drill.slideFor(loftDeg, surface, spin, d))
 	local v = speedFor(R, e, h0, ft.g)
 	local vz = v * sin(e)
 	out.x, out.swivel, out.loft, out.dist, out.speed = x, atan(dx, dy), loftDeg, d, v

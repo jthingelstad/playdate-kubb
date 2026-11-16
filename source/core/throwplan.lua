@@ -239,7 +239,8 @@ end
 
 -- Solve the plan. q = { projectile = "baton" | "kubb", px, py (the stance),
 -- tx, ty (the target), release (planned degrees, clamped to the plan's
--- range), level (name or table) }. Fills and returns `out`:
+-- range), level (name or table), surface and spin (a kubb's ground and
+-- planned spin in taps: how far it runs on, drill.slideFor; nil: grass, none) }. Fills and returns `out`:
 --   swivel     radians, + = right
 --   dist       m from the stance to the target
 --   loft       degrees, loftFor(release)
@@ -257,7 +258,7 @@ function plan.solve(q, out)
 	local loft = plan.loftFor(rel)
 	local px, py, tx, ty = q.px, q.py, q.tx, q.ty
 	if q.projectile == "kubb" then
-		drill.solveAt(tx, ty, py, loft, out, px)
+		drill.solveAt(tx, ty, py, loft, out, px, q.surface, (q.spin or 0) * plan.tune.spinPerStep)
 	else
 		local dx, dy = tx - px, ty - py
 		local d = sqrt(dx * dx + dy * dy)

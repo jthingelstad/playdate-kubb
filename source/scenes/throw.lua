@@ -362,7 +362,7 @@ local function replan(s)
 	local q = s.planQ
 	q.projectile = kubb and "kubb" or "baton"
 	q.px, q.py, q.tx, q.ty = s.playerX, s.playerY, s.markerX, s.markerY
-	q.release, q.level = s.release, throw.levelFor(s)
+	q.release, q.level, q.surface, q.spin = s.release, throw.levelFor(s), s.surface, kubb and s.spin or 0
 	local sol = plan.solve(q, s.sol)
 	s.swivel, s.loftDeg = sol.swivel, sol.loft
 	s.planLevel, s.planDirty = q.level, false
@@ -676,7 +676,7 @@ function throw.setArc(s, releaseDeg)
 	aimCamera(s)
 end
 function throw.setTilt(s, deg) s.tilt = deg end
-function throw.setSpin(s, taps) s.spin = taps end
+function throw.setSpin(s, taps) s.spin, s.planDirty = taps, true end
 
 local swingInput, drawMarker, drawRail, drawArc
 
@@ -706,6 +706,7 @@ local function aimInput(s, dt)
 		if side ~= 0 then
 			if s.projectile == "kubb" then
 				s.spin = max(-pt.spinSteps, min(pt.spinSteps, s.spin + side))
+				s.planDirty = true   -- a spun drill runs on less (drill.slideFor)
 			else
 				s.tilt = max(-pt.tiltMaxDeg, min(pt.tiltMaxDeg, s.tilt + side * pt.tiltStepDeg))
 			end
@@ -1302,7 +1303,7 @@ end
 -- The practice pitch's surface (System Menu "Pitch"): the next throw is on
 -- it, and the ground looks it at once.
 function throw.setSurface(s, name)
-	s.surface = name
+	s.surface, s.planDirty = name, true   -- a drill runs on by the ground (drill.slideFor)
 	render.setSurface(name)
 end
 

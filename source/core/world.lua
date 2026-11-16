@@ -362,22 +362,29 @@ function world.launchKubb(w, id, x, lineY, swivel, loftDeg, speed, tumbleRate)
 		world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, 0))
 end
 
--- A drilled kubb (core/drill): it leaves the hand at (x, lineY, handHeight)
--- along the swivel at the loft, its long axis pointing down the line of
--- flight with the nose noseDownDeg below the horizontal (measured from the
--- horizontal, not the flight path: a kubb spinning about its long axis keeps
--- that axis through the flight, so what it lands with is what it leaves the
--- hand with, and it is the angle to the grass that makes the nose catch). It
--- spins about that axis at spinRate (rad/s; + = clockwise seen from behind,
--- which rolls it right once it is down) and the release roll is chosen so
--- that when the nose first touches it is rolled rollLandDeg from flat on a
--- face, toward the way the spin turns it (flat with no spin). wobbleRate
--- (rad/s) turns it nose over tail about the right-hand axis (a jerky swing).
--- digGain is how much harder its first touches dig into the ground than the
--- surface's dig (body.digGain). launchDrill also gives the body the drilled
--- kubb's ground behaviour from drill.tune (body.lua: edgeRound, digBySpin,
--- slipDrag, rollDrag, plugGain, bumpGain).
-function world.drillLaunchState(x, lineY, swivel, loftDeg, speed, noseDownDeg, rollLandDeg, spinRate, wobbleRate)
+-- A drilled kubb (core/drill). It leaves the hand at (x, lineY, handHeight)
+-- along the swivel at the loft and turns in the air (Jamie, 2026-11-16: "the
+-- Kubbs are still 'flying' flat ... They change angle in the air"): nose
+-- over at pitchRate (rad/s, about the right-hand axis) and spinning about its
+-- long axis at spinRate (rad/s; + = clockwise seen from behind, which rolls
+-- it right once it is down). The release attitude is solved backwards so
+-- that the clean throw's long axis is noseDownDeg below the horizontal when
+-- its nose's lowest point reaches the grass, rolled rollLandDeg from flat on
+-- a face toward the way the spin turns it (flat with no spin): the free
+-- turn of a square-sectioned block (core/world's gyroscopic step makes the
+-- same motion), a precession about its angular momentum at |L|/I1 and a turn
+-- about its own axis at spin (I1 - I3) / I1. A fast spin holds the axis (a
+-- gyroscope): with taps the kubb lands about as it left the hand; without,
+-- it leaves the hand nose up along its flight and comes over. Then the
+-- swing's own scatter is added to the rates, not solved for: dPitch (more
+-- or less nose over), dYaw (about the kubb's own up: it turns across the
+-- line) and dSpin (a little roll), each rad/s, so the attitude it arrives
+-- with varies throw to throw. wobbleRate (rad/s) adds a nose-up turn about
+-- the right-hand axis (a jerky swing's, drill.body). Returns the pose and
+-- velocities as 13 numbers.
+function world.drillLaunchState(x, lineY, swivel, loftDeg, speed, noseDownDeg, rollLandDeg, spinRate, wobbleRate,
+		pitchRate, dPitch, dYaw, dSpin)
+	pitchRate, dPitch, dYaw, dSpin = pitchRate or 0, dPitch or 0, dYaw or 0, dSpin or 0
 	local dx, dy = sin(swivel), cos(swivel)
 	local lx, ly, lz = launchDir(swivel, loftDeg)
 	local ft = tw.flight.tune
@@ -399,29 +406,114 @@ function world.drillLaunchState(x, lineY, swivel, loftDeg, speed, noseDownDeg, r
 	local vz = speed * lz
 	local h0 = h - zc
 	local T = (vz + sqrt(vz * vz + 2 * ft.g * h0)) / ft.g
-	-- local z: the long axis; x: the right-hand side, then rolled by phi about z
+	-- the attitude at the touch. Local z: the long axis; x: the right-hand
+	-- side, rolled by `land` about z
 	local zx, zy, zz = dx * ca, dy * ca, -sa
 	local rx, ry, rz = dy, -dx, 0
 	local yx, yy, yz = zy * rz - zz * ry, zz * rx - zx * rz, zx * ry - zy * rx
-	local phi = land - spinRate * T
-	local c, s = cos(phi), sin(phi)
-	local xx, xy, xz = c * rx + s * yx, c * ry + s * yy, c * rz + s * yz
-	yx, yy, yz = -s * rx + c * yx, -s * ry + c * yy, -s * rz + c * yz
-	local qw, qx, qy, qz = quat.fromAxes(xx, xy, xz, yx, yy, yz, zx, zy, zz)
+	local c, s = cos(land), sin(land)
+	local Xx, Xy, Xz = c * rx + s * yx, c * ry + s * yy, c * rz + s * yz
+	local Yx, Yy, Yz = -s * rx + c * yx, -s * ry + c * yy, -s * rz + c * yz
+	local Zx, Zy, Zz = zx, zy, zz
+	-- the principal moments of inertia across (I1) and along (I3) the long axis
+	local I1 = (kk.hy * kk.hy + kk.hz * kk.hz) / 3
+	local I3 = (kk.hx * kk.hx + kk.hy * kk.hy) / 3
+	-- the clean throw's turn at the touch: the spin about the long axis and
+	-- nose over about the right-hand axis (square to it). Its angular
+	-- momentum L is the same all through the flight: the long axis goes
+	-- round L at |L| / I1 and the kubb turns about its own axis at
+	-- spin (I1 - I3) / I1 on top, so the release is the touch turned back by
+	-- both over T (the first about its own axis, then about L: Rodrigues)
+	local Lx, Ly, Lz = I3 * spinRate * Zx - I1 * pitchRate * rx, I3 * spinRate * Zy - I1 * pitchRate * ry,
+		I3 * spinRate * Zz
+	local Ln = sqrt(Lx * Lx + Ly * Ly + Lz * Lz)
+	local gam = spinRate * (I1 - I3) / I1
+	local g = -gam * T
+	local cg, sg = cos(g), sin(g)
+	local x0x, x0y, x0z = cg * Xx + sg * Yx, cg * Xy + sg * Yy, cg * Xz + sg * Yz
+	local y0x, y0y, y0z = -sg * Xx + cg * Yx, -sg * Xy + cg * Yy, -sg * Xz + cg * Yz
+	local z0x, z0y, z0z = Zx, Zy, Zz
+	local wx0, wy0, wz0 = 0, 0, 0
+	if Ln > 1e-9 then
+		local kx, ky, kz = Lx / Ln, Ly / Ln, Lz / Ln
+		local Om = Ln / I1
+		local th = -Om * T
+		local ct, st = cos(th), sin(th)
+		local d = (kx * x0x + ky * x0y + kz * x0z) * (1 - ct)
+		x0x, x0y, x0z = x0x * ct + (ky * x0z - kz * x0y) * st + kx * d,
+			x0y * ct + (kz * x0x - kx * x0z) * st + ky * d,
+			x0z * ct + (kx * x0y - ky * x0x) * st + kz * d
+		d = (kx * y0x + ky * y0y + kz * y0z) * (1 - ct)
+		y0x, y0y, y0z = y0x * ct + (ky * y0z - kz * y0y) * st + kx * d,
+			y0y * ct + (kz * y0x - kx * y0z) * st + ky * d,
+			y0z * ct + (kx * y0y - ky * y0x) * st + kz * d
+		d = (kx * z0x + ky * z0y + kz * z0z) * (1 - ct)
+		z0x, z0y, z0z = z0x * ct + (ky * z0z - kz * z0y) * st + kx * d,
+			z0y * ct + (kz * z0x - kx * z0z) * st + ky * d,
+			z0z * ct + (kx * z0y - ky * z0x) * st + kz * d
+		-- the angular velocity at release: Om along L and gam about the axis
+		wx0, wy0, wz0 = Om * kx + gam * z0x, Om * ky + gam * z0y, Om * kz + gam * z0z
+	end
+	local qw, qx, qy, qz = quat.fromAxes(x0x, x0y, x0z, y0x, y0y, y0z, z0x, z0y, z0z)
+	-- the scatter's yaw axis: the kubb's own up across its flight (z0 x right)
+	local ux, uy, uz = z0y * rz - z0z * ry, z0z * rx - z0x * rz, z0x * ry - z0y * rx
+	local un = sqrt(ux * ux + uy * uy + uz * uz)
+	if un > 1e-9 then ux, uy, uz = ux / un, uy / un, uz / un end
+	-- and the swing's scatter and a jerky swing's wobble on top
+	local pr = dPitch - wobbleRate
 	return x, lineY, h, qw, qx, qy, qz,
 		speed * lx, speed * ly, speed * lz,
-		spinRate * zx + wobbleRate * rx, spinRate * zy + wobbleRate * ry, spinRate * zz
+		wx0 + dSpin * z0x - pr * rx + dYaw * ux, wy0 + dSpin * z0y - pr * ry + dYaw * uy,
+		wz0 + dSpin * z0z + dYaw * uz
 end
 
+-- The swing's scatter of a drill's turn in the air: three normals (sd 1) from
+-- the launch and the ground's seed when a test or tool fixed it, so a throw
+-- is the same every time it is replayed and every other throw its own.
+local function drillScatter(w, x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate)
+	local h = seedFrom(x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate,
+		w.groundSeedFixed and w.groundSeed or 0)
+	local s = h % 2147483647
+	if s <= 0 then s = s + 2147483646 end
+	local function u()
+		s = (s * 48271) % 2147483647
+		return (s - 1) / 2147483646
+	end
+	for _ = 1, 4 do u() end
+	local function normal()
+		local u1 = u()
+		if u1 < 1e-12 then u1 = 1e-12 end
+		return sqrt(-2 * math.log(u1)) * cos(2 * math.pi * u())
+	end
+	return normal(), normal(), normal()
+end
+
+-- digGain is how much harder its first touches dig into the ground than the
+-- surface's dig (body.digGain). launchDrill gives the kubb drill.tune's turn
+-- in the air (pitchDps, and the scatter: pitchSdDps, yawSdDps, spinSd, more
+-- for a jerky swing by scatterJerk; the jerk read from wobbleRate against
+-- drill.tune.wobbleRate) and its ground behaviour (body.lua: edgeRound,
+-- digBySpin, slipDrag, rollDrag, plugGain, bumpGain).
 function world.launchDrill(w, id, x, lineY, swivel, loftDeg, speed, noseDownDeg, rollLandDeg, spinRate,
 		wobbleRate, digGain)
-	local b = world.launch(w, "kubb", id, world.drillLaunchState(x, lineY, swivel, loftDeg, speed,
-		noseDownDeg, rollLandDeg, spinRate, wobbleRate))
-	b.digGain = digGain or 1
-	-- what makes it a drilled kubb on the ground (body.lua, drill.tune)
 	local dt = tw.drill.tune
-	b.edgeRound, b.rollDrag, b.bumpGain, b.plugGain = dt.edgeRound, dt.rollDrag, dt.bumpGain, dt.plugGain
-	b.digBySpin, b.slipDrag = false, true
+	wobbleRate = wobbleRate or 0
+	local jerk = wobbleRate / dt.wobbleRate
+	if jerk < 0 then jerk = -jerk end
+	if jerk > 1 then jerk = 1 end
+	local k = 1 + dt.scatterJerk * jerk
+	local n1, n2, n3 = drillScatter(w, x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate)
+	local b = world.launch(w, "kubb", id, world.drillLaunchState(x, lineY, swivel, loftDeg, speed,
+		noseDownDeg, rollLandDeg, spinRate, wobbleRate, rad(dt.pitchDps),
+		n1 * rad(dt.pitchSdDps) * k, n2 * rad(dt.yawSdDps) * k, n3 * dt.spinSd * k))
+	b.digGain = digGain or 1
+	-- a drill with planned spin rolls on the turf (body.lua, drill.tune: rollSpin);
+	-- one without is a plain kubb on the ground
+	if spinRate >= dt.rollSpin or spinRate <= -dt.rollSpin then
+		b.edgeRound, b.rollDrag, b.bumpGain, b.plugGain = dt.edgeRound, dt.rollDrag, dt.bumpGain, dt.plugGain
+		b.digBySpin, b.slipDrag = false, true
+		if b.digGain < dt.spinDigGain then b.digGain = dt.spinDigGain end
+	end
 	return b
 end
 

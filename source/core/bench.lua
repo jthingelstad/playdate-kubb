@@ -102,7 +102,9 @@ end
 bench.matchThrows = {
 	{ name = "hit", projectile = "baton", x = 0.8, aim = { 0.8, 4.85 }, loftDeg = 30, tumbleRate = 5.5 },
 	{ name = "miss", projectile = "baton", x = -1.0, aim = { -1.25, 6.2 }, loftDeg = 30, tumbleRate = 5.5 },
-	{ name = "drill", projectile = "kubb", drill = { markerX = 0.3, markerY = 6.4 } },
+	-- (the marker moved from (0.3, 6.4) on 2026-11-16: a drill aimed short of it for its
+	-- run on lands on baton1 there)
+	{ name = "drill", projectile = "kubb", drill = { markerX = -0.5, markerY = 6.4 } },
 }
 function bench.matchThrow(t)
 	local a = { x = t.x or 0, y = 0, swivel = 0, loftDeg = t.loftDeg or 30, speed = 0,

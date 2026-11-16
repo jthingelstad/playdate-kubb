@@ -116,7 +116,7 @@ to throw, modelled on how a real player throws, the same for batons and drilled 
 | D-pad | **Target.** Move a 0.5 m circle over the far half (a little past it: 3 m either side, 3.5 to 8.6 m out). For a baton it is where the throw comes down (a clean throw lands on its center); for a kubb, where it should come to rest. It starts on the nearest live target (standing field kubbs, else base kubbs, else the king), and stays wherever the d-pad leaves it: it never locks onto a kubb, so a player can aim off one to allow for the wind (Tyler's play test, 2026-11-15: the lock made 8 m too easy). A circle moved by hand stays put for the next throw. |
 | Hold A + d-pad | **Position.** Walk: left/right along the throwing line, down to step back (up to 3 m), up to come forward as far as the line allows (the advantage line in a match; king shots and kubbs from the baseline). The player always faces the target: the swivel is worked out, never set. Until A is used the player stands straight behind the target, as far forward as allowed (clamped inside the line's ends). |
 | Hold B + d-pad up/down | **Plan the arc.** Moves the release target on the gauge's forward side half an hour (15 degrees) at a time. Until B is used the arc follows the target: 3 o'clock at base kubbs, half past 3 at the king, 4 o'clock at field kubbs, half past 1 for a drilled kubb. |
-| Hold B + d-pad left/right | **Plan the tilt** (baton): a tap tilts the baton's spin plane 5 degrees left or right, up to 20 (Jamie, 2026-11-15), to steer it after the first kubb it hits in a group. **Plan the spin** (kubb): taps add spin left or right, which rolls the kubb sideways after it lands (expert drillers roll kubbs into the centerline stake, and against each other, to build a wall). Measured (2026-11-15, `tools/tiltgroups.lua`, `tools/spinwall.lua`): tilt turns the baton after its first hit by only about 0.15 degrees per degree; spin is up to three taps of 22 rad/s each way. A drilled kubb flies nose down 15 degrees, its front bottom edge catches the grass, and with no spin it stops dead (within 0.01 m of where it lands); each tap rolls it sideways face over face once it is down: on grass at the drill's arc about 0.27, 0.6 and 0.9 m for one, two and three taps (a low arc a little less), on sand about 45% of that, drifting back 0.04 to 0.19 m. A rolling kubb stops against the centerline stake or a lying kubb, so a wall can be built (2026-11-15: three kubbs rolled two taps from 0.4 m inward of the stake, the circle moved a kubb's width in each time, made a wall of three in 24 of 30 tries). |
+| Hold B + d-pad left/right | **Plan the tilt** (baton): a tap tilts the baton's spin plane 5 degrees left or right, up to 20 (Jamie, 2026-11-15), to steer it after the first kubb it hits in a group. **Plan the spin** (kubb): taps add spin left or right, which rolls the kubb sideways after it lands (expert drillers roll kubbs into the centerline stake, and against each other, to build a wall). Measured (2026-11-15, `tools/tiltgroups.lua`, `tools/spinwall.lua`): tilt turns the baton after its first hit by only about 0.15 degrees per degree; spin is up to three taps of 22 rad/s each way. A drilled kubb turns over in the air and comes down about 15 degrees nose down; with no spin it runs on from where it lands (2026-11-16; before, it stopped dead within 0.01 m); each tap rolls it sideways face over face once it is down: on grass at the drill's arc about 0.6, 0.7 and 0.8 m for one, two and three taps (0.5, 0.7 and 0.9 at a low arc), less on sand, one tap now and then the wrong way. A rolling kubb stops against the centerline stake or a lying kubb, so a wall can be built (2026-11-16: two taps at the same circle 0.5 m inward of the stake built a wall of 2.8 kubbs of six on average over 20 grounds, 5 or 6 on eight of them). |
 
 Everything the plan sets shows on the gauge and the HUD while aiming.
 
@@ -175,11 +175,17 @@ mistakes in it, and the gauge shows its arm going back and forward as it throws.
 
 ### Kubbs (drilling)
 
-Always from the baseline (II.C.1). A drilled kubb spins on its long axis like a football
-with the nose 15 degrees down from the horizontal (held through the flight), so its front
-bottom edge catches the grass and it dies where it lands. The target circle is where it
-should rest with no spin; the game solves the clean
-drill that rests there at the arc planned. The spin planned with B is spin about the long
+Always from the baseline (II.C.1). A drilled kubb leaves the hand nose up and turns over
+in the air, a different way every throw, and comes down about 15 degrees nose down, now
+and then flat or heel first; spin about its long axis holds it steadier, like a gyroscope.
+On the ground it keeps its energy: it bounces, wobbles and runs on, on grass about half a
+metre at the drill's arc (a lower, faster drill farther; sand stops most of it, snow lets
+it run), and it ends turned every way. Jamie (2026-11-16): "it is impossible to stop that
+much energy with just the ground and grass -- except a perfect dug in corner that just
+drops but that is exceedingly rare", and "good drillers roll into other kubbs": a drill
+that runs into a lying kubb stops by it. The target circle is where a clean drill with no
+spin most likely ends; the game solves the clean drill that lands short of it by its
+average run on at the arc planned, and the aim arc shows where it lands. The spin planned with B is spin about the long
 axis, which the ground turns into a sideways roll; earlier kubbs and the stakes are real
 bodies, so a kubb can roll into the centerline stake or against another kubb and stop
 there. Every mapping is a tunable in `tw.drill.tune` (`source/core/drill.lua`).
@@ -248,8 +254,9 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
   very different based on the surface"), and each surface is one set of contact parameters:
   friction, bounce, and a "dig" term that takes extra energy when a corner or edge arrives
   steeply.
-  - **Grass:** high friction, little bounce, moderate dig. A flat drill dies, and spin about
-    the long axis turns into sideways travel (the cut). Batons skid and can steamroll.
+  - **Grass:** high friction, little bounce, moderate dig. A drill runs on half a metre or
+    so (2026-11-16; it used to die where it landed), and spin about the long axis turns
+    into sideways travel (the cut). Batons skid and can steamroll.
   - **Sand:** very high dig and almost no bounce or slide. Kubbs plug where they land and
     barely cut, so placement is all in the air; batons stop where they hit, so there are no
     skids into a second kubb.
