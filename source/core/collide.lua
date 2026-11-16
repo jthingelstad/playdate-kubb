@@ -62,28 +62,11 @@ collide.SX, collide.SY, collide.SZ = SX, SY, SZ
 -- AGENTS.md, "Physics"). The arithmetic is the same, term for term.
 
 -- Box b against the ground plane z = 0: each corner below `margin`.
--- A box with edgeRound > 0 (a drilled kubb, body.edgeRound) meets the ground
--- with its four long edges rounded to that radius: a box of half sides
--- hx - edgeRound, hy - edgeRound, hz swept by a disc of that radius across
--- the long axis. Its lowest points are the inner box's corners moved down
--- the disc's steepest way, by edgeRound * s where s = sin of the long axis
--- from vertical (lying: the full radius; on an end: nothing, the end face is
--- flat). Lying on a face it rests exactly where the sharp box does.
 function collide.groundBox(b, margin)
 	local hx, hy, hz = b.hx, b.hy, b.hz
 	local r31, r32, r33 = b.r31, b.r32, b.r33
 	local z0 = b.z
 	local x0, y0 = b.x, b.y
-	local er = b.edgeRound
-	if er > 0 then
-		hx, hy = hx - er, hy - er
-		local s2 = 1 - r33 * r33
-		if s2 > 1e-12 then
-			local s = sqrt(s2)
-			local k = er * r33 / s
-			x0, y0, z0 = x0 + k * b.r13, y0 + k * b.r23, z0 - er * s
-		end
-	end
 	local az, bz, cz = r31 * hx, r32 * hy, r33 * hz
 	-- quick reject: the lowest corner is above the margin
 	local aaz, abz, acz = az, bz, cz

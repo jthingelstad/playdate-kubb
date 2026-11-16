@@ -16,7 +16,7 @@
 --   --               smoothness, shake, pull, how),
 --   --       launch = tw.plan.launch's table (verdicts powerV, releaseV, steady),
 --   --       drill = for a kubb: { markerX, markerY (from lineY), noseDown, rollLand,
---   --               spin, wobble, digGain } (world.launchDrill's arguments) }
+--   --               spin, wobble } (world.launchDrill's arguments) }
 --   autothrow.launch(w, s, a)  -- puts the throw into world w (core/world)
 import "core/tw"
 import "core/flight"
@@ -356,7 +356,7 @@ function autothrow.choose(s, r, scale, level)
 		tumbleRate = L.tumble, tilt = L.tilt, legal = L.legal, plan = sol, swing = sw, launch = L }
 	if q.projectile == "kubb" then
 		a.drill = { markerX = tx, markerY = ty - s.lineY, noseDown = L.noseDown, rollLand = L.rollLand,
-			spin = L.spin, wobble = L.wobble, digGain = L.digGain }
+			spin = L.spin, wobble = L.wobble }
 	end
 	return a
 end
@@ -368,7 +368,7 @@ function autothrow.launch(w, s, a)
 	local d = a.drill
 	if d then
 		return world.launchDrill(w, s.kubb, a.x, a.y, a.swivel, a.loftDeg, a.speed, d.noseDown, d.rollLand,
-			d.spin, d.wobble, d.digGain)
+			d.spin, d.wobble)
 	end
 	return world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt, s.batonId)
 end

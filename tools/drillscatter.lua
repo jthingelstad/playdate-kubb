@@ -352,7 +352,7 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 					local L = drill.body(1, 1, 0, {})
 					local w = world.new { surface = surface, groundSeed = g * 7919 + 13 }
 					local b = world.launchDrill(w, "d", sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
-						L.spin, L.wobble, L.digGain)
+						L.spin, L.wobble)
 					local n0 = deg(asin(-b.r33))
 					local ax0, ay0, az0 = b.r13, b.r23, b.r33
 					local land, n1, t1, ax1, ay1, az1

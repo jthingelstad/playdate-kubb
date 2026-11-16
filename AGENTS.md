@@ -320,7 +320,7 @@ fields (`x, y, swivel, loftDeg, speed, tumbleRate, tilt, legal`), the solve as `
 (target `tx, ty`, `back`, `release`, the gauge's ranges) and the swing as `a.swing` (`back`,
 `releaseAngle`: where the computer's arm goes on the gauge), and for a kubb `a.drill`
 (`markerX`, `markerY` from the line, and world.launchDrill's `noseDown, rollLand, spin,
-wobble, digGain`); `autothrow.launch(w, s, a)` puts it into a world. Batons go at the
+wobble`); `autothrow.launch(w, s, a)` puts it into a world. Batons go at the
 nearest live target's center, or among field kubbs down the lane with the most of them
 ("Tuned toward the real games" below) (from the advantage line, but never nearer than `minRange`, 2
 m: a slow lofted baton under 2 m nearly always missed; the king from the baseline). Kubbs
@@ -580,6 +580,16 @@ play date versions, deploy as needed." The first pass changes only how the compu
   (`basketY` 4.5 / 4.35 / 4.2) leaves them at 0.8 / 1.1 / 1.2%; only with `spotMinY` 3.9
   and the basket at x 2.25 as well do they reach 8.5% (two 14.1%, three or more 3.4%, 16.9
   turns, 60 matches). That is a play question for Jamie and not in this change.
+
+- **The drill as a plain body, with the bite (2026-11-16, "Drilling").** `make realgames`,
+  150 physics matches seed 2 (real / before / after): turns a game 8.9 / 22.4 / 21.7; a
+  baton at field kubbs missed 24.7 / 22.3 / 25.2%, took two 16.0 / 10.7 / 4.9%, three or
+  more 10.0 / 1.5 / 0.2%; cleared the field 83 / 55 / 49%; a base kubb from 8 m 32.7 /
+  33.6 / 33.4%; the king 84 / 77 / 80%; kubbs rethrown 14.1 / 0.6 / 8.1%, punishment
+  kubbs 1.3 / 0 / 1.5%. The inkast now pays for its groups the way real players do, but
+  the groups are looser (a drill runs on about a metre), so doubles and triples fell. The
+  next step is the computer's aim with the new run on (into the group from farther short),
+  not the physics.
 
 ### Nerves
 
@@ -885,7 +895,7 @@ the datastore part is `source/players.lua` (`tw.players`).
   `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/selftest/<name>.done`, and
   the Makefile copies it to `build/selftest/` and checks it and the PNG sizes.
 - The Simulator (SDK 3.1.2) often segfaults as it quits, after the scenario has written its
-  marker; now and then the crash leaves it hanging until the 60 s timeout. The Makefile
+  marker; now and then the crash leaves it hanging until the timeout (`SIM_TIMEOUT`, 300 s). The Makefile
   counts a timed-out run by its `DONE` marker when there is one (and says so), so these
   are not failures; a run with no marker still is.
 - The Simulator connects to a Playdate plugged in over USB when it starts. Self-tests do not
@@ -1378,13 +1388,22 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   `world.step` advances one fixed step (1/240 s), `world.run`, `world.isAtRest`,
   `world.result` (touched, stakesTouched, toppled, kingToppled, outNotToppled, rest poses,
   firstContact, firstHit).
-- A drilled kubb (`world.launchDrill`) turns in the air and is scattered by seeded normals
-  at launch; with planned spin it meets the ground through a few per-body fields
-  (`edgeRound`, `digBySpin`, `slipDrag`, `rollDrag`, `plugGain`, `bumpGain`, `digGain`;
-  "Drilling"), without it as a plain kubb. The fields' defaults leave every other body
-  bit-identical (`tools/physdump.lua`: every scenario without a drill is unchanged; checked
-  2026-11-16 against main: the bench throws, the match case's baton hit and miss, and each
-  physics match's throws up to its first drill are identical).
+- A drilled kubb (`world.launchDrill`) is a plain body released from the swing and
+  scattered by seeded normals at launch; the air turns it in flight (`world.aeroTurn`,
+  the projectile only) and on the ground it is a kubb like any other ("Drilling").
+- **The bite** (2026-11-16, Jamie: "I think we need to add the bite to the ground model…
+  it is key… and this is where grass, snow, and sand will act different"). An edge or
+  corner that strikes the turf steeply cuts in and is held: a ground contact gets extra
+  friction `surf.bite` x ramp x pointed x steep, judged once when the contact first presses
+  (the ramp is the dig's: the approach speed past `digSpeed` over `digRamp`, capped at 1;
+  `pointed` how much a corner or edge rather than a face meets the ground; `steep` the
+  approach speed over the point's whole speed, so a skim barely bites) and kept per corner
+  (`b.gBite`), fading by `dt / biteTime` a step while the edge stays down. The patch's
+  `digVar` varies it. Grass 0.7 (`biteTime` 0.05 s), sand 2 (0.1 s), snow 0 (packed snow
+  lets an edge skate; its plugging is in its dig). Every body has it: batons, lobbed and
+  drilled kubbs, the king. Contacts are made before touching (speculative) and an impact
+  lasts one step, so the bite is a friction coefficient, not a force cap. Not
+  bit-identical: every throw on grass or sand where an edge strikes the ground.
 - Toppled means the long axis came within `toppleDeg` of horizontal. There is no tipping
   state machine: tipping, rocking back and falling come out of the contacts.
 - The leaner rule (Jamie, 2026-11-13): a kubb or king that comes to rest propped on another
@@ -1466,8 +1485,7 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     the king within 30 degrees of upright, on the ground, whose foot (the point under its
     centre) slides faster than `footSpeed` (0.3 m/s) loses `foot` of that slip a second,
     as an impulse at the foot, so it slows and tips the way it is going; `plough` adds to
-    it on snow. Grass 25, snow 12, sand none (a drill still drilling is left out: its
-    `slipDrag` branch is its own). Measured (a standing kubb shoved to a speed, 20 grounds;
+    it on snow. Grass 25, snow 12, sand none (a drilled kubb too since 2026-11-16). Measured (a standing kubb shoved to a speed, 20 grounds;
     before -> after). **Snow** is where it matters: flat snow's friction (0.25) is under the
     0.47 a kubb's footprint needs to tip, so a kubb shoved at its centre glided standing
     and never fell: 0.19 / 0.42 / 0.75 / 1.69 m at 1 / 1.5 / 2 / 3 m/s, toppled 0% at every
@@ -1901,21 +1919,21 @@ the throw scene with `s.drill` on.
 - **Aim and launch** are the throw's ("The throw"): the d-pad moves the circle (it never
   snaps), the thrower stands behind it on the baseline (A walks along it or back), the arc
   starts at half past 1 (`plan.tune.arc.drill`), B + left/right is spin in taps
-  (`plan.tune.spinPerStep` rad/s about the long axis each, + rolls right after landing).
+  (`plan.tune.spinPerStep` rad/s about the long axis each, + clockwise from behind, on top
+  of the wrist's own spiral: a spun drill holds its attitude in the air, "The body in the air").
   `plan.solve` solves the clean drill onto the circle at the arc's loft (`drill.solveAt`: the
   speed that lands the kubb `drill.slideFor` short of the circle: its mean run on by the
   loft, the ground, the distance and the planned spin; `plan.solve` passes `q.surface` and
-  `q.spin`, and the scene replans when either changes); the circle is where a clean drill
-  most likely ends, not where every one does (it runs on 0.1 to 1.1 m, p10 to p90 on grass
-  at half past 1), so a player rolling one aims the circle short of where it should end by
-  the roll. `plan.launch` judges the swing and gives the
-  body through `drill.body` (noseDown, rollLand, spin, wobble, digGain). The aim camera is
+  `q.spin`; the allowance does not depend on the spin); the circle is where a clean drill
+  most likely ends, not where every one does (it runs on 0.4 to 1.7 m, p10 to p90 on grass
+  at half past 1). `plan.launch` judges the swing and gives the
+  body through `drill.body` (noseDown, rollLand, spin, wobble). The aim camera is
   the baton's ("The aim camera": first person behind the thrower, looking past the circle,
   and the plan view while B is held, with the drill's planned arc; it replaced
   `camera.drillAim`, the fixed high drill view, 2026-11-15); the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
   and the minimap's aim line goes to the circle. Self-test `clock-drill` (a drill at half
-  past 1 with a tap of spin rests within 1 m of the circle on the Simulator, 0.18 m on
-  2026-11-16; 0.4 m before the drill ran on).
+  past 1 with a tap of spin rests within 1 m of the circle on the Simulator, 0.28 m since
+  the bite, 0.18 before it, 2026-11-16; 0.4 m before the drill ran on).
 - **The band launch** (`drill.launch`, `drill.solve`): the power error against the band is
   shrunk by `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower`
   per unit (never under `speedMinFrac`); the loft is the solved one. Smoothness under
@@ -1924,57 +1942,48 @@ the throw scene with `s.drill` on.
   The cut is `cutSpin` rad/s about the long axis. No throw in the game uses it since
   2026-11-15; it is kept for core/bench, the tools and tests that throw a clean drill
   (`{ power = band, smoothness = 1, tilt = 0 }`, unchanged bit for bit).
-- **The body in the air** (`world.drillLaunchState`, 2026-11-16; before, the axis was held
-  flat 15 degrees nose down from release to landing, "flying flat"). The kubb leaves the
-  hand turning nose over (`pitchDps` 70 deg/s about the horizontal across the flight) and
-  spinning about its long axis at the planned spin, and the flight is torque free (no
-  aerodynamics): the long axis precesses about the angular momentum and the body turns
-  about its own axis. The release attitude is solved backwards, exactly, from the attitude
-  wanted at the first touch (the long axis `noseDownDeg` 15 below the horizontal along the
-  flight, rolled `rollLandDeg` -15 short of flat), so a clean drill with no spin leaves the
-  hand nose up (about 66 degrees at half past 1, 45 at loft 30) and comes over through the
-  flight. Then each throw is scattered (`world.launchDrill`, `drillScatter`): seeded normals
-  (the ground's seed when `groundSeedFixed`, else the throw's) add `pitchSdDps` 15 deg/s to
-  the turn, `yawSdDps` 15 about the axis across, and `spinSd` 0.5 rad/s to the spin, all
-  times 1 + `scatterJerk` (1.5) x the wobble share (a rough swing scatters more). So the
-  touch is 15 degrees down on average with an sd of 11 to 17 degrees: nose first two
-  times in three, now and then flat or heel first. A spinning drill is a gyroscope: with
-  three taps the axis barely turns (release 14, touch 14.8, sd 0.8 degrees at loft 47).
-  `test_drill` checks the turn (nose up at release, the touch's mean and spread, a spun
-  drill holding its axis).
-- **On the ground** (`world.launchDrill`; every other body keeps the defaults of
-  `body.new` and steps bit for bit as before). A drill with no planned spin is a plain
-  kubb on the ground: `digGain` 1 (25 until 2026-11-16: the nose plugged and every drill
-  stopped dead, within 2 cm of where it touched on 97 to 100% of grounds), sharp edges,
-  `digBySpin` on, no `slipDrag`, `bumpGain` 1 (0 before: the grass's landing bump is back).
-  So it bounces, tumbles, wobbles and runs on: on grass at half past 1 a mean 0.45 m
-  (p10 0.07, p90 0.85, max 2.6), at loft 30 0.84 m; dead stops (under 5 cm) 6% at half past
-  1 and none at loft 30; it ends turned every way (yaw to the throw 0-30 / 30-60 / 60-90:
-  48 / 29 / 23%). Sand kills most of it (0.16 m at half past 1, 38% dead) and snow lets it
-  run (0.82 m). A drill with planned spin of `rollSpin` (10 rad/s) or more keeps the
-  rolling body the spin roll needs (THE WALL): `edgeRound` (0.032 m: its long edges meet
-  the ground rounded, `collide.groundBox`), `digBySpin = false`, `plugGain` (10: the
-  plug's rolling resistance holds its tumble and turn, never its roll about the long
-  axis), `slipDrag` with `rollDrag` (0.8), `bumpGain` 1 and `digGain` at least
-  `spinDigGain` (5). Why the spin used to die (`tools/spinwall.lua`, 2026-11-15): the
-  plug's rolling resistance is lever times normal impulse, and the landing's impulse is
-  large, so it stopped all the spin in the first contact step; the grass drag damped the
-  spin of a lying piece as if it slid; the dig counted the spin's sweep as a skim (above
-  about 38 rad/s it slid on 0.6 to 1 m instead); and a sharp square on a rigid plane keeps
-  a quarter of its roll at every edge it tips onto (the pivot capture I/(I + m d^2)), so
-  it can never roll past one face. Without the rolling body a spun drill rolled
-  chaotically (sideways sd about 1 m).
-- **The aim allowance** (`drill.slideFor(loftDeg, surface, spin, d)`, `tune.slide`,
-  `slideLofts`, `slideRefM`, `slidePerM`, `spinSlide`): the clean drill's mean rest past
-  where it was aimed, measured with `tools/drillscatter.lua` part 3's 12 markers (4.6 to 7.5
-  m out) on 8 grounds each and checked with it in place: grass 0.91 / 0.62 / 0.38 / 0.24 m
-  at lofts 26 / 37 / 47 / 57 (between them in a line, outside the nearest), sand 0.40 /
-  0.19 / 0.10 / 0.06, snow 1.52 / 1.16 / 0.81 / 0.53; plus `slidePerM` (grass 0.13, sand
-  0.07, snow 0.17 m) for each metre the marker is past `slideRefM` (6 m), less nearer (a
-  longer drill is faster). With spin of `rollSpin` or more, `spinSlide` (0.15) of the
-  loft's share alone. Over 4 to 8.6 m out the mean rest is within 0.25 m of the marker
-  along the throw at both lofts on every ground (before the distance term 8.6 m on grass at
-  loft 30 ran 0.7 m long).
+- **The body in the air** (`world.drillLaunchState`, `world.launchDrill`, 2026-11-16;
+  Jamie: "we didn't treat Kubb throws with the same physics as baton throws"). A drill is
+  a plain rigid body released from the swing, like a baton: held by its back end, its long
+  axis down the line `noseDownDeg` (45) below the horizontal (a later release lifts the
+  nose with the arm, degree for degree), spinning about that axis at the wrist's `spiral`
+  (3 rad/s, always: Jamie, "even if the thrower indicates no spin, there would always be
+  some small, subtle amount of rotation") plus the planned taps. Nothing is solved back
+  from the landing. In flight the air turns it toward broadside to its fall
+  (`world.aeroTurn`, `world.tune.aeroK`, the projectile only); a spun drill is a gyroscope
+  and holds its attitude, one with only the spiral turns steeper and less the same each
+  time. Each throw is scattered at release with seeded normals (`pitchSdDps` 30,
+  `yawSdDps` 15, `spinSd` 3 rad/s, `noseSdDeg` 4, each times 1 + `scatterJerk` x a jerky
+  swing). Measured (`tools/drillscatter.lua --only 3`, 12 markers x 24 grounds, grass):
+  nose down 48 degrees at the touch (sd 19) at half past 1, 58 (sd 16) at loft 30.
+  `test_drill` checks the release, the touch, and that spin holds the attitude where the
+  air turns an unspun one.
+- **On the ground** a drill is a plain kubb: there are no drill-only fields or branches
+  left in `core/world` (`digGain`, `edgeRound`, `digBySpin`, `slipDrag`, `rollDrag`,
+  `plugGain`, `bumpGain`, the drill-over rule and its settle went on 2026-11-16). It meets
+  the turf like every body ("Physics", "The bite"). Grass, the plan's clean drill (run on
+  mean / p10 / p90 / max, rest from the circle, touch to rest): half past 1 1.01 / 0.41 /
+  1.74 / 3.67 m, 51 cm, 0.79 s; loft 30 1.75 / 0.90 / 2.58 / 4.67 m, 65 cm, 0.99 s. Sand
+  0.29 m at half past 1 (11% dead stops under 5 cm), 0.60 at loft 30; snow 1.10 and 1.68
+  (no bite: packed snow lets an edge skate). It ends turned every way (yaw to the throw
+  0-30 / 30-60 / 60-90: 41 / 28 / 31% on grass at half past 1).
+- **What spin does now.** Jamie (2026-11-16): "in the real world spin does move the Kubb
+  when it lands… but at most it will move it one to three rotations… not the several the
+  game was doing before." Honest physics gives exactly that: spin steadies the drill in the
+  air and moves it a little either way on landing, in no steady direction (a square prism
+  keeps a quarter of its roll at each edge it pivots on, and which corner strikes first
+  decides the way). `test_drill`: across the throw under 0.28 m on average at every tap,
+  sand and snow less than grass. It no longer rolls a kubb along the centre line into the
+  stake, so the old spin-roll wall is gone (below).
+- **The aim allowance** (`drill.slideFor(loftDeg, surface, spin, R)`, `drill.landFor`,
+  `tune.slide`, `slideLofts`, `slideR`, `slideRefM`): the clean drill's mean run on past
+  where it lands, a table by loft (26 / 37 / 47 / 57) and landing distance R (1.5 to 7.5
+  m) per ground, read bilinearly (outside the table, its edge). The run on grows with the
+  landing's speed, so `drill.landFor` solves R + slideFor(R) = d (six fixed-point steps,
+  never under 0.5 m) and `drill.solveAt` lands the kubb there. Grass at half past 1: 0.26
+  m from 1.5 m, 0.87 from 4.5, 0.69 from 7.5; low lofts run on most (2.26 m at loft 26
+  from 4.5 m). `test_drill` checks the mean rest along the throw against the circle over
+  30 grounds.
 - **Into other kubbs.** A drill that runs into a lying kubb stops by it (0.12 to 0.36 m
   centre to centre in `test_drill`'s backstop) and the struck kubb moves 0 to 20 cm; one
   that lands on top of a kubb shoves it 0.2 to 0.45 m. The drill-over rule below makes it
@@ -1984,43 +1993,12 @@ the throw scene with `s.drill` on.
   computer aims a turn's later kubbs to run into the ones down (`autothrow` `intoSpot`,
   "Tuned toward the real games", "Into the group"); self-test `match-group` shows a turn
   of 3 and a turn of 5 doing it.
-- **When the drill is over** (Tyler's play test, 2026-11-15) the body becomes a plain kubb
-  (every field above back to `body.new`'s): at once when it strikes a piece (a stake does
-  not count, so a wall still rolls against the stake; `b.drillHit`, set where contacts are
-  stamped), else once it is on the ground slower than `drill.tune.settleV` (0.1 m/s) and
-  `settleW` (2 rad/s). Before, a drill that hit a kubb could turn the blow into a log roll
-  (16 turns, 3.8 m) and drills rocked on their rounded edges for seconds: two of his match
-  drills ran to the throw's time limit and took over a minute to watch on the device. With
-  it, over 200 drills into a field kubb none rolls more than 3 turns (39 did) and the drill
-  is awake 1.5 s instead of 3.1 on average; landing to rest with 0 taps 0.3 s (was 1.0),
-  with 1 / 2 / 3 taps 1.8 / 2.6 / 3.0 s (was 4.9 / 5.5 / 6.2); the spin rolls on grass at
-  loft 47 lose about 4 cm (0.25 / 0.55 / 0.87 m in `spinwall --quick`). Drills are not
-  bit-identical to before; every other body is. Since 2026-11-16 a drill with no spin is a
-  plain kubb on the ground already, so the rule changes only its scatter (none) and a spun
-  drill's body. Touch to rest (drillscatter part 3, grass): 0.59 s mean, 1.41 s worst at
-  half past 1 (0.31 and 0.59 before), 0.66 and 1.29 s at loft 30; snow is the slowest (0.96
-  s mean at loft 30, 2.02 worst at half past 1).
-- **Measured** (`tools/spinwall.lua --quick`, the plan's clean drill aimed with the spin's
-  allowance, 3 markers x 2 grounds; side = rest x against the 0-tap drill's, fwd = rest y
-  from the first touch, the mean of + and - taps signed toward the spin; 2026-11-16 against
-  2026-11-15, after the drill-over rule):
-
-  | | 1 tap | 2 taps | 3 taps |
-  |---|---|---|---|
-  | grass, loft 47 | 0.62 (fwd +0.35), was 0.25 | 0.71 (+0.04), was 0.55 | 0.81 (0.00), was 0.87 |
-  | grass, loft 30 | 0.48 (+0.15), was 0.17 | 0.68 (+0.17), was 0.42 | 0.91 (+0.08), was 0.77 |
-  | sand, loft 47 | 0.11 (+0.02), was 0.10 | 0.55 (+0.04), was 0.24 | 0.53 (-0.01), was 0.36 |
-  | sand, loft 30 | 0.23 (+0.02), was 0.08 | 0.32 (+0.03), was 0.19 | 0.43 (0.00), was 0.31 |
-
-  The spin roll is noisier than it was: one tap rolls the wrong way on 2 or 3 grounds in
-  9 (`test_drill` allows 4), two taps on 1, three on none; minus taps roll less far than
-  plus taps on grass at half past 1 (-0.48 against +0.88 m at two taps), from the drill's
-  one-way roll on landing. A rolling kubb stops against the stake (2.30 to 2.47 m across at
-  two taps from 0.45 m inward) and against a lying kubb (half the time it gets there; the
-  lying kubb moves under 2.5 cm). THE WALL over 20 grounds (six kubbs; mean wall):
-  clean drills stepping in from the stake 1.3 (5.35 before), one tap from 0.3 m inward 2.05
-  (1.9), two taps from 0.5 m 2.8 (5.6), three taps from 0.8 m 0.95 (3.2). Two taps at the
-  same circle are the way now; a wall of 5 or 6 on 8 grounds in 20, none on 6.
+- **THE WALL** (practice drill) is hard now. Before 2026-11-16 two taps of spin rolled a
+  kubb along the centre line into the stake and six built a wall of 2.8 on average; a real
+  drill does not roll like a log, so that way is gone. Clean drills at the stake
+  (`drill.solve(2.42, 4.1, 0)`, 12 grounds) build 0.75 on average, best 3; `test_drills`
+  checks a mean of 0.3 or more and a best of 2 or more. The scoring is unchanged: it is a
+  practice record, and a wall is what a good driller earns.
 - **HUD.** The clock, the verdicts and the plan chip ("The throw"); at rest the kubb's
   distance from the circle (`18 CM AWAY`) in the plan chip's place.
 - **Telemetry.** A drill's `traces.jsonl` line is a baton line ("The throw") plus

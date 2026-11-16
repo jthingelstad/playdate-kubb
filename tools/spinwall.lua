@@ -104,7 +104,7 @@ local BODY = {}
 local function drillInto(w, id, sol, taps, out)
 	local L = drill.body(1, 1, taps * PER, BODY)
 	local b = world.launchDrill(w, id, sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
-		L.spin, L.wobble, L.digGain)
+		L.spin, L.wobble)
 	local landX, landY, hop, nose = nil, nil, 0, false
 	while not world.isAtRest(w) do
 		world.step(w)

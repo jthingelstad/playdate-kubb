@@ -92,8 +92,8 @@ local STEPS = {
 		say = { "HOLD B: UP AND DOWN MOVE THE ARC, AND THE CAMERA",
 			"SWINGS OUT TO SHOW IT. LEFT AND RIGHT TILT A",
 			"BATON, OR SPIN A DRILLED KUBB." },
-		after = { "TILT STEERS A BATON THROUGH A GROUP. SPIN ROLLS",
-			"A DRILLED KUBB SIDEWAYS WHEN IT LANDS." },
+		after = { "TILT STEERS A BATON THROUGH A GROUP. SPIN KEEPS",
+			"A DRILLED KUBB STEADY IN THE AIR." },
 		-- one line kept on screen while B holds the camera out (the panel folds
 		-- to a strip then; the RC review of 2026-11-15: its words went with it)
 		held = "B HELD: UP/DOWN THE ARC, LEFT/RIGHT TILT OR SPIN" },

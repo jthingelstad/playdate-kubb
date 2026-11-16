@@ -237,7 +237,7 @@ end)
 local function drillRest(px, L, seed)
 	local w = world.new { surface = "grass", stakes = false, groundSeed = seed }
 	local b = world.launchDrill(w, "p", px, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand, L.spin,
-		L.wobble, L.digGain)
+		L.wobble)
 	world.run(w)
 	return b, w
 end
@@ -256,7 +256,7 @@ test("plan: drill.solveAt at half past 1 (47 degrees) rests about on the target 
 			expect.near(sol.loft, 47, 1e-9)
 			local t = drill.tune
 			local b = drillRest(sol.x, { swivel = sol.swivel, loft = sol.loft, speed = sol.speed,
-				noseDown = t.noseDownDeg, rollLand = t.rollLandDeg, spin = 0, wobble = 0, digGain = t.digGain }, seed)
+				noseDown = t.noseDownDeg, rollLand = 0, spin = t.spiral, wobble = 0 }, seed)
 			local e = dist(b.x, b.y, m[1], m[2])
 			sum, n = sum + e, n + 1
 			along = along + (b.x - m[1]) * math.sin(sol.swivel) + (b.y - m[2]) * math.cos(sol.swivel)
@@ -280,13 +280,14 @@ test("plan: a planned drill from a stance rests on the target; spin and shake re
 	expect.truthy(sol.back > 95 and sol.back < 115, string.format("a 6 m drill at %.0f degrees back", sol.back))
 	local L = plan.launch(sol, cleanSwing(sol), { projectile = "kubb", spin = 0 }, {})
 	expect.near(L.speed, sol.speed, 1e-6)
-	expect.truthy(L.legal and L.tumble == 0 and L.spin == 0 and L.wobble == 0)
-	expect.eq(L.noseDown, drill.tune.noseDownDeg); expect.eq(L.digGain, drill.tune.digGain)
+	expect.truthy(L.legal and L.tumble == 0 and L.wobble == 0)
+	expect.near(L.spin, drill.tune.spiral, 1e-9, "only the wrist's natural spiral")
+	expect.eq(L.noseDown, drill.tune.noseDownDeg)
 	local b = drillRest(0.5, L, 3)
 	expect.truthy(dist(b.x, b.y, 0, 6) < 0.4, string.format("rests %.2f m off", dist(b.x, b.y, 0, 6)))
-	-- spin: + taps roll it right (positive spin about the forward axis, as drill's CUT_A)
+	-- spin: + taps spin it clockwise from behind (as drill's CUT_A), on top of the spiral
 	local R = plan.launch(sol, cleanSwing(sol), { projectile = "kubb", spin = 2 }, {})
-	expect.near(R.spin, 2 * plan.tune.spinPerStep, 1e-9)
+	expect.near(R.spin, 2 * plan.tune.spinPerStep + drill.tune.spiral, 1e-9)
 	-- a shaky drill wobbles, worse overpowered
 	local s1 = plan.launch(sol, cleanSwing(sol, { smoothness = 0.5 }), { projectile = "kubb" }, {})
 	local s2 = plan.launch(sol, cleanSwing(sol, { smoothness = 0.5, back = sol.powerHi + 20 }), { projectile = "kubb" }, {})

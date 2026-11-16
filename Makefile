@@ -11,7 +11,9 @@ PKSCORE  := $(or $(PK_KUBB_SCORE),$(HOME)/Projects/pk-kubb-score)
 
 PDX      := build/ThrowingWood.pdx
 OUT      := $(CURDIR)/build/selftest
-SIM_TIMEOUT := 60
+# Whole-match scenarios (cards, match-whole) play at the Simulator's pace: cards took
+# 163 s on 2026-11-16, so 60 s timed out runs that were only slow.
+SIM_TIMEOUT := 300
 
 # Every source/selftest/*.lua is a scenario except the runner and helpers named _*.
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
