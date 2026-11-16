@@ -275,7 +275,8 @@ text; times are `{ year, month, day, hour, min }` tables passed in (no `os.time`
     (each in id order); also for `nFE`/`BE`. None for `-`, `Z`, `E` alone, `K`, `=`, `G`,
     `X`, nor for a base kubb toppled early and raised (II.B.4a: not in the token).
   - An inkast: written once, as the batons begin (`Game:_inkastPositions`), when every
-    kubb is raised and every punishment kubb placed: each kubb thrown this turn that is in
+    kubb is raised and every punishment kubb placed (afresh if `match.settleStanding` moves
+    one before the first baton): each kubb thrown this turn that is in
     play, where it stands, in the order of its last throw, on the token of the player who
     made that throw (`k.inkBy`, `k.tossSeq`); a punishment kubb on the token that counts
     its P. A rescued kubb (Q) has the place it was thrown back in to; a kubb lowered from on
