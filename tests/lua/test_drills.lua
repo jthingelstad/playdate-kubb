@@ -2,6 +2,7 @@
 import "core/drills"
 import "core/world"
 import "core/drill"
+import "core/throwplan"
 local drills, world = tw.drills, tw.world
 
 test("drills: seven drills, each with a setup for its first throw", function()
@@ -296,24 +297,48 @@ test("drills: THE WALL's kept kubbs load into the physics lying where they reste
 	expect.near(res.bodies.stake4.x, 2.5, 1e-9)
 end)
 
-test("drills: THE WALL with real physics: clean drills stepping in from the stake build a wall", function()
-	local drill = tw.drill
-	local d = drills.byId("wall")
-	local run = drills.newRun(d)
-	for i = 1, 6 do
-		local s = drills.setup(d, run)
-		expect.eq(#s.pieces, i - 1, "every earlier kubb is a piece")
-		local sol = drill.solve(2.42 - (i - 1) * 0.09, 4.1, 0)
-		local L = drill.launch(sol, { power = sol.band, smoothness = 1, tilt = 0 }, 0)
-		local w = world.new { surface = "grass", pieces = s.pieces }
-		world.launchDrill(w, s.kubb, sol.x, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
-			L.spin, L.wobble, L.digGain)
-		world.run(w)
-		drills.tally(d, run, { bodies = world.result(w).bodies })
+test("drills: THE WALL with real physics: spun drills rolling in toward the stake build a wall", function()
+	-- Since 2026-11-16 a clean drill runs on from where it lands, so stepping
+	-- clean ones in from the stake no longer builds a wall (1.3 on average over
+	-- 20 grounds). Rolling them in with spin does: two taps aimed 0.5 m inward
+	-- of it built 2.8 on average over 20 grounds, 5 or 6 on eight of them and
+	-- none on six. Eight grounds here: a wall of a few on average, a long one
+	-- on some, and the clean way builds less.
+	local drill, plan = tw.drill, tw.plan
+	local function wall(seed, taps)
+		local d = drills.byId("wall")
+		local run = drills.newRun(d)
+		for i = 1, 6 do
+			local s = drills.setup(d, run)
+			expect.eq(#s.pieces, i - 1, "every earlier kubb is a piece")
+			local w = world.new { surface = "grass", pieces = s.pieces, groundSeed = seed * 100 + i }
+			local sol, L
+			if taps == 0 then
+				sol = drill.solve(2.42 - (i - 1) * 0.09, 4.1, 0)
+				L = drill.launch(sol, { power = sol.band, smoothness = 1, tilt = 0 }, 0)
+				sol = { x = sol.x, swivel = L.swivel, loft = L.loft, speed = L.speed }
+			else
+				sol = drill.solveAt(2.0, 4.05, 0, 47, {}, nil, "grass", taps * plan.tune.spinPerStep)
+				L = drill.body(1, 1, taps * plan.tune.spinPerStep, {})
+			end
+			world.launchDrill(w, s.kubb, sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
+				L.spin, L.wobble, L.digGain)
+			world.run(w)
+			drills.tally(d, run, { bodies = world.result(w).bodies })
+		end
+		expect.truthy(run.done)
+		return run.score
 	end
-	expect.truthy(run.done)
-	-- the desktop builds 4; a wall of a few, never the lot from six clean ones
-	expect.truthy(run.score >= 2 and run.score <= 6, "wall of " .. run.score)
+	local spun, clean, long = 0, 0, 0
+	for seed = 1, 8 do
+		local v = wall(seed, 2)
+		spun = spun + v
+		if v >= 4 then long = long + 1 end
+		clean = clean + wall(seed, 0)
+	end
+	expect.truthy(spun / 8 >= 1.5, string.format("two taps build %.2f on average", spun / 8))
+	expect.truthy(long >= 1, string.format("a wall of 4 or more on %d of 8 grounds", long))
+	expect.truthy(clean < spun, string.format("clean drills build %.2f, spun %.2f", clean / 8, spun / 8))
 end)
 
 test("drills: records keep DOUBLES and THE WALL like the others", function()

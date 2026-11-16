@@ -2,7 +2,9 @@
 -- the marker, the swing's power, smoothness and cut move it the right ways,
 -- and a drilled kubb that ends short or out goes through the toss rules.
 -- Real physics on grass; tolerances, not exact numbers (the device runs
--- 32-bit floats).
+-- 32-bit floats). Since 2026-11-16 a drill turns in the air and runs on from
+-- where it lands, a different way every throw, so most checks are averages
+-- over several seeded grounds.
 import "core/drill"
 import "core/world"
 import "core/match"
@@ -35,14 +37,26 @@ local MARKERS = {
 	middle = { { 0, 6 }, { 1.5, 5.5 }, { -2, 6.5 } },
 	far = { { 0, 8 }, { -2, 7.5 }, { 1, 8.4 } },
 }
-local CLEAN_TOL = 0.35 -- m: a clean in-band drill rests this close to the marker
+-- A clean drill does not stop where it lands (2026-11-16): it runs on, a
+-- different way every throw, and is aimed short by how far it runs on on
+-- average (drill.slideFor). So over several grounds it rests about on the
+-- marker, never all of them there.
+local GROUNDS = { 3, 7, 11, 19, 23, 29 }
 
-test("drill: a clean in-band swing rests near the marker, near, middle and far", function()
+test("drill: a clean in-band swing rests about on the marker on average, near, middle and far", function()
 	for name, list in pairs(MARKERS) do
 		for _, m in ipairs(list) do
-			local t = throwAt(m[1], m[2])
-			local e = dist(t.rest.x, t.rest.y, m[1], m[2])
-			expect.truthy(e < CLEAN_TOL, string.format("%s marker (%.1f, %.1f): rests %.2f m off", name, m[1], m[2], e))
+			local along, far, n = 0, 0, 0
+			for _, g in ipairs(GROUNDS) do
+				local t = throwAt(m[1], m[2], nil, nil, nil, g)
+				local ux, uy = math.sin(t.sol.swivel), math.cos(t.sol.swivel)
+				along = along + (t.rest.x - m[1]) * ux + (t.rest.y - m[2]) * uy
+				far = far + dist(t.rest.x, t.rest.y, m[1], m[2])
+				n = n + 1
+			end
+			local where = string.format("%s marker (%.1f, %.1f)", name, m[1], m[2])
+			expect.truthy(math.abs(along / n) < 0.45, string.format("%s: rests %+.2f m along on average", where, along / n))
+			expect.truthy(far / n < 0.9, string.format("%s: rests %.2f m off on average", where, far / n))
 		end
 	end
 end)
@@ -50,12 +64,18 @@ end)
 test("drill: the band edges stay close; under-power lands short and over-power long", function()
 	for _, m in ipairs { { 0, 4.5 }, { 1, 6 }, { -1, 7.5 } } do
 		local sol = drill.solve(m[1], m[2], 0)
+		-- where they land, against the clean throw (the run on after is the
+		-- ground's, not the swing's)
+		local clean = throwAt(m[1], m[2])
 		local edge = throwAt(m[1], m[2], { power = sol.band + drill.tune.bandHalf })
-		expect.truthy(dist(edge.rest.x, edge.rest.y, m[1], m[2]) < 0.6, "the top of the band still lands near")
+		expect.truthy(dist(edge.land.x, edge.land.y, clean.land.x, clean.land.y) < 0.3,
+			"the top of the band still lands near")
 		local short = throwAt(m[1], m[2], { power = sol.band - 0.2 })
 		local long = throwAt(m[1], m[2], { power = math.min(1, sol.band + 0.15) })
-		expect.truthy(short.land.y < m[2] - 0.7, string.format("short lands %.2f before %.1f", short.land.y, m[2]))
-		expect.truthy(long.land.y > m[2] + 0.4, string.format("long lands %.2f past %.1f", long.land.y, m[2]))
+		expect.truthy(short.land.y < clean.land.y - 0.7,
+			string.format("short lands %.2f before %.2f", short.land.y, clean.land.y))
+		expect.truthy(long.land.y > clean.land.y + 0.4,
+			string.format("long lands %.2f past %.2f", long.land.y, clean.land.y))
 		expect.eq(drill.judge(sol.band - 0.2, sol.band), "short")
 		expect.eq(drill.judge(sol.band + 0.15, sol.band), "long")
 		expect.eq(drill.judge(sol.band + 0.03, sol.band), "on")
@@ -74,9 +94,10 @@ end)
 test("drill: regular (A) and goofy (B) cuts curve opposite ways", function()
 	-- On the textured grass the cut is reliable but not certain, as on a real
 	-- lawn: over twelve grounds at each marker, A ends right of B at least
-	-- nine times in ten and they part by 8 cm or more on average (with the
-	-- grass texture of 2026-11-14: 59 of 60, 17 cm). Each cut also curls its
-	-- own way on average.
+	-- seven times in ten and they part by 8 cm or more on average (with the
+	-- grass texture of 2026-11-14 and drills that stopped dead: 59 of 60,
+	-- 17 cm; running on since 2026-11-16, the run's own scatter blurs it).
+	-- Each cut also curls its own way on average.
 	for _, m in ipairs { { 0, 5 }, { 0.5, 6.5 }, { -1, 8 } } do
 		local right, sep, sa, sb, n = 0, 0, 0, 0, 0
 		for seed = 1, 12 do
@@ -88,30 +109,42 @@ test("drill: regular (A) and goofy (B) cuts curve opposite ways", function()
 			sep, sa, sb, n = sep + (da - db), sa + da, sb + db, n + 1
 		end
 		local where = string.format("(%.1f, %.1f)", m[1], m[2])
-		expect.truthy(right >= 0.9 * n, string.format("A right of B at %s: %d of %d", where, right, n))
+		expect.truthy(right >= 0.7 * n, string.format("A right of B at %s: %d of %d", where, right, n))
 		expect.truthy(sep / n > 0.08, string.format("A and B part by %.3f m at %s", sep / n, where))
 		expect.truthy(sa / n > 0 and sb / n < 0, string.format("A %+.3f, B %+.3f m at %s", sa / n, sb / n, where))
 	end
 end)
 
-test("drill: a clean drill dies near its landing; a jerky one runs on farther", function()
-	local clean, jerky, n = 0, 0, 0
+test("drill: a clean drill runs on from where it lands, a different way each time; dead stops are rare", function()
+	-- Jamie, 2026-11-16: "When thrown they just stop dead on the ground ...
+	-- These would be rolling and wobbling a TON more." Over seeded grounds at
+	-- every marker: it runs on 0.2 to 1.5 m on average, spread out, almost
+	-- never stops within 5 cm of where its centre was at the first touch, and
+	-- often ends turned off the line of the throw. A jerky swing runs on too.
+	local dead, n, s, ss, turned = 0, 0, 0, 0, 0
+	local jerky, nj = 0, 0
 	for _, list in pairs(MARKERS) do
 		for _, m in ipairs(list) do
-			local c = throwAt(m[1], m[2])
-			local sc = dist(c.rest.x, c.rest.y, c.land.x, c.land.y)
-			expect.truthy(sc < 0.45, string.format("clean drill at (%.1f, %.1f) slides %.2f m", m[1], m[2], sc))
-			clean = clean + sc
-			for _, pull in ipairs { 1, -1 } do
-				local j = throwAt(m[1], m[2], { smoothness = 0.35, pull = pull })
-				jerky = jerky + dist(j.rest.x, j.rest.y, j.land.x, j.land.y)
+			for _, g in ipairs(GROUNDS) do
+				local c = throwAt(m[1], m[2], nil, nil, nil, g)
+				local d = dist(c.rest.x, c.rest.y, c.land.x, c.land.y)
+				n, s, ss = n + 1, s + d, ss + d * d
+				if d < 0.05 then dead = dead + 1 end
+				-- the long axis more than 20 degrees off the line of the throw
+				local ax, ay = abs(c.rest.r13), abs(c.rest.r23)
+				if abs(c.rest.r33) < 0.866 and math.deg(math.atan(ax, ay)) > 20 then turned = turned + 1 end
 			end
-			n = n + 1
+			local j = throwAt(m[1], m[2], { smoothness = 0.35, pull = 1 })
+			jerky, nj = jerky + dist(j.rest.x, j.rest.y, j.land.x, j.land.y), nj + 1
 		end
 	end
-	clean, jerky = clean / n, jerky / (2 * n)
-	expect.truthy(jerky > 3 * clean and jerky > 0.5,
-		string.format("jerky drills run on farther on average (clean %.2f m, jerky %.2f m)", clean, jerky))
+	local mean = s / n
+	local sd = math.sqrt(math.max(0, ss / n - mean * mean))
+	expect.truthy(mean > 0.2 and mean < 1.5, string.format("runs on %.2f m on average", mean))
+	expect.truthy(sd > 0.15, string.format("the run on spreads (sd %.2f m)", sd))
+	expect.truthy(dead <= 0.1 * n, string.format("dead stops %d of %d", dead, n))
+	expect.truthy(turned >= 0.25 * n, string.format("ends turned off the line %d of %d", turned, n))
+	expect.truthy(jerky / nj > 0.2, string.format("a jerky drill runs on %.2f m", jerky / nj))
 end)
 
 test("drill: the launch is from the baseline, the thrower behind the marker within the stakes", function()
@@ -124,10 +157,16 @@ test("drill: the launch is from the baseline, the thrower behind the marker with
 		local s = { world.drillLaunchState(sol.x, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand, L.spin, L.wobble) }
 		expect.near(s[2], 0, 1e-9, "released over the baseline")
 		expect.truthy(s[9] > 0, "moving downfield")
-		-- the long axis points forward and down the line of flight
+		-- with no spin and no turn the long axis holds its attitude: forward
+		-- and noseDownDeg down the line of flight
 		local qw, qx, qy, qz = s[4], s[5], s[6], s[7]
 		local az = 1 - 2 * (qx * qx + qy * qy)
 		expect.near(math.deg(math.asin(-az)), drill.tune.noseDownDeg, 1e-6, "nose down")
+		-- turning nose over in the air, it leaves the hand nose up
+		local p = { world.drillLaunchState(sol.x, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand, L.spin,
+			L.wobble, math.rad(drill.tune.pitchDps)) }
+		local az2 = 1 - 2 * (p[5] * p[5] + p[6] * p[6])
+		expect.truthy(math.deg(math.asin(-az2)) < -20, "nose up at release")
 	end
 	-- the marker area stays a little past the legal half
 	local x, y = drill.clampMarker(10, 20)
@@ -136,14 +175,19 @@ test("drill: the launch is from the baseline, the thrower behind the marker with
 	expect.truthy(x < -2.5 and y < 4, "short of the middle line too")
 end)
 
-test("drill: the baton and lob launches are unchanged by the drill's ground flags", function()
+test("drill: the baton and lob launches are unchanged by the drill's ground flags; only a spun drill rolls", function()
 	local w = world.new { surface = "grass", stakes = false }
 	for _, b in ipairs { world.launchKubb(w, "p", 0, 0, 0, 40, 6.5, 3), world.launchBaton(w, 0, 0, 0, 30, 8, 5, 0) } do
 		expect.eq(b.digGain, 1); expect.eq(b.edgeRound, 0); expect.eq(b.bumpGain, 1)
 		expect.truthy(b.digBySpin and not b.slipDrag, "a plain body")
 	end
-	local d = world.launchDrill(w, "d", 0, 0, 0, 47, 7, 15, -15, 22, 0, 25)
-	expect.eq(d.edgeRound, drill.tune.edgeRound); expect.truthy(not d.digBySpin and d.slipDrag, "a drilled kubb")
+	-- with planned spin the rolling body; without, a plain kubb on the ground
+	local d = world.launchDrill(w, "d", 0, 0, 0, 47, 7, 15, -15, 22, 0, 1)
+	expect.eq(d.edgeRound, drill.tune.edgeRound); expect.truthy(not d.digBySpin and d.slipDrag, "a spun drill")
+	expect.eq(d.digGain, drill.tune.spinDigGain)
+	local e = world.launchDrill(w, "e", 0, 0, 0, 47, 7, 15, -15, 0, 0, 1)
+	expect.eq(e.edgeRound, 0); expect.eq(e.digGain, 1); expect.eq(e.bumpGain, 1)
+	expect.truthy(e.digBySpin and not e.slipDrag, "an unspun drill is a plain kubb on the ground")
 end)
 
 -- ---------- the attitude and the planned spin (core/throwplan's drill) ----------
@@ -152,13 +196,15 @@ import "core/throwplan"
 local plan = tw.plan
 
 -- The plan's clean drill onto (mx, my) at a loft with `taps` of spin: the
--- centre at the first touch, the rest, and whether the nose touched first.
+-- centre at the first touch, the rest, whether the nose touched first, and
+-- the nose's angle below the horizontal at release and at the touch.
 local function planDrill(mx, my, loft, taps, surface, seed, pieces)
-	local sol = drill.solveAt(mx, my, 0, loft, {})
+	local sol = drill.solveAt(mx, my, 0, loft, {}, nil, surface or "grass", taps * plan.tune.spinPerStep)
 	local L = drill.body(1, 1, taps * plan.tune.spinPerStep, {})
 	local w = world.new { surface = surface or "grass", groundSeed = seed, pieces = pieces }
 	local b = world.launchDrill(w, "d", sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
 		L.spin, L.wobble, L.digGain)
+	local release = math.deg(math.asin(-b.r33))
 	local land, noseDown, nose
 	while not world.isAtRest(w) do
 		local ax, ay, az = b.r13, b.r23, b.r33
@@ -170,7 +216,7 @@ local function planDrill(mx, my, loft, taps, surface, seed, pieces)
 			nose = (fc.x - b.x) * ax + (fc.y - b.y) * ay + (fc.z - b.z) * az
 		end
 	end
-	return { land = land, rest = b, noseDown = noseDown, nose = nose, w = w }
+	return { land = land, rest = b, noseDown = noseDown, nose = nose, w = w, release = release }
 end
 
 local SPIN_MARKERS = { { -1, 4.8 }, { 0, 6 }, { 1, 7.2 } }
@@ -193,65 +239,107 @@ local function perTap(loft, surface, taps)
 	return side / n, fwd / n, worstFwd, wrong
 end
 
-test("drill: the kubb flies nose down and lands nose first, at every planned arc and spin", function()
-	for _, loft in ipairs { 30, 47, 57 } do
+test("drill: the kubb turns in the air: nose up at release, nose down at the touch", function()
+	-- Jamie, 2026-11-16: "the Kubbs are still 'flying' flat ... They change
+	-- angle in the air." Without spin it leaves the hand nose up along its
+	-- flight and comes over; the touch is noseDownDeg on average and varies
+	-- throw to throw. A fast spin holds the axis (a gyroscope): with three
+	-- taps it leaves the hand about as it lands, and lands nearly the same
+	-- every time.
+	for _, loft in ipairs { 30, 47 } do
 		for _, taps in ipairs { 0, 3 } do
-			local t = planDrill(0.5, 6, loft, taps, "grass", 5)
-			expect.near(t.noseDown, drill.tune.noseDownDeg, 0.5,
-				string.format("loft %d, %d taps: nose %.1f degrees down at the touch", loft, taps, t.noseDown))
-			expect.truthy(t.nose > 0.03, string.format("loft %d, %d taps: first touch %.3f m ahead of the centre",
-				loft, taps, t.nose))
+			local rel, s, ss, n, first = 0, 0, 0, 0, 0
+			for seed = 1, 12 do
+				local t = planDrill(0.5, 6, loft, taps, "grass", seed)
+				rel, s, ss, n = rel + t.release, s + t.noseDown, ss + t.noseDown * t.noseDown, n + 1
+				if t.nose > 0.03 then first = first + 1 end
+			end
+			local m = s / n
+			local sd = math.sqrt(math.max(0, ss / n - m * m))
+			local where = string.format("loft %d, %d taps: release %.0f, touch %.1f (sd %.1f) degrees down, nose first %d of %d",
+				loft, taps, rel / n, m, sd, first, n)
+			-- (the touch is noseDownDeg for the swing's own turn; the scatter
+			-- of the turn is not even about it)
+			expect.truthy(abs(m - drill.tune.noseDownDeg) < 10, where)
+			if taps == 0 then
+				expect.truthy(rel / n < -25, "nose up at release: " .. where)
+				expect.truthy(sd > 5, "the touch varies: " .. where)
+				expect.truthy(first >= 0.5 * n, "mostly nose first: " .. where)
+			else
+				expect.truthy(abs(rel / n - m) < 5, "the spin holds the axis: " .. where)
+				expect.truthy(sd < 3, "a spun drill lands the same: " .. where)
+				expect.eq(first, n, "nose first: " .. where)
+			end
 		end
 	end
 end)
 
-test("drill: planned spin rolls the kubb sideways, more with every tap, either way", function()
-	-- measured on grass at loft 47 (tools/spinwall.lua, 2026-11-15): 0.27, 0.61, 0.90 m
-	local lo = { [0] = -0.1, 0.15, 0.4, 0.7 }
-	local hi = { [0] = 0.1, 0.4, 0.8, 1.15 }
-	local last = -1
+test("drill: planned spin rolls the kubb sideways, more with more taps, either way", function()
+	-- Spun drills keep the rolling body (THE WALL). With the drill running on
+	-- since 2026-11-16 the single tap is the least sure: on some grounds the
+	-- bounce rolls it the wrong way. Two and three taps roll the spin's way.
+	local sides = {}
 	for taps = 0, 3 do
 		local side, fwd, worstFwd, wrong = perTap(47, "grass", taps)
-		local where = string.format("loft 47, %d taps: side %.2f m, forward %.2f m (worst %.2f)", taps, side, fwd, worstFwd)
-		expect.truthy(side >= lo[taps] and side <= hi[taps], where)
-		expect.truthy(side > last, "more with every tap: " .. where)
-		expect.truthy(worstFwd < (taps == 0 and 0.1 or 0.35), "the forward slide stays small: " .. where)
-		expect.eq(wrong, 0, "every drill rolls the spin's way: " .. where)
-		if taps > 0 then
+		local where = string.format("loft 47, %d taps: side %.2f m, forward %.2f m (worst %.2f), wrong %d of 9",
+			taps, side, fwd, worstFwd, wrong)
+		sides[taps] = side
+		if taps == 0 then
+			expect.truthy(abs(side) < 0.2, where)
+		else
+			expect.truthy(side > 0.1 and side < 1.3, where)
+			expect.truthy(wrong <= (taps == 1 and 4 or 2), "rolls the spin's way: " .. where)
 			local back = perTap(47, "grass", -taps)
-			expect.truthy(abs(back + side) < 0.15, string.format("-%d taps rolls %.2f m, +%d %.2f m", taps, back, taps, side))
+			-- the other way too, though not as evenly as when drills stopped
+			-- dead (the drill's roll on landing is one way)
+			expect.truthy(back < -0.1 and abs(back + side) < 0.5,
+				string.format("-%d taps rolls %.2f m, +%d %.2f m", taps, back, taps, side))
 		end
-		last = side
 	end
-	-- a low arc (loft 30) too: monotone, about as far
-	last = -1
-	for taps = 1, 3 do
-		local side = perTap(30, "grass", taps)
-		expect.truthy(side > last + 0.1, string.format("loft 30, %d taps: %.2f m", taps, side))
-		last = side
-	end
-	expect.truthy(last > 0.6 and last < 1.1, string.format("loft 30, 3 taps: %.2f m", last))
-	-- sand holds it: about half as far
+	expect.truthy(sides[3] > sides[1], string.format("3 taps %.2f m past 1 tap %.2f m", sides[3], sides[1]))
+	-- a low arc (loft 30) too
+	local l1, l3 = perTap(30, "grass", 1), perTap(30, "grass", 3)
+	expect.truthy(l3 > l1 and l3 > 0.4 and l3 < 1.3, string.format("loft 30: 1 tap %.2f m, 3 taps %.2f m", l1, l3))
+	-- sand holds it
 	local g3, s3 = perTap(47, "grass", 3), perTap(47, "sand", 3)
-	expect.truthy(s3 > 0.3 * g3 and s3 < 0.7 * g3, string.format("sand %.2f m against grass %.2f m", s3, g3))
+	expect.truthy(s3 < 0.9 * g3, string.format("sand %.2f m against grass %.2f m", s3, g3))
 end)
 
-test("drill: a rolling kubb stops against the stake and against a lying kubb", function()
+test("drill: a rolling kubb stops against the stake; a drill into a lying kubb stops by it", function()
 	-- the stake at (2.5, 4): two taps from 0.45 m inward
 	for _, seed in ipairs { 1, 2, 3 } do
 		local t = planDrill(2.05, 4.03, 47, 2, "grass", seed)
 		local b = t.rest
-		expect.truthy(b.x < 2.5 - 0.03 and b.x > 2.5 - 0.08 and abs(b.y - 4) < 0.05,
+		expect.truthy(b.x < 2.5 - 0.025 and b.x > 2.2 and abs(b.y - 4) < 0.12,
 			string.format("rests against the stake: (%.3f, %.3f)", b.x, b.y))
 	end
-	-- a kubb lying along the throw at (1, 5.5): two taps from 0.55 m to its left
+	-- a kubb lying along the throw at (1, 5.5): two taps from 0.55 m to its
+	-- left. Not every one reaches it now; none goes through it, and it barely
+	-- moves.
 	local h = math.sqrt(0.5)
-	for _, seed in ipairs { 1, 2, 3 } do
+	local reached = 0
+	for seed = 1, 6 do
 		local k = { id = "k", kind = "kubb", x = 1, y = 5.5, z = 0.035, qw = h, qx = -h, qy = 0, qz = 0, toppled = true }
 		local t = planDrill(0.45, 5.5, 47, 2, "grass", seed, { k })
 		local b, q = t.rest, t.w.byId.k
-		expect.truthy(b.x > 1 - 0.1 and b.x < 1 - 0.065, string.format("rests beside it: x %.3f", b.x))
-		expect.truthy(dist(q.x, q.y, 1, 5.5) < 0.03, "the lying kubb stays put")
+		if b.x > 0.85 then reached = reached + 1 end
+		expect.truthy(b.x < 1 - 0.03, string.format("never past it: x %.3f", b.x))
+		expect.truthy(dist(q.x, q.y, 1, 5.5) < 0.06, "the lying kubb barely moves")
+	end
+	expect.truthy(reached >= 2, string.format("reaches it %d of 6", reached))
+	-- a clean unspun drill landing just short of a lying kubb runs into it and
+	-- stops by it: the backstop the computer builds on
+	for seed = 1, 6 do
+		local k = { id = "k", kind = "kubb", x = 0, y = 6.4, z = 0.035, qw = 1, qx = 0, qy = 0, qz = 0, toppled = true }
+		local sol = drill.solveAt(0, 6.4, 0, 47, {}, nil, "grass", 0)
+		local L = drill.body(1, 1, 0, {})
+		local w = world.new { surface = "grass", groundSeed = seed, pieces = { k } }
+		local b = world.launchDrill(w, "d", sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
+			L.spin, L.wobble, L.digGain)
+		world.run(w)
+		local q = w.byId.k
+		expect.truthy(b.y < q.y + 0.35, string.format("stops by it, not past: y %.2f against %.2f", b.y, q.y))
+		expect.truthy(dist(q.x, q.y, 0, 6.4) < 0.5, "the struck kubb moves a little")
 	end
 end)
 

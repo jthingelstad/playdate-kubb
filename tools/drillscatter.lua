@@ -1,5 +1,5 @@
 -- What scatters the drilled kubbs? (AGENTS.md "What scatters a drilled kubb";
--- Jamie approved the measuring, 2026-11-16; no game changes.) Two parts:
+-- Jamie approved the measuring, 2026-11-16; no game changes.) Three parts:
 --
 -- 1. One drill into an empty far half, the computer's own throw at the
 --    basket: where it first touches the ground against its mark (the air:
@@ -11,7 +11,18 @@
 --    how far it moved the pieces it touched, and what the mark was (the
 --    basket itself or a spot beside the group).
 --
+-- 3. The landing (2026-11-16, Jamie: "When thrown they just stop dead on
+--    the ground"): the plan's clean drill (no swing mistakes) onto markers
+--    across the far half, on many grounds, at the drill's two arcs: how much
+--    its attitude changes in the air, how far it runs on from its first
+--    touch, how often it stops dead (rests within 5 cm of where its centre
+--    was at the first touch), how it ends (flat, on an end, propped) and how
+--    far its long axis is turned from the line of the throw, and how long it
+--    takes from the first touch to rest (simulated seconds).
+--
 --   lua5.4 tools/drillscatter.lua [--n 300] [--matches 40] [--seed 2]
+--     [--only 1|2|3] [--grounds 24] [--surface grass] [--set name=value ...]
+--   (--set: a number in drill.tune, or autothrow.tune as auto.name, for the run)
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -25,18 +36,37 @@ end
 import "core/match"
 import "core/world"
 import "core/autothrow"
+import "core/drill"
 local match, world, autothrow = tw.match, tw.world, tw.autothrow
 local fmt, sqrt = string.format, math.sqrt
 
-local n, matches, seed = 300, 40, 2
+local n, matches, seed, only, grounds, surfaceOnly = 300, 40, 2, nil, 24, nil
+local sets = {}
 local i = 1
 while i <= #arg do
 	local a = arg[i]
 	if a == "--n" then n = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "--matches" then matches = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "--seed" then seed = tonumber(arg[i + 1]); i = i + 1
+	elseif a == "--only" then only = tonumber(arg[i + 1]); i = i + 1
+	elseif a == "--grounds" then grounds = tonumber(arg[i + 1]); i = i + 1
+	elseif a == "--surface" then surfaceOnly = arg[i + 1]; i = i + 1
+	elseif a == "--set" then
+		-- a number in drill.tune (or autothrow.tune with "auto.") for the run
+		local k, v = arg[i + 1]:match("^([%w%.]+)=(.+)$")
+		sets[#sets + 1] = { k, tonumber(v) }
+		i = i + 1
 	else error("unknown argument " .. a) end
 	i = i + 1
+end
+
+for _, kv in ipairs(sets) do
+	local k, v = kv[1], kv[2]
+	if k:sub(1, 5) == "auto." then autothrow.tune[k:sub(6)] = v
+	else
+		assert(tw.drill.tune[k] ~= nil, "no drill.tune." .. k)
+		tw.drill.tune[k] = v
+	end
 end
 
 local START = { year = 2026, month = 11, day = 20, hour = 9, min = 0 }
@@ -70,6 +100,7 @@ local function firstToss()
 	end
 end
 
+if not only or only == 1 then
 print(fmt("drillscatter 1: one drill into an empty half, %d throws a row (cm; along is up the pitch)", n))
 print("  mistakes  ground    lands: along sd, across sd | travels: along mean sd, across sd | rests from mark: mean, along sd, across sd")
 do
@@ -106,7 +137,10 @@ do
 	end
 end
 
+end
+
 -- Part 2 ---------------------------------------------------------------
+if not only or only == 2 then
 
 local clean, hit = acc(), acc()          -- rest from mark: touched nothing, touched a piece
 local cleanOver, hitOver = 0, 0          -- ... and rested over 30 cm away
@@ -173,3 +207,77 @@ print(fmt("  touched a piece:        %s of drills; rest %.0f cm from the mark on
 	pct(hit.n, tosses), cm(mean(hit)), pct(hitOver, hit.n)))
 print(fmt("  pieces a drill touched: %d (%d lying, %d standing), moved %.0f cm on average, %s over 10 cm",
 	moved.n, hitLying, hitStanding, cm(mean(moved)), pct(movedOver, moved.n)))
+end
+
+-- Part 3 ---------------------------------------------------------------
+if not only or only == 3 then
+import "core/drill"
+import "core/throwplan"
+local drill = tw.drill
+local deg, asin, atan, abs = math.deg, math.asin, math.atan, math.abs
+local MX, MY = { -1.5, 0, 1.5 }, { 4.6, 5.5, 6.5, 7.5 }
+print(fmt("drillscatter 3: the plan's clean drill, %d markers x %d grounds (cm, degrees, s)", #MX * #MY, grounds))
+print("  ground  loft | nose at release, at touch (sd) turned | run on: mean sd p10 p50 p90 max, dead<5cm | rest from mark | flat end other, yaw 0-30 30-60 60-90 | touch to rest mean max")
+for _, surface in ipairs { "grass", "sand", "snow" } do
+	if not surfaceOnly or surfaceOnly == surface then
+	for _, loft in ipairs { 47, 30 } do
+		local rel, tch, turned, run, rest, ttr = acc(), acc(), acc(), acc(), acc(), acc()
+		local runs, dead, flat, onEnd, other, worstT = {}, 0, 0, 0, 0, 0
+		local yaw = { 0, 0, 0 }
+		for _, my in ipairs(MY) do
+			for _, mx in ipairs(MX) do
+				for g = 1, grounds do
+					local sol = drill.solveAt(mx, my, 0, loft, {})
+					local L = drill.body(1, 1, 0, {})
+					local w = world.new { surface = surface, groundSeed = g * 7919 + 13 }
+					local b = world.launchDrill(w, "d", sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
+						L.spin, L.wobble, L.digGain)
+					local n0 = deg(asin(-b.r33))
+					local ax0, ay0, az0 = b.r13, b.r23, b.r33
+					local land, n1, t1, ax1, ay1, az1
+					while not world.isAtRest(w) do
+						local az = b.r33
+						local qx, qy, qz = b.r13, b.r23, b.r33
+						world.step(w)
+						if w.firstContact and not land then
+							land, t1 = { x = b.x, y = b.y }, w.time
+							n1 = deg(asin(-az))
+							ax1, ay1, az1 = qx, qy, qz
+						end
+					end
+					add(rel, n0); add(tch, n1)
+					local dot = ax0 * ax1 + ay0 * ay1 + az0 * az1
+					if dot > 1 then dot = 1 elseif dot < -1 then dot = -1 end
+					add(turned, deg(math.acos(dot)))
+					local d = sqrt((b.x - land.x) ^ 2 + (b.y - land.y) ^ 2)
+					add(run, d); runs[#runs + 1] = d
+					if d < 0.05 then dead = dead + 1 end
+					add(rest, sqrt((b.x - mx) ^ 2 + (b.y - my) ^ 2))
+					local tt = w.time - t1
+					add(ttr, tt)
+					if tt > worstT then worstT = tt end
+					local r33 = abs(b.r33)
+					if r33 > 0.866 then onEnd = onEnd + 1
+					elseif r33 < 0.17 and (abs(b.r31) > 0.98 or abs(b.r32) > 0.98) then flat = flat + 1
+					else other = other + 1 end
+					if r33 < 0.866 then
+						local y = deg(atan(abs(b.r13), abs(b.r23)))
+						yaw[y < 30 and 1 or (y < 60 and 2 or 3)] = yaw[y < 30 and 1 or (y < 60 and 2 or 3)] + 1
+					end
+				end
+			end
+		end
+		table.sort(runs)
+		local N = #runs
+		local function q(p) return runs[math.max(1, math.floor(p * N + 0.5))] end
+		local ny = yaw[1] + yaw[2] + yaw[3]
+		print(fmt("  %-6s  %4d | %5.1f %5.1f (%4.1f) %5.1f | %5.1f %5.1f %5.1f %5.1f %5.1f %5.1f, %3.0f%% | %5.1f | %3.0f%% %3.0f%% %3.0f%%, %3.0f%% %3.0f%% %3.0f%% | %4.2f %4.2f",
+			surface, loft, mean(rel), mean(tch), sd(tch), mean(turned),
+			cm(mean(run)), cm(sd(run)), cm(q(0.1)), cm(q(0.5)), cm(q(0.9)), cm(runs[N]), 100 * dead / N,
+			cm(mean(rest)), 100 * flat / N, 100 * onEnd / N, 100 * other / N,
+			100 * yaw[1] / math.max(1, ny), 100 * yaw[2] / math.max(1, ny), 100 * yaw[3] / math.max(1, ny),
+			mean(ttr), worstT))
+	end
+	end
+end
+end

@@ -242,13 +242,16 @@ local function drillRest(px, L, seed)
 	return b, w
 end
 
-test("plan: drill.solveAt at half past 1 (47 degrees) rests near the target in real physics", function()
-	-- measured 2026-11-15 on grass: 0.04 m off on average, 0.05 m worst (nine
-	-- targets near to far, two grounds each)
-	local sum, worst, n = 0, 0, 0
+test("plan: drill.solveAt at half past 1 (47 degrees) rests about on the target in real physics", function()
+	-- A clean drill runs on from where it lands, a different way each throw
+	-- (2026-11-16), and solveAt aims short by how far it runs on on average.
+	-- Nine targets near to far, four grounds each: about on the target along
+	-- the throw on average, half a metre or so off on average, never wildly.
+	-- (When drills stopped dead, 2026-11-15: 0.04 m off on average.)
+	local sum, worst, n, along = 0, 0, 0, 0
 	for _, m in ipairs { { 0, 4.2 }, { 1.2, 4.5 }, { -1.5, 4.8 }, { 0, 6 }, { 1.5, 5.5 }, { -2, 6.5 },
 			{ 0, 8 }, { -2, 7.5 }, { 1, 8.4 } } do
-		for seed = 1, 2 do
+		for seed = 1, 4 do
 			local sol = drill.solveAt(m[1], m[2], 0, 47)
 			expect.near(sol.loft, 47, 1e-9)
 			local t = drill.tune
@@ -256,11 +259,13 @@ test("plan: drill.solveAt at half past 1 (47 degrees) rests near the target in r
 				noseDown = t.noseDownDeg, rollLand = t.rollLandDeg, spin = 0, wobble = 0, digGain = t.digGain }, seed)
 			local e = dist(b.x, b.y, m[1], m[2])
 			sum, n = sum + e, n + 1
+			along = along + (b.x - m[1]) * math.sin(sol.swivel) + (b.y - m[2]) * math.cos(sol.swivel)
 			if e > worst then worst = e end
 		end
 	end
-	expect.truthy(worst < 0.4, string.format("worst %.2f m off", worst))
-	expect.truthy(sum / n < 0.2, string.format("mean %.2f m off", sum / n))
+	expect.truthy(abs(along / n) < 0.25, string.format("rests %+.2f m along on average", along / n))
+	expect.truthy(sum / n < 0.7, string.format("mean %.2f m off", sum / n))
+	expect.truthy(worst < 2.5, string.format("worst %.2f m off", worst))
 	-- drill.solve is drill.solveAt at the distance's loft
 	local a, b = drill.solve(0.5, 6, 0), {}
 	drill.solveAt(0.5, 6, 0, a.loft, b)

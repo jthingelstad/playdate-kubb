@@ -91,7 +91,10 @@ local STAKE_X, STAKE_Y, STAKE_R = 2.5, 4, pitch.stakeRadius
 -- ---------------------------------------------------------------------------
 -- The launch
 
-local function solveAt(mx, my, loft) return drill.solveAt(mx, my, 0, loft, {}) end
+-- (aimed short by what it runs on with that spin on that ground: drill.slideFor)
+local function solveAt(mx, my, loft, surface, taps)
+	return drill.solveAt(mx, my, 0, loft, {}, nil, surface, (taps or 0) * PER)
+end
 
 local BODY = {}
 
@@ -172,7 +175,7 @@ local function rollTable(surface, loft, markers, grounds)
 		local side, roll, fwd, miss, hop = {}, {}, {}, {}, {}
 		local kinds, noses = { lying = 0, ["end"] = 0, other = 0 }, 0
 		for mi, m in ipairs(markers) do
-			local sol = solveAt(m[1], m[2], loft)
+			local sol = solveAt(m[1], m[2], loft, surface, k)
 			for gi, g in ipairs(grounds) do
 				local w = world.new { surface = surface, groundSeed = g }
 				drillInto(w, "d1", sol, k, out)
@@ -287,7 +290,7 @@ local function wallRun(loft, step)
 			local gaps, rys = {}, {}
 			for _, y in ipairs(YS) do
 				local sols = {}
-				for throw = 1, 3 do sols[throw] = solveAt(STAKE_X - o - (throw - 1) * (step or 0), y, loft) end
+				for throw = 1, 3 do sols[throw] = solveAt(STAKE_X - o - (throw - 1) * (step or 0), y, loft, "grass", k) end
 				for _, g in ipairs(WALL_GROUNDS) do
 					n = n + 1
 					local lying = {}   -- pieces at rest so far
