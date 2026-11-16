@@ -126,7 +126,7 @@ local function shove(surface, v, seed, texture)
 	return k.toppled, k.y - y0
 end
 
-test("ground: a standing kubb sliding on snow catches its foot and tips; a nudge leaves it standing", function()
+test("ground: a standing kubb sliding on snow ploughs at its foot and tips; a nudge leaves it standing", function()
 	-- flat snow is too slick to tip a sliding kubb (mu 0.25 against the 0.47
 	-- its footprint needs): it glides standing
 	local flatDown, flatSlide = shove("snow", 2, 1, false)
