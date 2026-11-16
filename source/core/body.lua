@@ -64,6 +64,7 @@ function body.new(kind, id)
 		r11 = 1, r12 = 0, r13 = 0, r21 = 0, r22 = 1, r23 = 0, r31 = 0, r32 = 0, r33 = 1,
 		i11 = 0, i12 = 0, i13 = 0, i22 = 0, i23 = 0, i33 = 0,
 		awake = false, sleepTime = 0, everAwake = false,
+		wokeStep = -1,       -- the step a touch woke it in (world.step wakes the group it rests against)
 		-- bounding sphere radius about the center
 		radius = (k.shape == 1) and sqrt(k.hx ^ 2 + k.hy ^ 2 + k.hz ^ 2) or (k.hl + k.r),
 		-- the outcome of the throw

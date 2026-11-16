@@ -305,8 +305,8 @@ into the turn's debris like the match scene's.
 
 `tools/compound.lua [--quick] [--games N] [--tilt deg]` asks whether one baton can take down
 two or three kubbs: a deterministic sweep of core/swing batons (power 0.6 to 1.0, lofts 20
-to 35) at pairs and triples side by side and pairs in line at 3, 7, 15 and 30 cm gaps across
-a sweep of aim offsets, a domino check, and the spacing of standing field kubbs in physics
+to 35) at pairs and triples side by side and pairs in line at 3, 7, 15 and 30 cm gaps, and
+rows of three and four end on (touching and 3 cm apart), across a sweep of aim offsets, a domino check, and the spacing of standing field kubbs in physics
 matches (about a minute; `--quick` about 10 s).
 
 ## Throwing order
@@ -861,7 +861,8 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.autothrow.tune` (`source/core/autothrow.lua`): the computer thrower's level, aim, basket
   and the synthetic swing's mistakes.
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
-  margin, bounce threshold and passes, wood-on-wood friction and bounce, sleep and wake
+  margin, bounce threshold and passes, wood-on-wood friction and bounce (`boxMu` between
+  two boxes), sleep and wake
   thresholds, topple angle, out margin, maximum throw time, stake height (0.15 m: a real stake, 6 inches out of the ground).
   `tw.world.surfaces`: one parameter set per ground (grass, sand, snow; ice is a marked
   placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
@@ -1070,6 +1071,32 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     higher for that reason. Not bit-identical: every throw with a baton touching a box or
     the ground, and every wood-on-wood bounce. Box-only scenarios without a bounce over
     0.4 m/s and the lone flight are unchanged (`test_loneflight` holds).
+- **Tight rows** (Jamie, 2026-11-15, from a web match: four field kubbs standing in a
+  row end on, and "my baton is just bouncing off of them"; "in a tournament I would have
+  hit all five down with one baton"). Two things were wrong:
+  - **A sleeper was a wall.** A sleeping body is immovable to the solver, and a touch woke
+    only the body touched: the kubb the baton struck woke, leaned on its sleeping neighbour
+    and stood braced against a wall for that step, so the blow went into the wall and was
+    gone (a 1.0 N s blow on the front of four touching kubbs left 0.07 N s in the row), and
+    the neighbour woke a step later to nothing. Now a body woken by a touch wakes every
+    sleeper it touches in the same step, and so on through the group (`world.step`, after
+    the pair loop; `b.wokeStep`). Nothing runs there in a step that wakes nobody, and a
+    piece standing clear of the others (over the 2 mm contact margin) is woken as before.
+  - **Kubb on kubb friction** was `pairMu` (0.4): a kubb tipped against its neighbour was
+    held up by the rub of its edge down the neighbour's face. Two boxes now meet at
+    `world.tune.boxMu` (0.2); a baton on anything keeps `pairMu`.
+  - **Measured** (`tools/compound.lua --quick`, which now sweeps rows of three and four
+    end on; before -> after): four touching, any kubb down 26% -> 81% of batons that hit
+    the row, all four 0% -> 22%; three touching, all three 1% -> 53%; four 3 cm apart, all
+    four 4% -> 24%; two in line and the side by side layouts within 2 points. The
+    computer's club throws at the row from that match (400): all four 1% -> 16%, none 44%
+    -> 37%; its near-clean throws (200): all four 3% -> 35%, none 23% -> 12%. 40 physics
+    matches (seed 2): 25.9 -> 22.5 turns, field kubbs 61% -> 63%. `make bench` is
+    unchanged. Not bit-identical: any throw where a woken piece touches a sleeper, or two
+    boxes rub. A throw at pieces standing apart that never meet is unchanged.
+  - Still true: a baton that clips the top of the front kubb mostly goes over the row, and
+    a low sweep slides the row upright more often than it trips it (a flat plane has no
+    turf to catch a sliding kubb's foot).
 - Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
   tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
   would save about 8% of a collision step but changes the feel, so it was not applied.

@@ -104,17 +104,18 @@ end
 -- Kubb centers for a layout at front face y0, group centered on x = 0.
 local function layout(kind, gap, y0)
 	local pieces, pitchStep = {}, SIDE + gap
-	local n = (kind == "triple") and 3 or 2
+	local row = (kind == "inline3") and 3 or (kind == "inline4") and 4 or (kind == "inline") and 2
+	local n = row or ((kind == "triple") and 3 or 2)
 	for k = 1, n do
 		local x, y
-		if kind == "inline" then
+		if row then
 			x, y = 0, y0 + SIDE / 2 + (k - 1) * pitchStep
 		else
 			x, y = (k - (n + 1) / 2) * pitchStep, y0 + SIDE / 2
 		end
 		pieces[k] = { id = "k" .. k, kind = "kubb", x = x, y = y, yaw = 0 }
 	end
-	local half = (kind == "inline") and SIDE / 2 or (n * SIDE + (n - 1) * gap) / 2
+	local half = row and SIDE / 2 or (n * SIDE + (n - 1) * gap) / 2
 	return pieces, n, half
 end
 
@@ -122,6 +123,10 @@ local LAYOUTS = {
 	{ kind = "pair", label = "2 side by side" },
 	{ kind = "triple", label = "3 side by side" },
 	{ kind = "inline", label = "2 one behind the other" },
+	-- a tight row end on (Jamie, 2026-11-15: four field kubbs in a row and the
+	-- baton bounced off); gap 0 is the row standing face to face
+	{ kind = "inline3", label = "3 one behind the other", gaps = { 0, 0.03 }, all = true },
+	{ kind = "inline4", label = "4 one behind the other", gaps = { 0, 0.03 }, all = true },
 }
 
 local t0 = os.clock()
@@ -131,8 +136,9 @@ print(fmt("2. Sweep: aim step %.0f cm, depths %s m short of landing, %d powers x
 	AIM_STEP * 100, table.concat(DEPTHS, "/"), #POWERS, #LOFTS, tilt))
 print("                                         toppled (scored)     | down          | toppled P>=2 by power")
 print("  layout                  gap  throws  hit  P>=1   P>=2   P3   | P>=2   P3     | 0.6    0.7    0.8    0.9    1.0")
+print("  (P3: all three of a triple; for the rows of 3 and 4, every kubb of the row)")
 for _, L in ipairs(LAYOUTS) do
-	for _, gap in ipairs(GAPS) do
+	for _, gap in ipairs(L.gaps or GAPS) do
 		local thrown, hit, f1, f2, f3, d2, d3 = 0, 0, 0, 0, 0, 0, 0
 		local hp, f2p = {}, {}
 		for pi, p in ipairs(POWERS) do
@@ -158,11 +164,11 @@ for _, L in ipairs(LAYOUTS) do
 							local fell = #r.toppled
 							if fell >= 1 then f1 = f1 + 1 end
 							if fell >= 2 then f2, f2p[pi] = f2 + 1, f2p[pi] + 1 end
-							if fell >= 3 then f3 = f3 + 1 end
+							if fell >= (L.all and n or 3) then f3 = f3 + 1 end
 							local down = 0
 							for k = 1, n do if isDown(r.bodies["k" .. k]) then down = down + 1 end end
 							if down >= 2 then d2 = d2 + 1 end
-							if down >= 3 then d3 = d3 + 1 end
+							if down >= (L.all and n or 3) then d3 = d3 + 1 end
 						end
 						o = o + AIM_STEP
 					end
@@ -172,7 +178,7 @@ for _, L in ipairs(LAYOUTS) do
 		local function pct(a, b) return b > 0 and fmt("%5.1f%%", 100 * a / b) or "    - " end
 		local byP = {}
 		for pi = 1, #POWERS do byP[pi] = pct(f2p[pi], hp[pi]) end
-		local tri = L.kind == "triple"
+		local tri = L.kind == "triple" or L.all
 		print(fmt("  %-22s %3.0fcm %5d %5d %s %s %s | %s %s | %s", L.label, gap * 100, thrown, hit,
 			pct(f1, hit), pct(f2, hit), tri and pct(f3, hit) or "    - ",
 			pct(d2, hit), tri and pct(d3, hit) or "    - ", table.concat(byP, " ")))
