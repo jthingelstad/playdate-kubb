@@ -63,11 +63,11 @@ world.tune = {
 	rollCap = 4,           -- a baton's rolling resistance takes the ground's impulse up to this
 	                       -- many times its weight a step (a landing's one hard step is far more)
 	restitutionIterations = 4, -- bounce passes (one pass over a flat landing's corners overshoots)
-	pairMu = 0.4,          -- wood on wood friction (guess; dry wood 0.25 to 0.5)
-	boxMu = 0.2,           -- friction between two boxes (kubb on kubb, the king; guess: wood sliding
-	                       -- on wood, 0.2). At pairMu a kubb tipped against its neighbour was held
-	                       -- up by the rub of its edge down the neighbour's face, and a tight row
-	                       -- stood through a blow that fells four kubbs (Jamie, 2026-11-15)
+	pairMu = 0.4,          -- wood on wood friction, every pair of pieces (kubb on kubb, the king, a baton,
+	                       -- a stake): clean dry wood on wood 0.25 to 0.5, oak on oak sliding 0.48 along
+	                       -- the grain and 0.32 across it (Engineering ToolBox, friction coefficients).
+	                       -- Kubb on kubb was 0.2 (wet wood) from 2026-11-15 to 2026-11-16 so a tight row
+	                       -- fell; at 0.4 it stands more (AGENTS.md, "Edge on edge")
 	pairE = 0.2,           -- wood on wood bounce (guess; 0.35 until 2026-11-15: a baton's bounce off a
 	                       -- standing kubb is applied with nothing holding the kubb's footing, so
 	                       -- part of it drove the kubb down and the ground threw it up; at 0.2,
@@ -1111,7 +1111,6 @@ function world.step(w)
 	-- 3. prepare: one record per contact with an awake body
 	local slop, pushRate, maxPush = t.slop, t.pushRate, t.maxPush
 	local warmF, pairMu, pairE = t.warm, t.pairMu, t.pairE
-	local boxMu = t.boxMu
 	local m = 0
 	for i = 1, n do
 		local a, b = cA[i], cB[i]
@@ -1335,11 +1334,7 @@ function world.step(w)
 				end
 				r[K_MN], r[K_MT1], r[K_MT2] = 1 / kn, 1 / k1, 1 / k2
 				r[K_V0] = v0
-				if cA[i].shape == 1 and cB[i].shape == 1 then
-					r[K_MU], r[K_E] = boxMu, pairE
-				else
-					r[K_MU], r[K_E] = pairMu, pairE
-				end
+				r[K_MU], r[K_E] = pairMu, pairE
 				r[K_LN] = 0
 			end
 		end

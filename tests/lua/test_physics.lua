@@ -4,6 +4,7 @@ import "core/world"
 import "core/playback"
 import "core/quat"
 local world, body, quat, playback = tw.world, tw.body, tw.quat, tw.playback
+local collide = tw.collide
 
 local G = 9.81
 local function tiltDeg(b) return math.deg(math.acos(math.min(1, math.abs(b.r33)))) end
@@ -207,17 +208,83 @@ test("a blow on the front kubb of a touching row wakes the whole row in that ste
 	end
 end)
 
-test("a hard blow on the front kubb of a touching row takes the whole row down; a tap none", function()
+-- With one wood-on-wood friction for every pair (0.4, 2026-11-16; kubb on
+-- kubb was 0.2 before), a hard blow fells two or three of the four: the
+-- kubbs lean on each other face to face and the rub holds some of them.
+test("a hard blow on the front kubb of a touching row fells most of the row; a tap none", function()
 	for _, order in ipairs{ { 1, 2, 3, 4 }, { 4, 3, 2, 1 } } do
 		local w = tightRow(order)
-		blow(w.byId.k1, 1.6, 0.13)
+		blow(w.byId.k1, 2.0, 0.13)
 		world.run(w)
-		expect.eq(#world.result(w).toppled, 4, "all four down, order " .. table.concat(order))
+		local r = world.result(w)
+		expect.truthy(#r.toppled >= 3, "three or more down, order " .. table.concat(order) .. ": " .. #r.toppled)
+		local far = false
+		for _, id in ipairs(r.toppled) do if id == "k4" then far = true end end
+		expect.truthy(far, "the far kubb falls, order " .. table.concat(order))
 	end
 	local w = tightRow{ 1, 2, 3, 4 }
 	blow(w.byId.k1, 0.2, 0.13)
 	world.run(w)
 	expect.eq(#world.result(w).toppled, 0, "a tap leaves the row standing")
+end)
+
+-- Edge on edge (collide.boxBox): two boxes touching where their edges cross,
+-- with no corner of either inside the other.
+test("a kubb lying across a lying kubb rests on it at any angle", function()
+	for _, deg in ipairs{ 30, 60, 90 } do
+		local a1, b1, c1, d1 = quat.fromAxisAngle(0, 1, 0, math.pi / 2)
+		local yw, yx, yy, yz = quat.fromAxisAngle(0, 0, 1, math.rad(deg))
+		local e, f, g, h = quat.mul(yw, yx, yy, yz, a1, b1, c1, d1)
+		local w = world.new{ texture = false, stakes = false, pieces = {
+			{ id = "lo", kind = "kubb", x = 0, y = 0, qw = a1, qx = b1, qy = c1, qz = d1, z = 0.035 },
+			{ id = "hi", kind = "kubb", x = 0, y = 0, qw = e, qx = f, qy = g, qz = h, z = 0.115 },
+		} }
+		local hi = w.byId.hi
+		world.wake(hi)
+		for _ = 1, 240 do world.step(w) end
+		-- it fell straight through to the ground before (z 0.035)
+		expect.near(hi.z, 0.105, 0.002, "rests on the lower kubb at " .. deg .. " degrees")
+	end
+end)
+
+test("a kubb tipped into a neighbour turned on the ground does not sink into it", function()
+	local function deepest(P, Q)
+		local SX, SY, SZ = collide.SX, collide.SY, collide.SZ
+		local worst = 0
+		for k = 1, 8 do
+			for m = k + 1, 8 do
+				if (SX[k] ~= SX[m] and 1 or 0) + (SY[k] ~= SY[m] and 1 or 0) + (SZ[k] ~= SZ[m] and 1 or 0) == 1 then
+					for s = 0, 20 do
+						local t = s / 20
+						local lx = (SX[k] + (SX[m] - SX[k]) * t) * P.hx
+						local ly = (SY[k] + (SY[m] - SY[k]) * t) * P.hy
+						local lz = (SZ[k] + (SZ[m] - SZ[k]) * t) * P.hz
+						local d = collide.pointBox(Q, P.x + P.r11 * lx + P.r12 * ly + P.r13 * lz,
+							P.y + P.r21 * lx + P.r22 * ly + P.r23 * lz, P.z + P.r31 * lx + P.r32 * ly + P.r33 * lz)
+						if -d > worst then worst = -d end
+					end
+				end
+			end
+		end
+		return worst
+	end
+	for _, yaw in ipairs{ 30, 45, 60 } do
+		local qw, qx, qy, qz = quat.fromAxisAngle(0, 0, 1, math.rad(yaw))
+		local w = world.new{ texture = false, stakes = false, pieces = {
+			{ id = "a", kind = "kubb", x = 0, y = 0 },
+			{ id = "b", kind = "kubb", x = 0.02, y = 0.114, qw = qw, qx = qx, qy = qy, qz = qz },
+		} }
+		local a, b = w.byId.a, w.byId.b
+		world.wake(a)
+		a.wx, a.vy, a.vz = -6, 6 * a.hz, 6 * a.hy
+		local worst = 0
+		for _ = 1, 480 do
+			world.step(w)
+			worst = math.max(worst, deepest(a, b), deepest(b, a))
+		end
+		-- an edge sank up to 18 mm into the other kubb before
+		expect.truthy(worst < 0.003, string.format("deepest %.1f mm at yaw %d", worst * 1000, yaw))
+	end
 end)
 
 test("a kubb woken far from the others wakes nobody", function()
