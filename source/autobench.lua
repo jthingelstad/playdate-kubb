@@ -474,6 +474,9 @@ local function body()
 	local m0 = kb()
 	local hitSteps = {}
 	s = throw.new(tw.input.scripted(hitSteps))
+	-- the plan's clean throw, as before the nerves: with them it misses, and
+	-- the impact and rest timings would be missing
+	s.nerves = false
 	hitScript(hitSteps, s)
 	throw.enter()
 	local mMax, frames2, thrown = m0, 0, false
