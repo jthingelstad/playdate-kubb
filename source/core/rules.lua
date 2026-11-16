@@ -199,6 +199,7 @@ function Game:_startTurn()
 	self.roundThrows = 0          -- kubbs thrown in the round not yet judged
 	self.judgment = nil           -- what the last judgment did (set by _judge)
 	self.lastTosser = nil
+	self.tossSeq = 0
 	self.sheet:beginTurn(self.turn, att)
 	-- II.B.2: the opponent left field kubbs standing in the attacker's own
 	-- half; the line runs through the center of the one closest to the
@@ -246,6 +247,38 @@ function Game:_next()
 			return
 		end
 		self.phase, self.current = "batons", nil
+		self:_inkastPositions()
+	end
+end
+
+-- Positions for the inkast tokens (written once, as the batons begin: every
+-- kubb thrown this turn is raised or placed by then). Each kubb a player
+-- threw this turn that is on the pitch now, where it stands, in the order
+-- of its last throw, on the token of the player who made that throw; a
+-- punishment kubb on the token that counts its P (core/notation caps them
+-- at the token's count). Kubbs out of play have none. A turn saved before
+-- positions has no inkBy on its kubbs: they go to its one inkaster, or
+-- nowhere when it had several.
+function Game:_inkastPositions()
+	local t = self.sheet.current
+	if not t or #t.inkastOrder == 0 then return end
+	local def = self.defender
+	local list = {}
+	for _, id in ipairs(self.ids) do
+		local k = self.kubbs[id]
+		if k.where == "pitch" and k.kind == "field" and k.half == def and (k.thrown or 0) > 0 then
+			list[#list + 1] = k
+		end
+	end
+	sort(list, function(a, b)
+		local sa, sb = a.tossSeq or 0, b.tossSeq or 0
+		if sa ~= sb then return sa < sb end
+		return a.id < b.id
+	end)
+	local only = #t.inkastOrder == 1 and t.inkastOrder[1] or nil
+	for _, k in ipairs(list) do
+		local pid = k.inkBy or only
+		if pid and t.inkast[pid] then self.sheet:inkAt(pid, k.pose.x, k.pose.y) end
 	end
 end
 
@@ -386,6 +419,7 @@ function Game:_judge(pid)
 				j.rethrow = j.rethrow + 1
 			else
 				k.where = "punish"
+				k.inkBy = pid          -- its position goes on the token that counts its P
 				self.punishQueue[#self.punishQueue + 1] = k.id
 				self.sheet:ink(pid, "P")
 				j.punish = j.punish + 1
@@ -416,6 +450,9 @@ function Game:toss(o, player)
 	end
 	self.lastTosser = pid
 	self.roundThrows = self.roundThrows + 1
+	-- who threw it last, and when (for the inkast positions)
+	self.tossSeq = (self.tossSeq or 0) + 1
+	k.inkBy, k.tossSeq = pid, self.tossSeq
 
 	if o.kingToppled then
 		k.where, k.kind, k.half = "pitch", "field", def
@@ -549,8 +586,8 @@ function Game:throwBaton(o, player)
 		if k.where ~= "pitch" then fail("piece " .. id .. " is not on the pitch") end
 	end
 
-	local function earlyKing(token, why)
-		self.sheet:baton(pid, token)
+	local function earlyKing(token, why, at)
+		self.sheet:baton(pid, token, at)
 		self.sheet:note("b" .. n .. " " .. why)
 		self:_finish(def, "king toppled early")
 	end
@@ -595,6 +632,7 @@ function Game:throwBaton(o, player)
 		if not toppled[k.id] then standingAfter = standingAfter + 1 end
 	end
 	local f, b, early = 0, 0, 0
+	local fAt, bAt = {}, {}   -- where the kubbs the token counts stood before the throw
 	local ids = {}
 	for id in pairs(toppled) do ids[#ids + 1] = id end
 	sort(ids)
@@ -602,6 +640,7 @@ function Game:throwBaton(o, player)
 		local k = self.kubbs[id]
 		if k.half == def and k.kind == "field" then
 			f = f + 1
+			fAt[#fAt + 1] = { x = k.pose.x, y = k.pose.y }
 			k.where = "hand"
 			self.hand[def][#self.hand[def] + 1] = id
 		elseif k.half == def and k.kind == "base" then
@@ -609,6 +648,7 @@ function Game:throwBaton(o, player)
 				early = early + 1   -- II.B.4a: raised where it was, still a base kubb
 			else
 				b = b + 1
+				bAt[#bAt + 1] = { x = k.pose.x, y = k.pose.y }
 				k.where = "hand"
 				self.hand[def][#self.hand[def] + 1] = id
 			end
@@ -639,6 +679,7 @@ function Game:throwBaton(o, player)
 			.. " out without toppling; put back (II.B.7)")
 	end
 
+	for _, p in ipairs(bAt) do fAt[#fAt + 1] = p end
 	if kingShot then
 		if kingDown then
 			self.sheet:baton(pid, "K")
@@ -649,9 +690,9 @@ function Game:throwBaton(o, player)
 		return self:_afterBaton()
 	end
 	if kingDown then
-		return earlyKing(notation.hitToken(f, b, true), "toppled the king early")
+		return earlyKing(notation.hitToken(f, b, true), "toppled the king early", fAt)
 	end
-	self.sheet:baton(pid, notation.hitToken(f, b, false))
+	self.sheet:baton(pid, notation.hitToken(f, b, false), fAt)
 	return self:_afterBaton()
 end
 

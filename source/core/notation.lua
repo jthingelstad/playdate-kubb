@@ -13,6 +13,13 @@
 --   N  every kubb that came to rest on top of another (II.D.6), at most 5
 --      per token (the grammar's limit).
 --   Y  never written: a failed rescue attempt is intent the game cannot see.
+--
+-- Positions (optional in the notation, written by the game since
+-- 2026-11-16): a comment that starts with @ straight after an inkast token
+-- or a baton token, "j:2I (@ 1.32,5.87 1.40,6.02)". The sheet keeps them as
+-- data beside the token in the engine's world frame (meters, x across
+-- -2.5..2.5, y from Team A's baseline); turnLine converts them with
+-- notation.pitchXY and never writes more than the token counts.
 import "core/tw"
 
 local floor, concat, fmt = math.floor, table.concat, string.format
@@ -161,6 +168,53 @@ function notation.hitToken(f, b, e)
 	return s
 end
 
+-- ---------- positions ----------
+
+-- The notation's frame from the engine's: the pitch seen from Team A's
+-- baseline in every turn, x meters across from the left sideline (0 to 5),
+-- y meters up from Team A's baseline (0 to 8). The engine's x runs across
+-- with the sidelines at -2.5 and 2.5, +x on the right of someone on Team A's
+-- baseline facing Team B (core/camera: a positive swivel aims toward +x, to
+-- the right), and its y is already up from Team A's baseline (y = 0). So it
+-- is a shift of x by half the width. Clamped to the pitch (a piece's centre
+-- on a line is in; the grammar has no minus sign).
+function notation.pitchXY(x, y)
+	local nx, ny = x + 2.5, y
+	if nx <= 0 then nx = 0 elseif nx > 5 then nx = 5 end
+	if ny <= 0 then ny = 0 elseif ny > 8 then ny = 8 end
+	return nx, ny
+end
+
+-- " (@ 1.32,5.87 1.40,6.02)" for at most `most` world-frame points
+-- { x, y } of list `at`; "" when there are none.
+function notation.positions(at, most)
+	if not at or #at == 0 or (most or 0) <= 0 then return "" end
+	local ps = {}
+	for i = 1, math.min(#at, most) do
+		local nx, ny = notation.pitchXY(at[i].x, at[i].y)
+		ps[i] = fmt("%.2f,%.2f", nx, ny)
+	end
+	return " (@ " .. concat(ps, " ") .. ")"
+end
+
+-- How many kubbs a token counts, as kubb.js reads it (its cap on positions):
+-- an inkast's I + R + P + Q + N, a baton's F + B.
+local function inkastCount(k)
+	local n = k.N or 0
+	if n > 5 then n = 5 end
+	return (k.I or 0) + (k.R or 0) + (k.P or 0) + (k.Q or 0) + n
+end
+
+local function batonCount(token)
+	local f = token:match("^(%d*)F")
+	local b = token:match("(%d*)BE?$")
+	local c = 0
+	if f then c = c + (f == "" and 1 or tonumber(f)) end
+	if b then c = c + (b == "" and 1 or tonumber(b)) end
+	return c
+end
+notation.batonCount = batonCount
+
 -- ---------- the score sheet ----------
 
 local Sheet = {}
@@ -195,9 +249,23 @@ function Sheet:advantage(meters)
 	self.current.advantage = meters
 end
 
-function Sheet:baton(pid, token)
+-- at: optional world-frame points { x, y } of the kubbs it knocked down,
+-- each where it stood before the throw (the token's F kubbs, then its B).
+function Sheet:baton(pid, token, at)
 	local b = self.current.batons
-	b[#b + 1] = { player = pid, token = token }
+	b[#b + 1] = { player = pid, token = token, at = (at and #at > 0) and at or nil }
+end
+
+-- Where a kubb player `pid` threw in this turn stood once raised (or
+-- placed), in world meters. Kept per player in t.inkastAt (absent in turns
+-- saved before positions).
+function Sheet:inkAt(pid, x, y)
+	local t = self.current
+	local at = t.inkastAt
+	if not at then at = {}; t.inkastAt = at end
+	local l = at[pid]
+	if not l then l = {}; at[pid] = l end
+	l[#l + 1] = { x = x, y = y }
 end
 
 function Sheet:note(text)
@@ -213,10 +281,12 @@ function notation.turnLine(t)
 		local k = t.inkast[pid]
 		if (k.N or 0) > 5 then notes[#notes + 1] = k.N .. " kubbs came to rest on another (N is capped at 5)" end
 		parts[#parts + 1] = pid .. ":" .. notation.inkastBody(k)
+			.. notation.positions(t.inkastAt and t.inkastAt[pid], inkastCount(k))
 	end
 	if t.advantage then parts[#parts + 1] = t.advantage .. "A" end
 	for _, b in ipairs(t.batons) do
-		parts[#parts + 1] = b.player and (b.player .. ":" .. b.token) or b.token
+		parts[#parts + 1] = (b.player and (b.player .. ":" .. b.token) or b.token)
+			.. notation.positions(b.at, batonCount(b.token))
 	end
 	for _, n in ipairs(t.notes) do notes[#notes + 1] = n end
 	local line = concat(parts, " ")

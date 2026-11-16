@@ -51,6 +51,20 @@ test("gamefile: a note after # is not counted as throws", function()
 	expect.eq(s.hits.B[2], 2)
 end)
 
+test("gamefile: positions are not throws; a game with them reads as it does without", function()
+	local text = read("2026-11-21-0855-team-a-v-team-b.txt")
+	expect.truthy(text:find("(@ ", 1, true), "the fixture has positions")
+	local s = assert(gamefile.parse(text))
+	local bare = assert(gamefile.parse((text:gsub(" %(@[^()]*%)", ""))))
+	expect.eq(s.turns, bare.turns); expect.eq(s.kingBaton, bare.kingBaton)
+	for _, side in ipairs { "A", "B" } do
+		expect.eq(s.hits[side][1], bare.hits[side][1]); expect.eq(s.hits[side][2], bare.hits[side][2])
+	end
+	-- Team A: - Z B Z | F - 2F B B B | 3F 2F F F B K: 16 thrown, 12 hits
+	expect.eq(s.hits.A[2], 16); expect.eq(s.hits.A[1], 12)
+	expect.eq(s.kingBaton, 6)
+end)
+
 test("gamefile: not a game file", function()
 	expect.eq((gamefile.parse("hello")), nil)
 	expect.eq((gamefile.parse(nil)), nil)

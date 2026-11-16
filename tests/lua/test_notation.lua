@@ -77,7 +77,9 @@ test("times: duration across midnight and month ends; file name", function()
 end)
 
 -- A whole game through the engine: II.B.1, II.B.2, II.B.4a, FB, rethrow,
--- II.D.6 (N), rescue (Q), king shots (= and K) and X.
+-- II.D.6 (N), rescue (Q), king shots (= and K) and X, with positions (each
+-- checked by hand against the script: engine x + 2.5, y as is; a kubb raised
+-- from lying at angle 0 stands 0.11 m along its axis, turn 4's b1 at -1.11).
 local EXPECTED = [[
 [Event "Throwing Wood"]
 [Location "Playdate"]
@@ -95,13 +97,13 @@ local EXPECTED = [[
 [Mode "Pass and Play"]
 [Rules "U.S. Championship 4.0, 2-4-6"]
 
-1. jamie:B jamie:-
-2. club:I club:- club:- club:- club:-
-3. 2A jamie:B jamie:B jamie:- jamie:Z jamie:- jamie:-
-4. club:2IRN club:F club:F club:F club:B club:- club:- # b2 toppled a base kubb early; raised (II.B.4a)
-5. jamie:4I jamie:F jamie:F jamie:- jamie:- jamie:- jamie:-
-6. club:2I 3A club:F club:FB club:B club:2B club:= club:=
-7. jamie:7IQ jamie:- jamie:- jamie:- jamie:- jamie:- jamie:-
+1. jamie:B (@ 2.50,8.00) jamie:-
+2. club:I (@ 3.00,2.50) club:- club:- club:- club:-
+3. 2A jamie:B (@ 0.50,8.00) jamie:B (@ 1.50,8.00) jamie:- jamie:Z jamie:- jamie:-
+4. club:2IRN (@ 1.39,2.00 1.67,2.14) club:F (@ 3.00,2.50) club:F (@ 1.39,2.00) club:F (@ 1.67,2.14) club:B (@ 0.50,0.00) club:- club:- # b2 toppled a base kubb early; raised (II.B.4a)
+5. jamie:4I (@ 2.50,6.00 1.50,6.00 3.50,6.00 0.50,5.00) jamie:F (@ 1.50,6.00) jamie:F (@ 3.50,6.00) jamie:- jamie:- jamie:- jamie:-
+6. club:2I (@ 2.50,2.00 3.50,2.00) 3A club:F (@ 2.50,2.00) club:FB (@ 3.50,2.00 1.50,0.00) club:B (@ 2.50,0.00) club:2B (@ 3.50,0.00 4.50,0.00) club:= club:=
+7. jamie:7IQ (@ 2.49,6.20 3.00,7.00 2.00,7.00 4.00,7.00 1.00,7.00 2.50,5.00 3.50,5.00) jamie:- jamie:- jamie:- jamie:- jamie:- jamie:-
 8. 3A club:= club:K X X X X
 ]]
 
