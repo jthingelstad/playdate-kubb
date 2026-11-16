@@ -33,6 +33,10 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   same files. It prints a count of the rare events it produced (rescues, punishment kubbs,
   early kings, helicopters and so on). Then it plays `PHYS_N` (5) matches with real physics
   (`tools/physmatch.lua`, see "Headless games") into `build/physgames/` and gates them too.
+- `make realgames`: plays `REAL_N` (150) physics matches (`REAL_SEED` 2) into
+  `build/realgames/` and prints their figures beside the same figures from the games people
+  scored in a pk-kubb-score checkout (`tools/realgames.mjs`, see "Real games"). Needs the
+  checkout, so it is not part of `make test`.
 - `make bench`: the physics benchmark on the desktop (`tools/bench.lua`, three runs of
   `core/bench`, prints each and the best; then the same three runs with a full turn's debris
   asleep on the pitch, and the difference). `lua5.4 tools/bench.lua [runs] [--profile]
@@ -308,6 +312,44 @@ two or three kubbs: a deterministic sweep of core/swing batons (power 0.6 to 1.0
 to 35) at pairs and triples side by side and pairs in line at 3, 7, 15 and 30 cm gaps, and
 rows of three and four end on (touching and 3 cm apart), across a sweep of aim offsets, a domino check, and the spacing of standing field kubbs in physics
 matches (about a minute; `--quick` about 10 s).
+
+## Real games
+
+Jamie (2026-11-15): "in a tournament I would have hit all five down with one baton". How far
+is the game from real play? `node tools/realgames.mjs <real dir> <game dir> [--json]` reads
+two folders of game files with the vendored `kubb.js` (`analyze`) and counts both the same
+way, so every figure has the same denominator on both sides: the 150 games people scored
+(`games/` of a pk-kubb-score checkout, read only) and matches the computer played with real
+physics (`tools/physmatch.lua --out`). `make realgames` does both. A measuring tool only: it
+changes nothing in the game, and what to tune from it is Jamie's call. A score sheet records
+what each baton took, not where anything stood or how it was thrown, so it says where the
+rates differ, never why; and the real games are tournament and club players, the game's
+are the computer at club level against itself.
+
+- **How it counts.** A baton is "at field kubbs" when a field kubb stood when it was thrown
+  (the turn's `startField` less what earlier batons took), "at base kubbs" when none did
+  and a base kubb was left; king shots are `K` and `=`; `X` is not a throw. Clearing the
+  field is kubb.js's `btc`. `make test` runs it over the fixtures against themselves (that
+  it runs, nothing more).
+- **First figures** (2026-11-16; 150 real games, 150 physics matches seed 2 after the foot
+  catch; real -> the game):
+  - Turns a game 8.9 (median 8) -> 21.9 (19); every real game ended on the king, 80% of
+    the game's (30 resigned at the 40-turn limit). The team that threw first won 55% -> 53%.
+  - **A baton at field kubbs**: missed 25% -> 37%; took one 49% -> 56%; took two 16% -> 7%;
+    three or more 10% -> 0.4%; of those that hit, two or more 34% -> 11%; field kubbs a
+    baton 1.16 -> 0.71; the most with one baton 7 -> 4.
+  - **Clearing the field**: 83% of turns -> 46%, in 3.4 batons -> 4.2. By kubbs to clear:
+    three 92% -> 86%, four 88% -> 62%, five 85% -> 40%, six 79% -> 22%, eight 68% -> 4%.
+    Up to three kubbs the game is near real play; past that it falls away, which is the
+    doubles and triples missing. A turn thrown from an advantage line 14% -> 50%.
+  - **A baton at base kubbs**: 35% -> 45% (from the baseline 33% -> 41%; from an advantage
+    line 52% -> 54%). The computer is better than real players at 8 m.
+  - **The king**: 84% of 179 shots -> 46% of 259.
+  - **Kubbs thrown in**: rethrown 14% -> 2.5%, punishment kubbs 1.3% -> 0.1%. Real players
+    throw at a tighter group and miss it more; the computer's basket is safe.
+  - What it does not show: the real players' groups (how close their kubbs lie, which is
+    most of why they take three with a baton), or how much is the thrower (the computer
+    aims at the nearest kubb's centre, never to rake a row) and how much the physics.
 
 ## Throwing order
 
