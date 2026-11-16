@@ -113,9 +113,10 @@ world.tune = {
 --               seed (world.groundSeed), read only when a contact is new:
 --     muVar, eVar, digVar  a patch's friction, bounce and dig vary by up to
 --               this share either way (clumps, bare spots, soft ground)
---     bump      a steep landing (approach faster than bumpSpeed m/s) is turned
---               sideways by up to bump times its approach speed, as off a patch
---               tilted a few degrees (its travel only, no spin)
+--     bump      the patch's tilt: a steep landing (approach faster than
+--               bumpSpeed m/s) meets ground sloped up to bump (times its
+--               steepness squared) each way, and that step's push and friction
+--               lean with it, so it is turned and nothing is added
 --     drag      1/s: a lying piece or a baton touching the ground loses this
 --               share of its ground speed a second (the blades hold it)
 --     grip, gripSpeed  1/s and m/s: and this much more a second below
@@ -636,8 +637,9 @@ local function solve(tk)
 				awz = awz + d1 * r[K_WA1Z] + d2 * r[K_WA2Z]
 			end
 			a.vx, a.vy, a.vz, a.wx, a.wy, a.wz = avx, avy, avz, awx, awy, awz
-		elseif kind == 3 then
-			-- B asleep or static: nothing moves on its side
+		elseif kind >= 3 then
+			-- B asleep or static, or a landing on a tilted patch (4): nothing
+			-- moves on the other side
 			local nx, ny, nz = r[K_NX], r[K_NY], r[K_NZ]
 			local vn = avx * nx + avy * ny + avz * nz
 				+ awx * r[K_ANX] + awy * r[K_ANY] + awz * r[K_ANZ]
@@ -1186,6 +1188,7 @@ function world.step(w)
 				local mu, e = surf.mu, surf.e
 				local dig, bite
 				local biteVar = 0
+				local sx, sy = 0, 0
 				local ln, l1, l2 = 0, 0, 0
 				if a.gStamp[k] == stamp - 1 then
 					dig = a.gDig[k]
@@ -1212,18 +1215,18 @@ function world.step(w)
 						u4, u5 = (h2 & 1023) / 511.5 - 1, ((h2 >> 10) & 1023) / 511.5 - 1
 						biteVar = u3
 						a.gMf[k], a.gEf[k] = 1 + tex.muVar * u1, 1 + tex.eVar * u2
-						-- a bump: a steep landing is turned a little sideways, as off a
-						-- patch tilted a few degrees (the travel only: applied at the
-						-- contact point it gave an edge landing a wild spin)
-						-- (scaled by how steeply it comes in: a low skidding drill is
-						-- barely turned, a baton dropping end first is)
+						-- a bump: the patch is tilted a few degrees (slope up to bump
+						-- each way), and a landing faster than bumpSpeed meets it: its
+						-- push that step is along the tilted normal (below), so it is
+						-- turned, and nothing is added (the ground stays the plane z = 0)
+						-- (the slope is scaled by how steeply it comes in: a low
+						-- skidding drill barely feels it, a baton dropping end first does)
 						if v0 < -tex.bumpSpeed then
 							local vt1 = avx + awy * raz - awz * ray
 							local vt2 = avy + awz * rax - awx * raz
 							local steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
-							local k = -v0 * tex.bump * steep * steep
-							avx, avy = avx + k * u4, avy + k * u5
-							a.vx, a.vy = avx, avy
+							steep = tex.bump * steep * steep
+							sx, sy = steep * u4, steep * u5
 						end
 					else
 						a.gMf[k], a.gEf[k] = 1, 1
@@ -1272,6 +1275,39 @@ function world.step(w)
 					a.wx = awx + ln * r[K_WANX] + l1 * r[K_WA1X] + l2 * r[K_WA2X]
 					a.wy = awy + ln * r[K_WANY] + l1 * r[K_WA1Y] + l2 * r[K_WA2Y]
 					a.wz = awz + ln * r[K_WANZ] + l1 * r[K_WA1Z] + l2 * r[K_WA2Z]
+				elseif sx ~= 0 or sy ~= 0 then
+					-- a landing on a tilted patch (new, so nothing to warm start): this
+					-- step's contact takes the patch's normal, as a contact with a
+					-- static body does (kind 4: solved as kind 3, stored as the ground)
+					r[K_KIND] = 4
+					local l = 1 / sqrt(sx * sx + sy * sy + 1)
+					local nx, ny, nz = -sx * l, -sy * l, l
+					r[K_NX], r[K_NY], r[K_NZ] = nx, ny, nz
+					-- tangents (nx is small: t1 = (0, nz, -ny), t2 = n x t1)
+					l = 1 / sqrt(nz * nz + ny * ny)
+					local t1x, t1y, t1z = 0, nz * l, -ny * l
+					local t2x, t2y, t2z = ny * t1z - nz * t1y, nz * t1x - nx * t1z, nx * t1y - ny * t1x
+					r[K_T1X], r[K_T1Y], r[K_T1Z], r[K_T2X], r[K_T2Y], r[K_T2Z] = t1x, t1y, t1z, t2x, t2y, t2z
+					local jx, jy, jz = ray * nz - raz * ny, raz * nx - rax * nz, rax * ny - ray * nx
+					local wx = i11 * jx + i12 * jy + i13 * jz
+					local wy = i12 * jx + i22 * jy + i23 * jz
+					local wz = i13 * jx + i23 * jy + i33 * jz
+					r[K_ANX], r[K_ANY], r[K_ANZ], r[K_WANX], r[K_WANY], r[K_WANZ] = jx, jy, jz, wx, wy, wz
+					local kn = ima + (jx * wx + jy * wy + jz * wz)
+					jx, jy, jz = ray * t1z - raz * t1y, raz * t1x - rax * t1z, rax * t1y - ray * t1x
+					wx = i11 * jx + i12 * jy + i13 * jz
+					wy = i12 * jx + i22 * jy + i23 * jz
+					wz = i13 * jx + i23 * jy + i33 * jz
+					r[K_A1X], r[K_A1Y], r[K_A1Z], r[K_WA1X], r[K_WA1Y], r[K_WA1Z] = jx, jy, jz, wx, wy, wz
+					local k1 = ima + (jx * wx + jy * wy + jz * wz)
+					jx, jy, jz = ray * t2z - raz * t2y, raz * t2x - rax * t2z, rax * t2y - ray * t2x
+					wx = i11 * jx + i12 * jy + i13 * jz
+					wy = i12 * jx + i22 * jy + i23 * jz
+					wz = i13 * jx + i23 * jy + i33 * jz
+					r[K_A2X], r[K_A2Y], r[K_A2Z], r[K_WA2X], r[K_WA2Y], r[K_WA2Z] = jx, jy, jz, wx, wy, wz
+					local k2 = ima + (jx * wx + jy * wy + jz * wz)
+					r[K_MN], r[K_MT1], r[K_MT2] = 1 / kn, 1 / k1, 1 / k2
+					r[K_V0] = avx * nx + avy * ny + avz * nz + awx * r[K_ANX] + awy * r[K_ANY] + awz * r[K_ANZ]
 				end
 			else
 				r[K_NX], r[K_NY], r[K_NZ] = nx, ny, nz
@@ -1475,11 +1511,17 @@ function world.step(w)
 	for i = 1, m do
 		local r = REC[i]
 		local idx = r[K_IDX]
-		if r[K_KIND] == 1 then
+		local kind = r[K_KIND]
+		if kind == 1 or kind == 4 then
 			local a = r[K_A]
 			local k = cSlot[idx]
 			local ln = r[K_LN]
-			a.gStamp[k], a.gN[k], a.gT1[k], a.gT2[k] = stamp, ln, r[K_LT1], r[K_LT2]
+			local l1, l2 = r[K_LT1], r[K_LT2]
+			if kind == 4 then
+				-- (its friction in the ground's x and y, for next step's warm start)
+				l1, l2 = l1 * r[K_T1X] + l2 * r[K_T2X], l1 * r[K_T1Y] + l2 * r[K_T2Y]
+			end
+			a.gStamp[k], a.gN[k], a.gT1[k], a.gT2[k] = stamp, ln, l1, l2
 			a.groundImpulse = a.groundImpulse + ln
 			if r[K_LNMAX] > 0 and a == proj and not w.firstContact then
 				noteContact(w, a, nil, cPx[idx], cPy[idx], cPz[idx])

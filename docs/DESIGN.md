@@ -280,7 +280,9 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
 - **Ground:** the surface is a game option chosen per game (Jamie, 2026-11-13: "Kubb plays
   very different based on the surface"), and each surface is one set of contact parameters:
   friction, bounce, and a "dig" term that takes extra energy when a corner or edge arrives
-  steeply.
+  steeply. No surface is even: small patches vary in friction, bounce and dig, and each is
+  tilted a few degrees, so a steep landing is turned a little one way or another (never
+  sped up).
   - **Grass:** high friction, little bounce, moderate dig, and a bite: an edge that strikes
     steeply cuts in and is held for a moment. A drill runs on about a metre (2026-11-16; it
     used to die where it landed). Batons skid and can steamroll.
