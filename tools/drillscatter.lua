@@ -227,7 +227,7 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 		for _, my in ipairs(MY) do
 			for _, mx in ipairs(MX) do
 				for g = 1, grounds do
-					local sol = drill.solveAt(mx, my, 0, loft, {})
+					local sol = drill.solveAt(mx, my, 0, loft, {}, nil, surface)
 					local L = drill.body(1, 1, 0, {})
 					local w = world.new { surface = surface, groundSeed = g * 7919 + 13 }
 					local b = world.launchDrill(w, "d", sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,

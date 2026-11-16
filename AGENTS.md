@@ -1764,8 +1764,8 @@ the throw scene with `s.drill` on.
   So it bounces, tumbles, wobbles and runs on: on grass at half past 1 a mean 0.45 m
   (p10 0.07, p90 0.85, max 2.6), at loft 30 0.84 m; dead stops (under 5 cm) 6% at half past
   1 and none at loft 30; it ends turned every way (yaw to the throw 0-30 / 30-60 / 60-90:
-  48 / 29 / 23%). Sand kills most of it (0.15 m at half past 1, 40% dead) and snow lets it
-  run (0.90 m). A drill with planned spin of `rollSpin` (10 rad/s) or more keeps the
+  48 / 29 / 23%). Sand kills most of it (0.16 m at half past 1, 38% dead) and snow lets it
+  run (0.82 m). A drill with planned spin of `rollSpin` (10 rad/s) or more keeps the
   rolling body the spin roll needs (THE WALL): `edgeRound` (0.032 m: its long edges meet
   the ground rounded, `collide.groundBox`), `digBySpin = false`, `plugGain` (10: the
   plug's rolling resistance holds its tumble and turn, never its roll about the long
@@ -1807,8 +1807,8 @@ the throw scene with `s.drill` on.
   bit-identical to before; every other body is. Since 2026-11-16 a drill with no spin is a
   plain kubb on the ground already, so the rule changes only its scatter (none) and a spun
   drill's body. Touch to rest (drillscatter part 3, grass): 0.59 s mean, 1.41 s worst at
-  half past 1 (0.31 and 0.59 before), 0.66 and 1.29 s at loft 30; snow is the slowest (0.97
-  s mean, 1.93 worst).
+  half past 1 (0.31 and 0.59 before), 0.66 and 1.29 s at loft 30; snow is the slowest (0.96
+  s mean at loft 30, 2.02 worst at half past 1).
 - **Measured** (`tools/spinwall.lua --quick`, the plan's clean drill aimed with the spin's
   allowance, 3 markers x 2 grounds; side = rest x against the 0-tap drill's, fwd = rest y
   from the first touch, the mean of + and - taps signed toward the spin; 2026-11-16 against
