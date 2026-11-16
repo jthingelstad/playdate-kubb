@@ -126,14 +126,12 @@ world.tune = {
 --               share of its ground speed a second (the blades hold it)
 --     grip, gripSpeed  1/s and m/s: and this much more a second below
 --               gripSpeed, so it stops instead of creeping
---     trip      rad/s^2 per m/s: a baton sliding upright on an end (within
---               30 degrees) faster than tripSpeed is tipped toward the way it
---               is going, as its foot catches
---     footMu, footSpeed  (optional; snow) a kubb or the king standing
---               (within 30 degrees of upright) whose foot slides faster than
---               footSpeed m/s ploughs: a resistance at the foot of at most
---               footMu times the ground's push, so it tips the way it is
---               going where the surface's own friction is too low to tip it
+--     footMu, footSpeed  (optional; snow) a piece standing on an end
+--               (within 30 degrees of upright: a kubb, the king or a baton)
+--               whose foot slides faster than footSpeed m/s ploughs: a
+--               resistance at the foot of at most footMu times the ground's
+--               push, so it tips the way it is going where the surface's own
+--               friction is too low to tip it
 --     bite      an edge or corner that strikes the turf cuts into it and is
 --               held sideways by it: an extra friction coefficient on that
 --               contact, ramped like dig by the edge's own arrival speed and
@@ -149,7 +147,7 @@ world.surfaces = {
 		bite = 0.7, biteTime = 0.05,
 		roll = 0.01,
 		texture = { cell = 0.25, muVar = 0.3, eVar = 0.5, digVar = 0.5, bump = 0.12, bumpSpeed = 0.8,
-			drag = 2.5, grip = 12, gripSpeed = 0.5, trip = 60, tripSpeed = 0.15 },
+			drag = 2.5, grip = 12, gripSpeed = 0.5 },
 	},
 	-- sand (DESIGN 5): very high dig, almost no bounce or slide; pieces plug where
 	-- they land, so placement is all in the air. Its texture: soft and packed
@@ -161,7 +159,7 @@ world.surfaces = {
 		bite = 2, biteTime = 0.1,
 		roll = 0.03,
 		texture = { cell = 0.2, muVar = 0.25, eVar = 0.4, digVar = 0.7, bump = 0.18, bumpSpeed = 0.6,
-			drag = 6, grip = 20, gripSpeed = 0.6, trip = 120, tripSpeed = 0.1 },
+			drag = 6, grip = 20, gripSpeed = 0.6 },
 	},
 	-- snow (Jamie, 2026-11-14): packed snow is slick to a fast piece, but soft:
 	-- a steep landing plugs, almost nothing bounces, and a sliding piece ploughs
@@ -173,7 +171,7 @@ world.surfaces = {
 		bite = 0, biteTime = 0.05,
 		roll = 0.004,
 		texture = { cell = 0.3, muVar = 0.5, eVar = 0.3, digVar = 0.8, bump = 0.1, bumpSpeed = 0.8,
-			drag = 0.6, grip = 4, gripSpeed = 0.3, trip = 70, tripSpeed = 0.15, plough = 1.5,
+			drag = 0.6, grip = 4, gripSpeed = 0.3, plough = 1.5,
 			footMu = 0.3, footSpeed = 0.3 },
 	},
 	-- ICE (stage 7, not built): very low friction for the Minnesota slide,
@@ -1549,41 +1547,37 @@ function world.step(w)
 					local v2 = vx * vx + vy * vy
 					if v2 > 1e-8 then
 						if r33 > COS_END then
-							-- upright on an end and sliding: a baton's foot catches and it
-							-- tips toward the way it is going (axis z x v)
-							if b.shape == 2 and v2 > tex.tripSpeed * tex.tripSpeed then
-								local k = tex.trip * dt
-								b.wx, b.wy = b.wx - k * vy, b.wy + k * vx
-							elseif b.shape == 1 then
-								-- a kubb (or the king) standing and sliding on snow: its foot
-								-- sinks into the snow and ploughs it, a resistance at the foot
-								-- against the slip of the point under its centre, no more than
-								-- footMu times the ground's push this step (Coulomb, like the
-								-- corners' friction) and never past stopping the slip, so it
-								-- slows the piece and tips it the way it is going
-								local fm = tex.footMu
-								if fm then
-									local h = b.z
-									local wx, wy = b.wx, b.wy
-									local sx, sy = vx - h * wy, vy + h * wx
-									local s2 = sx * sx + sy * sy
-									if s2 > tex.footSpeed * tex.footSpeed then
-										local im = b.im
-										local jx = -sx / (im + h * h * b.i22)
-										local jy = -sy / (im + h * h * b.i11)
-										local j2 = jx * jx + jy * jy
-										local cap = fm * gi
-										if j2 > cap * cap then
-											local f = cap / sqrt(j2)
-											jx, jy = jx * f, jy * f
-										end
-										-- r = (0, 0, -h): r x J = (h jy, -h jx, 0)
-										local tx, ty = h * jy, -h * jx
-										b.vx, b.vy = vx + im * jx, vy + im * jy
-										b.wx = wx + b.i11 * tx + b.i12 * ty
-										b.wy = wy + b.i12 * tx + b.i22 * ty
-										b.wz = b.wz + b.i13 * tx + b.i23 * ty
+							-- a piece standing on an end and sliding on snow (a kubb, the
+							-- king, a baton): its foot sinks into the snow and ploughs it,
+							-- a resistance at the foot against the slip of the point under
+							-- its centre, no more than footMu times the ground's push this
+							-- step (Coulomb, like the corners' friction) and never past
+							-- stopping the slip, so it slows the piece and tips it the way
+							-- it is going. Elsewhere the friction at the foot alone tips a
+							-- piece sliding on an end (a baton's trip, a spin added with
+							-- nothing pushed back, went 2026-11-16)
+							local fm = tex.footMu
+							if fm then
+								local h = b.z
+								local wx, wy = b.wx, b.wy
+								local sx, sy = vx - h * wy, vy + h * wx
+								local s2 = sx * sx + sy * sy
+								if s2 > tex.footSpeed * tex.footSpeed then
+									local im = b.im
+									local jx = -sx / (im + h * h * b.i22)
+									local jy = -sy / (im + h * h * b.i11)
+									local j2 = jx * jx + jy * jy
+									local cap = fm * gi
+									if j2 > cap * cap then
+										local f = cap / sqrt(j2)
+										jx, jy = jx * f, jy * f
 									end
+									-- r = (0, 0, -h): r x J = (h jy, -h jx, 0)
+									local tx, ty = h * jy, -h * jx
+									b.vx, b.vy = vx + im * jx, vy + im * jy
+									b.wx = wx + b.i11 * tx + b.i12 * ty
+									b.wy = wy + b.i12 * tx + b.i22 * ty
+									b.wz = b.wz + b.i13 * tx + b.i23 * ty
 								end
 							end
 						elseif b.shape == 2 or r33 < 0.5 then
