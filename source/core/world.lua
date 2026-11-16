@@ -87,13 +87,8 @@ world.tune = {
 	                       -- stand centered on the baselines)
 	maxTime = 12,          -- s; a throw is called at rest after this long regardless
 	stakeHeight = 0.15,    -- m above the ground (6 inches, Jamie 2026-11-14); stakes are fixed posts of radius pitch.stakeRadius
-	-- wind (Jamie and Tyler, 2026-11-14): air drag per kind, 0.5 rho Cd A / m
-	-- (1/m), A the mean area a tumbling piece shows the air (end over end it
-	-- shows its narrow end part of the time), Cd about 1: a baton 0.30 x
-	-- 0.044 m, 0.25 kg; a lobbed kubb 0.07 x 0.15 m, 0.40 kg. A full 8 m
-	-- baton drifts about 0.16 m in a light (2.5 m/s) cross wind, 0.43 in a
-	-- strong (6 m/s) one, and loses about 0.95 m into a strong head wind
-	windK = { baton = 0.015, kubb = 0.0086 },
+	-- the air's drag on a thrown piece per kind (world.airDrag) is
+	-- tw.flight.tune.dragK, the figure the aim solves with
 	aeroK = 0.00022,       -- the air's turn on a drilled kubb in flight (world.aeroTurn): rho (k2 - k1)
 	                       -- volume: half the slender-body (Munk) moment of a 7 x 7 x 15 cm block (k2 - k1
 	                       -- about 0.5), which overstates a bluff block; an estimate. It turns the long axis
@@ -228,7 +223,7 @@ function world.new(opts)
 		groundSeed = opts.groundSeed or 0,   -- the ground texture's seed (world.launch sets it
 		groundSeedFixed = opts.groundSeed ~= nil,   -- from the throw unless one is given here)
 		-- the wind (m/s, horizontal): it pushes the thrown piece until its
-		-- first contact (windForce); none, and nothing changes
+		-- first contact (airDrag); none, and it meets still air
 		windX = opts.windX or 0, windY = opts.windY or 0,
 		windOn = (opts.windX or 0) ~= 0 or (opts.windY or 0) ~= 0,
 	}
@@ -320,7 +315,7 @@ function world.launch(w, kind, id, x, y, z, qw, qx, qy, qz, vx, vy, vz, wx, wy, 
 	wake(b)
 	b.touched = true
 	w.projectile = b
-	b.windK = world.tune.windK[kind] or 0
+	b.dragK = tw.flight.tune.dragK[kind] or 0
 	return b
 end
 
@@ -501,32 +496,30 @@ local WT, WPOS = {}, {}
 -- Implicit gyroscopic step (Bullet's computeGyroscopicImpulseImplicit_Body):
 -- one Newton step of I w' = I w - dt w' x I w' in the body frame. Keeps a
 -- spinning baton or kubb precessing correctly without blowing up.
--- The wind on the thrown piece in the air (Jamie and Tyler, 2026-11-14): its
--- drag in the moving air less its drag in still air, k (|r| r + |v| v) with
--- r = wind - v, so with no wind it is nothing at all (the throws are tuned
--- in still air). Applied by world.step and the lone step alike, right after
--- gravity, only to w.projectile until its first contact: once it lands, the
--- wind's push is lost in the ground's.
-local function windForce(w, b, dt)
-	local k = b.windK
-	if not k or k == 0 then return end
-	local vx, vy, vz = b.vx, b.vy, b.vz
-	local rx, ry = w.windX - vx, w.windY - vy
-	local rel = sqrt(rx * rx + ry * ry + vz * vz)
-	local still = sqrt(vx * vx + vy * vy + vz * vz)
-	local kd = k * dt
-	b.vx = vx + kd * (rel * rx + still * vx)
-	b.vy = vy + kd * (rel * ry + still * vy)
-	b.vz = vz + kd * (still - rel) * vz
+-- The air's drag on the thrown piece in flight (audit 8, 2026-11-16; the
+-- wind, Jamie and Tyler, 2026-11-14): k |r| r with r = wind - v, the air's
+-- velocity past it, and k = 0.5 rho Cd A / m per kind (b.dragK,
+-- tw.flight.tune.dragK, where the figures and their sources are). Still air
+-- or wind, the same quadratic drag; the aim solves with it in still air
+-- (flight.carry). Applied by world.step and the lone step alike (written out
+-- there, term for term: no call per step), right after gravity, only to
+-- w.projectile until its first contact: after that the
+-- pieces move slowly and briefly through the air (a kubb knocked flying at
+-- 3 m/s for 0.3 s would lose about 5 cm/s) and the ground's forces dwarf it.
+local function airDrag(w, b, dt)
+	local k = b.dragK
+	local rx, ry, rz = w.windX - b.vx, w.windY - b.vy, -b.vz
+	local kd = k * dt * sqrt(rx * rx + ry * ry + rz * rz)
+	b.vx, b.vy, b.vz = b.vx + kd * rx, b.vy + kd * ry, b.vz + kd * rz
 end
-world.windForce = windForce
+world.airDrag = airDrag
 
 -- The air's turn on the thrown piece in flight (2026-11-16, "Drilling"): a
 -- block moving at an angle to its long axis is turned broadside by the air
 -- (the slender-body, Munk, moment), tau = K (v . z)(v x z) with z the long
 -- axis and K = rho (k2 - k1) volume (world.tune.aeroK per kind). A spiral
 -- turns that into a precession, so the nose follows the flight path; with
--- too little spin the kubb tumbles. Applied like windForce: only to
+-- too little spin the kubb tumbles. Applied like airDrag: only to
 -- w.projectile until its first contact.
 local function aeroTurn(w, b, dt)
 	local k = b.aeroK
@@ -818,7 +811,13 @@ local function loneStep(w, b, t, P)
 	-- 1. forces
 	w.awakeCount = 1
 	b.vz = vz - g * dt
-	if w.windOn and b == w.projectile and not w.firstContact then windForce(w, b, dt) end
+	if b == w.projectile and not w.firstContact then
+		-- the air's drag (airDrag, written out)
+		local k = b.dragK
+		local rx, ry, rz = w.windX - b.vx, w.windY - b.vy, -b.vz
+		local kd = k * dt * sqrt(rx * rx + ry * ry + rz * rz)
+		b.vx, b.vy, b.vz = b.vx + kd * rx, b.vy + kd * ry, b.vz + kd * rz
+	end
 	if b.aeroK and b == w.projectile and not w.firstContact then aeroTurn(w, b, dt) end
 	if t.gyro then gyro(b, dt) end
 	b.groundImpulse = 0
@@ -899,14 +898,20 @@ function world.step(w)
 	-- 1. forces
 	local awakeCount = 0
 	local useGyro = t.gyro
-	local windOn = w.windOn and not w.firstContact
+	local inAir = not w.firstContact
 	local proj = w.projectile
 	for i = 1, nb do
 		local b = bodies[i]
 		if b.awake then
 			awakeCount = awakeCount + 1
 			b.vz = b.vz - g * dt
-			if windOn and b == proj then windForce(w, b, dt) end
+			if inAir and b == proj then
+				-- the air's drag (airDrag, written out)
+				local k = b.dragK
+				local rx, ry, rz = w.windX - b.vx, w.windY - b.vy, -b.vz
+				local kd = k * dt * sqrt(rx * rx + ry * ry + rz * rz)
+				b.vx, b.vy, b.vz = b.vx + kd * rx, b.vy + kd * ry, b.vz + kd * rz
+			end
 			if b == proj and b.aeroK and not w.firstContact then aeroTurn(w, b, dt) end
 			if useGyro then gyro(b, dt) end
 			b.groundImpulse = 0

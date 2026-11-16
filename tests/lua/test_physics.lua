@@ -333,9 +333,18 @@ test("two touching sleepers woken in one step get their own contact in that step
 	end
 end)
 
+-- The tests' launch speeds were written for a flight with no drag (before
+-- 2026-11-16, audit 8): the speed that carries a baton as far at this loft
+-- through still air with its drag, so they land where they were written to.
+local function aimed(v, loft)
+	local flight = tw.flight
+	local ft, e = flight.tune, math.rad(loft)
+	return flight.speedForCarry(flight.carry(v, e, ft.handHeight, 0), e, ft.handHeight, ft.dragK.baton)
+end
+
 local function batonThrow(surface, x, speed, pieces, rate)
 	local w = world.new{ texture = false, surface = surface, pieces = pieces }
-	local b = world.launchBaton(w, x, 0, 0, 35, speed, rate or 7, 0)
+	local b = world.launchBaton(w, x, 0, 0, 35, aimed(speed, 35), rate or 7, 0)
 	local w0 = math.sqrt(b.wx ^ 2 + b.wy ^ 2 + b.wz ^ 2)
 	local wc
 	while not world.isAtRest(w) do
@@ -431,7 +440,7 @@ end)
 test("playback poses equal the stepped poses", function()
 	local function build()
 		local w = world.new{ texture = false, pieces = { { id = "k", kind = "kubb", x = 0, y = 8 }, { id = "f", kind = "kubb", x = 1, y = 4 } } }
-		world.launchBaton(w, 0, 0, 0, 35, 8.5, 7, 0)
+		world.launchBaton(w, 0, 0, 0, 35, aimed(8.5, 35), 7, 0)
 		return w
 	end
 	-- the reference: step and note the poses at each display frame
@@ -489,7 +498,7 @@ test("a baton thrown at a corner stake deflects off it", function()
 	-- along the right sideline at the far corner stake (2.5, 8)
 	local function land(stakes)
 		local w = world.new{ texture = false, stakes = stakes }
-		local b = world.launchBaton(w, 2.5, 0, 0, 35, 8.5, 7, 0)
+		local b = world.launchBaton(w, 2.5, 0, 0, 35, aimed(8.5, 35), 7, 0)
 		world.run(w)
 		return b, world.result(w), w
 	end

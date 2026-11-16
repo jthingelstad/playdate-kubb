@@ -1227,10 +1227,12 @@ Jamie and Tyler (2026-11-14): "the player should visually see the arc of the bat
 (not the Playdate's throw), `throw.drawFrame` draws the plan's clean throw over the world
 (`drawArc`, outside its caches, no tables): from where the player stands, at the plan's
 loft and speed (`arcLaunch`, `s.sol`), onto the target circle (a drill's, 2026-11-15, down
-to where the kubb lands short of its circle: `drill.solveAt`'s flight time `sol.T`, its
-centre at `drill.tune.landZ`; since 2026-11-16 that is short by the drill's mean run on,
+to where the kubb lands short of its circle: `drill.solveAt`'s flight time `sol.T` and
+landing `sol.land`, its centre at `drill.tune.landZ`; since 2026-11-16 that is short by the drill's mean run on,
 `drill.slideFor`, so the arc ends where it lands and the circle is where it most likely
-ends; the circle and the dotted line stay); dashed (`arcPoints` 24,
+ends; the circle and the dotted line stay); drawn as the plain parabola from the hand to
+that landing in the flight's time, which is within 2 to 4 cm of the flight with the air's
+drag (`arcLaunch`); dashed (`arcPoints` 24,
 every other gap drawn, the first `arcSkip` left out, `arcWidth` 2 px). It shows the plan,
 not the throw: the backswing, the flick and where the crank stops still decide it (and the
 wind will not show in it).
@@ -1302,16 +1304,13 @@ strong; `opts.wind`, kept by the save, a resume and a rematch).
   (`s.windLevel`, `s.windRng` from `opts.windSeed`, the seed or the clock) turns it into
   the thrower's view frame (`wind.vector`; Team B's is turned like the pitch) and hands it
   to the throw scene (`throw.setWind(s, wx, wy, text)`); practice has none.
-- **The push** (`core/world`): `world.new{ windX, windY }`; `windForce` gives the thrown
-  piece (`w.projectile`, until its first contact) its drag in the moving air less its
-  drag in still air, `k (|r| r + |v| v)` with `r` = wind - v and `k` =
-  `world.tune.windK` per kind (0.5 rho Cd A / m: baton 0.015, kubb 0.0086). With no wind it
-  is nothing at all (still-air throws are bit-identical; the throws were tuned in still
-  air). Applied right after gravity in both the full step and the lone flight, which stay
-  identical with wind. Over an 8 m baton at 30 degrees: a light cross wind carries it 0.16
-  m, a strong one 0.44, a strong head wind costs 0.97 m and a tail wind adds 0.54; a lobbed
-  kubb half that. Cost: one call a step while the piece is in the air (two square roots),
-  nothing without wind.
+- **The push** (`core/world`): `world.new{ windX, windY }`. The wind is the air the
+  thrown piece's drag acts in ("Physics", the air's drag): `k |r| r` with `r` = wind - v,
+  so a zero wind is still air. Over an 8 m baton at 30 degrees (aimed through still air):
+  a light cross wind carries it 0.13 m, a strong one 0.35, a strong head wind costs 0.76 m
+  and a tail wind adds 0.38; a lobbed kubb (more drag for its weight) 0.20, 0.55, 1.15 and
+  0.62. (Before 2026-11-16 the wind pushed with its drag less a still-air drag the game did
+  not have, baton k 0.015 and kubb 0.0086: 0.16, 0.44, 0.97, 0.54 for the baton.)
 - **The indicator** (`hud.wind`): an arrow across the minimap's middle the way the wind
   blows in the thrower's view, longer the stronger, and `WIND n M/S` on a label above the
   minimap, while aiming and in flight. The aim arc does not show the wind: judging it is
@@ -1453,6 +1452,37 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
 - A drilled kubb (`world.launchDrill`) is a plain body released from the swing and
   scattered by seeded normals at launch; the air turns it in flight (`world.aeroTurn`,
   the projectile only) and on the ground it is a kubb like any other ("Drilling").
+- **The air's drag** (audit 8, 2026-11-16; before it a throw flew in a vacuum unless there
+  was wind). The thrown piece (`w.projectile`, until its first contact) loses `k |r| r` of
+  its velocity a second, `r` the air's velocity past it (the wind less its own), `k` = 0.5
+  rho Cd A / m per kind (`tw.flight.tune.dragK`, `b.dragK`), right after gravity in both the
+  full step and the lone flight (written out in each, no call; they stay identical). From
+  the drag tables in White, Fluid Mechanics, Tables 7.2 and 7.3 (after Hoerner), at a
+  throw's Reynolds number: the baton, a 0.30 x 0.044 m cylinder turning end over end, Cd
+  0.77 side on (L/D 6.8) and 0.95 end on, each times the crossflow principle's mean
+  |sin|^3 over the turn (4 / 3 pi): Cd A 0.0049 m^2, k 0.0118 /m; the kubb, a 0.15 x 0.07
+  x 0.07 m block tumbling or spiralling about broadside, a quarter of its surface (the
+  mean area a tumbling convex body shows) with Cd 1.0: Cd A 0.0130 m^2, k 0.0194 /m. At 10
+  m/s that is 1.2 m/s^2 on a baton and 1.9 on a kubb. Small but not nothing: a baton
+  aimed 8 m with no drag comes down 0.37 to 0.54 m short (loft 10 to 50), so the aim needs
+  3.3 to 4.1% more speed (8.96 to 9.27 m/s at 30 degrees), and a drill aimed to land 6 m out
+  0.33 to 0.48 m short (4.2 to 5.1% more speed). It meets the kubbs about 6% slower along
+  the ground (7.49 to 7.02 m/s at 8 m on the plan's base arc). Pieces after the first
+  contact get none (slow and briefly in the air: a kubb knocked flying at 3 m/s for 0.3 s
+  would lose about 5 cm/s). The aim solves with it (`flight.carry`, below). Cost: a square
+  root and a few multiplications a step while the piece is in the air (`make bench` with
+  the same throw and k = 0 is unchanged: 0.026 ms a step, lone 0.001, air 0.005).
+- **The aim's arithmetic** (`core/flight`): `flight.carry(speed, e, h, k)` is how far a
+  launch at loft e from h above the ground carries through still air with drag k, and its
+  time (midpoint steps of `carryStep` 1/20 s, within 2.5 mm of a fine integration on any
+  throw the game makes); `flight.speedForCarry(R, e, h, k)` inverts it (the drag-free speed,
+  a scaled step and secant steps to 0.1 um: 4 or 5 carries). `flight.predict` (the cameras,
+  `plan.reachForSpeed`), `throwplan`'s `carrySpeed` (`plan.solve`, `plan.speedFor`),
+  `drill.solveAt` (with the kubb's k, to its landing height) and `autothrow.speedFor` all
+  use them, so a clean throw still comes down where it is aimed (the world's centre within
+  2 to 4 cm, as before: the fixed step's own error). `plan.solve` costs 11 us (baton) and
+  16 us (drill) on the desktop, from 0.7 and 2.1. The power scale is unchanged in metres:
+  a backswing carries as far as before and needs a little more speed for it.
 - **The bite** (2026-11-16, Jamie: "I think we need to add the bite to the ground model…
   it is key… and this is where grass, snow, and sand will act different"). An edge or
   corner that strikes the turf steeply cuts in and is held: a ground contact gets extra
@@ -2126,7 +2156,11 @@ the throw scene with `s.drill` on.
   never under 0.5 m) and `drill.solveAt` lands the kubb there. Grass at half past 1: 0.26
   m from 1.5 m, 0.87 from 4.5, 0.69 from 7.5; low lofts run on most (2.26 m at loft 26
   from 4.5 m). `test_drill` checks the mean rest along the throw against the circle over
-  30 grounds.
+  30 grounds. The table was measured with no air drag: since the drag (2026-11-16) a drill
+  lands a little slower and runs on less (`tools/drillscatter.lua --only 3`, mean run on,
+  cm: grass 101 to 87 at half past 1 and 175 to 153 at the low arc, sand 29 to 27 and 60
+  to 47, snow 110 to 94 and 168 to 158), so far circles rest up to 0.6 m short until it is
+  measured again (`test_drill`'s mean bound is 0.7 m meanwhile, from 0.45).
 - **Into other kubbs.** A drill that runs into a lying kubb stops by it (0.12 to 0.36 m
   centre to centre in `test_drill`'s backstop) and the struck kubb moves 0 to 20 cm; one
   that lands on top of a kubb shoves it 0.2 to 0.45 m. The drill-over rule below makes it

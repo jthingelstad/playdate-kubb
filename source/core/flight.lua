@@ -3,11 +3,17 @@
 --
 -- The baton leaves the hand at (x, lineY, handHeight), heading along the
 -- swivel (0 = straight downfield, positive = toward +x) at the loft angle
--- above the horizontal. Gravity only. It turns end over end at the tumble
+-- above the horizontal. It turns end over end at the tumble
 -- rate; the plane it turns in is tilted about the line of flight by the
 -- swing's tilt (0 = clean end over end, 90 = a flat helicopter) and wobbles
--- around that tilt. It stops dead the moment its center reaches the ground
--- and lies flat there (stage 2 replaces all of this with the rigid body).
+-- around that tilt. Gravity and the air's drag (tune.dragK, the same figure
+-- core/world flies the baton with). It stops dead the moment its center
+-- reaches the ground and lies flat there (stage 2 replaces all of this with
+-- the rigid body).
+--
+-- flight.carry and flight.speedForCarry are the aim's arithmetic: how far a
+-- launch carries through still air, and the speed that carries a distance.
+-- core/throwplan, core/drill and core/autothrow aim with them.
 import "core/tw"
 
 local sqrt, sin, cos, rad, abs, min, max = math.sqrt, math.sin, math.cos, math.rad, math.abs, math.min, math.max
@@ -27,6 +33,26 @@ flight.tune = {
 	wobbleAmp = 0.25,      -- the plane's tilt swings by this fraction of the tilt ...
 	wobblePerTurn = 0.6,   -- ... this many times per tumble turn
 	maxStep = 1 / 120,     -- s; flight.step subdivides longer frames
+	-- The air's drag (audit 8, 2026-11-16): a thrown piece loses k |r| r of its
+	-- velocity a second, r the air's velocity past it (the wind less its own),
+	-- k = 0.5 rho Cd A / m (1/m), rho 1.2 kg/m^3. Figures from the drag tables
+	-- in White, Fluid Mechanics, Tables 7.2 and 7.3 (after Hoerner, Fluid-Dynamic
+	-- Drag), at a throw's Reynolds number (2 to 5 x 10^4, subcritical); estimates,
+	-- good to perhaps 20 percent:
+	--   baton  0.30 x 0.044 m round birch, 0.25 kg, turning end over end. Side on,
+	--          a finite cylinder of L/D 6.8 has Cd 0.77 on 0.0132 m^2; end on,
+	--          0.95 on 0.0015 m^2. At an angle the crossflow principle gives each
+	--          part times |sin|^3 (|cos|^3 end on), whose mean over the turn is
+	--          4 / 3 pi: Cd A = 0.0049 m^2, k = 0.0118
+	--   kubb   0.15 x 0.07 x 0.07 m, 0.40 kg, tumbling (a lob) or spiralling
+	--          about broadside to its flight (a drill, the nose 45 down on a
+	--          rising throw): the mean area a tumbling block shows the air is a
+	--          quarter of its surface (Cauchy), 0.0130 m^2, with Cd 1.0 (a cube
+	--          is 1.07 face on, 0.81 edge on): Cd A = 0.0130 m^2, k = 0.0194
+	-- At 10 m/s that is 1.2 m/s^2 on a baton, 1.9 on a kubb.
+	dragK = { baton = 0.0118, kubb = 0.0194 },
+	carryStep = 1 / 20,    -- s: flight.carry's midpoint step (within 2.5 mm of a fine one on
+	                       -- any throw the game makes; cheap enough to solve every aim frame)
 }
 
 -- Unit launch velocity direction.
@@ -41,13 +67,70 @@ local function timeToGround(z0, vz, g)
 	return (vz + sqrt(vz * vz + 2 * g * z0)) / g
 end
 
+-- How far a launch at speed (m/s) and loft e (radians) from h (m) above the
+-- ground carries through still air with drag k (1/m, tune.dragK) before it
+-- comes down to the ground: R (m, horizontal) and T (s). Midpoint steps of
+-- tune.carryStep (exact for gravity alone, which k = 0 takes in one go); the
+-- last is cut where it reaches the ground. No tables.
+local function carry(speed, e, h, k)
+	local t = flight.tune
+	local g = t.g
+	local u, w = speed * cos(e), speed * sin(e)
+	if k <= 0 then
+		local T = timeToGround(h, w, g)
+		return u * T, T
+	end
+	local H = t.carryStep
+	local x, z, time = 0, h, 0
+	for _ = 1, 3000 do
+		local s = sqrt(u * u + w * w)
+		local hu = u - 0.5 * H * k * s * u
+		local hw = w - 0.5 * H * (g + k * s * w)
+		local sm = sqrt(hu * hu + hw * hw)
+		local au, aw = -k * sm * hu, -g - k * sm * hw
+		local z1 = z + H * hw
+		if z1 <= 0 then
+			-- this step reaches the ground: z + w s + aw s^2 / 2 = 0 (aw < 0)
+			local a = -aw
+			local tau = (w + sqrt(w * w + 2 * a * z)) / a
+			return x + u * tau + 0.5 * au * tau * tau, time + tau
+		end
+		x, z = x + H * hu, z1
+		u, w = u + H * au, w + H * aw
+		time = time + H
+	end
+	return x, time
+end
+flight.carry = carry
+
+-- The speed (m/s) that carries R (m) at loft e (radians) from h (m) above the
+-- ground through still air with drag k (flight.carry's inverse): from the
+-- drag-free speed, a scaled step and then secant steps to within 0.1 um (so
+-- the two invert each other).
+function flight.speedForCarry(R, e, h, k)
+	local g = flight.tune.g
+	local c = cos(e)
+	local v0 = sqrt(g * R * R / (2 * c * c * (R * sin(e) / c + h)))
+	if k <= 0 then return v0 end
+	local r0 = carry(v0, e, h, k)
+	local v1 = v0 * sqrt(R / r0)
+	for _ = 1, 10 do
+		local r1 = carry(v1, e, h, k)
+		local err = r1 - R
+		if err < 1e-7 and err > -1e-7 then break end
+		local v2 = v1 - err * (v1 - v0) / (r1 - r0)
+		v0, r0, v1 = v1, r1, v2
+	end
+	return v1
+end
+
 -- Predicted landing point and flight time of the baton's center:
--- lx, ly, T. Exact for the arc flight.step follows.
+-- lx, ly, T (flight.carry with the baton's drag): the arc flight.step follows.
 function flight.predict(x, lineY, swivel, loftDeg, speed)
 	local t = flight.tune
-	local dx, dy, dz = launchDir(swivel, loftDeg)
-	local T = timeToGround(t.handHeight, speed * dz, t.g)
-	return x + speed * dx * T, lineY + speed * dy * T, T
+	local dx, dy = sin(swivel), cos(swivel)
+	local R, T = carry(speed, rad(loftDeg), t.handHeight, t.dragK.baton)
+	return x + R * dx, lineY + R * dy, T
 end
 
 -- The aim preview: where a full-power throw at this loft would land.
@@ -116,31 +199,37 @@ local function settle(fl)
 	fl.vx, fl.vy, fl.vz = 0, 0, 0
 end
 
--- Advance by dt seconds. Exact for constant gravity; the step that reaches
--- the ground is cut at the contact instant. Returns true on the step that lands.
+-- Advance by dt seconds: gravity and the baton's drag, flight.carry's
+-- midpoint steps; the step that reaches the ground is cut at the contact
+-- instant. Returns true on the step that lands.
 function flight.step(fl, dt)
 	if fl.landed then return false end
 	local g = flight.tune.g
+	local k = flight.tune.dragK.baton
 	local maxStep = flight.tune.maxStep
 	while dt > 0 do
 		local h = min(dt, maxStep)
 		dt = dt - h
-		local z1 = fl.z + fl.vz * h - 0.5 * g * h * h
+		local vx, vy, vz = fl.vx, fl.vy, fl.vz
+		local s = sqrt(vx * vx + vy * vy + vz * vz)
+		local mx, my = vx - 0.5 * h * k * s * vx, vy - 0.5 * h * k * s * vy
+		local mz = vz - 0.5 * h * (g + k * s * vz)
+		local sm = sqrt(mx * mx + my * my + mz * mz)
+		local ax, ay, az = -k * sm * mx, -k * sm * my, -g - k * sm * mz
+		local z1 = fl.z + h * mz
 		if z1 <= 0 then
-			-- the root of z + vz*s - g/2 s^2 = 0 in (0, h]
-			local s = timeToGround(fl.z, fl.vz, g)
-			if s > h then s = h end
-			fl.x = fl.x + fl.vx * s
-			fl.y = fl.y + fl.vy * s
-			fl.t = fl.t + s
-			fl.phi = fl.phi - fl.rate * s
+			-- the root of z + vz s + az s^2 / 2 = 0 in (0, h]
+			local s1 = (vz + sqrt(vz * vz - 2 * az * fl.z)) / -az
+			if s1 > h then s1 = h end
+			fl.x = fl.x + (vx + 0.5 * ax * s1) * s1
+			fl.y = fl.y + (vy + 0.5 * ay * s1) * s1
+			fl.t = fl.t + s1
+			fl.phi = fl.phi - fl.rate * s1
 			settle(fl)
 			return true
 		end
-		fl.x = fl.x + fl.vx * h
-		fl.y = fl.y + fl.vy * h
-		fl.z = z1
-		fl.vz = fl.vz - g * h
+		fl.x, fl.y, fl.z = fl.x + h * mx, fl.y + h * my, z1
+		fl.vx, fl.vy, fl.vz = vx + h * ax, vy + h * ay, vz + h * az
 		fl.t = fl.t + h
 		fl.phi = fl.phi - fl.rate * h
 	end

@@ -134,7 +134,9 @@ test("debris: a standing kubb toppled by pushed debris counts for this throw", f
 	firstBaton(m, -1, 7.88)
 	local s = match.setup(m)
 	local w = world.new { surface = "grass", pieces = match.worldPieces(s) }
-	slide(w, s.batonId, -1, 7.58, 8)
+	-- (7.9 m/s: the middle of the speeds, 7.8 to 8.05, at which this push
+	-- topples b2; the air's drag, 2026-11-16, left 8 at the edge)
+	slide(w, s.batonId, -1, 7.58, 7.9)
 	world.run(w)
 	local res = world.result(w)
 	expect.eq(#res.toppled, 1)

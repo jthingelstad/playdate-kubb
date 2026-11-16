@@ -115,12 +115,6 @@ function drill.clampMarker(mx, my)
 	return max(-t.markerXMax, min(t.markerXMax, mx)), max(t.markerNear, min(t.markerFar, my))
 end
 
--- The speed that lands a launch from height h0 above the landing height at
--- loft e (radians) a horizontal distance R away.
-local function speedFor(R, e, h0, g)
-	local c = cos(e)
-	return sqrt(g * R * R / (2 * c * c * (R * sin(e) / c + h0)))
-end
 
 -- Solve the clean drill onto the marker (mx, my in the view frame, the
 -- thrower's baseline at lineY) at the loft the distance picks (loftNearDeg to
@@ -132,6 +126,8 @@ end
 --   speed      m/s of the clean launch
 --   band       swing power that gives exactly that speed (band center)
 --   T          s from release until the kubb's edge reaches the grass
+--   land       m from the thrower to where it lands (short of the marker by
+--              its mean run on, drill.slideFor)
 function drill.solve(mx, my, lineY, out)
 	local t = drill.tune
 	local x = max(-t.throwerXMax, min(t.throwerXMax, mx))
@@ -195,11 +191,13 @@ function drill.solveAt(mx, my, lineY, loftDeg, out, px, surface, spin)
 	local h0 = ft.handHeight - t.landZ
 	local e = rad(loftDeg)
 	local R = drill.landFor(d, loftDeg, surface, spin)
-	local v = speedFor(R, e, h0, ft.g)
-	local vz = v * sin(e)
+	-- the speed that lands it R out through still air, with a kubb's drag
+	local k = ft.dragK.kubb
+	local v = flight.speedForCarry(R, e, h0, k)
+	local _, T = flight.carry(v, e, h0, k)
 	out.x, out.swivel, out.loft, out.dist, out.speed = x, atan(dx, dy), loftDeg, d, v
 	out.band = lerp(t.bandNear, t.bandFar, f)
-	out.T = (vz + sqrt(vz * vz + 2 * ft.g * h0)) / ft.g
+	out.T, out.land = T, R
 	return out
 end
 

@@ -1,6 +1,7 @@
--- The wind (core/wind, core/world windForce): still air changes nothing, the
--- thrown piece drifts with the wind until its first contact, the lone flight
--- stays identical to the full step, and the match's turns and gusts.
+-- The air (core/wind, core/world airDrag): still air drags on the thrown
+-- piece as flight.carry says, a zero wind is still air, the thrown piece
+-- drifts with the wind until its first contact, the lone flight stays
+-- identical to the full step, and the match's turns and gusts.
 import "core/tw"
 import "core/world"
 import "core/wind"
@@ -26,6 +27,35 @@ test("still air: a zero wind is no wind at all (bit for bit)", function()
 	expect.eq(a.firstContact.x, b.firstContact.x)
 	expect.eq(a.firstContact.y, b.firstContact.y)
 	expect.eq(a.steps, b.steps)
+end)
+
+-- Where a baton's center comes down through height z (m) in still air, with
+-- its drag or (drag false) none: y by a straight line between steps.
+local function crossing(v, loft, z, drag)
+	local w = world.new { surface = "grass", stakes = false, groundSeed = 1 }
+	local b = world.launchBaton(w, 0, 0, 0, loft, v, 0.001, 0)
+	if drag == false then b.dragK = 0 end
+	local py, pz
+	repeat py, pz = b.y, b.z; world.step(w) until b.z <= z
+	return py + (b.y - py) * (pz - z) / (pz - b.z)
+end
+
+test("still air drags: a baton carries as much less as flight.carry says, and the aim allows for it", function()
+	local flight = tw.flight
+	local ft = flight.tune
+	for _, loft in ipairs { 15, 30, 45 } do
+		local e = math.rad(loft)
+		local v = auto.speedFor(8, loft)
+		-- an upright baton (the end down) first touches with its center 0.15 m up
+		local lost = crossing(v, loft, 0.15, false) - crossing(v, loft, 0.15)
+		local want = flight.carry(v, e, ft.handHeight - 0.15, 0) - flight.carry(v, e, ft.handHeight - 0.15, ft.dragK.baton)
+		expect.truthy(lost > 0.3 and lost < 0.6, "loft " .. loft .. ": lost " .. lost)
+		expect.near(lost, want, 0.01, "loft " .. loft .. ": the world's drag is flight.carry's")
+		-- the aim's speed carries the center to 8 m through the drag
+		local _, ly = flight.predict(0, 0, 0, loft, v)
+		expect.near(ly, 8, 1e-6)
+		expect.near(flight.speedForCarry(8, e, ft.handHeight, ft.dragK.baton), v, 1e-6)
+	end
 end)
 
 test("a cross wind carries the baton its way; a head wind shortens it, a tail wind lengthens it", function()

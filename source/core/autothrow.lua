@@ -102,17 +102,18 @@ autothrow.tune = {
 -- Park-Miller with a scrambled seed (as tools/thrower.lua): tw.plan.rng.
 autothrow.rng = plan.rng
 
--- The launch speed that lands the center at distance d (along the throw)
--- from (x, y) at this loft, by bisection up to the fastest throw the plan
--- makes (the backswing's cap). Tools, tests and core/bench aim with it.
+-- The launch speed that lands a baton's center at distance d (along the
+-- throw) at this loft, through still air with its drag (flight.predict's
+-- arc), up to the fastest throw the plan makes (the backswing's cap). Tools,
+-- tests and core/bench aim with it.
 function autothrow.speedFor(d, loftDeg)
-	local lo, hi = 0.5, plan.speedFor(swing.tune.backswingMaxDeg)
-	for _ = 1, 40 do
-		local mid = (lo + hi) / 2
-		local _, ly = flight.predict(0, 0, 0, loftDeg, mid)
-		if ly < d then lo = mid else hi = mid end
-	end
-	return (lo + hi) / 2
+	local hi = plan.speedFor(swing.tune.backswingMaxDeg)
+	if d <= 0 then return 0.5 end
+	local ft = flight.tune
+	local v = flight.speedForCarry(d, math.rad(loftDeg), ft.handHeight, ft.dragK.baton)
+	if v > hi then return hi end
+	if v < 0.5 then return 0.5 end
+	return v
 end
 
 -- Which basket a toss goes to: -1 (left, view frame) or 1 (right), the one

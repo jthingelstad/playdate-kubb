@@ -24,8 +24,9 @@ bench.pieces = {
 	{ id = "b5", kind = "kubb", x = -0.06, y = 4.52, yaw = 0.1 },
 }
 -- from the baseline center, straight up the pitch, 35 degrees of loft,
--- end over end at 7 rad/s
-bench.throw = { x = 0, lineY = 0, swivel = 0, loft = 35, speed = 6.0, tumble = 7, tilt = 0 }
+-- end over end at 7 rad/s; 6.11 m/s carries it through the air's drag as
+-- far as 6.0 did with none (before 2026-11-16), into the same group
+bench.throw = { x = 0, lineY = 0, swivel = 0, loft = 35, speed = 6.11, tumble = 7, tilt = 0 }
 
 -- A match's worst case for the bodies a throw starts with (AGENTS.md
 -- "Match"): six batons and ten kubbs lying on the pitch from earlier throws

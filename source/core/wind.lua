@@ -8,7 +8,7 @@
 -- throws meet quite the same air. Directions are in the world frame (radians,
 -- the way the wind blows toward, 0 = +x), turned into a thrower's view frame
 -- by wind.vector. core/world pushes the thrown piece with it in the air
--- (world.windX/Y, windForce).
+-- (world.windX/Y, airDrag).
 --
 --   wind.levels        { off = 0, light = 2.5, strong = 6 } m/s, the turn's mean
 --   wind.turn(rng, level)      dir, speed for a turn (speed 0 when off)

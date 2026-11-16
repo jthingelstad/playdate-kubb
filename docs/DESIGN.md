@@ -290,6 +290,12 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
   The surface is written to the game file's `[Surface]` header, and practice bests and
   computer hit rates are kept per surface. Grass and sand are both tuned on hardware in
   stages 2 and 4.
+- **Air:** a thrown baton or kubb feels the air's drag in flight (quadratic, against the air
+  moving past it, so the wind is the same drag in moving air): a baton loses about 1.2
+  m/s^2 at 10 m/s, a kubb about 1.9 (published drag coefficients for a tumbling cylinder
+  and block). The aim allows for it, so a clean throw still lands where it is aimed; over
+  8 m it costs a baton about 0.45 m of carry, which the thrower makes up with about 4%
+  more speed.
 - **Toppled** means the long axis came within a few degrees of parallel to the ground at any
   point. A kubb that falls and ends up standing on an end is still toppled (II.B.10). A kubb
   pushed out of bounds without toppling goes back (II.B.7).

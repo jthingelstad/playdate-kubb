@@ -1405,18 +1405,23 @@ local unpack = table.unpack
 -- clean throw from the stance onto the target (its loft and speed).
 -- A drilled kubb's is drill.solveAt's: the same launch from the hand, down
 -- to where it lands (its centre at drill.tune.landZ, its edge short of the
--- circle by what it slides on), in the plan's sol.T.
+-- circle by what it slides on: sol.land out), in the plan's sol.T. The flight
+-- has the air's drag (flight.carry); the arc is drawn as the plain parabola
+-- from the hand to the same landing in the same time, within 2 to 4 cm of it.
 local function arcLaunch(s)
 	local sol = s.sol
 	local speed, loft, sw = sol.speed or 0, sol.loft or 32, sol.swivel or 0
-	local e = rad(loft)
-	local ce = math.cos(e)
-	local T = sol.T
-	if not (s.drill and T) then
-		local _
-		_, _, T = flight.predict(s.playerX, s.playerY, sw, loft, speed)
+	local T, R, z1 = sol.T, sol.land, drill.tune.landZ
+	if not (s.drill and T and R) then
+		local lx, ly
+		lx, ly, T = flight.predict(s.playerX, s.playerY, sw, loft, speed)
+		lx, ly = lx - s.playerX, ly - s.playerY
+		R, z1 = sqrt(lx * lx + ly * ly), 0
 	end
-	return speed * math.sin(sw) * ce, speed * math.cos(sw) * ce, speed * math.sin(e), T
+	if T <= 0 then return 0, 0, 0, 0 end
+	local vh = R / T
+	local h, g = flight.tune.handHeight, flight.tune.g
+	return vh * math.sin(sw), vh * math.cos(sw), (z1 - h + 0.5 * g * T * T) / T, T
 end
 
 -- The arc shows for a baton and a drilled kubb (not the Playdate's lobbed
