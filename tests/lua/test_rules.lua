@@ -104,6 +104,27 @@ test("II.B.2 the advantage line follows a field kubb that settled before the tur
 	expect.near(g:need().throwY, 5.6, 1e-12)
 end)
 
+test("inkast positions are written afresh when the turn's kubbs settle before the first baton", function()
+	local g = toTurn3(newGame(), { land(0, 6.5, "stand"), land(1, 5.2, "stand") })
+	local t = g.sheet.current
+	local function count()
+		local c = 0
+		for _, l in pairs(t.inkastAt or {}) do c = c + #l end
+		return c
+	end
+	local before = count()
+	expect.truthy(before > 0)
+	local k = g:fieldKubbs("B")[1]
+	k.pose = { x = k.pose.x + 0.1, y = k.pose.y, standing = true, angle = k.pose.angle }
+	g:_inkastPositions()
+	expect.eq(count(), before, "no duplicates")
+	local found = false
+	for _, l in pairs(t.inkastAt) do
+		for _, p in ipairs(l) do if math.abs(p.x - k.pose.x) < 1e-9 and math.abs(p.y - k.pose.y) < 1e-9 then found = true end end
+	end
+	expect.truthy(found, "the settled pose is written")
+end)
+
 test("II.B.2 king shots are from the baseline even with an advantage line; K wins", function()
 	local g = toTurn3(newGame(), { land(0, 6.5, "stand"), land(1, 5.2, "stand") })
 	misses(g, 6)

@@ -327,6 +327,9 @@ function match.settleStanding(m, s)
 	-- (fixed for the turn once its first kubb or baton is thrown: II.C.4b)
 	local cur = g.sheet.current
 	if g.tossSeq == 0 and cur and #cur.batons == 0 then g:_advantage() end
+	-- and where the turn's kubbs stand as the batons begin (the sheet's inkast
+	-- positions, copied when the batons phase began)
+	if g.phase == "batons" and cur and #cur.batons == 0 then g:_inkastPositions() end
 	s.pieces = outcome.pieces(g, side)
 	debris.applyExact(d, s.pieces, side)
 	s.debris = debris.pieces(d, side)
