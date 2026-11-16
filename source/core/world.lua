@@ -68,11 +68,10 @@ world.tune = {
 	                       -- the grain and 0.32 across it (Engineering ToolBox, friction coefficients).
 	                       -- Kubb on kubb was 0.2 (wet wood) from 2026-11-15 to 2026-11-16 so a tight row
 	                       -- fell; at 0.4 it stands more (AGENTS.md, "Edge on edge")
-	pairE = 0.2,           -- wood on wood bounce (guess; 0.35 until 2026-11-15: a baton's bounce off a
-	                       -- standing kubb is applied with nothing holding the kubb's footing, so
-	                       -- part of it drove the kubb down and the ground threw it up; at 0.2,
-	                       -- over tools/batonprobe.lua's sweep, half the bounce-backs and a sixth
-	                       -- fewer kubbs off the ground for 0.2 s or more)
+	pairE = 0.35,          -- wood on wood bounce: no measured wood on wood figure found; a wooden
+	                       -- ball on concrete is 0.60 (The Physics Factbook, 2005) and a block gives
+	                       -- up more. 0.2 from 2026-11-15 to 2026-11-16, to hide a bounce solved
+	                       -- without the kubb's footing (AGENTS.md, "The pair bounce with its footing")
 	warm = 0.9,            -- fraction of last step's ground impulses applied up front
 	gyro = true,           -- gyroscopic term (torque-free precession; implicit, stable)
 	sleepLin = 0.03,       -- m/s: below this ...
@@ -1395,22 +1394,43 @@ function world.step(w)
 	for _ = 1, t.relaxIterations do solve(K_RELAX) end
 
 	if P then local now = pc(); P.relax = P.relax + now - pt; pt = now end
-	-- 7. restitution
-	-- (several passes: a box landing flat has four corners, and one pass
-	-- in order over them tips it and overshoots the bounce)
+	-- 7. restitution, the bounce of each contact that arrived faster than
+	-- restitutionSpeed and pressed this step: the target is -e times its
+	-- approach speed before the solve (v0). (Several passes: a box landing
+	-- flat has four corners, and one pass in order over them tips it and
+	-- overshoots the bounce.) A bounce between two pieces is solved together
+	-- with every other contact of those pieces that pressed this step (their
+	-- footing on the ground, a neighbour), held to the target they had in the
+	-- relax pass: applied alone, a baton's bounce off a standing kubb drove
+	-- the kubb into the ground and the ground threw it up the next step.
 	local rs = t.restitutionSpeed
-	local any = false
+	local any, pair = false, false
 	for i = 1, m do
 		local r = REC[i]
-		if r[K_V0] < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then any = true break end
+		if r[K_V0] < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then
+			any = true
+			local kind = r[K_KIND]
+			if kind ~= 1 then
+				pair = true
+				r[K_A].bounceStep = stamp
+				if kind == 2 then r[K_B].bounceStep = stamp end
+			end
+		end
 	end
 	if any then
 		for _ = 1, t.restitutionIterations do
 			for i = 1, m do
 				local r = REC[i]
 				local v0 = r[K_V0]
+				local a, kind = r[K_A], r[K_KIND]
+				local tgt
 				if v0 < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then
-					local a, kind = r[K_A], r[K_KIND]
+					tgt = -r[K_E] * v0
+				elseif pair and r[K_LNMAX] > 0 and (a.bounceStep == stamp
+					or (kind == 2 and r[K_B].bounceStep == stamp)) then
+					tgt = r[K_RELAX]
+				end
+				if tgt then
 					local vn
 					if kind == 1 then
 						vn = a.vz + a.wx * r[K_ANX] + a.wy * r[K_ANY]
@@ -1424,7 +1444,7 @@ function world.step(w)
 						end
 					end
 					local old = r[K_LN]
-					local lam = old - r[K_MN] * (vn + r[K_E] * v0)
+					local lam = old - r[K_MN] * (vn - tgt)
 					if lam < 0 then lam = 0 end
 					r[K_LN] = lam
 					if lam ~= old then

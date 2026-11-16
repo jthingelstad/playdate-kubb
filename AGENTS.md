@@ -1673,7 +1673,8 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     step. Keeping every ground contact in the passes (target 0) fixed that but let a kubb
     tipping onto a lying one sink into it (`test_physics`, the leaner), so it was not kept;
     `pairE` (wood on wood) went from 0.35 to 0.2 instead, which shrinks the bounce that
-    escapes.
+    escapes. Fixed in the solver on 2026-11-16 and `pairE` is 0.35 again ("The pair bounce
+    with its footing" below).
   - **A baton's spin on the ground** was held as one vector by `rollResist`: the angular
     impulse that stops a spin along its own direction. A baton turns most easily about its
     long axis, so any part of its spin along it made that impulse tiny, and a baton landing
@@ -1787,6 +1788,46 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   - Not bit-identical: any step where two boxes are within the margin of each other and not
     square to each other, or whose crossed faces' edges cross. A square tight row, the
     lone flight and every throw where no box meets a box are unchanged.
+- **The pair bounce with its footing** (2026-11-16, the physics audit). The restitution
+  passes (world.step, phase 7) now solve a bounce between two pieces together with every
+  other contact of those two pieces that pressed this step (`r[K_LNMAX] > 0`: the kubb's
+  footing on the ground, a neighbour), each held to the target it had in the relax pass
+  (`r[K_RELAX]`, 0 or the small push-out of an overlap) rather than left out. The bounce
+  target is still `-e` times the approach speed before the solve (`K_V0`), worked out once.
+  A body is marked for this with `b.bounceStep`, the step stamp, so contacts of bodies in no
+  pair bounce are untouched. The earlier try held every ground contact to 0, which
+  pulled a contact that was pushing out an overlap back to rest and let the leaner sink;
+  holding each to its relax target and only on bodies in a pair bounce keeps the leaner.
+  - **`pairE` 0.35.** No measured coefficient of restitution for wood on wood turned up; the
+    nearest is a wooden ball dropped on concrete, 0.60 (The Physics Factbook,
+    "Coefficients of restitution", 2005), and a block meeting a block on an edge or a
+    face gives up more than a ball does. 0.35 is the value before 2026-11-15, the low end of
+    a plausible 0.35 to 0.5. At 0.5 `test_batonhits` fails (13 of 42 struck kubbs off the
+    ground for 0.2 s or more, the limit 30%), so 0.5 was not taken.
+  - **The fault is gone.** `test_physics` has it: a baton driven into a standing kubb at 4,
+    7 and 10 m/s, three heights, two descents; the kubb's lowest corner, on the ground,
+    moved down at up to 2.17 m/s with the old passes at 0.35 and 0.78 m/s now (limit 1).
+    Over the batonprobe sweep (764 throws that touched the kubb; steps where a box corner
+    on the ground moves down faster than 0.3 m/s): main at 0.2 792 (mean 1.00 m/s, max
+    4.00), main at 0.35 877 (1.10, 4.52), this at 0.35 224 (0.72, 2.84).
+  - **Measured** (before -> after, main at de58e7a; `pairE` 0.2 -> 0.35 with the fix):
+    batonprobe sweep toppled 87% -> 91%, fast and left standing 28 -> 27, bounce-backs
+    2 -> 0, off the ground 61% -> 63% and for 0.2 s or more 162 -> 277. The last is mostly
+    kubbs kicked at the foot by a skidding baton: the ground now answers in the same step,
+    so the kubb keeps more of the kick and flips up and over instead of losing it in a
+    second hard step (traced: energy falls every step either way). `tools/compound.lua
+    --quick`: rows fall more, four touching end on any kubb 67% -> 99%, all four 0% -> 9%;
+    four 3 cm apart any 66% -> 87%, all four 0% -> 7%; three touching all three 52% -> 67%,
+    three 3 cm apart 37% -> 51%; two side by side 3 cm both 12% -> 23%, three 7 cm all three
+    6% -> 15%; two in line 30 cm 40% -> 52%. Two domino cells move (a 9 rad/s tip with a 3 cm gap
+    leaves A standing, a 1 m/s shove at 13 cm with a 15 cm gap leaves B standing). 40 physics
+    matches (seed 2): 18.7 -> 19.4 turns, field batons hit 77% -> 78%.
+    `tools/drillscatter.lua --only 3` is unchanged to the digit (no pair contact in it).
+  - **Cost:** nothing measurable (`make bench`: ground 0.009 to 0.010, multi 0.016 both);
+    the extra work is one stamp per bouncing pair and a check per contact in steps that
+    have a pair bounce.
+  - Not bit-identical: any step with a bounce between two pieces faster than
+    `restitutionSpeed`.
 - Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
   tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
   would save about 8% of a collision step but changes the feel, so it was not applied.

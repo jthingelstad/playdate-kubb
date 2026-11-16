@@ -69,7 +69,10 @@ test("baton hits: struck kubbs seldom bounce back up or fly", function()
 	-- 48 throws at one kubb across lofts and carries: few tilt past 25
 	-- degrees and come back up, and few leave the ground for 0.2 s or more
 	-- (the full sweep, tools/batonprobe.lua: 3 bounce-backs and 140 of 747
-	-- off the ground that long, against 8 and 168 before)
+	-- off the ground that long, against 8 and 168 before). Since the pair
+	-- bounce is solved with the kubb's footing (2026-11-16) a kubb kicked at
+	-- the foot keeps more of the kick: 9 of these 42 fly against 3, 277 of 764
+	-- in the sweep against 162 (AGENTS.md, "The pair bounce with its footing")
 	local touched, back, flew = 0, 0, 0
 	for loft = 20, 47, 9 do
 		for dd = -0.45, 0.31, 0.065 do
