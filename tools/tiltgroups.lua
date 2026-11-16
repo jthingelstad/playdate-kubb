@@ -66,7 +66,7 @@ local AIM_MARGIN = 0.06
 -- Launch speed for a landing distance and the tumble the plan gives that speed.
 local function launch(D, loft)
 	local sp = autothrow.speedFor(D, loft)
-	return sp, tw.plan.tumbleFor(sp)
+	return sp, tw.plan.tumbleFor(sp, loft)
 end
 
 -- Kubb centers for a layout with its front face at y0; half = half width.

@@ -222,10 +222,8 @@ test("plan: shake tilts and pulls; overpower raises its costs; tilt and shake ad
 	-- the same shake costs a beginner less than a pro
 	local bsol = solve("baton", 0, 0, 0, 8, 90, "beginner")
 	expect.truthy(plan.launch(bsol, cleanSwing(bsol, { smoothness = 0.8 }), nil, {}).tilt < shaky.tilt)
-	-- the tumble follows the speed
-	expect.near(plan.tumbleFor(4.0), 4.5, 1e-9)
-	expect.near(plan.tumbleFor(9.2), 7.0, 1e-9)
-	expect.truthy(shaky.tumble > 6 and shaky.tumble < 7)
+	-- with no nerves the tumble is the plan's: the shake alone does not turn it
+	expect.near(shaky.tumble, sol.tumble, 1e-12)
 	local p, rl, st = plan.verdictText(plan.launch(sol, cleanSwing(sol), nil, {}))
 	expect.eq(p .. " " .. rl .. " " .. st, "ON ON STEADY")
 end)
@@ -341,6 +339,44 @@ test("plan: nerves are off unless asked for; on, the same swing draws the same m
 	local z1, z2 = r2.normal(1), r2.normal(1)
 	expect.near(d.sideDeg, z1 * d.sdSide, 1e-12)
 	expect.near(d.lenShare, z2 * d.sdLen, 1e-12)
+	-- and a baton's third draw is its tumble: sdTurns turns over the planned flight
+	local z3 = r2.normal(1)
+	expect.near(d.tumble, sol.tumble + z3 * d.sdTurns * 2 * math.pi / sol.flightT, 1e-9)
+end)
+
+test("plan: the release sets the tumble, a turn over the flight inside the wrist's range", function()
+	local tn = plan.tune
+	-- a full throw at 8 m: one turn over the clean flight
+	local sol = solve("baton", 0, 0, 0, 8, 90, "club")
+	expect.near(sol.tumble * sol.flightT / (2 * math.pi), tn.tumbleTurns, 1e-9)
+	expect.near(plan.launch(sol, cleanSwing(sol), nil, {}).tumble, sol.tumble, 1e-12)
+	-- a 2 m lob: the arm is slow and the wrist cannot add a whole turn
+	local lob = solve("baton", 0, 0, 0, 2, 90, "club")
+	expect.near(lob.tumble, lob.speed / tn.armR * (1 + tn.wristShare), 1e-9)
+	expect.truthy(lob.tumble * lob.flightT / (2 * math.pi) < 0.8)
+	-- a slow flick is a slow wrist: less turn
+	local slow = plan.launch(sol, cleanSwing(sol, { flickFrac = 0.85 }), nil, {})
+	expect.near(slow.tumble, 0.85 * sol.tumble, 1e-9)
+	-- with nerves the turn varies throw to throw, seeded, and more for a beginner
+	local function spread(level)
+		local s = solve("baton", 0, 0, 0, 8, 90, level)
+		local rng, sum, sq, n = plan.rng(5), 0, 0, 400
+		for _ = 1, n do
+			local turns = plan.launch(s, cleanSwing(s), { nerves = rng }, {}).tumble * s.flightT / (2 * math.pi)
+			sum, sq = sum + turns, sq + turns * turns
+		end
+		local mean = sum / n
+		return mean, sqrt(sq / n - mean * mean)
+	end
+	local cm, cs = spread("club")
+	expect.near(cm, tn.tumbleTurns, 0.03, "club: the habit on average")
+	expect.near(cs, plan.levels.club.tumbleSd, 0.03)
+	local _, bs = spread("beginner")
+	local _, ps = spread("pro")
+	expect.truthy(bs > cs and ps < cs)
+	-- a drilled kubb draws no tumble and keeps the computer's stream as before
+	local k = solve("kubb", 0, 0, 0, 6, 135, "club")
+	expect.eq(plan.launch(k, cleanSwing(k), { projectile = "kubb", nerves = plan.rng(9) }, {}).tumble, 0)
 end)
 
 test("plan: nerves grow with effort, roughness, overpower and level; the verdict names the side", function()

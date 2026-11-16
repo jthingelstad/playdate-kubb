@@ -23,7 +23,7 @@
 --
 --   lua5.4 tools/batonprobe.lua [--quick] [--seeds 3] [--tyler traces.jsonl] [--rates 400]
 --     [--set name=value | --set grass.e=0 | --set collide.batonRound=0 ...]
---     (world.tune, a surface or collide.tune, for trials)
+--     (world.tune, a surface, collide.tune or plan.tune (plan.tumbleTurns=1.1), for trials)
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
 local imported = {}
@@ -55,6 +55,7 @@ while i <= #arg do
 		local key, v = arg[i + 1]:match("^([%w_.]+)=(.+)$")
 		local sname, field = key:match("^(%w+)%.([%w_]+)$")
 		if sname == "collide" then tw.collide.tune[field] = tonumber(v)
+		elseif sname == "plan" then plan.tune[field] = tonumber(v)
 		elseif sname then world.surfaces[sname][field] = tonumber(v)
 		else world.tune[key] = tonumber(v) end
 		i = i + 1
@@ -76,7 +77,7 @@ for loft = 8, 50, 3 do
 	for dd = -0.6, 0.351, 0.05 do
 		local sol = plan.solve({ projectile = "baton", px = 0, py = 0, tx = 0, ty = 8 + dd,
 			release = plan.releaseFor(loft), level = "club" }, {})
-		local tumble = plan.tumbleFor(sol.speed)
+		local tumble = plan.tumbleFor(sol.speed, loft)
 		for seed = 1, seeds do
 			local w = world.new { surface = "grass", pieces = { { id = "k", kind = "kubb", x = 0, y = 8 } },
 				groundSeed = seed, stakes = false }
