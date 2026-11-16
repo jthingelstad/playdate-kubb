@@ -22,7 +22,8 @@
 --
 --   lua5.4 tools/drillscatter.lua [--n 300] [--matches 40] [--seed 2]
 --     [--only 1|2|3] [--grounds 24] [--surface grass] [--set name=value ...]
---   (--set: a number in drill.tune, or autothrow.tune as auto.name, for the run)
+--   (--set: a number in drill.tune, autothrow.tune as auto.name or world.tune as
+--   world.name, for the run)
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -63,6 +64,9 @@ end
 for _, kv in ipairs(sets) do
 	local k, v = kv[1], kv[2]
 	if k:sub(1, 5) == "auto." then autothrow.tune[k:sub(6)] = v
+	elseif k:sub(1, 6) == "world." then
+		assert(world.tune[k:sub(7)] ~= nil, "no world.tune." .. k:sub(7))
+		world.tune[k:sub(7)] = v
 	else
 		assert(tw.drill.tune[k] ~= nil, "no drill.tune." .. k)
 		tw.drill.tune[k] = v
@@ -200,13 +204,118 @@ end
 
 local function pct(a, b) return b > 0 and fmt("%.0f%%", 100 * a / b) or "-" end
 print(fmt("drillscatter 2: %d drills in %d physics matches, seed %d (%.0f s)", tosses, matches, seed, os.clock() - t0))
-print(fmt("  aimed at the basket itself %s, at a spot beside the group %s", pct(atBasket, tosses), pct(atSpot, tosses)))
+print(fmt("  aimed at the basket itself %s, at a spot by the group (into it or beside it) %s", pct(atBasket, tosses), pct(atSpot, tosses)))
 print(fmt("  touched no other piece: %s of drills; rest %.0f cm from the mark on average, %s over 30 cm",
 	pct(clean.n, tosses), cm(mean(clean)), pct(cleanOver, clean.n)))
 print(fmt("  touched a piece:        %s of drills; rest %.0f cm from the mark on average, %s over 30 cm",
 	pct(hit.n, tosses), cm(mean(hit)), pct(hitOver, hit.n)))
 print(fmt("  pieces a drill touched: %d (%d lying, %d standing), moved %.0f cm on average, %s over 10 cm",
 	moved.n, hitLying, hitStanding, cm(mean(moved)), pct(movedOver, moved.n)))
+end
+
+-- Part 4 ---------------------------------------------------------------
+-- Into the group (2026-11-16, Jamie: "good drillers roll into other kubbs"):
+-- every drill of physics matches thrown while a kubb of this turn already
+-- lies in the far half. Did it reach a lying kubb, how fast was it going
+-- when it did, and where did the two end (edge to edge, the footprints of
+-- the lying bodies)? And the ones that never reached one: short, beside or
+-- past the group?
+if not only or only == 4 then
+import "core/rect"
+local rect = tw.rect
+local HL, HW = 0.075, 0.035
+local function foot(b)
+	return rect.new(b.x, b.y, math.atan(b.r23, b.r13), HL, HW)
+end
+local function lying(b) return b.r33 < 0.7 and b.r33 > -0.7 end
+local into, reached, hitV, gapR, gapN, movedR = 0, 0, acc(), acc(), acc(), acc()
+local GB = { 0.01, 0.05, 0.15, 0.30 }
+local GL = { "touching (<1 cm)", "1-5 cm", "5-15 cm", "15-30 cm", "over 30 cm" }
+local histR, histN = { 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0 }
+local VB = { 0.25, 0.5, 1.0, 2.0 }
+local VL = { "under 0.25 m/s", "0.25-0.5", "0.5-1", "1-2", "over 2" }
+local histV, touchByV = { 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0 }
+local short, beside, past, onTop = 0, 0, 0, 0
+local landOn = 0
+local function bucket(B, v) local k = 1; while k <= #B and v >= B[k] do k = k + 1 end; return k end
+local t0 = os.clock()
+for gi = 1, matches do
+	local m = match.new { start = START, first = (gi % 2 == 0) and "B" or "A" }
+	local r = autothrow.rng(seed * 7919 + gi)
+	while not match.over(m) and m.game.turn <= 40 do
+		local s = match.setup(m)
+		if not s then break end
+		local a = autothrow.choose(s, r, 1)
+		local w = world.new { surface = "grass", pieces = match.worldPieces(s) }
+		local group = {}
+		if s.kind == "toss" then
+			for j = 1, w.n do
+				local b = w.bodies[j]
+				if b.kind == "kubb" and not b.static and b.y > s.lineY + 4 and b.y < s.lineY + 8.6 and lying(b) then
+					group[#group + 1] = { b = b, x = b.x, y = b.y }
+				end
+			end
+		end
+		autothrow.launch(w, s, a)
+		if #group > 0 then
+			local p = w.projectile
+			local v0, vHit, landed = 0, nil, nil
+			while not world.isAtRest(w) and w.time < world.tune.maxTime do
+				v0 = sqrt(p.vx * p.vx + p.vy * p.vy + p.vz * p.vz)
+				world.step(w)
+				if w.firstContact and landed == nil then landed = w.firstContact.with ~= "ground" end
+				if w.firstHit and not vHit then vHit = v0 end
+			end
+			into = into + 1
+			local pf = foot(p)
+			local best, bestG = math.huge, nil
+			for _, gk in ipairs(group) do
+				local d = rect.distance(pf, foot(gk.b))
+				if d < best then best, bestG = d, gk end
+			end
+			local hitGroup = false
+			for _, gk in ipairs(group) do if gk.b.touched then hitGroup = true end end
+			if hitGroup then
+				reached = reached + 1
+				add(hitV, vHit or 0)
+				local k = bucket(VB, vHit or 0)
+				histV[k] = histV[k] + 1
+				if best < 0.01 then touchByV[k] = touchByV[k] + 1 end
+				add(gapR, best)
+				histR[bucket(GB, best)] = histR[bucket(GB, best)] + 1
+				for _, gk in ipairs(group) do
+					if gk.b.touched then add(movedR, sqrt((gk.b.x - gk.x) ^ 2 + (gk.b.y - gk.y) ^ 2)) end
+				end
+				if landed then landOn = landOn + 1 end
+			else
+				add(gapN, best)
+				histN[bucket(GB, best)] = histN[bucket(GB, best)] + 1
+				-- against the nearest kubb of the group, along the throw
+				local dy = p.y - bestG.y
+				local dx = p.x - bestG.x
+				if dx < 0 then dx = -dx end
+				if dx > 0.12 then beside = beside + 1 elseif dy < 0 then short = short + 1 else past = past + 1 end
+			end
+		else
+			world.run(w)
+		end
+		match.resolve(m, world.result(w), not a.legal)
+	end
+end
+local function pct(a, b) return b > 0 and fmt("%.0f%%", 100 * a / b) or "-" end
+print(fmt("drillscatter 4: %d drills thrown while a kubb lay in the far half, %d matches, seed %d (%.0f s)",
+	into, matches, seed, os.clock() - t0))
+print(fmt("  reached a lying kubb: %s (landed on one first: %s of those); speed at the touch mean %.2f m/s",
+	pct(reached, into), pct(landOn, reached), mean(hitV)))
+for k = 1, 5 do
+	print(fmt("    at %-15s %s of touches, of which ended touching %s", VL[k], pct(histV[k], reached), pct(touchByV[k], histV[k])))
+end
+print(fmt("  reached: drill's edge gap to the nearest lying kubb at rest mean %.0f cm; the kubb it touched moved %.0f cm",
+	cm(mean(gapR)), cm(mean(movedR))))
+for k = 1, 5 do print(fmt("    %-18s %s", GL[k], pct(histR[k], reached))) end
+print(fmt("  never reached: gap mean %.0f cm; short of the nearest %s, beside it %s, past it %s",
+	cm(mean(gapN)), pct(short, into - reached), pct(beside, into - reached), pct(past, into - reached)))
+for k = 1, 5 do print(fmt("    %-18s %s", GL[k], pct(histN[k], into - reached))) end
 end
 
 -- Part 3 ---------------------------------------------------------------

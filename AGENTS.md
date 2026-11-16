@@ -419,6 +419,8 @@ are the computer at club level against itself.
     computer 2.5% (its drills rest 0.29 m from the basket on average, so its kubbs stand a
     kubb or two apart). So the first place to look is how tight the game's groups are, the
     computer's and a player's, before the baton or the physics.
+- **Latest figures**: "Tuned toward the real games", the last bullet ("Into the group",
+  2026-11-16), with seeds 2, 3 and 4.
 
 ### How tight the groups are
 
@@ -459,6 +461,12 @@ seed 2:
   ground's patches and kubbs knocking the ones already there, not the swing. That is the
   next thing to measure before anything is tuned.
 - Not measured: a player's drills (the tool throws the computer's).
+- **Lying, before raising** (2026-11-16): the tool also measures the same gaps when the
+  inkast is judged, before the defender raises anything. On the game of the day before
+  (seed 2, 60 matches) the lying kubbs were 11.7 cm apart and 21% touching, standing 24.6
+  cm; since the computer drills into the group ("Tuned toward the real games", "Into the
+  group") 6.5 cm and 35% lying, 17.6 cm standing. `--set world.name=value` sets a
+  `world.tune` number.
 
 ### Tuned toward the real games
 
@@ -518,6 +526,56 @@ play date versions, deploy as needed." The first pass changes only how the compu
   past it in its lane (a backstop bonus) was tried and not kept: no change in the takes
   (8.0% two, 0.8% three or more). Rethrows stay rare because a kubb is in when either end
   can be raised in bounds and the basket is 0.75 m past the centre line.
+- **Into the group (2026-11-16).** Why the run-on groups stayed loose
+  (`tools/drillscatter.lua --only 4`, drills thrown while a kubb lay in the far half, 40
+  matches): the grid's spots are fixed to the basket, not to the kubbs that are down, so
+  only 40% of later drills reached a lying kubb (70% of the rest went past beside it), and
+  32% of those that did came down on top of it. The wood is fine: a drill that runs into
+  a kubb at under 1 m/s ends touching it 87 to 89% of the time; one that arrives over
+  2 m/s bounces off (20%), as it should. So `autothrow.spot` now aims a later kubb of the
+  turn into the group first (`intoSpot`, `tune.into` 1, `intoShort` 0.03): just short of
+  the near face of a lying field kubb near the basket (`intoShort` short of it; the face
+  is the kubb's half length or half width along the throw by how it lies), where the
+  drill's mean rest ends it against that kubb. In a line (2 or 3 kubbs) the front kubb, so
+  the line grows toward the thrower; in a cluster (4 or more) the kubb nearest the group's
+  middle. The same lane and clear rules as the grid's spots (no other kubb within the
+  clear ellipse, none lying 12 cm or standing 60 cm short in the lane); with none clear,
+  the grid as before. The swing, the drill and the physics are unchanged; the scatter is
+  still the run on. Part 4 after: reached a lying kubb 40 -> 52%, landed on it first 32
+  -> 6% of those, ended touching 36 -> 47%, the drill's gap at rest 14 -> 6 cm.
+  `tools/clusters.lua` (60 matches, seed 2; before / after), lying as the inkast ends:
+  nearest neighbour 11.7 -> 6.5 cm, touching 21 -> 35%, largest group 3.3 of 4.8 -> 4.2 of
+  5.0 kubbs; standing at the first baton (after `apart` raising): 24.6 -> 17.6 cm, touching
+  0.7 -> 2.8%, within 15 cm 30 -> 52%, spread 42 -> 34 cm, largest group 1.9 -> 2.7. 150
+  physics matches each, seed 2 (seeds 3 and 4 in brackets), real / before / after:
+
+  | | real | before | after |
+  |---|---|---|---|
+  | turns a game | 8.9 | 22.7 (23.3, 23.5) | 21.3 (22.3, 20.8) |
+  | a baton at field kubbs: missed | 24.7% | 23.8% | 22.1% |
+  | took one | 49.4% | 67.8% | 66.0% |
+  | took two | 16.0% | 7.5% (7.3, 7.3) | 10.5% (10.3, 10.0) |
+  | three or more | 10.0% | 0.9% (0.8, 0.6) | 1.4% (1.4, 1.4) |
+  | cleared the field | 83.4% | 52.8% (50.9, 49.5) | 55.3% (53.2, 54.1) |
+  | five kubbs | 84.5% | 59.5% (63.6, 58.0) | 68.9% (68.1, 69.9) |
+  | eight kubbs | 67.6% | 14.8% (12.9, 13.6) | 22.3% (20.8, 17.6) |
+  | a base kubb from 8 m | 32.7% | 40.8% | 41.9% |
+  | the king | 83.8% | 79.6% (71.0, 75.7) | 74.3% (74.7, 74.2) |
+  | turns from an advantage line | 14.4% | 43.6% | 41.0% |
+  | kubbs rethrown | 14.1% | 0.5% | 0.6% (0.7, 0.6) |
+  | punishment kubbs | 1.3% | 0% | 0% |
+
+  The groups now form the way Jamie described (later kubbs run into the ones down and end
+  against them), but the takes move only part of the way: the defender's `apart` raising
+  undoes most of a touching group (lying 6.5 cm apart, standing 17.6). With `--raise
+  together` the same aim gives a standing gap of 10.4 cm, two 16.2%, three or more 4.1%,
+  15.2 turns. Tried and not kept: `intoShort` -0.1 to 0.13 (no better than 0.03) and -0.2
+  (worse: the drill arrives fast and knocks the group apart), and a lower kubb-on-kubb restitution
+  (`world.tune.boxE` 0.05 and 0 in a sweep: more drills end touching, the takes no better;
+  the physics is unchanged). Rethrows stay rare: moving the basket nearer the centre line
+  (`basketY` 4.5 / 4.35 / 4.2) leaves them at 0.8 / 1.1 / 1.2%; only with `spotMinY` 3.9
+  and the basket at x 2.25 as well do they reach 8.5% (two 14.1%, three or more 3.4%, 16.9
+  turns, 60 matches). That is a play question for Jamie and not in this change.
 
 ### What scatters a drilled kubb
 
@@ -529,7 +587,16 @@ from its mark, 25% over 30 cm (textured grass); at the game's drill (x0.2) 28.5 
 at a baton's full mistakes 50 cm and 57%. In 40 matches (3780 drills) 47% go at the basket
 itself and 53% at a spot beside the group; 66% touch nothing and rest 25 cm from the mark
 (23% over 30), 34% touch a piece and rest 31 cm away (35% over 30); a touched piece moves
-4 cm on average (12% over 10 cm). Part 3 (`--only 3`, new) throws the plan's clean drill
+4 cm on average (12% over 10 cm). Since the computer drills into the group (2026-11-16,
+"Tuned toward the real games"), 3535 drills: 21% at the basket, 79% at a spot by the group
+(into it or beside it); 57% touch nothing and rest 24 cm from the mark (19% over 30), 43%
+touch a piece and rest 19 cm away (17% over 30: the mark is now where the kubb it runs
+into stops it); a touched piece moves 5 cm on average (16% over 10 cm). Parts 1 and 3 are
+unchanged (the clean drill and the physics are). Part 4 (`--only 4`) follows the drills
+thrown while a kubb lies in the far half: whether they reach a lying kubb or land on one,
+their speed when they touch it and how often each speed ends touching, the gap at rest,
+how far the struck kubb moves, and for those that never reach one whether they stopped
+short, beside or past (figures in "Into the group"). Part 3 (`--only 3`, new) throws the plan's clean drill
 onto 12 markers x 24 grounds and reports its attitude at release and at the touch, the
 run on (mean, sd, p10, p50, p90, max, dead stops), the rest's pose and yaw, and the time
 from touch to rest; the figures are in "Drilling". `--set name=value` sets a
@@ -803,6 +870,8 @@ the datastore part is `source/players.lua` (`tw.players`).
   the plan: Team A's two opening batons from a stance set off the middle and kept, the
   hand-off card, Team B's first throw in its turned view, standing behind its circle),
   `match-toss` (a kubb toss played back and the automatic raising after it),
+  `match-group` (the computer drilling a turn of 3 and a turn of 5 into a group, played
+  back; the note gives the frames each turn plays in for a film),
   `match-debris` (a downed kubb and a lying baton on the pitch for the next throw of the
   turn, that baton among them at rest, gone after the hand-off) and
   `cards` (a scripted match, seed 5: frame 1 the first hand-off with kubbs to throw in
@@ -1792,7 +1861,12 @@ the throw scene with `s.drill` on.
 - **Into other kubbs.** A drill that runs into a lying kubb stops by it (0.12 to 0.36 m
   centre to centre in `test_drill`'s backstop) and the struck kubb moves 0 to 20 cm; one
   that lands on top of a kubb shoves it 0.2 to 0.45 m. The drill-over rule below makes it
-  a plain kubb at the first touch.
+  a plain kubb at the first touch. In matches (`tools/drillscatter.lua --only 4`) a drill
+  that reaches a lying kubb at under 1 m/s ends touching it 87 to 89% of the time, at 1 to
+  2 m/s about 60%, over 2 m/s 20 to 32% (it knocks the kubb on or bounces off). The
+  computer aims a turn's later kubbs to run into the ones down (`autothrow` `intoSpot`,
+  "Tuned toward the real games", "Into the group"); self-test `match-group` shows a turn
+  of 3 and a turn of 5 doing it.
 - **When the drill is over** (Tyler's play test, 2026-11-15) the body becomes a plain kubb
   (every field above back to `body.new`'s): at once when it strikes a piece (a stake does
   not count, so a wall still rolls against the stake; `b.drillHit`, set where contacts are
