@@ -33,9 +33,11 @@ import "core/frame"
 import "core/outcome"
 import "core/debris"
 import "core/order"
+import "core/world"
+import "core/body"
 
 local rules, notation, frame, outcome, debris = tw.rules, tw.notation, tw.frame, tw.outcome, tw.debris
-local order = tw.order
+local order, world, body, pitch = tw.order, tw.world, tw.body, tw.pitch
 local fmt = string.format
 
 local match = {}
@@ -238,10 +240,15 @@ function match.setup(m)
 	end
 	local side = n.side
 	debris.begin(m.debris, g.turn)
+	-- from the inkast to the batons the lying kubbs were raised (by the
+	-- engine here or by hand in scenes/settle): settle what they propped
+	if m.debris.kind ~= n.kind then m.debris.settle = true end
+	m.debris.kind = n.kind
 	local s = { kind = n.kind, side = side, pieces = outcome.pieces(g, side), lineY = 0, forwardY = 0,
 		surface = match.surfaceName(g) }
 	debris.applyExact(m.debris, s.pieces, side)
 	s.debris = debris.pieces(m.debris, side)
+	if m.debris.settle then match.settleStanding(m, s) end
 	if g.advantageY then s.advY = frame.y(side, g.advantageY) end
 	if n.kind == "toss" then
 		s.projectile, s.kubb = "kubb", n.kubb
@@ -260,6 +267,66 @@ function match.setup(m)
 	s.thrower = match.thrower(m)
 	m.setup = s
 	return s
+end
+
+-- Standing pieces keep the exact pose a throw left them in (core/debris):
+-- tilted on an edge against a piece lying beside it, raised on a piece. (A
+-- kubb leaning on a neighbour by its own weight is past its tipping point,
+-- and the leaner rule has it down.) When what may have propped one has gone
+-- since (the turn's debris picked up, the inkast's kubbs raised or lifted),
+-- the world runs the tilted or raised ones to rest once, before the next
+-- throw, from the pitch as it is now. One that falls back straight stands
+-- where it settled (the engine's pose follows); one that topples or leaves
+-- the pitch while settling was knocked by clearing the pitch and is stood
+-- back up where the engine has it. Returns how many pieces it woke.
+match.tune = {
+	settleDeg = 0.5,   -- a standing piece tilted more than this ...
+	settleGap = 0.002, -- m ... or this far off the ground is run to rest
+}
+
+function match.settleStanding(m, s)
+	local d, g, side = m.debris, m.game, s.side
+	d.settle = nil
+	local cosTol, gapTol = math.cos(math.rad(match.tune.settleDeg)), match.tune.settleGap
+	local wake = nil
+	for _, p in ipairs(s.pieces) do
+		local e, k = d.exact[p.id], body.kinds[p.kind]
+		if e and e.standing and not p.toppled and p.z and k then
+			-- the long axis (column 3 of the rotation) and the lowest corner
+			local qw, qx, qy, qz = p.qw, p.qx, p.qy, p.qz
+			local r31, r32, r33 = 2 * (qx * qz - qw * qy), 2 * (qy * qz + qw * qx), 1 - 2 * (qx * qx + qy * qy)
+			local gap = p.z - (k.hx * math.abs(r31) + k.hy * math.abs(r32) + k.hz * math.abs(r33))
+			if math.abs(r33) < cosTol or gap > gapTol then
+				wake = wake or {}
+				wake[#wake + 1] = p.id
+			end
+		end
+	end
+	if not wake then return 0 end
+	local w = world.new { surface = s.surface or "grass", pieces = match.worldPieces(s) }
+	for _, id in ipairs(wake) do world.wake(w.byId[id]) end
+	world.run(w)
+	local res = world.result(w)
+	local eps = debris.tune.matchEps
+	for _, p in ipairs(s.pieces) do
+		local rb = res.bodies[p.id]
+		if rb and not p.toppled then
+			local piece = p.id == "king" and g.king or g.kubbs[p.id]
+			local wp = frame.pose(side, (outcome.poseOf(rb.x, rb.y, rb.z, rb.qw, rb.qx, rb.qy, rb.qz)))
+			local old = piece.pose
+			if rb.toppled or not wp.standing or not pitch.onPitch(wp.x, wp.y) then
+				d.exact[p.id] = nil
+			elseif (wp.x - old.x) ^ 2 + (wp.y - old.y) ^ 2 > eps * eps then
+				piece.pose = { x = wp.x, y = wp.y, standing = true, angle = wp.angle }
+			end
+		end
+	end
+	debris.carry(d, res, side)
+	debris.recordExact(d, g, res, side)
+	s.pieces = outcome.pieces(g, side)
+	debris.applyExact(d, s.pieces, side)
+	s.debris = debris.pieces(d, side)
+	return #wake
 end
 
 -- Every body a throw's physics world starts with: the engine's pieces, then
@@ -382,11 +449,19 @@ end
 -- hand) lies where it fell; the debris already there moves if it was struck.
 -- A throw the engine puts back (Z: a helicopter, II.B.11) leaves the earlier
 -- debris where it was, as it does the standing pieces; only its baton is
--- added. The turn over (or the game): nothing is carried.
+-- added. The turn over: no debris is carried, only the standing pieces'
+-- exact poses (core/debris); the game over: nothing.
 function match.carryDebris(m, s, res, turn, batonRec)
 	local g, d = m.game, m.debris
-	if g.phase == "over" or g.turn ~= turn then
+	if g.phase == "over" then
 		debris.clear(d)
+		return
+	end
+	if g.turn ~= turn then
+		-- the turn is over: its debris is picked up, but the standing
+		-- pieces stay as this throw left them
+		debris.recordExact(d, g, res, s.side)
+		debris.begin(d, g.turn)
 		return
 	end
 	if s.kind == "toss" then
@@ -395,7 +470,10 @@ function match.carryDebris(m, s, res, turn, batonRec)
 		-- poses are carried. A kubb whose support was picked up at the
 		-- judgment lies flat where it is, not floating at its old height.
 		debris.recordExact(d, g, res, s.side)
-		for _, id in ipairs(g.judgment and g.judgment.lifted or {}) do d.exact[id] = nil end
+		for _, id in ipairs(g.judgment and g.judgment.lifted or {}) do
+			d.exact[id] = nil
+			d.settle = true
+		end
 		return
 	end
 	local putBack = batonRec and batonRec.token == "Z"

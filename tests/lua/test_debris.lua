@@ -249,3 +249,90 @@ test("debris: tossed kubbs keep their exact rest pose until raised", function()
 	expect.eq(a1.toppled, false)
 	expect.eq(a1.z, nil)
 end)
+
+-- ---------- standing pieces keep the pose a throw left them in ----------
+
+local function tiltDeg(p)
+	local r33 = 1 - 2 * (p.qx * p.qx + p.qy * p.qy)
+	return math.deg(math.acos(math.min(1, math.abs(r33))))
+end
+
+-- Turn 1, A's first baton knocks b4 down against b3's side and leaves b3
+-- tipped 20 degrees toward +x on its +x bottom edge. The world runs that to
+-- rest: the lying b4 props b3 (a kubb tipped less than its tipping point
+-- leans back unless something holds it).
+local function proppedB3(m)
+	local s = match.setup(m)
+	local b3 = find(s.pieces, "b3")
+	local th = math.rad(20)
+	local qw, qx, qy, qz = tw.quat.fromAxisAngle(0, 1, 0, th)
+	local lw, lx, ly, lz = outcome.quatOf { standing = false, angle = pi / 2 }
+	local pieces = {}
+	for _, p in ipairs(match.worldPieces(s)) do
+		if p.id ~= "b3" and p.id ~= "b4" then pieces[#pieces + 1] = p end
+	end
+	-- (10 cm in from the baseline: a base kubb nudged past it is out, II.B.7)
+	local y = b3.y - 0.1
+	pieces[#pieces + 1] = { id = "b3", kind = "kubb", x = b3.x, y = y, qw = qw, qx = qx, qy = qy, qz = qz }
+	-- b4 lies along the pitch against b3's raised -x bottom edge
+	local ex = b3.x - 0.035 * math.cos(th) - 0.075 * math.sin(th)
+	pieces[#pieces + 1] = { id = "b4", kind = "kubb", x = ex - 0.035, y = y, qw = lw, qx = lx, qy = ly, qz = lz, toppled = true }
+	local w = world.new { surface = "grass", pieces = pieces }
+	world.wake(w.byId.b3)
+	world.run(w)
+	local r = world.result(w)
+	r.toppled[#r.toppled + 1] = "b4"   -- the baton knocked it down
+	r.touched[#r.touched + 1] = "b3"; r.touched[#r.touched + 1] = "b4"
+	match.resolve(m, r, false)
+	return r.bodies.b3
+end
+
+-- Throw still results until the turn is over; the next turn's setup.
+local function toNextTurn(m)
+	local turn = m.game.turn
+	while m.game.turn == turn do
+		match.resolve(m, still(match.setup(m)), false)
+	end
+	return match.setup(m)
+end
+
+test("debris: a kubb a throw leaves leaning stays leaning for the turn's next throw", function()
+	local m = match.new {}
+	local rb = proppedB3(m)
+	expect.truthy(not rb.toppled, "b3 still stands")
+	local lean = tiltDeg(rb)
+	expect.truthy(lean > 15 and lean < 25, "propped on the lying b4 at " .. lean)
+	expect.eq(m.game.kubbs.b3.pose.standing, true)
+	expect.eq(m.game.kubbs.b4.where, "hand")
+	local s = match.setup(m)
+	local p = find(s.pieces, "b3")
+	expect.near(tiltDeg(p), lean, 1e-6, "the next throw meets the lean")
+	expect.near(p.z, rb.z, 1e-9)
+	expect.near(p.x, rb.x, 1e-9)
+	expect.truthy(find(s.debris, "b4"), "and what props it")
+	expect.eq(m.debris.settle, nil, "nothing to settle within the turn")
+	-- a save keeps it (plain data)
+	local d = tw.save.pack(m)
+	expect.eq(d.debris.exact.b3.standing, true)
+	-- a throw that does not touch it has not moved it
+	local o = match.resolve(m, still(s), false)
+	expect.eq(o.moved.b3, nil, "an untouched leaning kubb has not moved")
+end)
+
+test("debris: a leaning kubb settles back upright when its prop is picked up at the turn's end", function()
+	local m = match.new {}
+	local rb = proppedB3(m)
+	local s = toNextTurn(m)
+	expect.eq(#s.debris, 0, "b4 is picked up")
+	local p = find(s.pieces, "b3")
+	expect.truthy(tiltDeg(p) < 0.5, "fell back straight: " .. tiltDeg(p))
+	expect.eq(p.toppled, false)
+	-- it fell back about the edge it stood on: the engine's pose follows
+	local k = m.game.kubbs.b3
+	expect.truthy(k.pose.x < rb.x - 0.01, "moved back over its edge: " .. (k.pose.x - rb.x))
+	expect.near(k.pose.y, rb.y, 0.005)
+	expect.near(m.debris.exact.b3.ex, k.pose.x, 1e-12)
+	expect.eq(m.debris.settle, nil, "settled once")
+	-- and is at rest: nothing more to run
+	expect.eq(match.settleStanding(m, s), 0)
+end)

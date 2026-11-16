@@ -182,7 +182,8 @@ What it does with them: illegal or II.B.11 throws put everything back and write 
 toppled before every kubb is down loses (`E`, also after an illegal throw); toppled field
 kubbs go to the defender's hand; a toppled base kubb with a field kubb still standing after
 the throw is raised where it was (II.B.4a); a piece moved without toppling stays at its rest
-pose unless its center left the pitch (II.B.7: put back).
+pose unless its center left the pitch (II.B.7: put back). It stays as the throw left it, not
+stood up straight: core/debris carries its exact body pose ("Debris" below).
 
 ### Kubb-toss outcome
 
@@ -1399,7 +1400,11 @@ Every number that is a guess lives in one table per module, with a comment:
 - `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds,
   and `bench.debris`, the lying batons and kubbs of a full turn).
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
-  lying tossed kubb must stay to the one recorded at rest for that exact pose to be used.
+  piece (a lying tossed kubb, a standing kubb, the king) must stay to the one recorded at
+  rest for that exact pose to be used.
+- `tw.match.tune` (`source/core/match.lua`): `settleDeg` and `settleGap`, how tilted (0.5
+  degrees) or how far off the ground (2 mm) a carried standing piece must be for
+  `match.settleStanding` to run it to rest.
 - `tw.render.world.tune` and `tw.render.hud.tune`: shadow direction (also the light that
   shades the faces), the tones (`awayBelow`; a piece is never grey and keeps its look
   standing, falling or lying, with outline and detail sized by its length at its
@@ -2333,7 +2338,29 @@ own item). Practice is the throw scene exactly as before.
   also carries their exact rest pose (tilt, height) while the engine's pose is the one they
   came to rest at, so they are shown and simulated as they landed until raised or picked up.
   A kubb lowered at the judgment no longer matches and is shown flat; one whose support was
-  picked up keeps its spot but drops its exact pose (it would float). In the scene the
+  picked up keeps its spot but drops its exact pose (it would float).
+  Standing pieces (2026-11-16, physics audit item 4): every kubb the engine has standing and
+  the king also keep their exact rest pose (tilt, height, which end is down), so a kubb a
+  throw left tilted is met tilted by the next throw instead of being stood up straight.
+  These outlast the turn (the pieces stay on the pitch; `debris.begin` keeps only them). A
+  standing kubb at rest tilted less than its tipping point leans back unless something holds
+  it: in 80 physics matches before this change (`tools/physmatch`'s path, 40 each on seeds 2
+  and 3) throws moved 1,539 standing pieces without toppling them and 1,528 came to rest
+  within 1 degree of upright; the 11 that did not (1.6 to 23.6 degrees) each had a lying
+  baton or a downed kubb within 25 cm holding them, debris that is picked up at the end of
+  the turn. With the change 13 throws in those 80 matches met a tilted kubb. So when what may have propped one has gone
+  (a new turn, the inkast's kubbs raised, a judgment's lifted kubbs: `d.settle`),
+  `match.setup` calls `match.settleStanding`: the world runs every carried piece tilted over
+  `settleDeg` or raised over `settleGap` to rest once, from the pitch as it is now, and the
+  engine's pose follows where it settled. One that topples or leaves the pitch while settling
+  was knocked by clearing the pitch and is stood back up where the engine has it (no exact
+  pose). A kubb leaning on a neighbour by its own weight is past its tipping point, and the
+  leaner rule already has it down; a standing pose past the tipping point (the inkast's
+  45-degree rule, `outcome.tune.standingCos`, can call one standing) is not carried, and is
+  stood up straight as before. Cost: the check is a few multiplies per standing piece; a
+  settle that runs is about 170 steps with one body awake (1.8 to 2.6 ms on the desktop,
+  roughly a second on the device), once per turn that left a tilted piece (1 run in 80
+  matches). In the scene the
   debris items follow the engine's pieces; a lying baton is a `baton` item of `render/world`
   (drawn like the flying baton from its cached pose, nothing prepared); the minimap draws
   debris as 1 px dots like other toppled pieces. Cost: `make bench` runs its throw again with

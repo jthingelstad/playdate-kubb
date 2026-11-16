@@ -14,6 +14,13 @@
 -- pose ({x, y, angle}) would lay them flat on a face. An exact pose is used
 -- only while the engine's pose is the one it was recorded with.
 --
+-- Standing kubbs and the king get the same: a piece a throw moved without
+-- toppling stands as the throw left it (leaning on a neighbour, tilted on an
+-- edge, raised on a piece), not stood up straight. These poses outlast the
+-- turn (the pieces stay on the pitch); the turn's debris does not, so a new
+-- turn marks them to be settled (d.settle): core/match runs the world to rest
+-- once before the next throw, in case what propped a leaning piece has gone.
+--
 --   local d = debris.new()
 --   debris.begin(d, turn)                  -- a new turn clears everything
 --   local list = debris.pieces(d, side)    -- tw.world pieces, view frame
@@ -27,8 +34,9 @@
 -- thrower's view frame, so Team B's turned view is the same pitch.
 import "core/tw"
 import "core/frame"
+import "core/body"
 
-local frame = tw.frame
+local frame, kinds = tw.frame, tw.body.kinds
 
 local debris = {}
 
@@ -45,11 +53,18 @@ function debris.clear(d)
 	d.list, d.exact = {}, {}
 end
 
--- Start (or continue) turn `turn`: a different turn clears the debris.
+-- Start (or continue) turn `turn`: a different turn clears the debris and
+-- the lying poses. Standing pieces stay as they are; the debris that may
+-- have propped them is gone, so they are to be settled.
 function debris.begin(d, turn)
 	if d.turn ~= turn then
-		debris.clear(d)
+		local keep = {}
+		for id, e in pairs(d.exact) do
+			if e.standing then keep[id] = e end
+		end
+		d.list, d.exact = {}, keep
 		d.turn = turn
+		d.settle = next(keep) ~= nil or nil
 	end
 end
 
@@ -110,41 +125,57 @@ function debris.pieces(d, side)
 	return out
 end
 
--- Remember the exact body pose of every kubb the engine has lying on the
--- pitch whose engine pose is where its body came to rest.
+-- Would a standing body fall with its prop taken away (body.wouldFall from
+-- a result body)? The engine may call such a piece standing (a thrown kubb
+-- within 45 degrees of upright in the inkast, core/outcome); it is stood up
+-- straight, as it always was, not carried leaning past its tipping point.
+local function pastTipping(rb)
+	local k = kinds[rb.kind]
+	if not k or not k.hz then return false end
+	local qw, qx, qy, qz = rb.qw, rb.qx, rb.qy, rb.qz
+	local up = math.abs(1 - 2 * (qx * qx + qy * qy))
+	return k.hz * math.abs(2 * (qx * qz - qw * qy)) > k.hx * up or k.hz * math.abs(2 * (qy * qz + qw * qx)) > k.hy * up
+end
+
+-- Remember the exact body pose of every kubb the engine has on the pitch
+-- (lying or standing) and of the king, where the engine pose is where its
+-- body came to rest. A piece whose body ended elsewhere (a throw put back, a
+-- kubb raised where it was) keeps the pose it had.
+local function record(d, keep, id, p, res, side, eps)
+	local rb = res.bodies[id]
+	local e
+	if rb and not (p.standing and pastTipping(rb)) then
+		local x, y = frame.point(side, rb.x, rb.y)
+		if (x - p.x) ^ 2 + (y - p.y) ^ 2 <= eps * eps then
+			e = { ex = p.x, ey = p.y, standing = p.standing or nil }
+			setFrom(e, side, rb)
+		end
+	end
+	if not e then
+		local old = d.exact[id]
+		if old and (old.ex - p.x) ^ 2 + (old.ey - p.y) ^ 2 <= eps * eps
+			and (old.standing or false) == (p.standing or false) then e = old end
+	end
+	keep[id] = e
+end
+
 function debris.recordExact(d, g, res, side)
 	local eps = debris.tune.matchEps
 	local keep = {}
-	for _, k in ipairs(g:onPitch()) do
-		local p = k.pose
-		if not p.standing then
-			local rb = res.bodies[k.id]
-			local e
-			if rb then
-				local x, y = frame.point(side, rb.x, rb.y)
-				if (x - p.x) ^ 2 + (y - p.y) ^ 2 <= eps * eps then
-					e = { ex = p.x, ey = p.y }
-					setFrom(e, side, rb)
-				end
-			end
-			-- a kubb this throw did not reach keeps the pose it had
-			if not e then
-				local old = d.exact[k.id]
-				if old and (old.ex - p.x) ^ 2 + (old.ey - p.y) ^ 2 <= eps * eps then e = old end
-			end
-			keep[k.id] = e
-		end
-	end
+	for _, k in ipairs(g:onPitch()) do record(d, keep, k.id, k.pose, res, side, eps) end
+	if g.king and g.king.pose then record(d, keep, "king", g.king.pose, res, side, eps) end
 	d.exact = keep
 end
 
--- Put the exact poses onto outcome.pieces (view frame of `side`): each lying
--- piece whose engine pose is the recorded one gets the body's pose and z.
+-- Put the exact poses onto outcome.pieces (view frame of `side`): each piece
+-- whose engine pose is the recorded one (lying or standing as recorded) gets
+-- the body's pose and z.
 function debris.applyExact(d, pieces, side)
 	local eps = debris.tune.matchEps
 	for _, p in ipairs(pieces) do
 		local e = d.exact[p.id]
-		if e and p.toppled and p.pose and (e.ex - p.pose.x) ^ 2 + (e.ey - p.pose.y) ^ 2 <= eps * eps then
+		if e and p.pose and (e.standing and true or false) == not p.toppled
+			and (e.ex - p.pose.x) ^ 2 + (e.ey - p.pose.y) ^ 2 <= eps * eps then
 			p.x, p.y = frame.point(side, e.x, e.y)
 			p.qw, p.qx, p.qy, p.qz = frame.quat(side, e.qw, e.qx, e.qy, e.qz)
 			p.z = e.z
