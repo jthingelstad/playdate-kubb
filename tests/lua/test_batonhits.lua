@@ -58,11 +58,22 @@ test("baton hits: a baton meets a kubb's edges rounded (collide.tune.batonRound)
 end)
 
 test("baton hits: a fast baton that clips a kubb's top edge tips it over", function()
-	-- loft 23 carried to 7.7 m: it skips off the grass and catches the kubb's
-	-- top at 6.3 m/s; with square edges it slid over and left it standing
-	local _, _, k, _, _, v = shot(23, 7.70, 1)
-	expect.truthy(v and v > 6, "a fast touch")
-	expect.truthy(k.toppled, "down")
+	-- loft 23 carried to 7.6 to 7.8 m: it skips off the grass and catches the
+	-- kubb's top; with square edges a fast one slid over and left it standing.
+	-- Every touch faster than 6 m/s tips it. (One throw, 7.7 m on ground 1,
+	-- until 2026-11-16: the landing bump's tilted patches decide how fast
+	-- each skip arrives. Measured: 9 of 20 fast, all down.)
+	local fast = 0
+	for _, d in ipairs { 7.60, 7.65, 7.70, 7.75, 7.80 } do
+		for seed = 1, 4 do
+			local _, _, k, _, _, v = shot(23, d, seed)
+			if v and v > 6 then
+				fast = fast + 1
+				expect.truthy(k.toppled, string.format("%.2f m, ground %d: a %.1f m/s touch, down", d, seed, v))
+			end
+		end
+	end
+	expect.truthy(fast >= 5, "fast touches: " .. fast)
 end)
 
 test("baton hits: struck kubbs seldom bounce back up or fly", function()

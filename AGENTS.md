@@ -1547,11 +1547,19 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   - **Patches.** The ground is cut into `cell` (0.25 m) patches, each with five numbers in
     -1..1 from an integer hash of the patch and the throw's seed. They are read only when
     a ground contact is new (no tables, no calls): the patch's friction, bounce and dig
-    vary by `muVar`, `eVar`, `digVar` (kept per contact in `b.gMf`, `b.gEf`), and a steep
-    landing faster than `bumpSpeed` is turned sideways by up to `bump` times its approach
-    speed times the steepness squared (its travel only; at the contact point it gave an
-    edge landing a wild spin), so a low skidding drill is barely turned and a baton
-    dropping end first is.
+    vary by `muVar`, `eVar`, `digVar` (kept per contact in `b.gMf`, `b.gEf`). The patch is
+    also tilted: a landing faster than `bumpSpeed` meets a slope of up to `bump` each way
+    times its steepness squared (a low skidding drill barely feels it, a baton dropping end
+    first does). That step's contact is a kind 4 record: solved like a contact with a still
+    body along the tilted normal, stored as the ground's. So the landing is turned and
+    nothing is added. Until 2026-11-16 (audit 6) the bump added sideways speed, and over
+    180 steep landings a step gained up to 0.35 J. Now the worst step gains 0.6 mJ, which is
+    the solver's own residue (0.9 mJ with no bump). Measured against the old bump:
+    - end-first batons that lose most of their spin at once: 24% to 15%
+    - batonprobe toppled: 88% to 87%
+    - the clean drill's run-on (drillscatter 3, cm, loft 47/30): grass 89/156 to 83/155,
+      sand 27/47 to 25/45, snow 87/149 to 86/146
+    - groundstats hits: grass 9.3% to 11.3%, sand 8.0% to 7.3%, snow 10.0% to 11.3%
   - **Grass holds.** A baton or a lying piece touching the ground loses `drag` of its ground
     speed and spin a second, and `grip` more below `gripSpeed`, so it stops instead of
     creeping. Falling kubbs are left alone (a falling kubb must still fall); a standing one

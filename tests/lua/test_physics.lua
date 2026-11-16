@@ -92,6 +92,35 @@ test("energy never grows: free flight, a tumbling landing, and at rest", functio
 	end
 end)
 
+test("a landing on uneven turf is turned, never sped up", function()
+	-- The bump is a patch tilted a few degrees: a steep landing's push leans
+	-- with it and turns the piece, and the contact takes the energy as any
+	-- other does. (Until 2026-11-16 it added sideways speed, up to 18% of
+	-- the landing speed on sand, and no step paid for it.) A baton end first
+	-- and a kubb on a corner, steep and fast, on every textured surface and
+	-- 30 grounds: no step ends with more energy than it began with, past the
+	-- solver's own residue (0.9 mJ with the bump at 0; the old bump gave a
+	-- step 0.35 J).
+	local worst = 0
+	for _, surface in ipairs { "grass", "sand", "snow" } do
+		for g = 1, 30 do
+			for _, kind in ipairs { "baton", "kubb" } do
+				local w = world.new{ surface = surface, groundSeed = 101 * g }
+				local qw, qx, qy, qz = quat.normalize(0.95, 0.15 + 0.01 * g, 0.2, 0.05)
+				world.launch(w, kind, "p", 0, 0, 0.6, qw, qx, qy, qz, 0.3, 1.5, -4, 2, -3, 1)
+				local last = world.energy(w)
+				for _ = 1, 240 do
+					world.step(w)
+					local e = world.energy(w)
+					if e - last > worst then worst = e - last end
+					last = e
+				end
+			end
+		end
+	end
+	expect.truthy(worst < 2e-3, string.format("a step gained %.5f J", worst))
+end)
+
 -- Tipping a standing kubb over its bottom edge lifts its center of mass from
 -- hz to d = sqrt(hy^2 + hz^2): E = m g (d - hz).
 --   kubb: 0.40 * 9.81 * (0.08276 - 0.075) = 0.0305 J
