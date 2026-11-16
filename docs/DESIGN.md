@@ -269,8 +269,9 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
   two end spheres, with friction, so it bounces, skids, and can turn sideways and roll (a
   steamroller, which is legal).
 - **Kubbs and king:** boxes. Ground contact at the eight corners with friction and low
-  restitution. Tipping about an edge, rocking back upright, and falling are all the same
-  contact solver, not a state machine. A standing kubb sleeps until something touches it.
+  restitution; a bounce between two pieces is solved with their footing. Tipping about an
+  edge, rocking back upright, and falling are all the same contact solver, not a state
+  machine. A standing kubb sleeps until something touches it.
 - **Collisions:** capsule against box (closest point on the segment to the box, the box's
   edges rounded by a centimetre: wood is never a knife edge, and a baton that clips a kubb's
   top edge tips it rather than pressing it into the grass; Tyler's play test, 2026-11-15),

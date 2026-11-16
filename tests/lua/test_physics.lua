@@ -287,6 +287,43 @@ test("a kubb tipped into a neighbour turned on the ground does not sink into it"
 	end
 end)
 
+-- The bounce between two pieces is solved with their footing (world.step's
+-- restitution, AGENTS.md "The bounce"): applied alone, a baton's bounce off a
+-- standing kubb drove the kubb into the ground (a corner on the ground moving
+-- down at up to 2.2 m/s in these hits at the bounce of 0.35) and the ground
+-- threw it up the next step.
+test("a baton bouncing off a standing kubb does not drive it into the ground", function()
+	local SX, SY, SZ = collide.SX, collide.SY, collide.SZ
+	local c, s = math.cos(math.pi / 4), math.sin(math.pi / 4)
+	local worst = 0
+	for _, h in ipairs{ 0.04, 0.08, 0.12 } do
+		for _, v in ipairs{ 4, 7, 10 } do
+			for _, d in ipairs{ -0.3, -0.6 } do
+				local w = world.new{ texture = false, stakes = false, pieces = {
+					{ id = "k", kind = "kubb", x = 0, y = 0 },
+					{ id = "b", kind = "baton", x = 0, y = -0.2, z = h, qw = c, qx = 0, qy = s, qz = 0 } } }
+				local b, k = w.byId.b, w.byId.k
+				world.wake(b)
+				b.vy, b.vz = v, d * v
+				for _ = 1, 120 do
+					world.step(w)
+					-- the lowest corner of the kubb, and how fast it moves down
+					local bz, vz = math.huge, 0
+					for i = 1, 8 do
+						local lx, ly, lz = SX[i] * k.hx, SY[i] * k.hy, SZ[i] * k.hz
+						local rx = k.r11 * lx + k.r12 * ly + k.r13 * lz
+						local ry = k.r21 * lx + k.r22 * ly + k.r23 * lz
+						local z = k.z + k.r31 * lx + k.r32 * ly + k.r33 * lz
+						if z < bz then bz, vz = z, k.vz + k.wx * ry - k.wy * rx end
+					end
+					if bz < 0.0005 and -vz > worst then worst = -vz end
+				end
+			end
+		end
+	end
+	expect.truthy(worst < 1.0, string.format("a corner on the ground moved down at %.2f m/s", worst))
+end)
+
 test("a kubb woken far from the others wakes nobody", function()
 	local w = world.new{ texture = false, pieces = {
 		{ id = "k1", kind = "kubb", x = 0, y = 4 }, { id = "k2", kind = "kubb", x = 0, y = 4.3 } } }
