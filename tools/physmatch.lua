@@ -6,7 +6,7 @@
 -- checked against the throwing order's rules (core/order: II.A.4, II.B.5).
 --
 --   lua5.4 tools/physmatch.lua [--n 3] [--seed 1] [--out build/physgames] [--maxturns 40]
---     [--surface Grass|Sand|Snow] [--scatter 1] [-v]
+--     [--surface Grass|Sand|Snow] [--scatter 1] [--raise apart|together] [-v]
 --
 -- --scatter multiplies every mistake of the computer's swing (core/autothrow's
 -- scale): 1 is the game's Playdate, lower a steadier thrower.
@@ -37,6 +37,7 @@ local function team(side, size)
 end
 
 local n, seed, out, maxTurns, verbose, surface, scatter = 3, 1, "build/physgames", 40, false, "Grass", nil
+local raise
 local i = 1
 while i <= #arg do
 	local a = arg[i]
@@ -45,6 +46,7 @@ while i <= #arg do
 	elseif a == "--out" then out = arg[i + 1]; i = i + 1
 	elseif a == "--maxturns" then maxTurns = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "--surface" then surface = arg[i + 1]; i = i + 1   -- Grass, Sand or Snow
+	elseif a == "--raise" then raise = arg[i + 1]; i = i + 1
 	elseif a == "--scatter" then scatter = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "-v" then verbose = true
 	else error("unknown argument " .. a) end
@@ -79,6 +81,7 @@ for gi = 1, n do
 	local start = notation.addMinutes(base, (gi - 1) * 41)
 	local m = match.new { start = start, first = (gi % 2 == 0) and "B" or "A", surface = surface,
 		teams = { A = team("A", (gi - 1) % 6 + 1), B = team("B", (gi + 1) % 6 + 1) } }
+	if raise then m.game.raisePolicy = raise end
 	local r = autothrow.rng(seed * 7919 + gi)
 	while not match.over(m) do
 		if m.game.turn > maxTurns then
