@@ -96,6 +96,12 @@ on any machine and on GitHub). Never edit the copies; `make sync-notation` refre
 from a checkout at `~/Projects/pk-kubb-score` (or `$PK_KUBB_SCORE`). The checkout itself is
 still read only: never write there and never run `npm install` there.
 
+Synced 2026-11-16 for optional positions on the pitch (Jamie: "Approved also for the
+extending of the notation system."): a comment that starts with `@` after kubbs thrown in or
+a baton, `2I (@ b6 c7)` or exact meters `(@ 1.32,5.87)`, seen from Team A's baseline, `^`
+for where the thrower stood. The parser and `kubb.js` put them on the token as `at`. The
+game's files do not write them yet.
+
 ## Rules engine
 
 `source/core/rules.lua` (`tw.rules`) is Rules V4.0 as a pure state machine. It knows nothing
