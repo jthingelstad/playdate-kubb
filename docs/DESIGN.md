@@ -72,9 +72,9 @@ and number of it, targets left), the minimap at the bottom left, the clock (sect
 the bottom right with a prompt above it (`WIND BACK`, an inverted `FLICK!`, `EASE OFF`,
 `CRANK DOWN`) and the planned tilt or spin beside it. After the release a result flag
 (`3 DOWN`, `MISS`, `HELICOPTER`) sits left of the clock, and at rest the verdicts (power,
-release, steadiness) along the bottom and a drill's distance from its circle. The debug
-readout is off unless the practice pitch's "Pitch: readout" is on (2026-11-15: the loft
-plaque, power chip and drill callout went with the stop on the notch).
+release, steadiness, and which way the nerves took it) along the bottom and a drill's
+distance from its circle. The debug readout is off unless the practice pitch's "Pitch:
+readout" is on (2026-11-15: the loft plaque, power chip and drill callout went with the stop on the notch).
 
 **Minimap.** A 45 x 72 px top-down pitch in the bottom left corner at 9 px per meter: every kubb
 as a 2 px dot, the king as 3 px, the aim line, the advantage line. It is the only view of the
@@ -155,11 +155,18 @@ hardware 2026-11-13).
 - **Steadiness** of the forward swing: a shaky flick pulls the throw sideways and wobbles
   the baton; a very shaky one is a helicopter (illegal, II.B.1). Overpowering makes both
   worse. A planned tilt and the shake add up toward the helicopter limit (30 degrees).
+- **Nerves** (2026-11-16). Even a clean swing is not a machine: every throw, the player's
+  and the computer's alike, goes a little off the planned line (an angle, so the miss in
+  metres grows with the range) and a little long or short (a share of the throw). How much
+  is set by the level, and grows with the power of the throw, the swing's roughness and
+  overpowering. The draws come from the match's seeded random stream (the computer) or
+  from the swing itself (the player), so a recorded match replays exactly.
 - **What goes wrong.** Stopping before 6 lets the wind-up down (no throw). Cranking on past
   12 is a sky ball: the highest launch, with a large error. The crank swinging back after a
   throw is ignored for a moment, so it does not start a new one.
 - **After the throw** the HUD says what happened in a word each: power (SLOW when the backswing was enough but the flick was not, SHORT, ON, LONG),
-  release (LOW, ON, HIGH) and steadiness (STEADY, SHAKY), and the dial keeps a dot where the
+  release (LOW, ON, HIGH), steadiness (STEADY, SHAKY) and the nerves' side (PULLED LEFT,
+  STRAIGHT, PULLED RIGHT: STRAIGHT within 6 cm of the line at the target), and the dial keeps a dot where the
   backswing peaked and where the crank stopped until the next wind-up.
 
 How it plays (Jamie and Tyler's examples):
@@ -206,6 +213,8 @@ swing's and the run on's (`tw.autothrow.tune.into`, `intoShort`).
 | Release target, half width | 30 degrees | 18 | 10 |
 | Error inside a target | a tenth | 0.3 | 0.6 |
 | Shake and overpower costs | low | medium | full |
+| Nerves: degrees off the line, 1 sd, an 8 m baton | 1.5 | 0.75 | 0.5 |
+| Nerves: share long or short, 1 sd, an 8 m baton | 8% | 4% | 2.5% |
 
 First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.lua`).
 

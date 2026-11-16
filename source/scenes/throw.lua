@@ -162,6 +162,17 @@ function throw.levelFor(s)
 	return s.level or throw.level
 end
 
+-- The nerves (plan.tune "Nerves"): the player's throws go off the planned
+-- line and length by seeded draws, as the computer's do. s.nerves (true or
+-- false) overrides throw.nerves; the self-test runner turns throw.nerves off
+-- so a scripted clean swing is the plan's clean throw, unless the scenario
+-- asks for them (nerves = true).
+throw.nerves = true
+local function nervesFor(s)
+	if s.nerves ~= nil then return s.nerves end
+	return throw.nerves
+end
+
 -- The practice layout: five base kubbs on each baseline and the king.
 -- `base` marks the far base kubbs (all down = stand everything back up).
 function throw.defaultLayout()
@@ -516,7 +527,7 @@ function throw.new(provider)
 		traceOut = {},           -- the trace line's result (reused)
 		lastBack = nil, lastStop = nil, -- the last throw's peak and stop: dots on the clock
 		showVerdicts = false,    -- the last throw's verdicts show (until the next wind-up)
-		vPower = 0, vRelease = 0, vSteady = true,
+		vPower = 0, vRelease = 0, vSteady = true, vSide = 0,
 		restText = nil,          -- a drilled kubb's rest distance from the circle ("18 CM AWAY")
 		drillSeq = 0,            -- practice: drilled kubbs thrown (their ids)
 		howto = nil,             -- HOW TO THROW running over the pitch (core/howto), or nil
@@ -875,6 +886,7 @@ local function fire(s, L, how)
 	l.tilt, l.launchSpeed, l.tumbleRate, l.launchLoft, l.launchSwivel = tilt, L.speed, tumble, L.loft, L.swivel
 	l.back, l.planBack, l.stop, l.plan, l.flick, l.shake = nil, nil, nil, nil, nil, nil
 	l.powerV, l.releaseV, l.steady, l.loft, l.swivelOff = nil, nil, nil, nil, nil
+	l.sideDeg, l.lenShare, l.sideV, l.lenV = nil, nil, nil, nil
 	l.distance, l.down, l.hit, l.restCm = nil, nil, nil, nil
 	l.drill = drilling
 	if drilling then
@@ -894,17 +906,19 @@ local function launch(s, r)
 	local kubb = s.projectile == "kubb"
 	local o = s.launchOpts
 	o.projectile, o.tilt, o.spin, o.level = kubb and "kubb" or "baton", s.tilt, s.spin, throw.levelFor(s)
+	o.nerves = nervesFor(s) or nil
 	if s.planDirty or s.planLevel ~= o.level then replan(s) end
 	local sol = s.sol
 	local L = plan.launch(sol, r, o, s.launchOut)
 	fire(s, L, kubb and "drill" or "baton")
 	s.lastBack, s.lastStop = r.back, r.releaseAngle
-	s.vPower, s.vRelease, s.vSteady = L.powerV, L.releaseV, L.steady
+	s.vPower, s.vRelease, s.vSteady, s.vSide = L.powerV, L.releaseV, L.steady, L.sideV
 	local l = s.last
 	l.back, l.planBack, l.stop, l.plan = r.back, sol.back, r.releaseAngle, sol.release
 	l.flick, l.shake = r.flickDps, r.shake
 	l.powerV, l.releaseV, l.steady = L.powerV, L.releaseV, L.steady
 	l.loft, l.swivelOff = sol.loft, math.deg(L.swivel - sol.swivel)
+	l.sideDeg, l.lenShare, l.sideV, l.lenV = L.sideDeg, L.lenShare, L.sideV, L.lenV
 end
 
 -- Show the throw at time t (s from the release, between recorded frames):
@@ -949,6 +963,7 @@ local function writeTrace(s, l)
 	T.launchSpeed, T.launchLoft, T.swivelOff = l.launchSpeed, l.launchLoft, l.swivelOff
 	T.tumbleRate, T.tilt, T.legal = l.tumbleRate, l.tilt, l.legal
 	T.powerV, T.releaseV, T.steady = l.powerV, l.releaseV, l.steady
+	T.sideDeg, T.lenShare, T.sideV, T.lenV = l.sideDeg, l.lenShare, l.sideV, l.lenV
 	T.distance = l.distance
 	if l.drill then
 		-- lengths from the thrower's baseline, as the target's
@@ -1657,7 +1672,7 @@ function throw.drawFrame(s)
 		-- the last throw's verdicts, until the next wind-up (and a drill's
 		-- rest distance where the plan chip would be)
 		if s.showVerdicts and idle then
-			hud.verdicts(s.vPower, s.vRelease, s.vSteady)
+			hud.verdicts(s.vPower, s.vRelease, s.vSteady, s.vSide)
 			if pv == 0 and s.restText then hud.cutFlag(s.restText) end
 		end
 		if s.showReadout and s.readout and idle then hud.readout(s.readout) end
@@ -1669,7 +1684,7 @@ function throw.drawFrame(s)
 		if s.mode == "flight" then
 			if s.slowMo then hud.slow() end
 		else
-			if s.showVerdicts then hud.verdicts(s.vPower, s.vRelease, s.vSteady) end
+			if s.showVerdicts then hud.verdicts(s.vPower, s.vRelease, s.vSteady, s.vSide) end
 			if s.restText then hud.cutFlag(s.restText) end
 		end
 		if s.showReadout and s.readout then hud.readout(s.readout) end

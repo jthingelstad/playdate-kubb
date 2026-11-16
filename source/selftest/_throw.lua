@@ -1,7 +1,7 @@
 -- Shared kit for the throw-scene self-tests. Files in source/selftest/ that
 -- start with "_" are helpers, not scenarios (the Makefile skips them).
 --
--- tw.selftest.throwScenario{ script = {...}, shots = {...}, check = fn, maxFrames = n, setup = fn }
+-- tw.selftest.throwScenario{ script = {...}, shots = {...}, check = fn, maxFrames = n, setup = fn, nerves = b }
 --   script  input.scripted steps (crank degrees are raw, as getCrankChange),
 --           or fn(scene) returning them, called after setup (so a swing can
 --           be built from the scene's plan: tw.selftest.planned)
@@ -11,6 +11,8 @@
 --           second return value is appended to the marker's note
 --   setup   optional fn(scene), run once after the scene is made (a layout,
 --           a surface)
+--   nerves  true: the player's throws get the nerves (off in self-tests
+--           otherwise: the runner sets tw.scenes.throw.nerves)
 -- The scenario ends when every shot is taken (or fails after maxFrames).
 -- It also times update + draw per frame and appends avg/max ms to the marker.
 import "core/tw"
@@ -25,6 +27,7 @@ function tw.selftest.throwScenario(def)
 	local scene, shot = nil, 1
 	local total, worst, frames = 0, 0, 0
 	return {
+		nerves = def.nerves,
 		step = function(ctx)
 			if not scene then
 				local steps = (type(def.script) == "table") and def.script or {}

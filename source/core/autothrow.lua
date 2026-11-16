@@ -25,7 +25,7 @@ import "core/throwplan"
 import "core/world"
 
 local flight, swing, plan, world = tw.flight, tw.swing, tw.plan, tw.world
-local sqrt, log, cos, pi, floor = math.sqrt, math.log, math.cos, math.pi, math.floor
+local cos = math.cos
 
 local autothrow = {}
 
@@ -75,56 +75,32 @@ autothrow.tune = {
 	spotMaxX = 2.2,          -- m from the middle: no spot nearer the sideline than this
 	into = 1,                -- 1: aim a later kubb into the group (intoSpot) before the clear spots; 0: the clear spots only
 	intoShort = 0.03,        -- m from a lying kubb's near face to where the drill is aimed to rest
-	-- How the mistakes go with the throw (2026-11-16, against the recorded
-	-- tournament games, AGENTS.md "Real games"): real players miss more the
-	-- farther they throw, and drill their kubbs closer than they throw batons.
+	-- How far off a throw goes, and how much more off a long one goes, is
+	-- the shared nerves model (tw.plan.tune "Nerves"), the same for the
+	-- player; this file only adds the computer's swing below. The computer
+	-- drills its kubbs closer than it throws batons (drillScale).
 	-- The lane (2026-11-16): a baton takes two kubbs when one stands behind
 	-- the other along its flight, so it aims down the lane with the most
 	-- field kubbs in it, at the front one.
 	laneHalf = 0.07,         -- m: kubbs within this across of the front one are in its lane ...
 	laneDeep = 0.6,          -- ... and within this behind it
-	rangeRef = 7,            -- m: a baton thrown this far has the mistakes below as they are ...
-	rangeMin = 0.45,         -- ... nearer, less in proportion, never under this ...
-	rangeMax = 1.2,          -- ... farther, more, never over this
-	drillScale = 0.2,        -- a drilled kubb's mistakes are this much of a baton's
+	drillScale = 0.2,        -- a drilled kubb's swing mistakes are this much of a baton's
 	-- The synthetic swing: the mistakes, each multiplied by choose's scale.
-	-- With none every baton hits and a game never ends (every toppled field
-	-- kubb comes straight back).
-	backSd = 5,              -- degrees sd of the backswing about the power target's center
-	releaseSd = 9,           -- degrees sd of where the crank stops about the release target's center
+	-- Halved 2026-11-16 when the nerves took over most of the miss (they
+	-- were 5, 9 and 0.44 when the swing was the only error).
+	backSd = 2.5,            -- degrees sd of the backswing about the power target's center
+	releaseSd = 4.5,         -- degrees sd of where the crank stops about the release target's center
 	flickDps = { 1050, 1400 }, -- deg/s: a strong flick (swing.tune.fullFlickDps and over: all the power)
 	softChance = 0.05,       -- chance the flick is not quite full ...
 	softDps = { 850, 1000 }, -- ... and then this fast (flickFrac 0.85 to 1: short)
-	shakeMax = 0.44,         -- a steady swing's shake is even between 0 and this (the shake is
-	                         -- the only sideways error, as for a player: tw.plan.launch pulls
-	                         -- the swivel and tilts the baton by it; a half-normal's tail made
-	                         -- too many helicopters for the sideways spread)
+	shakeMax = 0.22,         -- a steady swing's shake is even between 0 and this (tw.plan.launch
+	                         -- pulls the swivel and tilts the baton by it, and it widens the nerves)
 	shakyChance = 0.015,     -- chance of a shaky swing ...
 	shaky = { 0.25, 0.6 },   -- ... with this much shake (over about 0.44 a baton is a helicopter at club)
 }
 
--- Park-Miller with a scrambled seed (as tools/thrower.lua).
-function autothrow.rng(seed)
-	local h = floor(seed) & 0xffffffff
-	h = ((h ~ (h >> 16)) * 0x45d9f3b) & 0xffffffff
-	h = ((h ~ (h >> 16)) * 0x45d9f3b) & 0xffffffff
-	h = h ~ (h >> 16)
-	local s = h % 2147483647
-	if s <= 0 then s = s + 2147483646 end
-	local r = {}
-	function r.next()
-		s = (s * 48271) % 2147483647
-		return (s - 1) / 2147483646
-	end
-	for _ = 1, 8 do r.next() end
-	function r.uniform(a, b) return a + (b - a) * r.next() end
-	function r.normal(sd)
-		local u1 = r.next()
-		if u1 < 1e-12 then u1 = 1e-12 end
-		return sd * sqrt(-2 * log(u1)) * cos(2 * pi * r.next())
-	end
-	return r
-end
+-- Park-Miller with a scrambled seed (as tools/thrower.lua): tw.plan.rng.
+autothrow.rng = plan.rng
 
 -- The launch speed that lands the center at distance d (along the throw)
 -- from (x, y) at this loft, by bisection up to the fastest throw the plan
@@ -370,16 +346,12 @@ function autothrow.choose(s, r, scale, level)
 	local st = plan.stance(tx, ty, s.lineY, py, t.halfWidth, {})
 	q.px, q.py, q.tx, q.ty, q.release = st.x, st.y, tx, ty, arc
 	local sol = plan.solve(q, {})
-	if q.projectile == "kubb" then
-		scale = scale * t.drillScale
-	else
-		local dx, dy = tx - st.x, ty - st.y
-		local k = sqrt(dx * dx + dy * dy) / t.rangeRef
-		if k < t.rangeMin then k = t.rangeMin elseif k > t.rangeMax then k = t.rangeMax end
-		scale = scale * k
-	end
+	if q.projectile == "kubb" then scale = scale * t.drillScale end
 	local sw = autothrow.swing(sol, r, scale, {})
-	local L = plan.launch(sol, sw, { projectile = q.projectile, tilt = 0, spin = 0 }, {})
+	-- the nerves are the player's (tw.plan.launch), drawn from this stream;
+	-- scale 0 is the clean throw, no nerves either
+	local L = plan.launch(sol, sw, { projectile = q.projectile, tilt = 0, spin = 0,
+		nerves = scale > 0 and r or nil }, {})
 	local a = { x = st.x, y = st.y, swivel = L.swivel, loftDeg = L.loft, speed = L.speed,
 		tumbleRate = L.tumble, tilt = L.tilt, legal = L.legal, plan = sol, swing = sw, launch = L }
 	if q.projectile == "kubb" then

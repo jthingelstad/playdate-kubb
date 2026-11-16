@@ -57,6 +57,11 @@ function selftest.start(name, out, film)
 	end
 	ctx.scenario = selftest.scenarios[name]
 	if not ctx.scenario then return finish(false, "no scenario named " .. name) end
+	-- The nerves (core/throwplan) move a player's throw off its plan by a
+	-- seeded draw; a scripted clean swing should be the plan's clean throw,
+	-- so they are off unless the scenario asks for them (nerves = true).
+	local throwScene = tw.scenes and tw.scenes.throw
+	if throwScene then throwScene.nerves = ctx.scenario.nerves == true end
 end
 
 function selftest.update()
