@@ -228,6 +228,44 @@ test("a kubb woken far from the others wakes nobody", function()
 	expect.truthy(not w.byId.k2.awake, "k2 sleeps on")
 end)
 
+-- Codex on the web game's sync of the group wake: two sleepers that touch each
+-- other, both woken in one step by a third body, are a pair the loop passed
+-- while both slept; their contact must still be made in that step, once.
+test("two touching sleepers woken in one step get their own contact in that step", function()
+	local collide = tw.collide
+	local function between(order)
+		local at = { s = { 0, 3.93 }, a = { -0.035, 4 }, b = { 0.035, 4 }, c = { -0.035, 4.07 }, d = { 0.035, 4.07 } }
+		local pieces = {}
+		for i, id in ipairs(order) do pieces[i] = { id = id, kind = "kubb", x = at[id][1], y = at[id][2] } end
+		local w = world.new{ texture = false, stakes = false, pieces = pieces }
+		blow(w.byId.s, 1.0, 0.13)
+		world.step(w)
+		local C, n = collide.C, {}
+		for i = 1, C.n do
+			local A, B = C.A[i], C.B[i]
+			if A and B and A.id and B.id then
+				local key = A.id < B.id and (A.id .. B.id) or (B.id .. A.id)
+				n[key] = (n[key] or 0) + 1
+			end
+		end
+		for _, id in ipairs(order) do expect.truthy(w.byId[id].awake, id .. " awake, order " .. table.concat(order)) end
+		return n
+	end
+	-- with the striker first the pair loop comes to every pair with one awake
+	local ref = between{ "s", "a", "b", "c", "d" }
+	expect.truthy((ref.ab or 0) > 0 and (ref.cd or 0) > 0, "the reference has the pairs' contacts")
+	for _, order in ipairs{ { "a", "b", "s", "c", "d" }, { "a", "b", "c", "d", "s" }, { "d", "c", "b", "a", "s" }, { "c", "a", "s", "d", "b" } } do
+		local n = between(order)
+		-- the count of points can differ (a kubb woken earlier in the loop has a
+		-- wider margin); two boxes face to face never have more than 8
+		for key in pairs(ref) do
+			local got = n[key] or 0
+			expect.truthy(got > 0 and got <= 8, "contacts of " .. key .. ": " .. got .. ", order " .. table.concat(order))
+		end
+		for key in pairs(n) do expect.truthy(ref[key], "no extra pair " .. key) end
+	end
+end)
+
 local function batonThrow(surface, x, speed, pieces, rate)
 	local w = world.new{ texture = false, surface = surface, pieces = pieces }
 	local b = world.launchBaton(w, x, 0, 0, 35, speed, rate or 7, 0)

@@ -1094,6 +1094,14 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     matches (seed 2): 25.9 -> 22.5 turns, field kubbs 61% -> 63%. `make bench` is
     unchanged. Not bit-identical: any throw where a woken piece touches a sleeper, or two
     boxes rub. A throw at pieces standing apart that never meet is unchanged.
+  - **Pairs the loop passed** (Codex on the web game's sync, 2026-11-15). The pair loop
+    skips a pair while both sleep. Two bodies both woken in one step (a baton wakes two
+    kubbs that touch each other), or a woken body and a stake, could be such a pair, and
+    their contact was missing for that step. The group wake's pass now makes it, once
+    (`WT`: where the pair loop was when a body woke; `WPOS`: its place in the queue), and
+    wakes nobody for it. The row measurements above are unchanged; 40 physics matches
+    (seed 2) 22.5 -> 21.2 turns. Not bit-identical: a step where two touching sleepers,
+    or a sleeper touching a stake, wake together.
   - Still true: a baton that clips the top of the front kubb mostly goes over the row, and
     a low sweep slides the row upright more often than it trips it (a flat plane has no
     turf to catch a sliding kubb's foot).
