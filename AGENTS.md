@@ -289,6 +289,9 @@ text; times are `{ year, month, day, hour, min }` tables passed in (no `os.time`
     turns render without them, and a turn in progress gives its kubbs to its one inkaster
     (none when it had several). `core/gamefile` drops comments in parentheses before it
     counts tokens.
+  - On screen (`scenes/sheet`: the games list, a player's GAMES, a match's own sheet) the
+    positions are left out (`gamefile.shown`): they would fill the 400 px screen, and the
+    view reads as it did before. The file keeps them.
 
 ## Headless games
 
