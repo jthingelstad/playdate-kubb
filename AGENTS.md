@@ -86,7 +86,10 @@ outcomes with tolerances, never bit-exact.
   `expect.truthy`. The runner picks up every `test_*.lua`.
 - Notation gate: every game file must pass the pk-kubb-score grammar, `kubb.js` must find the
   same winner as `[Win]`, and warnings fail unless `--allow-warnings` is passed. Player ids
-  are letters and underscores only.
+  are letters and underscores only. Positions are errors (even with `--allow-warnings`) when
+  one does not parse as positions (its token has no `at`), a token has more than it counts,
+  one is off the pitch, or `kubb.js` reads the game differently with every position taken
+  out; the gate prints how many it saw. `tests/fixtures/bad/` has a game for each.
 
 ## pk-kubb-score is vendored
 
@@ -100,7 +103,7 @@ Synced 2026-11-16 for optional positions on the pitch (Jamie: "Approved also for
 extending of the notation system."): a comment that starts with `@` after kubbs thrown in or
 a baton, `2I (@ b6 c7)` or exact meters `(@ 1.32,5.87)`, seen from Team A's baseline, `^`
 for where the thrower stood. The parser and `kubb.js` put them on the token as `at`. The
-game's files do not write them yet.
+game writes them since 2026-11-16 ("Positions" under "Notation conventions").
 
 ## Rules engine
 
@@ -256,6 +259,36 @@ text; times are `{ year, month, day, hour, min }` tables passed in (no `os.time`
   thrower's own half (II.C.4b)`, `bN toppled the king early`, `king toppled by a thrown
   kubb`, `resigned during the inkast`. `bN` is the turn's Nth baton.
 - `[Rules "U.S. Championship 4.0, 2-4-6"]` or `"..., six from the start"`.
+- **Positions** (2026-11-16, the notation's optional `(@ ...)`; Jamie: "the biggest
+  limitation of the scoresheet system I created is it doesn't note pitch position for
+  anything"): exact meters `x,y` with two decimals after the token, before any `# note`:
+  `3. max:2I (@ 4.39,4.61 4.34,5.21) max:F (@ 4.39,4.61) alex:B (@ 1.50,8.00)`. The frame
+  is the pitch seen from Team A's baseline all game: `notation.pitchXY` is the engine's
+  x + 2.5 (the left sideline, as someone on Team A's baseline facing Team B sees it, is
+  x = -2.5; `test_positions` proves it with the aim camera and the base kubbs) and y as is,
+  clamped to 0..5 and 0..8 (the grammar has no minus sign). The sheet keeps them as data in
+  the engine's frame beside the token (`t.inkastAt[pid]`, a baton's `at`, through
+  `Sheet:inkAt` and `Sheet:baton(pid, token, at)`); `turnLine` converts them and never
+  writes more than the token counts (`kubb.js` warns on that).
+  - A baton: where each kubb its token counts stood before the throw, its F kubbs then its B
+    (each in id order); also for `nFE`/`BE`. None for `-`, `Z`, `E` alone, `K`, `=`, `G`,
+    `X`, nor for a base kubb toppled early and raised (II.B.4a: not in the token).
+  - An inkast: written once, as the batons begin (`Game:_inkastPositions`), when every
+    kubb is raised and every punishment kubb placed: each kubb thrown this turn that is in
+    play, where it stands, in the order of its last throw, on the token of the player who
+    made that throw (`k.inkBy`, `k.tossSeq`); a punishment kubb on the token that counts
+    its P. A rescued kubb (Q) has the place it was thrown back in to; a kubb lowered from on
+    top of another (N) where it was raised after; a kubb out of play has none.
+  - A game that ends during the inkast (king toppled by a kubb, `E`; a resign before the
+    batons) writes no inkast positions: nothing was raised. An early king by a baton keeps
+    the token's F places (`2FE (@ ...)`).
+  - Not written: `^` (where the thrower stood). The engine's outcomes carry no stance, and
+    the throw's stance is not kept to the rules engine; plumbing it through `core/match`
+    for both the player's and the computer's throws is left for later.
+  - A save from before positions loads (no `inkastAt`, `at`, `inkBy`, `tossSeq`): its
+    turns render without them, and a turn in progress gives its kubbs to its one inkaster
+    (none when it had several). `core/gamefile` drops comments in parentheses before it
+    counts tokens.
 
 ## Headless games
 
@@ -269,7 +302,8 @@ action; `tools/games.lua` writes N games. Teams have one to six players and who 
 another player (`changeThrower`, `changeInkaster`, from a generator of their own, so the
 throws are the same without them), and every sheet is checked with `order.checkSheet`.
 `tests/fixtures/games/` holds thirteen generated games (a six-a-side and a two against
-four among them) plus the two hand-written ones; `make test` gates them. The thrower sometimes aims at a kubb
+four among them), the two hand-written ones and one physics match with positions
+(`tools/physmatch.lua --n 40 --seed 2`, six against two); `make test` gates them. The thrower sometimes aims at a kubb
 of this turn lying out near the target half and knocks it toward the middle (`chaseOut`),
 so games have kubbs knocked in before the round is judged; `make games` prints
 `knockedIn`/`knockedOut` and the sheets' `R`, `P`, `Q`, `N` counts.

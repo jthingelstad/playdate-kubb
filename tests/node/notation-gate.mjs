@@ -12,6 +12,14 @@
 // because the turns never end the game), or any "Couldn't read" warning.
 // Every other kubb.js warning is printed, and fails the run unless
 // --allow-warnings is passed. Exit 0 only when everything passes.
+//
+// Positions (the optional "(@ x,y ...)" after an inkast or a baton token,
+// which the game writes since 2026-11-16) are errors when: one did not parse
+// as positions (kubb.js kept it as a comment, so its token has no `at`), a
+// token has more than it counts (an inkast's I + R + P + Y + Q + N, a hit's
+// F + B; none on any other baton), one is off the pitch (x 0 to 5, y 0 to
+// 8), or the game reads differently in kubb.js with every position taken
+// out (they may only add places, never change the game).
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
@@ -30,14 +38,61 @@ export async function loadPkKubbScore() {
     }
   }
   const { parse } = await import(pathToFileURL(parserPath).href);
-  const { analyze } = await import(pathToFileURL(kubbPath).href);
-  return { root, parse, analyze };
+  const { analyze, parseGame } = await import(pathToFileURL(kubbPath).href);
+  return { root, parse, analyze, parseGame };
 }
 
 const SIDE = { 'team a': 'A', a: 'A', 'team b': 'B', b: 'B' };
 
-// Returns { errors: [...], warnings: [...] } for one game's text.
-export function checkGame(text, { parse, analyze }) {
+// The text with every positions comment taken out.
+export function stripPositions(text) {
+  return text.replace(/[ \t]*\(@[^()]*\)/g, '');
+}
+
+// How many kubbs a token counts, the most positions it may carry.
+function mostPositions(t) {
+  if (t.type === 'inkast') return t.I + t.R + t.P + t.Y + t.Q + t.N;
+  if (t.kind === 'hit') return (t.f || 0) + (t.b || 0);
+  return 0;
+}
+
+// What kubb.js makes of a game, without the positions themselves.
+function reading(text, analyze) {
+  return JSON.stringify(analyze(text), (k, v) => (k === 'at' || k === 'source' ? undefined : v));
+}
+
+// Position errors for one game, and how many positions and tokens with them.
+export function checkPositions(text, { analyze, parseGame }) {
+  const errors = [];
+  let positions = 0, tokens = 0;
+  const { turns } = parseGame(text);
+  for (const t of turns) {
+    const where = `turn ${t.n ?? '?'}`;
+    const written = (t.source.match(/\(@/g) || []).length;
+    const toks = [...t.inkasts, ...(t.advantage ? [t.advantage] : []), ...t.batons];
+    const withAt = toks.filter(k => k.at);
+    if (withAt.length !== written) errors.push(`${where}: ${written} positions comments, ${withAt.length} read as positions`);
+    for (const c of t.comments) if (c.startsWith('@')) errors.push(`${where}: "(${c})" was kept as a comment`);
+    for (const k of withAt) {
+      tokens++;
+      const most = mostPositions(k);
+      const at = k.at.filter(p => !p.thrower);
+      positions += at.length;
+      if (at.length > most) errors.push(`${where}: "${k.raw}" has ${at.length} positions for ${most} kubbs`);
+      for (const p of k.at) {
+        if (!(p.x >= 0 && p.x <= 5 && p.y >= 0 && p.y <= 8)) errors.push(`${where}: position ${p.raw} after "${k.raw}" is off the pitch`);
+      }
+    }
+  }
+  if (tokens && reading(text, analyze) !== reading(stripPositions(text), analyze)) {
+    errors.push('the game reads differently in kubb.js with its positions taken out');
+  }
+  return { errors, positions, tokens };
+}
+
+// Returns { errors: [...], warnings: [...], positions, tokens } for one game's text.
+export function checkGame(text, pk) {
+  const { parse, analyze } = pk;
   const errors = [];
   const warnings = [];
   try {
@@ -57,7 +112,9 @@ export function checkGame(text, { parse, analyze }) {
   if (!header) errors.push('no [Win "Team A"] or [Win "Team B"] header');
   else if (g.winHow === 'Win header') errors.push('kubb.js found no ending in the turns; the winner came only from the header');
   else if (g.winner !== header) errors.push(`kubb.js winner is Team ${g.winner}, [Win] header says Team ${header}`);
-  return { errors, warnings };
+  const pos = checkPositions(text, pk);
+  for (const e of pos.errors) errors.push(`positions: ${e}`);
+  return { errors, warnings, positions: pos.positions, tokens: pos.tokens };
 }
 
 export function gameFiles(dir) {
@@ -78,9 +135,11 @@ async function main(argv) {
 
   const files = gameFiles(dir);
   if (!files.length) { console.error(`gate: no .txt games in ${dir}`); return 2; }
-  let bad = 0, warned = 0;
+  let bad = 0, warned = 0, positions = 0, tokens = 0, placed = 0;
   for (const f of files) {
-    const { errors, warnings } = checkGame(readFileSync(f, 'utf8'), pk);
+    const r = checkGame(readFileSync(f, 'utf8'), pk);
+    const { errors, warnings } = r;
+    positions += r.positions; tokens += r.tokens; if (r.tokens) placed++;
     const name = f.slice(dir.length + 1);
     if (errors.length) bad++;
     if (warnings.length) warned++;
@@ -89,6 +148,7 @@ async function main(argv) {
     for (const w of warnings) console.log(`     warning: ${w}`);
   }
   console.log(`gate: ${files.length} games, ${bad} failed, ${warned} with warnings (pk-kubb-score: ${process.env.PK_KUBB_SCORE ? pk.root : 'vendored copy'})`);
+  console.log(`gate: ${positions} positions on ${tokens} tokens in ${placed} games`);
   if (bad) return 1;
   if (warned && !allowWarnings) return 1;
   return 0;

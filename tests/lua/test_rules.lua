@@ -67,14 +67,14 @@ test("II.B.1 illegal throw: kubbs it toppled are raised where they were, the bat
 	expect.eq(g.kubbs.a1.where, "pitch"); expect.eq(g.kubbs.a1.pose.x, 0); expect.truthy(g.kubbs.a1.pose.standing)
 	expect.eq(g.kubbs.b3.where, "pitch")
 	expect.eq(g:need().n, 2, "the baton was used")
-	expect.eq(line(g), "3. jamie:2I jamie:Z")
+	expect.eq(line(g), "3. jamie:2I (@ 2.50,6.00 3.50,6.00) jamie:Z")
 end)
 
 test("II.B.1 interpretation: an illegal throw that topples the king early still loses (E)", function()
 	local g = fieldOfTwo(newGame())
 	g:throwBaton { illegal = true, kingToppled = true }
 	expect.eq(g.winner, "B")
-	expect.eq(line(g), "3. jamie:2I jamie:E X X X X X # b1 illegal throw toppled the king early")
+	expect.eq(line(g), "3. jamie:2I (@ 2.50,6.00 3.50,6.00) jamie:E X X X X X # b1 illegal throw toppled the king early")
 end)
 
 test("II.B.2 advantage line through the field kubb closest to the centerline; nA from the attacker's baseline", function()
@@ -100,7 +100,7 @@ test("II.B.2 king shots are from the baseline even with an advantage line; K win
 	expect.eq(n.targets[1], "king")
 	g:throwBaton { kingToppled = true }
 	expect.eq(g.winner, "B"); expect.eq(g.how, "king")
-	expect.eq(line(g, 4), "4. 2A club:B club:B club:B club:K X X")
+	expect.eq(line(g, 4), "4. 2A club:B (@ 2.50,0.00) club:B (@ 3.50,0.00) club:B (@ 4.50,0.00) club:K X X")
 	expect.eq(g:need().kind, "over")
 end)
 
@@ -109,14 +109,14 @@ test("king shot missed is =; a baton is a king shot only when every kubb is down
 	misses(g, 6)
 	expect.eq(g:need().kingShot, false)
 	batons(g, { topple("a3"), topple("a4"), topple("a5"), MISS })
-	expect.eq(line(g, 4), "4. 2A club:B club:B club:B club:=")
+	expect.eq(line(g, 4), "4. 2A club:B (@ 2.50,0.00) club:B (@ 3.50,0.00) club:B (@ 4.50,0.00) club:=")
 end)
 
 test("king toppled by a baton before every kubb is down: the attacker loses (FE, X for the rest)", function()
 	local g = fieldOfTwo(newGame())
 	g:throwBaton { toppled = { "a1" }, kingToppled = true }
 	expect.eq(g.winner, "B")
-	expect.eq(line(g), "3. jamie:2I jamie:FE X X X X X # b1 toppled the king early")
+	expect.eq(line(g), "3. jamie:2I (@ 2.50,6.00 3.50,6.00) jamie:FE (@ 2.50,6.00) X X X X X # b1 toppled the king early")
 	local ok = pcall(g.throwBaton, g, MISS)
 	expect.eq(ok, false, "no baton after game over")
 end)
@@ -125,14 +125,14 @@ test("II.B.4a a base kubb toppled while a field kubb stands is raised and stays 
 	local g = fieldOfTwo(newGame())
 	g:throwBaton(topple("a1", "b3"))
 	expect.eq(g.kubbs.b3.where, "pitch"); expect.eq(g.kubbs.b3.kind, "base")
-	expect.eq(line(g), "3. jamie:2I jamie:F # b1 toppled a base kubb early; raised (II.B.4a)")
+	expect.eq(line(g), "3. jamie:2I (@ 2.50,6.00 3.50,6.00) jamie:F (@ 2.50,6.00) # b1 toppled a base kubb early; raised (II.B.4a)")
 end)
 
 test("II.B.4a a baton that takes the last field kubb and a base kubb counts both: FB", function()
 	local g = fieldOfTwo(newGame())
 	batons(g, { topple("a1"), topple("a2", "b4") })
 	expect.eq(g.kubbs.b4.where, "hand")
-	expect.eq(line(g), "3. jamie:2I jamie:F jamie:FB")
+	expect.eq(line(g), "3. jamie:2I (@ 2.50,6.00 3.50,6.00) jamie:F (@ 2.50,6.00) jamie:FB (@ 3.50,6.00 3.50,8.00)")
 	misses(g, 4)
 	expect.eq(g:need().kind, "toss")
 	expect.eq(g:need().left, 3, "B throws in the three kubbs it lost")
@@ -143,14 +143,14 @@ test("II.B.7 a kubb pushed out of bounds without toppling goes back; pushed in b
 	g:throwBaton { moved = { a1 = stand(-2.7, 6), a2 = stand(1.2, 6.1) } }
 	expect.eq(g.kubbs.a1.pose.x, 0)
 	expect.eq(g.kubbs.a2.pose.x, 1.2)
-	expect.eq(line(g), "3. jamie:2I jamie:- # b1 pushed a kubb out without toppling; put back (II.B.7)")
+	expect.eq(line(g), "3. jamie:2I (@ 2.50,6.00 3.50,6.00) jamie:- # b1 pushed a kubb out without toppling; put back (II.B.7)")
 end)
 
 test("II.B.10 a toppled kubb that comes to rest standing on an end is still toppled", function()
 	local g = fieldOfTwo(newGame())
 	g:throwBaton { toppled = { "a1" }, moved = { a1 = stand(0, 6.4) } }
 	expect.eq(g.kubbs.a1.where, "hand")
-	expect.eq(line(g), "3. jamie:2I jamie:F")
+	expect.eq(line(g), "3. jamie:2I (@ 2.50,6.00 3.50,6.00) jamie:F (@ 2.50,6.00)")
 end)
 
 test("II.B.11 own-half field kubbs hit: they and anything toppled go back, the baton is forfeited (Z)", function()
@@ -192,7 +192,7 @@ test("II.C.4b a thrown kubb that hits a field kubb in the thrower's own half: pu
 	expect.eq(n.kubb, "a1"); expect.truthy(n.rethrow)
 	g:toss(land(0, 2, "stand"))
 	expect.eq(g.phase, "batons")
-	expect.eq(line(g), "4. club:IR 2A # a kubb hit a field kubb in the thrower's own half (II.C.4b)")
+	expect.eq(line(g), "4. club:IR (@ 2.50,2.00) 2A # a kubb hit a field kubb in the thrower's own half (II.C.4b)")
 end)
 
 test("II.C.5a rescue: an established field kubb knocked out returns to be thrown, counted in I and Q", function()
@@ -206,7 +206,7 @@ test("II.C.5a rescue: an established field kubb knocked out returns to be thrown
 	expect.eq(n.kubb, "a1"); expect.eq(n.rethrow, false, "treated as not yet thrown")
 	g:toss(land(-1, 7, "stand"))
 	g:raiseAll()
-	expect.eq(line(g), "5. jamie:2IQ")
+	expect.eq(line(g), "5. jamie:2IQ (@ 2.39,6.30 1.50,7.00)")
 end)
 
 test("II.C.5b a struck kubb thrown once this turn that cannot be raised in bounds is rethrown (R)", function()
@@ -216,7 +216,7 @@ test("II.C.5b a struck kubb thrown once this turn that cannot be raised in bound
 	expect.eq(n.kubb, "a1"); expect.truthy(n.rethrow)
 	g:toss(land(0, 6, "stand"))
 	g:raiseAll()
-	expect.eq(line(g), "3. jamie:2IR")
+	expect.eq(line(g), "3. jamie:2IR (@ 2.71,7.60 2.50,6.00)")
 end)
 
 test("II.C.5c a struck kubb already thrown twice is a punishment kubb (P)", function()
@@ -244,7 +244,7 @@ test("II.C.6 out kubbs are rethrown after all first throws; out twice is a punis
 	expect.truthy(g:placePunishment(stand(-1, 7)))
 	expect.eq(g.kubbs.a1.kind, "field"); expect.eq(g.kubbs.a1.half, "B")
 	expect.eq(g.phase, "batons")
-	expect.eq(line(g), "3. jamie:2IRP")
+	expect.eq(line(g), "3. jamie:2IRP (@ 3.50,6.00 1.50,7.00)")
 end)
 
 -- ---------- judged at the final position (Jamie, 2026-11-13) ----------
@@ -288,7 +288,7 @@ test("final position: an out kubb knocked in by a later kubb is not rethrown", f
 	g:toss(land(1, 6, "stand"))
 	g:raiseAll()
 	expect.eq(g.phase, "batons")
-	expect.eq(line(g), "3. jamie:2IR")
+	expect.eq(line(g), "3. jamie:2IR (@ 2.40,4.96 3.50,6.00)")
 end)
 
 test("final position: an in kubb knocked out by a later first throw is rethrown", function()
@@ -300,7 +300,7 @@ test("final position: an in kubb knocked out by a later first throw is rethrown"
 	expect.eq(g.kubbs.a1.where, "out")
 	g:toss(land(-1, 6, "stand"))
 	g:raiseAll()
-	expect.eq(line(g), "3. jamie:2IR")
+	expect.eq(line(g), "3. jamie:2IR (@ 2.71,7.30 1.50,6.00)")
 end)
 
 test("final position: a rethrown kubb knocked in by a later rethrow is not a punishment kubb", function()
@@ -313,7 +313,7 @@ test("final position: a rethrown kubb knocked in by a later rethrow is not a pun
 	g:raiseAll()
 	expect.eq(#g.punishQueue, 0)
 	expect.eq(g.phase, "batons")
-	expect.eq(line(g), "3. jamie:2I2R")
+	expect.eq(line(g), "3. jamie:2I2R (@ 2.61,7.80 3.11,7.00)")
 end)
 
 test("final position: thrown twice and still out at the end is a punishment kubb", function()
@@ -324,7 +324,7 @@ test("final position: thrown twice and still out at the end is a punishment kubb
 	expect.eq(#g.punishQueue, 2)
 	g:autoPunishment(); g:autoPunishment()
 	expect.eq(g.phase, "batons")
-	expect.eq(line(g), "3. jamie:2I2R2P")
+	expect.eq(line(g), "3. jamie:2I2R2P (@ 2.00,8.00 3.00,8.00)")
 end)
 
 test("final position: a kubb out once that a rethrow knocks out is rethrown in a further round (II.C.5b)", function()
@@ -335,7 +335,7 @@ test("final position: a kubb out once that a rethrow knocks out is rethrown in a
 	expect.eq(n.kubb, "a1"); expect.truthy(n.rethrow)
 	g:toss(land(-1, 6, "stand"))
 	g:raiseAll()
-	expect.eq(line(g), "3. jamie:2I2R")
+	expect.eq(line(g), "3. jamie:2I2R (@ 2.71,7.60 1.50,6.00)")
 end)
 
 test("final position: an established field kubb knocked out and back in is not rescued", function()
@@ -349,7 +349,7 @@ test("final position: an established field kubb knocked out and back in is not r
 	g:toss(land(0.2, 7.9, 0, { moved = { a1 = lie(0.3, 7.2, 0) } })) -- and back in
 	expect.eq(g.kubbs.a1.where, "pitch")
 	g:raiseAll()
-	expect.eq(line(g), "5. jamie:2I")
+	expect.eq(line(g), "5. jamie:2I (@ 2.39,6.30 2.81,7.90)")
 end)
 
 test("final position: a kubb on another is lowered (N) only where it lies at the end", function()
@@ -399,7 +399,7 @@ test("final position: a rescued kubb and the rethrows make the next round", func
 	expect.eq(n.kubb, "a4"); expect.truthy(n.rethrow)
 	g:toss(land(1, 7, "stand"))
 	g:raiseAll()
-	expect.eq(line(g), "5. jamie:3IRQ")
+	expect.eq(line(g), "5. jamie:3IRQ (@ 2.39,6.30 1.50,7.00 3.50,7.00)")
 end)
 
 test("II.D.2 a thrown kubb standing on an end in bounds is already raised and not moved", function()
@@ -414,7 +414,7 @@ test("II.D.6 a kubb resting on another is lowered beside it, N counted", functio
 	expect.eq(g.kubbs.a2.pose.onTop, nil)
 	expect.eq(tw.rect.overlap(tw.raising.kubbRect(g.kubbs.a2.pose), tw.raising.kubbRect(g.kubbs.a1.pose)), false)
 	g:raiseAll()
-	expect.eq(line(g), "3. jamie:2IN")
+	expect.eq(line(g), "3. jamie:2IN (@ 2.39,6.00 2.65,6.11)")
 end)
 
 test("II.D.6 a kubb resting on a kubb it moved is lowered beside where that kubb came to rest", function()
@@ -436,7 +436,7 @@ test("the inkast is the kubbs knocked down last turn; no inkast token when there
 	g:toss(land(0, 2, "stand")); g:toss(land(1, 2, "stand"))
 	misses(g, 4)
 	expect.eq(g:need().kind, "baton", "B knocked nothing: no inkast for A")
-	expect.eq(line(g, 2), "2. club:2I club:- club:- club:- club:-")
+	expect.eq(line(g, 2), "2. club:2I (@ 2.50,2.00 3.50,2.00) club:- club:- club:- club:-")
 end)
 
 test("resign: G on the resigning team's own turn, X for the batons left", function()

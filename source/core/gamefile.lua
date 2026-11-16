@@ -39,6 +39,9 @@ function gamefile.parse(text)
 				local batons = 0
 				-- a note (# ...) says what the tokens cannot: not throws
 				rest = rest:gsub("%s*#.*$", "")
+				-- comments in parentheses, positions "(@ 1.32,5.87)" among
+				-- them, belong to the token before them: not tokens
+				rest = rest:gsub("%b()", " ")
 				for tok in rest:gmatch("%S+") do
 					local t = tok:match("^[%w_]+:(.+)$") or tok
 					if not t:match("^%d+A$") and not isInkast(t) then
