@@ -6,7 +6,10 @@
 -- checked against the throwing order's rules (core/order: II.A.4, II.B.5).
 --
 --   lua5.4 tools/physmatch.lua [--n 3] [--seed 1] [--out build/physgames] [--maxturns 40]
---     [--surface Grass|Sand|Snow] [-v]
+--     [--surface Grass|Sand|Snow] [--scatter 1] [-v]
+--
+-- --scatter multiplies every mistake of the computer's swing (core/autothrow's
+-- scale): 1 is the game's Playdate, lower a steadier thrower.
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -33,7 +36,7 @@ local function team(side, size)
 	return { name = "Team " .. side, players = ps }
 end
 
-local n, seed, out, maxTurns, verbose, surface = 3, 1, "build/physgames", 40, false, "Grass"
+local n, seed, out, maxTurns, verbose, surface, scatter = 3, 1, "build/physgames", 40, false, "Grass", nil
 local i = 1
 while i <= #arg do
 	local a = arg[i]
@@ -42,6 +45,7 @@ while i <= #arg do
 	elseif a == "--out" then out = arg[i + 1]; i = i + 1
 	elseif a == "--maxturns" then maxTurns = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "--surface" then surface = arg[i + 1]; i = i + 1   -- Grass, Sand or Snow
+	elseif a == "--scatter" then scatter = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "-v" then verbose = true
 	else error("unknown argument " .. a) end
 	i = i + 1
@@ -83,7 +87,7 @@ for gi = 1, n do
 		end
 		local s = match.setup(m)
 		if not s then break end
-		local a = autothrow.choose(s, r)
+		local a = autothrow.choose(s, r, scatter)
 		local res = simulate(s, a, s.surface or "grass")
 		match.resolve(m, res, not a.legal)
 		throws = throws + 1
