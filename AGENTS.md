@@ -529,9 +529,9 @@ play date versions, deploy as needed." The first pass changes only how the compu
 - **Into the group (2026-11-16).** Why the run-on groups stayed loose
   (`tools/drillscatter.lua --only 4`, drills thrown while a kubb lay in the far half, 40
   matches): the grid's spots are fixed to the basket, not to the kubbs that are down, so
-  only 40% of later drills reached a lying kubb (70% of the rest went past beside it), and
-  32% of those that did came down on top of it. The wood is fine: a drill that runs into
-  a kubb at under 1 m/s ends touching it 87 to 89% of the time; one that arrives over
+  only 39% of later drills reached a lying kubb (70% of the rest went past beside it), and
+  31% of those that did came down on top of it. The wood is fine: a drill that runs into
+  a kubb at under 1 m/s ends touching it 75 to 89% of the time; one that arrives over
   2 m/s bounces off (20%), as it should. So `autothrow.spot` now aims a later kubb of the
   turn into the group first (`intoSpot`, `tune.into` 1, `intoShort` 0.03): just short of
   the near face of a lying field kubb near the basket (`intoShort` short of it; the face
@@ -541,8 +541,8 @@ play date versions, deploy as needed." The first pass changes only how the compu
   middle. The same lane and clear rules as the grid's spots (no other kubb within the
   clear ellipse, none lying 12 cm or standing 60 cm short in the lane); with none clear,
   the grid as before. The swing, the drill and the physics are unchanged; the scatter is
-  still the run on. Part 4 after: reached a lying kubb 40 -> 52%, landed on it first 32
-  -> 6% of those, ended touching 36 -> 47%, the drill's gap at rest 14 -> 6 cm.
+  still the run on. Part 4 after: reached a lying kubb 39 -> 51%, landed on it first 31
+  -> 6% of those, ended touching 37 -> 47%, the drill's gap at rest 14 -> 6 cm.
   `tools/clusters.lua` (60 matches, seed 2; before / after), lying as the inkast ends:
   nearest neighbour 11.7 -> 6.5 cm, touching 21 -> 35%, largest group 3.3 of 4.8 -> 4.2 of
   5.0 kubbs; standing at the first baton (after `apart` raising): 24.6 -> 17.6 cm, touching
@@ -1862,8 +1862,8 @@ the throw scene with `s.drill` on.
   centre to centre in `test_drill`'s backstop) and the struck kubb moves 0 to 20 cm; one
   that lands on top of a kubb shoves it 0.2 to 0.45 m. The drill-over rule below makes it
   a plain kubb at the first touch. In matches (`tools/drillscatter.lua --only 4`) a drill
-  that reaches a lying kubb at under 1 m/s ends touching it 87 to 89% of the time, at 1 to
-  2 m/s about 60%, over 2 m/s 20 to 32% (it knocks the kubb on or bounces off). The
+  that reaches a lying kubb at under 1 m/s ends touching it 75 to 89% of the time, at 1 to
+  2 m/s about 60%, over 2 m/s 20 to 33% (it knocks the kubb on or bounces off). The
   computer aims a turn's later kubbs to run into the ones down (`autothrow` `intoSpot`,
   "Tuned toward the real games", "Into the group"); self-test `match-group` shows a turn
   of 3 and a turn of 5 doing it.
