@@ -250,13 +250,17 @@ test("drill: spin moves a landed drill a little, either way; sand and snow hold 
 	-- kubb that catches an edge keeps only a quarter of its spin as roll (its
 	-- turn about the edge), and which corner strikes first decides the way,
 	-- so spin moves it across a little and in no steady direction. Over
-	-- three markers and three grounds with three taps either way: across
+	-- three markers and twelve grounds with three taps either way: across
 	-- under a turn of the kubb (28 cm) on average and never more than three.
-	-- Sand holds it more than grass.
+	-- Sand holds it more than grass. (Three grounds until 2026-11-16: the
+	-- mean of nine drills moved by 2 cm with any change to the ground and
+	-- sat on the 28 cm line.)
+	local ACROSS_SEEDS = {}
+	for i = 1, 12 do ACROSS_SEEDS[i] = 4 * i - 1 end
 	local function across(surface, taps)
 		local side, worst, turns, n = 0, 0, 0, 0
 		for _, m in ipairs(SPIN_MARKERS) do
-			for _, seed in ipairs(SPIN_SEEDS) do
+			for _, seed in ipairs(ACROSS_SEEDS) do
 				local t = planDrill(m[1], m[2], 47, taps, surface, seed)
 				local dx = abs(t.rest.x - t.land.x)
 				side, n = side + dx, n + 1
