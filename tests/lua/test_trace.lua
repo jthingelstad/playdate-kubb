@@ -91,6 +91,18 @@ test("the game's own fields after a throw are written too", function()
 	r.power, r.tilt, r.legal, r.loft, r.distance = nil, nil, nil, nil, nil
 end)
 
+test("the nerves' fields round-trip", function()
+	local flat, n = clockSwing()
+	local _, r = swing.replay(flat)
+	r.sideDeg, r.lenShare, r.sideV, r.lenV = -0.46, 0.031, -1, 0
+	local t = trace.decode(trace.encode(flat, n, "release", r, swing.tune.forwardSign))
+	expect.near(t.result.sideDeg, -0.46, 1e-6)
+	expect.near(t.result.lenShare, 0.031, 1e-6)
+	expect.eq(t.result.sideV, -1)
+	expect.eq(t.result.lenV, 0)
+	r.sideDeg, r.lenShare, r.sideV, r.lenV = nil, nil, nil, nil
+end)
+
 test("a let-down encodes without a result", function()
 	local line = trace.encode({ 0.02, -40, 0.02, 1 }, 2, "letdown", nil, -1)
 	local t = trace.decode(line)

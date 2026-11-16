@@ -67,6 +67,8 @@ local RESULT_KEYS = {
 	"powerLo", "powerHi", "releaseLo", "releaseHi", "planTilt", "spin",
 	-- what the throw made of it
 	"launchSpeed", "launchLoft", "swivelOff", "tumbleRate", "tilt", "legal", "powerV", "releaseV", "steady",
+	-- the nerves (core/throwplan "Nerves", 2026-11-16)
+	"sideDeg", "lenShare", "sideV", "lenV",
 	"distance",
 	-- older lines' (the swing before 2026-11-15)
 	"power",
