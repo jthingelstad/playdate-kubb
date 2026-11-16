@@ -347,9 +347,12 @@ are the computer at club level against itself.
   - **The king**: 84% of 179 shots -> 46% of 259.
   - **Kubbs thrown in**: rethrown 14% -> 2.5%, punishment kubbs 1.3% -> 0.1%. Real players
     throw at a tighter group and miss it more; the computer's basket is safe.
-  - What it does not show: the real players' groups (how close their kubbs lie, which is
-    most of why they take three with a baton), or how much is the thrower (the computer
-    aims at the nearest kubb's centre, never to rake a row) and how much the physics.
+  - What it does not show: the real players' groups. Jamie (2026-11-16): "Multiple fields
+    kubbs is all about drilling tight clusters." The sheets agree as far as they can: real
+    players rethrow 14% of their kubbs (they drill at a tight group and pay for it), the
+    computer 2.5% (its drills rest 0.29 m from the basket on average, so its kubbs stand a
+    kubb or two apart). So the first place to look is how tight the game's groups are, the
+    computer's and a player's, before the baton or the physics.
 
 ## Throwing order
 
