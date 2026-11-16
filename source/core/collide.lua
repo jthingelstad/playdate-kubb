@@ -14,9 +14,10 @@
 --                       lying flat rests on both and rolls about its axis)
 --   capsule vs box      the closest points of the segment and the box, plus
 --                       each end sphere, so a baton lying across a kubb rests
---   box vs box          corners of each box inside (or near) the other. This
---                       misses pure edge-on-edge contact (two edges crossing
---                       with no corner inside); acceptable at this scale
+--   box vs box          corners of each box inside (or near) the other, plus
+--                       edge on edge: the closest points of two crossing
+--                       edges, and the points where crossed faces' edges
+--                       cross (collide.boxBox)
 --   capsule vs capsule  closest points of the two segments
 import "core/tw"
 
@@ -156,7 +157,7 @@ collide.extent = extent
 -- the nearest face of that box alone: identical kubbs side by side have
 -- corners lying exactly on each other's side planes, and the nearest-face
 -- rule then pushes sideways.
-local refX, refY, refZ
+local refX, refY, refZ, refK
 local REF_COS = math.cos(math.rad(25)) -- a corner's own normal further off than this uses the reference
 -- Returns the least overlap (negative = the gap along that axis).
 local function referenceAxis(A, B)
@@ -194,7 +195,7 @@ local function referenceAxis(A, B)
 		if o < best then
 			best = o
 			if d < 0 then lx, ly, lz = -lx, -ly, -lz end
-			refX, refY, refZ = lx, ly, lz
+			refX, refY, refZ, refK = lx, ly, lz, k
 		end
 	end
 	return best
@@ -294,14 +295,280 @@ local function cornersInto(A, B, margin, sx_, sy_, sz_)
 	C.n = i
 end
 
+-- Edge on edge (2026-11-16, the physics audit): two boxes can touch where
+-- an edge of each crosses the other's, with no corner of either inside the
+-- other. Two kinds, both met by the standard separating-axis test (Ericson,
+-- Real-Time Collision Detection 4.4 and 5.1.9; ODE's dBoxBox):
+--   - the nine edge axes (an edge direction of A crossed with one of B). If
+--     one of them parts the boxes by `margin` there is nothing to add; if the
+--     boxes overlap least along one (by EDGE_TOL less than along any face
+--     axis), they meet edge on edge: one contact at the closest points of
+--     the two edges that face each other, normal along that axis
+--   - face on face with the faces crossed (a kubb lying across a lying kubb):
+--     the incident face (of the other box, the one turned most against the
+--     reference face) is clipped to the reference face, and each point where
+--     one of its edges crosses a side of the reference face is a contact
+-- Corners stay as they were, so a crossing within CLIP_TOL of a corner is
+-- left to that corner. Boxes standing square to each other (every axis of A
+-- within ALIGN of one of B's, a row of kubbs) have no edge axis that is not
+-- also a face axis, so the nine are skipped for them.
+local EDGE_TOL = 0.0005 -- m: an edge axis must overlap this much less than the best face axis
+local CLIP_TOL = 0.001  -- m: crossings this close to a corner are the corner's
+local ALIGN = 0.9995    -- cos of about 1.8 degrees
+local ABX, ABY, ABZ = { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 }
+
+-- The incident face of box I clipped to face `rk` (1..3, an axis of box R)
+-- of box R, the reference normal (nx, ny, nz) pointing out of that face
+-- toward I: contacts on I where its edges cross the face's sides.
+local function clipFace(I, R, rk, nx, ny, nz, margin)
+	-- R's frame: U, V across the face (half sides hu, hv), the face plane
+	local ux, uy, uz, vx, vy, vz, hu, hv, hw
+	if rk == 1 then
+		ux, uy, uz, vx, vy, vz = R.r12, R.r22, R.r32, R.r13, R.r23, R.r33
+		hu, hv, hw = R.hy, R.hz, R.hx
+	elseif rk == 2 then
+		ux, uy, uz, vx, vy, vz = R.r11, R.r21, R.r31, R.r13, R.r23, R.r33
+		hu, hv, hw = R.hx, R.hz, R.hy
+	else
+		ux, uy, uz, vx, vy, vz = R.r11, R.r21, R.r31, R.r12, R.r22, R.r32
+		hu, hv, hw = R.hx, R.hy, R.hz
+	end
+	-- I's face turned most against the normal: its centre and two half edges
+	local i11, i12, i13, i21, i22, i23, i31, i32, i33 =
+		I.r11, I.r12, I.r13, I.r21, I.r22, I.r23, I.r31, I.r32, I.r33
+	local d1 = i11 * nx + i21 * ny + i31 * nz
+	local d2 = i12 * nx + i22 * ny + i32 * nz
+	local d3 = i13 * nx + i23 * ny + i33 * nz
+	local a1, a2, a3 = d1, d2, d3
+	if a1 < 0 then a1 = -a1 end
+	if a2 < 0 then a2 = -a2 end
+	if a3 < 0 then a3 = -a3 end
+	local fx, fy, fz, ex, ey, ez, gx, gy, gz
+	if a1 >= a2 and a1 >= a3 then
+		local s = (d1 > 0) and -I.hx or I.hx
+		fx, fy, fz = i11 * s, i21 * s, i31 * s
+		ex, ey, ez = i12 * I.hy, i22 * I.hy, i32 * I.hy
+		gx, gy, gz = i13 * I.hz, i23 * I.hz, i33 * I.hz
+	elseif a2 >= a3 then
+		local s = (d2 > 0) and -I.hy or I.hy
+		fx, fy, fz = i12 * s, i22 * s, i32 * s
+		ex, ey, ez = i11 * I.hx, i21 * I.hx, i31 * I.hx
+		gx, gy, gz = i13 * I.hz, i23 * I.hz, i33 * I.hz
+	else
+		local s = (d3 > 0) and -I.hz or I.hz
+		fx, fy, fz = i13 * s, i23 * s, i33 * s
+		ex, ey, ez = i11 * I.hx, i21 * I.hx, i31 * I.hx
+		gx, gy, gz = i12 * I.hy, i22 * I.hy, i32 * I.hy
+	end
+	-- in R's frame (w: height above the face plane)
+	local cx, cy, cz = I.x + fx - R.x, I.y + fy - R.y, I.z + fz - R.z
+	local cu, cv = cx * ux + cy * uy + cz * uz, cx * vx + cy * vy + cz * vz
+	local cw = cx * nx + cy * ny + cz * nz - hw
+	local eu, ev, ew = ex * ux + ey * uy + ez * uz, ex * vx + ey * vy + ez * vz, ex * nx + ey * ny + ez * nz
+	local gu, gv, gw = gx * ux + gy * uy + gz * uz, gx * vx + gy * vy + gz * vz, gx * nx + gy * ny + gz * nz
+	-- the corners in order round the face: c + e + g, c - e + g, c - e - g, c + e - g
+	local aew, agw = ew, gw
+	if aew < 0 then aew = -aew end
+	if agw < 0 then agw = -agw end
+	if cw - aew - agw >= margin then return end -- the whole face is clear
+	local aeu, agu, aev, agv = eu, gu, ev, gv
+	if aeu < 0 then aeu = -aeu end
+	if agu < 0 then agu = -agu end
+	if aev < 0 then aev = -aev end
+	if agv < 0 then agv = -agv end
+	local au, av = cu, cv
+	if au < 0 then au = -au end
+	if av < 0 then av = -av end
+	-- every corner within the face's sides: nothing crosses them
+	if au + aeu + agu <= hu + CLIP_TOL and av + aev + agv <= hv + CLIP_TOL then return end
+	local i = C.n
+	for k = 1, 4 do
+		local pu, pv, pw, qu, qv, qw
+		if k == 1 then
+			pu, pv, pw = cu + eu + gu, cv + ev + gv, cw + ew + gw
+			qu, qv, qw = cu - eu + gu, cv - ev + gv, cw - ew + gw
+		elseif k == 2 then
+			pu, pv, pw = cu - eu + gu, cv - ev + gv, cw - ew + gw
+			qu, qv, qw = cu - eu - gu, cv - ev - gv, cw - ew - gw
+		elseif k == 3 then
+			pu, pv, pw = cu - eu - gu, cv - ev - gv, cw - ew - gw
+			qu, qv, qw = cu + eu - gu, cv + ev - gv, cw + ew - gw
+		else
+			pu, pv, pw = cu + eu - gu, cv + ev - gv, cw + ew - gw
+			qu, qv, qw = cu + eu + gu, cv + ev + gv, cw + ew + gw
+		end
+		if pw < margin or qw < margin then
+			-- the four sides: u = +hu, -hu, v = +hv, -hv. A crossing counts when
+			-- one end is inside that side and the other outside, each by more
+			-- than CLIP_TOL, and the point lies within the other two sides
+			for side = 1, 4 do
+				local ps, qs, h
+				if side == 1 then ps, qs, h = pu, qu, hu
+				elseif side == 2 then ps, qs, h = -pu, -qu, hu
+				elseif side == 3 then ps, qs, h = pv, qv, hv
+				else ps, qs, h = -pv, -qv, hv end
+				local pin, qin = h - ps, h - qs -- > 0 inside
+				if (pin > CLIP_TOL and qin < -CLIP_TOL) or (pin < -CLIP_TOL and qin > CLIP_TOL) then
+					local t = pin / (pin - qin)
+					local w = pw + t * (qw - pw)
+					if w < margin then
+						local u, v = pu + t * (qu - pu), pv + t * (qv - pv)
+						local o, ho
+						if side <= 2 then o, ho = v, hv else o, ho = u, hu end
+						if o < 0 then o = -o end
+						if o < ho - CLIP_TOL then
+							local hn = hw + w
+							i = i + 1
+							cA[i], cB[i], cSlot[i] = I, R, 0
+							cPx[i] = R.x + u * ux + v * vx + hn * nx
+							cPy[i] = R.y + u * uy + v * vy + hn * ny
+							cPz[i] = R.z + u * uz + v * vz + hn * nz
+							cNx[i], cNy[i], cNz[i] = nx, ny, nz
+							cSep[i] = w
+						end
+					end
+				end
+			end
+		end
+	end
+	C.n = i
+end
+
 function collide.boxBox(A, B, margin)
 	-- separated along a face axis by margin or more: no corner of either box
 	-- can come within margin of the other (every corner's distance is at
 	-- least that gap), so there is nothing to add
-	if referenceAxis(A, B) <= -margin then return end
-	local nx, ny, nz = refX, refY, refZ
+	local best = referenceAxis(A, B)
+	if best <= -margin then return end
+	local nx, ny, nz, rk = refX, refY, refZ, refK
+	-- the nine edge axes, unless the boxes stand square to each other
+	local a11, a12, a13, a21, a22, a23, a31, a32, a33 =
+		A.r11, A.r12, A.r13, A.r21, A.r22, A.r23, A.r31, A.r32, A.r33
+	local b11, b12, b13, b21, b22, b23, b31, b32, b33 =
+		B.r11, B.r12, B.r13, B.r21, B.r22, B.r23, B.r31, B.r32, B.r33
+	local edge = false
+	local exx, eyy, ezz, ei, ej
+	local square = true
+	for i = 1, 3 do
+		local ax, ay, az
+		if i == 1 then ax, ay, az = a11, a21, a31
+		elseif i == 2 then ax, ay, az = a12, a22, a32
+		else ax, ay, az = a13, a23, a33 end
+		local c1 = ax * b11 + ay * b21 + az * b31
+		local c2 = ax * b12 + ay * b22 + az * b32
+		local c3 = ax * b13 + ay * b23 + az * b33
+		if c1 < 0 then c1 = -c1 end
+		if c2 < 0 then c2 = -c2 end
+		if c3 < 0 then c3 = -c3 end
+		if c1 < ALIGN and c2 < ALIGN and c3 < ALIGN then square = false break end
+	end
+	if not square then
+		local dx, dy, dz = A.x - B.x, A.y - B.y, A.z - B.z
+		local ahx, ahy, ahz, bhx, bhy, bhz = A.hx, A.hy, A.hz, B.hx, B.hy, B.hz
+		local eBest = best - EDGE_TOL
+		for i = 1, 3 do
+			local ax, ay, az
+			if i == 1 then ax, ay, az = a11, a21, a31
+			elseif i == 2 then ax, ay, az = a12, a22, a32
+			else ax, ay, az = a13, a23, a33 end
+			for j = 1, 3 do
+				local bx, by, bz
+				if j == 1 then bx, by, bz = b11, b21, b31
+				elseif j == 2 then bx, by, bz = b12, b22, b32
+				else bx, by, bz = b13, b23, b33 end
+				local lx, ly, lz = ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx
+				local l2 = lx * lx + ly * ly + lz * lz
+				if l2 > 1e-6 then
+					-- the overlap along the axis left unnormalized (it is the true
+					-- overlap times its length, at most 1): one no smaller than the
+					-- best so far and not negative can be passed over without the
+					-- square root
+					local e1 = a11 * lx + a21 * ly + a31 * lz
+					local e2 = a12 * lx + a22 * ly + a32 * lz
+					local e3 = a13 * lx + a23 * ly + a33 * lz
+					if e1 < 0 then e1 = -e1 end
+					if e2 < 0 then e2 = -e2 end
+					if e3 < 0 then e3 = -e3 end
+					local f1 = b11 * lx + b21 * ly + b31 * lz
+					local f2 = b12 * lx + b22 * ly + b32 * lz
+					local f3 = b13 * lx + b23 * ly + b33 * lz
+					if f1 < 0 then f1 = -f1 end
+					if f2 < 0 then f2 = -f2 end
+					if f3 < 0 then f3 = -f3 end
+					local d = dx * lx + dy * ly + dz * lz
+					local ad = d
+					if ad < 0 then ad = -ad end
+					local o = (ahx * e1 + ahy * e2 + ahz * e3) + (bhx * f1 + bhy * f2 + bhz * f3) - ad
+					if o < 0 or o < eBest then
+						local il = 1 / sqrt(l2)
+						o = o * il
+						if o <= -margin then return end -- parted along this edge axis
+						if o < eBest then
+							eBest = o
+							if d < 0 then il = -il end
+							exx, eyy, ezz, ei, ej = lx * il, ly * il, lz * il, i, j
+							edge = true
+						end
+					end
+				end
+			end
+		end
+	end
 	cornersInto(A, B, margin, nx, ny, nz)
 	cornersInto(B, A, margin, -nx, -ny, -nz)
+	if edge then
+		-- edge on edge: A's edge along its axis ei nearest B, B's along ej nearest A
+		local lx, ly, lz = exx, eyy, ezz
+		ABX[1], ABY[1], ABZ[1] = a11, a21, a31
+		ABX[2], ABY[2], ABZ[2] = a12, a22, a32
+		ABX[3], ABY[3], ABZ[3] = a13, a23, a33
+		local pax, pay, paz = A.x, A.y, A.z
+		local h1, h2, h3 = A.hx, A.hy, A.hz
+		for k = 1, 3 do
+			if k ~= ei then
+				local ax, ay, az = ABX[k], ABY[k], ABZ[k]
+				local h = (k == 1) and h1 or ((k == 2) and h2 or h3)
+				if ax * lx + ay * ly + az * lz > 0 then h = -h end
+				pax, pay, paz = pax + ax * h, pay + ay * h, paz + az * h
+			end
+		end
+		local dax, day, daz = ABX[ei], ABY[ei], ABZ[ei]
+		local ha = (ei == 1) and h1 or ((ei == 2) and h2 or h3)
+		ABX[1], ABY[1], ABZ[1] = b11, b21, b31
+		ABX[2], ABY[2], ABZ[2] = b12, b22, b32
+		ABX[3], ABY[3], ABZ[3] = b13, b23, b33
+		local pbx, pby, pbz = B.x, B.y, B.z
+		h1, h2, h3 = B.hx, B.hy, B.hz
+		for k = 1, 3 do
+			if k ~= ej then
+				local bx, by, bz = ABX[k], ABY[k], ABZ[k]
+				local h = (k == 1) and h1 or ((k == 2) and h2 or h3)
+				if bx * lx + by * ly + bz * lz < 0 then h = -h end
+				pbx, pby, pbz = pbx + bx * h, pby + by * h, pbz + bz * h
+			end
+		end
+		local dbx, dby, dbz = ABX[ej], ABY[ej], ABZ[ej]
+		local hb = (ej == 1) and h1 or ((ej == 2) and h2 or h3)
+		-- closest points of the two edges (Ericson 5.1.9; both unit directions)
+		local rx, ry, rz = pax - pbx, pay - pby, paz - pbz
+		local b = dax * dbx + day * dby + daz * dbz
+		local c = dax * rx + day * ry + daz * rz
+		local f = dbx * rx + dby * ry + dbz * rz
+		local s = (b * f - c) / (1 - b * b)
+		if s < -ha then s = -ha elseif s > ha then s = ha end
+		local t = f + s * b
+		if t < -hb then t = -hb elseif t > hb then t = hb end
+		s = t * b - c
+		if s < -ha then s = -ha elseif s > ha then s = ha end
+		local px, py, pz = pax + dax * s, pay + day * s, paz + daz * s
+		local sep = (px - pbx - dbx * t) * lx + (py - pby - dby * t) * ly + (pz - pbz - dbz * t) * lz
+		if sep < margin then add(A, B, px, py, pz, lx, ly, lz, sep, 0) end
+	elseif rk <= 3 then
+		-- A's face is the reference: B's face meets it (normal from A toward B)
+		clipFace(B, A, rk, -nx, -ny, -nz, margin)
+	else
+		clipFace(A, B, rk - 3, nx, ny, nz, margin)
+	end
 end
 
 -- How a baton meets a kubb or the king: the box's edges and corners rounded

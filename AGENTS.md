@@ -1388,8 +1388,8 @@ Every number that is a guess lives in one table per module, with a comment:
   range is the shared nerves (`tw.plan.tune` "Nerves", `plan.levels` `nervesDeg`,
   `nervesLen`).
 - `tw.world.tune` (`source/core/world.lua`): step, solver passes, slop and push, contact
-  margin, bounce threshold and passes, wood-on-wood friction and bounce (`boxMu` between
-  two boxes), sleep and wake
+  margin, bounce threshold and passes, wood-on-wood friction and bounce (`pairMu`, `pairE`:
+  every pair of pieces), sleep and wake
   thresholds, topple angle, out margin, maximum throw time, stake height (0.15 m: a real stake, 6 inches out of the ground).
   `tw.world.surfaces`: one parameter set per ground (grass, sand, snow; ice is a marked
   placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
@@ -1682,8 +1682,8 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     the pair loop; `b.wokeStep`). Nothing runs there in a step that wakes nobody, and a
     piece standing clear of the others (over the 2 mm contact margin) is woken as before.
   - **Kubb on kubb friction** was `pairMu` (0.4): a kubb tipped against its neighbour was
-    held up by the rub of its edge down the neighbour's face. Two boxes now meet at
-    `world.tune.boxMu` (0.2); a baton on anything keeps `pairMu`.
+    held up by the rub of its edge down the neighbour's face. Two boxes met at `boxMu` (0.2)
+    from then until 2026-11-16 ("Edge on edge" below: one friction for all wood again).
   - **Measured** (`tools/compound.lua --quick`, which now sweeps rows of three and four
     end on; before -> after): four touching, any kubb down 26% -> 81% of batons that hit
     the row, all four 0% -> 22%; three touching, all three 1% -> 53%; four 3 cm apart, all
@@ -1706,6 +1706,57 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     out 2026-11-16, "The ground's texture") did not change that on grass: the row shares the blow, moves at a
     quarter of the struck kubb's speed and is stopped by friction within 1 to 2 cm, too
     slow for any foot to trip (a row shoved at 2 m/s: nobody falls, before and after).
+- **Edge on edge** (2026-11-16, the physics audit). Box against box made contacts at the
+  corners of each box inside the other only, so two kubbs that met where their edges cross
+  had no contact there: a kubb lying across a lying kubb at 30 degrees or more fell straight
+  through it to the ground, and a kubb tipped into a neighbour turned 20 to 70 degrees sank
+  an edge up to 18 mm into it (15 of 45 tips over 5 mm; `tests/lua/test_physics.lua` has
+  both). `collide.boxBox` now runs the standard separating-axis test with the nine edge
+  axes as well as the six face axes (Ericson, Real-Time Collision Detection 4.4 and 5.1.9):
+  - an edge axis that parts the boxes by the margin ends the test (no contacts);
+  - if the boxes overlap least along an edge axis (by `EDGE_TOL`, 0.5 mm, less than any
+    face axis), one contact at the closest points of the two edges that face each other;
+  - otherwise the face of the other box turned most against the reference face is clipped
+    to it (`clipFace`), and each point where one of its edges crosses a side of the
+    reference face is a contact (crossed lying kubbs: four);
+  - corners stay as they were; a crossing within `CLIP_TOL` (1 mm) of a corner is left to
+    it. Boxes standing square to each other (every axis within about 1.8 degrees of one of
+    the other's: a row of kubbs, aligned debris) have no edge axis that is not a face axis,
+    so the nine are skipped, and the clip returns at once when every corner of the
+    incident face is within the reference face's sides. An edge axis's overlap is compared
+    unnormalized first, so most of them cost no square root.
+  - **One wood-on-wood friction.** `boxMu` (0.2) is gone; every pair of pieces meets at
+    `pairMu` 0.4 (Engineering ToolBox, friction coefficients: clean dry wood on wood 0.25
+    to 0.5, oak on oak sliding 0.48 along the grain and 0.32 across it, wood on wet wood
+    0.2). The audit read the low
+    value as standing in for these edge contacts. It did not: a row of kubbs stands square,
+    edge contacts never arise in it, and with the edges and 0.4 the row stands up to blows
+    as it did at 0.4 before "Tight rows". What holds it is the rub of wood on wood: the
+    kubbs tip together and end leaning face to face, like books on a shelf, and energy never
+    grows (checked step by step). A probe (four touching, a blow at 13 cm, flat ground):
+    at 0.2 a 1.6 N s blow fells all four, at 0.4 three; 2.0 N s fells three either way
+    round; a tap fells none.
+  - **Measured** (before -> after on main at 213e428, after the foot catch came out;
+    `tools/compound.lua --quick`): four touching end on, any kubb down 99% -> 69% of batons
+    that hit the row, all four 26% -> 0%; four 3 cm apart, all four 21% -> 0%; three
+    touching, all three 61% -> 45%, three 3 cm apart 64% -> 41%; two in line and the side by
+    side layouts within 4 points. The domino table moves five cells, A or B standing where
+    it fell or the reverse (a 12 rad/s tip at 3 cm leaves A leaning on B). On the main
+    before that (490bd4a) the rows moved the same way (four touching all four 21% -> 0%),
+    and the edges alone, friction left at 0.2, were within the sweep's noise of before (21%
+    -> 12%; three 55% -> 51%). 40 physics matches (seed 2): 19.6 -> 18.6 turns, field
+    batons hit 75% -> 77%. `tools/batonprobe.lua --quick`, `tools/groundstats.lua` and
+    `tools/drillscatter.lua --only 3` were unchanged to the digit (no box meets a box in
+    them).
+  - **Cost** (desktop): `boxBox` on a touching square pair 3.8 -> 4.2 us (the squareness
+    test), on a tipped pair at an angle 2.9 -> 5.0 us, crossed lying kubbs 2.8 -> 6.0 us (and
+    four contacts instead of none). A tight row of four turned a few degrees, the second
+    after a blow: 0.041 -> 0.050 ms a step at the same friction (the pair phase about a
+    third more, the rest from the extra contacts), 0.062 with the new friction (the row
+    stays up and touching longer). `make bench` is within its noise (multi 0.016 both).
+  - Not bit-identical: any step where two boxes are within the margin of each other and not
+    square to each other, or whose crossed faces' edges cross. A square tight row, the
+    lone flight and every throw where no box meets a box are unchanged.
 - Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
   tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
   would save about 8% of a collision step but changes the feel, so it was not applied.
