@@ -717,7 +717,7 @@ local function aimInput(s, dt)
 		if side ~= 0 then
 			if s.projectile == "kubb" then
 				s.spin = max(-pt.spinSteps, min(pt.spinSteps, s.spin + side))
-				s.planDirty = true   -- a spun drill runs on less (drill.slideFor)
+				s.planDirty = true   -- the plan chip and trace carry the spin
 			else
 				s.tilt = max(-pt.tiltMaxDeg, min(pt.tiltMaxDeg, s.tilt + side * pt.tiltStepDeg))
 			end
@@ -817,7 +817,7 @@ local function knocks(s)
 end
 
 -- Launch a throw: L is a launch (plan.launch's fields: speed, loft, swivel,
--- tilt, tumble, legal; a drill's noseDown, rollLand, spin, wobble, digGain)
+-- tilt, tumble, legal; a drill's noseDown, rollLand, spin, wobble)
 -- from where the player stands; how is "baton", "drill" or "lob" (the
 -- Playdate's kubb tosses, end over end).
 local function fire(s, L, how)
@@ -854,7 +854,7 @@ local function fire(s, L, how)
 	if kubb then
 		if drilling then
 			b = phys.launchDrill(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
-				L.spin, L.wobble, L.digGain)
+				L.spin, L.wobble)
 		else
 			b = phys.launchKubb(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble)
 		end
@@ -1345,7 +1345,7 @@ local CLEAN = { back = 0, releaseAngle = 0, flickFrac = 1, smoothness = 1, shake
 
 -- Launch the Playdate's throw `a` as it is (its own speed, loft and swivel,
 -- mistakes included). A kubb with a.drill's launch fields (core/autothrow:
--- noseDown, rollLand, spin, wobble, digGain) is drilled with them; a.drill
+-- noseDown, rollLand, spin, wobble) is drilled with them; a.drill
 -- with only a circle (the autobench's match case: markerX, markerY) is
 -- drilled as the plan's clean drill onto it at the drill arc; a kubb with no
 -- a.drill is lobbed end over end.
@@ -1356,7 +1356,7 @@ autoFire = function(s, a)
 		s.markerX, s.markerY, s.markerOn = d.markerX, s.lineY + d.markerY, nil
 		if d.noseDown then
 			L.speed, L.loft, L.swivel, L.tilt, L.tumble, L.legal = a.speed, a.loftDeg, a.swivel, 0, 0, true
-			L.noseDown, L.rollLand, L.spin, L.wobble, L.digGain = d.noseDown, d.rollLand, d.spin, d.wobble, d.digGain
+			L.noseDown, L.rollLand, L.spin, L.wobble = d.noseDown, d.rollLand, d.spin, d.wobble
 		else
 			s.stanceSet, s.arcSet, s.tilt, s.spin = false, false, 0, 0
 			s.projectile, s.drill = "kubb", true

@@ -245,7 +245,7 @@ function bench.matchPhysics(clock, yield)
 			local sol = drill.solve(a.drill.markerX, a.drill.markerY, 0, {})
 			local L = drill.launch(sol, { power = sol.band, smoothness = 1, tilt = 0 }, 0, {})
 			world.launchDrill(w, s.kubb, sol.x, 0, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand, L.spin,
-				L.wobble, L.digGain)
+				L.wobble)
 		else
 			world.launchBaton(w, a.x, a.y, a.swivel, a.loftDeg, a.speed, a.tumbleRate, a.tilt, s.batonId)
 		end

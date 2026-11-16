@@ -70,10 +70,11 @@ plan.tune = {
 	tiltMaxDeg = 20,       -- ... up to this either way (Jamie, 2026-11-15: tap up to 20 in steps of 5).
 	                       -- With the shake it adds up toward legalTiltDeg, the helicopter
 	spinSteps = 3,         -- B + left/right on a kubb: up to this many taps either way
-	spinPerStep = 22,      -- rad/s about the long axis per tap (+ rolls right). Measured (tools/spinwall.lua,
-	                       -- 2026-11-15, the plan's clean drill on grass at loft 47): 0 taps rests within
-	                       -- 0.01 m of where it lands, 1 tap rolls 0.27 m sideways, 2 taps 0.61, 3 taps 0.90
-	                       -- (loft 30: 0.24, 0.52, 0.81; sand about 45% of that), forward 0.04 to 0.19 m back
+	spinPerStep = 22,      -- rad/s about the long axis per tap (+ clockwise from behind), on top of the
+	                       -- wrist's spiral (drill.tune.spiral). A spun drill holds its release attitude to
+	                       -- the touch, a gyroscope; once down, spin moves it a little either way: which
+	                       -- corner strikes first decides more than the spin (2026-11-16, the plain body
+	                       -- with the turf's bite; tools/spinwall.lua)
 	defaultLevel = "club", -- the level when none is given
 	-- the swing against the plan (plan.launch)
 	skyExtraDeg = 45,      -- a sky ball (the crank on past 12): its release counts as this
@@ -445,7 +446,7 @@ end
 --   sdSide, sdLen  the nerves' sds this throw had (plan.nervesSd)
 --   sideV      -1 pulled left, 0 straight, 1 pulled right (sideM against straightM)
 --   lenV       -1 short, 0 on, 1 long by the nerves alone (lenM against longM)
--- For a kubb also noseDown, rollLand, spin (rad/s), wobble, digGain, jerk
+-- For a kubb also noseDown, rollLand, spin (rad/s), wobble, jerk
 -- (drill.body: world.launchDrill's arguments after the loft and speed);
 -- tumble is 0 and tilt is only the shake's.
 function plan.launch(sol, r, opts, out)
@@ -512,7 +513,7 @@ function plan.launch(sol, r, opts, out)
 		out.tilt = pull * shakeTilt
 		out.legal = true
 		out.tumble = 0
-		drill.body(1 - se, pull, (opts.spin or 0) * t.spinPerStep, out)
+		drill.body(1 - se, pull, (opts.spin or 0) * t.spinPerStep, out, out.loft - (sol.loft or out.loft))
 	else
 		local tilt = (opts.tilt or 0) + pull * shakeTilt
 		out.tilt = tilt

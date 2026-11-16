@@ -71,25 +71,10 @@ function body.new(kind, id)
 		toppled = false, touched = false, leftPitch = false,
 		-- ground contact slots (one per box corner or capsule end) for warm
 		-- starting: accumulated impulses from the last step that had them
-		gStamp = {}, gN = {}, gT1 = {}, gT2 = {}, gDig = {}, gMf = {}, gEf = {},
+		gStamp = {}, gN = {}, gT1 = {}, gT2 = {}, gDig = {}, gBite = {}, gMf = {}, gEf = {},
 		groundImpulse = 0,   -- sum of ground normal impulses in this step
 		dig = 0,             -- extra rolling-resistance lever from digging in (m), decays
 		plough = 0,          -- m slid on the ground since it last left it (snow piles up)
-		digGain = 1,         -- how much harder than the surface's dig this body's new ground
-		                     -- contacts dig in (a drilled kubb's leading edge: world.launchDrill)
-		-- a drilled kubb (world.launchDrill sets these from drill.tune) differs from every
-		-- other body on the ground; the defaults leave every other body as it always was:
-		edgeRound = 0,       -- m: its long edges meet the ground rounded to this radius
-		                     -- (collide.groundBox), so it can roll face over face
-		digBySpin = true,    -- the dig judges a new ground contact's steepness by the contact
-		                     -- point's speed (spin included); false: by the centre's speed only
-		slipDrag = false,    -- true: the ground texture's drag holds the slip of its lowest
-		                     -- point, not its roll, and its plug (dig) holds its tumble and
-		                     -- turn, not its roll about the long axis (world.step)
-		rollDrag = 0,        -- with slipDrag: share of the texture's drag on its roll about the
-		                     -- long axis (viscous)
-		plugGain = 1,        -- with slipDrag: the plug's hold on its tumble and turn, times this
-		bumpGain = 1,        -- share of the ground texture's bump a steep landing gets
 		index = 0,
 	}
 	if k.static then
@@ -98,7 +83,7 @@ function body.new(kind, id)
 		b.im, b.iIx, b.iIy, b.iIz = 0, 0, 0, 0
 	end
 	for i = 1, 8 do
-		b.gStamp[i], b.gN[i], b.gT1[i], b.gT2[i], b.gDig[i] = -1, 0, 0, 0, 0
+		b.gStamp[i], b.gN[i], b.gT1[i], b.gT2[i], b.gDig[i], b.gBite[i] = -1, 0, 0, 0, 0, 0
 		b.gMf[i], b.gEf[i] = 1, 1   -- the ground texture's friction and bounce factors
 	end
 	body.updateDerived(b)

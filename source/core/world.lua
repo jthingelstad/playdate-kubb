@@ -21,11 +21,10 @@
 -- or baton end arrives steeply and fast, that contact loses its bounce, gets
 -- extra friction for as long as it lasts (it is ploughed in), and the body
 -- gets a rolling-resistance lever that fades over digTime (it is plugged).
--- A drilled kubb (world.launchDrill) differs on the ground in a few flagged
--- ways (body.lua), so every other body steps exactly as before: its dig is
--- judged by its centre's arrival, its plug holds its tumble but not its roll
--- about the long axis, the grass drags its slip rather than its roll, its long
--- edges meet the ground rounded, and it gets no landing bump.
+-- "Bite": an edge or corner that strikes the turf is held sideways by it, an
+-- extra friction coefficient that fades as it works loose. Every body meets
+-- the ground the same way: a drilled kubb (world.launchDrill) is a plain
+-- kubb once it is down; in flight it has the air's turn (world.aeroTurn).
 --
 -- Usage:
 --   local w = world.new{ surface = "grass", pieces = { {id=, kind=, x=, y=, yaw=}, ... } }
@@ -95,6 +94,10 @@ world.tune = {
 	-- baton drifts about 0.16 m in a light (2.5 m/s) cross wind, 0.43 in a
 	-- strong (6 m/s) one, and loses about 0.95 m into a strong head wind
 	windK = { baton = 0.015, kubb = 0.0086 },
+	aeroK = 0.00022,       -- the air's turn on a drilled kubb in flight (world.aeroTurn): rho (k2 - k1)
+	                       -- volume: half the slender-body (Munk) moment of a 7 x 7 x 15 cm block (k2 - k1
+	                       -- about 0.5), which overstates a bluff block; an estimate. It turns the long axis
+	                       -- broadside to the air, so a kubb with too little spin tumbles
 }
 
 -- Ground surfaces: one parameter set each (DESIGN 5). All guesses, to be
@@ -130,6 +133,11 @@ world.tune = {
 --               degrees of upright) whose foot slides faster than footSpeed
 --               loses this share of that slip a second, taken at the foot, so
 --               it slows and tips the way it is going (plough adds to it)
+--     bite      an edge or corner that strikes the turf cuts into it and is
+--               held sideways by it: an extra friction coefficient on that
+--               contact, ramped like dig by the edge's own arrival speed and
+--               scaled by pointed() (0 on a face)
+--     biteTime  s: how fast the hold weakens while the edge stays down
 --     plough    1/s per m (optional): the drag grows with the distance a piece
 --               has slid since it last left the ground (snow piles up in front
 --               of it), so a slide starts slick and ends heavy
@@ -137,6 +145,7 @@ world.surfaces = {
 	grass = {
 		name = "grass", mu = 0.7, e = 0.15,
 		dig = 1.0, digSpeed = 0.3, digRamp = 1.5, digLever = 0.006, digTime = 0.15,
+		bite = 0.7, biteTime = 0.05,
 		roll = 0.01,
 		texture = { cell = 0.25, muVar = 0.3, eVar = 0.5, digVar = 0.5, bump = 0.12, bumpSpeed = 0.8,
 			drag = 2.5, grip = 12, gripSpeed = 0.5, trip = 60, tripSpeed = 0.15, foot = 25, footSpeed = 0.3 },
@@ -148,6 +157,7 @@ world.surfaces = {
 	sand = {
 		name = "sand", mu = 0.9, e = 0.03,
 		dig = 3.0, digSpeed = 0.2, digRamp = 1.0, digLever = 0.03, digTime = 0.5,
+		bite = 2, biteTime = 0.1,
 		roll = 0.03,
 		texture = { cell = 0.2, muVar = 0.25, eVar = 0.4, digVar = 0.7, bump = 0.18, bumpSpeed = 0.6,
 			drag = 6, grip = 20, gripSpeed = 0.6, trip = 120, tripSpeed = 0.1 },
@@ -159,6 +169,7 @@ world.surfaces = {
 	snow = {
 		name = "snow", mu = 0.25, e = 0.02,
 		dig = 2.5, digSpeed = 0.3, digRamp = 1.2, digLever = 0.025, digTime = 0.4,
+		bite = 0, biteTime = 0.05,
 		roll = 0.004,
 		texture = { cell = 0.3, muVar = 0.5, eVar = 0.3, digVar = 0.8, bump = 0.1, bumpSpeed = 0.8,
 			drag = 0.6, grip = 4, gripSpeed = 0.3, trip = 70, tripSpeed = 0.15, plough = 1.5,
@@ -362,114 +373,48 @@ function world.launchKubb(w, id, x, lineY, swivel, loftDeg, speed, tumbleRate)
 		world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, 0))
 end
 
--- A drilled kubb (core/drill). It leaves the hand at (x, lineY, handHeight)
--- along the swivel at the loft and turns in the air (Jamie, 2026-11-16: "the
--- Kubbs are still 'flying' flat ... They change angle in the air"): nose
--- over at pitchRate (rad/s, about the right-hand axis) and spinning about its
--- long axis at spinRate (rad/s; + = clockwise seen from behind, which rolls
--- it right once it is down). The release attitude is solved backwards so
--- that the clean throw's long axis is noseDownDeg below the horizontal when
--- its nose's lowest point reaches the grass, rolled rollLandDeg from flat on
--- a face toward the way the spin turns it (flat with no spin): the free
--- turn of a square-sectioned block (core/world's gyroscopic step makes the
--- same motion), a precession about its angular momentum at |L|/I1 and a turn
--- about its own axis at spin (I1 - I3) / I1. A fast spin holds the axis (a
--- gyroscope): with taps the kubb lands about as it left the hand; without,
--- it leaves the hand nose up along its flight and comes over. Then the
--- swing's own scatter is added to the rates, not solved for: dPitch (more
--- or less nose over), dYaw (about the kubb's own up: it turns across the
--- line) and dSpin (a little roll), each rad/s, so the attitude it arrives
--- with varies throw to throw. wobbleRate (rad/s) adds a nose-up turn about
--- the right-hand axis (a jerky swing's, drill.body). Returns the pose and
--- velocities as 13 numbers.
-function world.drillLaunchState(x, lineY, swivel, loftDeg, speed, noseDownDeg, rollLandDeg, spinRate, wobbleRate,
-		pitchRate, dPitch, dYaw, dSpin)
-	pitchRate, dPitch, dYaw, dSpin = pitchRate or 0, dPitch or 0, dYaw or 0, dSpin or 0
+-- A drilled kubb (core/drill), launched the way a baton is: a plain rigid
+-- body released from the swing, and the world does the rest (2026-11-16,
+-- Jamie: "we didn't treat Kubb throws with the same physics as baton
+-- throws"). It leaves the hand at (x, lineY, handHeight) along the swivel at
+-- the loft, held by its back end with its long axis pointing down the line,
+-- the nose noseDownDeg below the horizontal (a kubb hanging from the hand at
+-- the end of an underhand swing), rolled rollDeg about that axis (0: a face
+-- flat to the side). The wrist's snap spins it about the long axis at
+-- spinRate (rad/s; + = clockwise seen from behind). Nothing is solved back
+-- from the landing: a fast spiral is a gyroscope, so the kubb lands about
+-- as it left the hand, nose first; the air's turn (world.aeroTurn) tumbles
+-- one with too little spin. wobbleRate (rad/s) is a jerky swing's nose-up
+-- turn about the right-hand axis; dPitch, dYaw (about the kubb's own up) and
+-- dSpin (rad/s) are the swing's own scatter of the release turn, and
+-- dNoseDeg of its attitude. Returns the pose and velocities as 13 numbers.
+function world.drillLaunchState(x, lineY, swivel, loftDeg, speed, noseDownDeg, rollDeg, spinRate, wobbleRate,
+		dPitch, dYaw, dSpin, dNoseDeg)
+	dPitch, dYaw, dSpin = dPitch or 0, dYaw or 0, dSpin or 0
 	local dx, dy = sin(swivel), cos(swivel)
 	local lx, ly, lz = launchDir(swivel, loftDeg)
-	local ft = tw.flight.tune
-	local h = ft.handHeight
-	local a = rad(noseDownDeg)
+	local a = rad(noseDownDeg + (dNoseDeg or 0))
 	local ca, sa = cos(a), sin(a)
-	-- the roll at the first touch: rollLandDeg toward the way the spin rolls
-	-- it (flat on a face with no spin)
-	local land = rad(rollLandDeg)
-	if spinRate < 0 then land = -land elseif spinRate == 0 then land = 0 end
-	-- flight time until the nose's lowest point reaches the grass: the kubb
-	-- rolled `land`, the nose a below the horizontal, its long edges rounded
-	-- to er against the ground (collide.groundBox)
-	local kk = body.kinds.kubb
-	local er = tw.drill.tune.edgeRound
-	local sl = sin(land)
-	if sl < 0 then sl = -sl end
-	local zc = kk.hz * sa + ca * ((kk.hy - er) * cos(land) + (kk.hx - er) * sl + er)
-	local vz = speed * lz
-	local h0 = h - zc
-	local T = (vz + sqrt(vz * vz + 2 * ft.g * h0)) / ft.g
-	-- the attitude at the touch. Local z: the long axis; x: the right-hand
-	-- side, rolled by `land` about z
+	-- local z: the long axis, nose forward and down; r: the right-hand side
 	local zx, zy, zz = dx * ca, dy * ca, -sa
 	local rx, ry, rz = dy, -dx, 0
+	-- local y = z x r (so r x y = z), then both turned by the roll about z
 	local yx, yy, yz = zy * rz - zz * ry, zz * rx - zx * rz, zx * ry - zy * rx
-	local c, s = cos(land), sin(land)
+	local c, s = cos(rad(rollDeg or 0)), sin(rad(rollDeg or 0))
 	local Xx, Xy, Xz = c * rx + s * yx, c * ry + s * yy, c * rz + s * yz
 	local Yx, Yy, Yz = -s * rx + c * yx, -s * ry + c * yy, -s * rz + c * yz
-	local Zx, Zy, Zz = zx, zy, zz
-	-- the principal moments of inertia across (I1) and along (I3) the long axis
-	local I1 = (kk.hy * kk.hy + kk.hz * kk.hz) / 3
-	local I3 = (kk.hx * kk.hx + kk.hy * kk.hy) / 3
-	-- the clean throw's turn at the touch: the spin about the long axis and
-	-- nose over about the right-hand axis (square to it). Its angular
-	-- momentum L is the same all through the flight: the long axis goes
-	-- round L at |L| / I1 and the kubb turns about its own axis at
-	-- spin (I1 - I3) / I1 on top, so the release is the touch turned back by
-	-- both over T (the first about its own axis, then about L: Rodrigues)
-	local Lx, Ly, Lz = I3 * spinRate * Zx - I1 * pitchRate * rx, I3 * spinRate * Zy - I1 * pitchRate * ry,
-		I3 * spinRate * Zz
-	local Ln = sqrt(Lx * Lx + Ly * Ly + Lz * Lz)
-	local gam = spinRate * (I1 - I3) / I1
-	local g = -gam * T
-	local cg, sg = cos(g), sin(g)
-	local x0x, x0y, x0z = cg * Xx + sg * Yx, cg * Xy + sg * Yy, cg * Xz + sg * Yz
-	local y0x, y0y, y0z = -sg * Xx + cg * Yx, -sg * Xy + cg * Yy, -sg * Xz + cg * Yz
-	local z0x, z0y, z0z = Zx, Zy, Zz
-	local wx0, wy0, wz0 = 0, 0, 0
-	if Ln > 1e-9 then
-		local kx, ky, kz = Lx / Ln, Ly / Ln, Lz / Ln
-		local Om = Ln / I1
-		local th = -Om * T
-		local ct, st = cos(th), sin(th)
-		local d = (kx * x0x + ky * x0y + kz * x0z) * (1 - ct)
-		x0x, x0y, x0z = x0x * ct + (ky * x0z - kz * x0y) * st + kx * d,
-			x0y * ct + (kz * x0x - kx * x0z) * st + ky * d,
-			x0z * ct + (kx * x0y - ky * x0x) * st + kz * d
-		d = (kx * y0x + ky * y0y + kz * y0z) * (1 - ct)
-		y0x, y0y, y0z = y0x * ct + (ky * y0z - kz * y0y) * st + kx * d,
-			y0y * ct + (kz * y0x - kx * y0z) * st + ky * d,
-			y0z * ct + (kx * y0y - ky * y0x) * st + kz * d
-		d = (kx * z0x + ky * z0y + kz * z0z) * (1 - ct)
-		z0x, z0y, z0z = z0x * ct + (ky * z0z - kz * z0y) * st + kx * d,
-			z0y * ct + (kz * z0x - kx * z0z) * st + ky * d,
-			z0z * ct + (kx * z0y - ky * z0x) * st + kz * d
-		-- the angular velocity at release: Om along L and gam about the axis
-		wx0, wy0, wz0 = Om * kx + gam * z0x, Om * ky + gam * z0y, Om * kz + gam * z0z
-	end
-	local qw, qx, qy, qz = quat.fromAxes(x0x, x0y, x0z, y0x, y0y, y0z, z0x, z0y, z0z)
-	-- the scatter's yaw axis: the kubb's own up across its flight (z0 x right)
-	local ux, uy, uz = z0y * rz - z0z * ry, z0z * rx - z0x * rz, z0x * ry - z0y * rx
-	local un = sqrt(ux * ux + uy * uy + uz * uz)
-	if un > 1e-9 then ux, uy, uz = ux / un, uy / un, uz / un end
-	-- and the swing's scatter and a jerky swing's wobble on top
-	local pr = dPitch - wobbleRate
-	return x, lineY, h, qw, qx, qy, qz,
+	local qw, qx, qy, qz = quat.fromAxes(Xx, Xy, Xz, Yx, Yy, Yz, zx, zy, zz)
+	-- the turn: the spiral about z, a nose-up pitch about r (the wobble and
+	-- the scatter's), a yaw about the kubb's own up (y, unrolled)
+	local sp, pr = spinRate + dSpin, wobbleRate + dPitch
+	return x, lineY, tw.flight.tune.handHeight, qw, qx, qy, qz,
 		speed * lx, speed * ly, speed * lz,
-		wx0 + dSpin * z0x - pr * rx + dYaw * ux, wy0 + dSpin * z0y - pr * ry + dYaw * uy,
-		wz0 + dSpin * z0z + dYaw * uz
+		sp * zx + pr * rx + dYaw * yx, sp * zy + pr * ry + dYaw * yy, sp * zz + pr * rz + dYaw * yz
 end
 
--- The swing's scatter of a drill's turn in the air: three normals (sd 1) from
--- the launch and the ground's seed when a test or tool fixed it, so a throw
--- is the same every time it is replayed and every other throw its own.
+-- The swing's scatter of a drill's release: four normals (sd 1) from the
+-- launch and the ground's seed when a test or tool fixed it, so a throw is
+-- the same every time it is replayed and every other throw its own.
 local function drillScatter(w, x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate)
 	local h = seedFrom(x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate,
 		w.groundSeedFixed and w.groundSeed or 0)
@@ -485,35 +430,26 @@ local function drillScatter(w, x, lineY, swivel, loftDeg, speed, spinRate, wobbl
 		if u1 < 1e-12 then u1 = 1e-12 end
 		return sqrt(-2 * math.log(u1)) * cos(2 * math.pi * u())
 	end
-	return normal(), normal(), normal()
+	return normal(), normal(), normal(), normal()
 end
 
--- digGain is how much harder its first touches dig into the ground than the
--- surface's dig (body.digGain). launchDrill gives the kubb drill.tune's turn
--- in the air (pitchDps, and the scatter: pitchSdDps, yawSdDps, spinSd, more
--- for a jerky swing by scatterJerk; the jerk read from wobbleRate against
--- drill.tune.wobbleRate) and its ground behaviour (body.lua: edgeRound,
--- digBySpin, slipDrag, rollDrag, plugGain, bumpGain).
-function world.launchDrill(w, id, x, lineY, swivel, loftDeg, speed, noseDownDeg, rollLandDeg, spinRate,
-		wobbleRate, digGain)
+-- launchDrill throws kubb `id` with drillLaunchState and the swing's scatter
+-- (drill.tune: pitchSdDps, yawSdDps, spinSd, noseSdDeg, each times
+-- 1 + scatterJerk x the jerk read from wobbleRate against drill.tune.wobbleRate).
+-- On the ground it is a plain kubb, like any other piece.
+function world.launchDrill(w, id, x, lineY, swivel, loftDeg, speed, noseDownDeg, rollDeg, spinRate,
+		wobbleRate)
 	local dt = tw.drill.tune
 	wobbleRate = wobbleRate or 0
 	local jerk = wobbleRate / dt.wobbleRate
 	if jerk < 0 then jerk = -jerk end
 	if jerk > 1 then jerk = 1 end
 	local k = 1 + dt.scatterJerk * jerk
-	local n1, n2, n3 = drillScatter(w, x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate)
+	local n1, n2, n3, n4 = drillScatter(w, x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate)
 	local b = world.launch(w, "kubb", id, world.drillLaunchState(x, lineY, swivel, loftDeg, speed,
-		noseDownDeg, rollLandDeg, spinRate, wobbleRate, rad(dt.pitchDps),
-		n1 * rad(dt.pitchSdDps) * k, n2 * rad(dt.yawSdDps) * k, n3 * dt.spinSd * k))
-	b.digGain = digGain or 1
-	-- a drill with planned spin rolls on the turf (body.lua, drill.tune: rollSpin);
-	-- one without is a plain kubb on the ground
-	if spinRate >= dt.rollSpin or spinRate <= -dt.rollSpin then
-		b.edgeRound, b.rollDrag, b.bumpGain, b.plugGain = dt.edgeRound, dt.rollDrag, dt.bumpGain, dt.plugGain
-		b.digBySpin, b.slipDrag = false, true
-		if b.digGain < dt.spinDigGain then b.digGain = dt.spinDigGain end
-	end
+		noseDownDeg, rollDeg, spinRate, wobbleRate,
+		n1 * rad(dt.pitchSdDps) * k, n2 * rad(dt.yawSdDps) * k, n3 * dt.spinSd * k, n4 * dt.noseSdDeg * k))
+	b.aeroK = world.tune.aeroK
 	return b
 end
 
@@ -585,6 +521,28 @@ local function windForce(w, b, dt)
 	b.vz = vz + kd * (still - rel) * vz
 end
 world.windForce = windForce
+
+-- The air's turn on the thrown piece in flight (2026-11-16, "Drilling"): a
+-- block moving at an angle to its long axis is turned broadside by the air
+-- (the slender-body, Munk, moment), tau = K (v . z)(v x z) with z the long
+-- axis and K = rho (k2 - k1) volume (world.tune.aeroK per kind). A spiral
+-- turns that into a precession, so the nose follows the flight path; with
+-- too little spin the kubb tumbles. Applied like windForce: only to
+-- w.projectile until its first contact.
+local function aeroTurn(w, b, dt)
+	local k = b.aeroK
+	if not k or k == 0 then return end
+	local vx, vy, vz = b.vx, b.vy, b.vz
+	if w.windOn then vx, vy = vx - w.windX, vy - w.windY end
+	local zx, zy, zz = b.r13, b.r23, b.r33
+	local s = k * dt * (vx * zx + vy * zy + vz * zz)
+	-- angular impulse s (v x z), through the world inverse inertia
+	local tx, ty, tz = s * (vy * zz - vz * zy), s * (vz * zx - vx * zz), s * (vx * zy - vy * zx)
+	b.wx = b.wx + b.i11 * tx + b.i12 * ty + b.i13 * tz
+	b.wy = b.wy + b.i12 * tx + b.i22 * ty + b.i23 * tz
+	b.wz = b.wz + b.i13 * tx + b.i23 * ty + b.i33 * tz
+end
+world.aeroTurn = aeroTurn
 
 local function gyro(b, dt)
 	local r11, r12, r13, r21, r22, r23, r31, r32, r33 =
@@ -862,6 +820,7 @@ local function loneStep(w, b, t, P)
 	w.awakeCount = 1
 	b.vz = vz - g * dt
 	if w.windOn and b == w.projectile and not w.firstContact then windForce(w, b, dt) end
+	if b.aeroK and b == w.projectile and not w.firstContact then aeroTurn(w, b, dt) end
 	if t.gyro then gyro(b, dt) end
 	b.groundImpulse = 0
 	b.plough = 0   -- in the air: as the full step does for a body off the ground
@@ -931,6 +890,7 @@ function world.step(w)
 	local dt = t.dt
 	local invDt = 1 / dt
 	local surf = w.surface
+	local biteFade = 1 - dt / (surf.biteTime or 1)
 	local bodies, nb = w.bodies, w.n
 	local stamp = w.steps
 	local pc, pt
@@ -948,6 +908,7 @@ function world.step(w)
 			awakeCount = awakeCount + 1
 			b.vz = b.vz - g * dt
 			if windOn and b == proj then windForce(w, b, dt) end
+			if b == proj and b.aeroK and not w.firstContact then aeroTurn(w, b, dt) end
 			if useGyro then gyro(b, dt) end
 			b.groundImpulse = 0
 		end
@@ -1221,10 +1182,13 @@ function world.step(w)
 				-- surface friction and bounce, dig, warm start
 				local k = cSlot[i]
 				local mu, e = surf.mu, surf.e
-				local dig
+				local dig, bite
+				local biteVar = 0
 				local ln, l1, l2 = 0, 0, 0
 				if a.gStamp[k] == stamp - 1 then
 					dig = a.gDig[k]
+					-- the bite weakens as the edge works the turf loose
+					if a.gN[k] > 0 then bite = a.gBite[k] * biteFade end
 					ln, l1, l2 = a.gN[k] * warmF, a.gT1[k] * warmF, a.gT2[k] * warmF
 				else
 					-- a new contact: how steeply and how fast did it arrive?
@@ -1244,6 +1208,7 @@ function world.step(w)
 						local h2 = ((hh * 0x85EBCA6B) & 0xffffffff) ~ (hh >> 13)
 						u1, u2, u3 = (hh & 1023) / 511.5 - 1, ((hh >> 10) & 1023) / 511.5 - 1, ((hh >> 20) & 1023) / 511.5 - 1
 						u4, u5 = (h2 & 1023) / 511.5 - 1, ((h2 >> 10) & 1023) / 511.5 - 1
+						biteVar = u3
 						a.gMf[k], a.gEf[k] = 1 + tex.muVar * u1, 1 + tex.eVar * u2
 						-- a bump: a steep landing is turned a little sideways, as off a
 						-- patch tilted a few degrees (the travel only: applied at the
@@ -1254,37 +1219,47 @@ function world.step(w)
 							local vt1 = avx + awy * raz - awz * ray
 							local vt2 = avy + awz * rax - awx * raz
 							local steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
-							local k = -v0 * tex.bump * steep * steep * a.bumpGain
+							local k = -v0 * tex.bump * steep * steep
 							avx, avy = avx + k * u4, avy + k * u5
 							a.vx, a.vy = avx, avy
 						end
 					else
 						a.gMf[k], a.gEf[k] = 1, 1
 					end
-					-- (a drilled kubb, digBySpin false, is judged by its centre's
-					-- arrival: its spin sweeps the edge sideways but does not make
-					-- it skim, so a spinning drill digs in as a plain one does)
-					local va = v0
-					if not a.digBySpin then va = avz end
-					if va < -surf.digSpeed and surf.dig > 0 then
-						local steep
-						if a.digBySpin then
-							local vt1 = avx + awy * raz - awz * ray
-							local vt2 = avy + awz * rax - awx * raz
-							steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
-						else
-							steep = -avz / sqrt(avx * avx + avy * avy + avz * avz)
-						end
-						local ramp = (-va - surf.digSpeed) / surf.digRamp
+					if v0 < -surf.digSpeed and surf.dig > 0 then
+						local vt1 = avx + awy * raz - awz * ray
+						local vt2 = avy + awz * rax - awx * raz
+						local steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
+						local ramp = (-v0 - surf.digSpeed) / surf.digRamp
 						if ramp > 1 then ramp = 1 end
-						dig = surf.dig * steep * ramp * pointed(a) * a.digGain
+						dig = surf.dig * steep * ramp * pointed(a)
 						if tex then dig = dig * (1 + tex.digVar * u3) end
 						local lever = surf.digLever * min(1, dig)
 						if lever > a.dig then a.dig = lever end
 					end
 				end
-				a.gDig[k] = dig
-				r[K_MU] = mu * (1 + dig) * a.gMf[k]
+				if not bite then
+					-- the turf's bite: an edge or corner that strikes the turf cuts
+					-- into it and is held sideways by the turf around it, not only by
+					-- sliding friction (an extra friction coefficient), until it works
+					-- loose: it catches a spinning kubb's edge and turns the kubb about
+					-- it, where a hard floor lets the edge skate. Judged like the dig,
+					-- by the edge's own arrival (v0, spin included) and how steep it
+					-- is (an edge skimming in cuts the turf less), when the contact
+					-- first presses (one made ahead of the touch waits for it).
+					bite = 0
+					if surf.bite and v0 < -surf.digSpeed then
+						local vt1 = avx + awy * raz - awz * ray
+						local vt2 = avy + awz * rax - awx * raz
+						local steep = -v0 / sqrt(v0 * v0 + vt1 * vt1 + vt2 * vt2)
+						local ramp = (-v0 - surf.digSpeed) / surf.digRamp
+						if ramp > 1 then ramp = 1 end
+						bite = surf.bite * ramp * pointed(a) * steep
+						if surf.texture then bite = bite * (1 + surf.texture.digVar * biteVar) end
+					end
+				end
+				a.gDig[k], a.gBite[k] = dig, bite
+				r[K_MU] = mu * (1 + dig) * a.gMf[k] + bite
 				local ef = 1 - dig
 				if ef < 0 then ef = 0 end
 				r[K_E] = e * ef * a.gEf[k]
@@ -1498,10 +1473,6 @@ function world.step(w)
 			-- knock come at the impact); one test a contact, no arithmetic
 			if not first.touchT then first.touchT = w.time end
 			if not other.touchT then other.touchT = w.time end
-			-- a drilled kubb that strikes a piece (not a stake: a wall rolls against
-			-- the stake) has done its drill: drillOver below makes it a plain kubb
-			if first.slipDrag and not other.static then first.drillHit = true end
-			if other.slipDrag and not first.static then other.drillHit = true end
 			if proj and not w.firstHit and (first == proj or other == proj) then
 				noteContact(w, proj, (first == proj) and other or first, cPx[idx], cPy[idx], cPz[idx])
 			end
@@ -1520,50 +1491,8 @@ function world.step(w)
 		if b.awake then
 			local gi = b.groundImpulse
 			if gi <= 0 then b.plough = 0 end   -- off the ground: the ploughed snow is left behind
-			-- a drilled kubb is a plain kubb once its drill is over: it has struck
-			-- a piece, or it is on the ground and nearly still (drill.tune
-			-- settleV, settleW). Without this it rolled on like a log after a hit
-			-- and rocked on its rounded edges for seconds before sleeping
-			-- (Tyler's play test, 2026-11-15). Every other body: one test.
-			if b.slipDrag and gi > 0 then
-				local over = b.drillHit
-				if not over then
-					local dt_ = tw.drill.tune
-					local sv, sw = dt_.settleV, dt_.settleW
-					over = b.vx * b.vx + b.vy * b.vy + b.vz * b.vz < sv * sv
-						and b.wx * b.wx + b.wy * b.wy + b.wz * b.wz < sw * sw
-				end
-				if over then
-					b.edgeRound, b.slipDrag, b.rollDrag, b.plugGain = 0, false, 0, 1
-					b.digBySpin, b.bumpGain, b.digGain = true, 1, 1
-				end
-			end
 			if gi > 0 then
-				if b.slipDrag then
-					-- a drilled kubb: the plug (dig) holds its tumble and its turn but
-					-- not its roll about the long axis (the turf brushes that: the
-					-- texture drag below)
-					local ux, uy, uz = b.r13, b.r23, b.r33
-					local wx, wy, wz = b.wx, b.wy, b.wz
-					local wu = wx * ux + wy * uy + wz * uz
-					local px, py, pz = wx - wu * ux, wy - wu * uy, wz - wu * uz
-					local L = b.dig * b.plugGain * gi
-					local p2 = px * px + py * py + pz * pz
-					if L > 0 and p2 > 1e-12 then
-						local pn = sqrt(p2)
-						local ex, ey, ez = px / pn, py / pn, pz / pn
-						local ix = b.i11 * ex + b.i12 * ey + b.i13 * ez
-						local iy = b.i12 * ex + b.i22 * ey + b.i23 * ez
-						local iz = b.i13 * ex + b.i23 * ey + b.i33 * ez
-						local stop = pn / (ex * ix + ey * iy + ez * iz)
-						if L >= stop then
-							wx, wy, wz = wu * ux, wu * uy, wu * uz
-						else
-							wx, wy, wz = wx - L * ix, wy - L * iy, wz - L * iz
-						end
-					end
-					b.wx, b.wy, b.wz = wx, wy, wz
-				elseif b.shape == 2 then
+				if b.shape == 2 then
 					-- a baton: its spin taken in two parts, each held by an angular
 					-- impulse (lever times the ground's impulse), never past stopping
 					-- that part: its end-over-end turn by the plug (dig) and
@@ -1624,7 +1553,7 @@ function world.step(w)
 							if b.shape == 2 and v2 > tex.tripSpeed * tex.tripSpeed then
 								local k = tex.trip * dt
 								b.wx, b.wy = b.wx - k * vy, b.wy + k * vx
-							elseif b.shape == 1 and not b.slipDrag then
+							elseif b.shape == 1 then
 								-- a kubb (or the king) standing and sliding: its foot catches
 								-- too. The turf holds the slip of the point under its centre:
 								-- that share of the slip is taken away there, which slows the
@@ -1656,38 +1585,6 @@ function world.step(w)
 									end
 								end
 							end
-						elseif b.slipDrag then
-							-- a drilled kubb: the blades hold the slip of its lowest
-							-- point (under the centre, at the ground), not its roll. The
-							-- impulse that takes that share of the slip away, applied there
-							local h = b.z
-							local wx, wy = b.wx, b.wy
-							local sx, sy = vx - h * wy, vy + h * wx
-							local s2 = sx * sx + sy * sy
-							local f = tex.drag
-							if s2 < tex.gripSpeed * tex.gripSpeed then f = f + tex.grip end
-							local pl = tex.plough
-							if pl then
-								local d = b.plough + sqrt(s2) * dt
-								b.plough = d
-								f = f + pl * d
-							end
-							f = f * dt
-							if f > 1 then f = 1 end
-							local im = b.im
-							local jx = -f * sx / (im + h * h * b.i22)
-							local jy = -f * sy / (im + h * h * b.i11)
-							-- r = (0, 0, -h): r x J = (h jy, -h jx, 0)
-							local tx, ty = h * jy, -h * jx
-							b.vx, b.vy = vx + im * jx, vy + im * jy
-							wx = wx + b.i11 * tx + b.i12 * ty
-							wy = wy + b.i12 * tx + b.i22 * ty
-							local wz = b.wz + b.i13 * tx + b.i23 * ty
-							-- and the blades brush its roll about the long axis: rollDrag of
-							-- the drag (viscous: a faster roll is held harder)
-							local ux, uy, uz = b.r13, b.r23, b.r33
-							local k = -b.rollDrag * tex.drag * dt * (wx * ux + wy * uy + wz * uz)
-							b.wx, b.wy, b.wz = wx + k * ux, wy + k * uy, wz + k * uz
 						elseif b.shape == 2 or r33 < 0.5 then
 							-- a baton or a lying piece on grass: the blades hold it,
 							-- harder once it is slow, so it stops instead of creeping
