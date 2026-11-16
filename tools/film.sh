@@ -10,11 +10,18 @@ SIM="$HOME/Developer/PlaydateSDK/bin/Playdate Simulator.app/Contents/MacOS/Playd
 FF=${FFMPEG:-ffmpeg}
 VERSION=$(sed -n 's/^version=//p' source/pdxinfo)
 OUT="$PWD/build/film"
+DATA="$HOME/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/selftest"
 make build >/dev/null
 rm -rf "$OUT"
 mkdir -p "$OUT"
 for s in $(python3 tools/film.py --scenes); do
+	rm -f "$DATA/$s.done"
 	timeout -k 5 150 "$SIM" "$PWD/build/ThrowingWood.pdx" selftest="$s" out="$OUT" film=1 >/dev/null 2>&1 || true
+	# The Simulator often crashes as it quits; the scenario counts only by its marker.
+	if ! grep -q '^DONE' "$DATA/$s.done" 2>/dev/null; then
+		echo "film: $s did not finish ($(cat "$DATA/$s.done" 2>/dev/null || echo 'no marker')); no reel" >&2
+		exit 1
+	fi
 	echo "filmed $s: $(ls "$OUT" | grep -c "^$s-f") frames"
 done
 python3 tools/film.py "$OUT"
