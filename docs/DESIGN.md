@@ -190,6 +190,14 @@ axis, which the ground turns into a sideways roll; earlier kubbs and the stakes 
 bodies, so a kubb can roll into the centerline stake or against another kubb and stop
 there. Every mapping is a tunable in `tw.drill.tune` (`source/core/drill.lua`).
 
+The computer drills the way good drillers do: the first kubb of a turn goes to a spot
+near its basket, and each later one is aimed just short of a kubb already down, so it
+runs into it and ends against it. With two or three kubbs it builds a line (it aims at
+the front kubb, so the line grows toward the thrower); with four or more a cluster (the
+kubb nearest the group's middle). Where no kubb leaves a clear lane it falls back to a
+clear spot beside the group. Its aim is not made worse on purpose: the scatter is the
+swing's and the run on's (`tw.autothrow.tune.into`, `intoShort`).
+
 ### Throw levels
 
 | | Beginner | Club | Pro |

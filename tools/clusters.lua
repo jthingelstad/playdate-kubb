@@ -8,14 +8,15 @@
 --   the group's spread (rms distance from its middle),
 --   the largest group chained by gaps of 15 cm or less,
 -- and, over the turn's batons thrown while a field kubb stood: how many
--- field kubbs each took. A measuring tool; it changes nothing in the game.
+-- field kubbs each took. The same gap, spread and group also for the kubbs
+-- lying as the inkast ends, before the defender raises them (2026-11-16). A measuring tool; it changes nothing in the game.
 --
 --   lua5.4 tools/clusters.lua [--n 60] [--seed 2] [--drill 1] [--baton 1]
 --     [--raise apart|together] [--maxturns 40] [--set name=value ...]
 --
 -- --drill and --baton multiply every mistake of the computer's swing for
 -- kubbs and for batons (1: the game's Playdate; 0: the plan's clean throw).
--- --set changes a number in autothrow.tune for the run.
+-- --set changes a number in autothrow.tune (world.tune as world.name) for the run.
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -45,9 +46,16 @@ while i <= #arg do
 	elseif a == "--raise" then raise = arg[i + 1]; i = i + 1
 	elseif a == "--maxturns" then maxTurns = tonumber(arg[i + 1]); i = i + 1
 	elseif a == "--set" then
-		local k, v = arg[i + 1]:match("^([%w_]+)=(.+)$")
-		assert(k and autothrow.tune[k] ~= nil, "--set: no autothrow.tune." .. tostring(k))
-		autothrow.tune[k] = tonumber(v); i = i + 1
+		-- a number in autothrow.tune, or world.tune as world.name
+		local k, v = arg[i + 1]:match("^([%w_%.]+)=(.+)$")
+		if k and k:sub(1, 6) == "world." then
+			assert(world.tune[k:sub(7)] ~= nil, "--set: no world.tune." .. k:sub(7))
+			world.tune[k:sub(7)] = tonumber(v)
+		else
+			assert(k and autothrow.tune[k] ~= nil, "--set: no autothrow.tune." .. tostring(k))
+			autothrow.tune[k] = tonumber(v)
+		end
+		i = i + 1
 	else error("unknown argument " .. a) end
 	i = i + 1
 end
@@ -55,17 +63,25 @@ end
 local LINK = 0.15
 local BUCKETS = { 0.005, 0.03, 0.07, 0.15, 0.30 }
 local LABELS = { "touching", "to 3 cm", "3-7 cm", "7-15 cm", "15-30 cm", "over 30 cm" }
-local hist, samples, gapSum = {}, 0, 0
-for b = 1, #BUCKETS + 1 do hist[b] = 0 end
-local turnsSeen, spreadSum, groupSum, kubbSum, groupShare = 0, 0, 0, 0, 0
+-- one set of figures: standing at the first baton (st), and lying as the
+-- inkast ends, before the defender raises them (ly)
+local function stats()
+	local x = { hist = {}, samples = 0, gapSum = 0, turnsSeen = 0, spreadSum = 0, groupSum = 0, kubbSum = 0,
+		groupShare = 0 }
+	for b = 1, #BUCKETS + 1 do x.hist[b] = 0 end
+	return x
+end
+local st, ly = stats(), stats()
 local took = { [0] = 0, 0, 0, 0 }
 local fieldBatons, tosses, rethrown, turns, kings = 0, 0, 0, 0, 0
 
--- The field kubbs standing in `half` and what the turn's first baton faces.
-local function measure(g, half)
+-- The field kubbs of `half` (standing ones: what the turn's first baton
+-- faces; with `lying`, the ones lying as the inkast ends) into figures x.
+local function measure(g, half, x, lying)
 	local ks = {}
 	for _, k in ipairs(g:onPitch()) do
-		if k.half == half and k.kind == "field" and k.pose.standing and not k.pose.onTop then ks[#ks + 1] = k end
+		if k.half == half and k.kind == "field" and not k.pose.onTop
+			and (lying and not k.pose.standing or not lying and k.pose.standing) then ks[#ks + 1] = k end
 	end
 	if #ks < 2 then return end
 	local rs, cx, cy = {}, 0, 0
@@ -87,8 +103,8 @@ local function measure(g, half)
 		end
 		local b = 1
 		while b <= #BUCKETS and best >= BUCKETS[b] do b = b + 1 end
-		hist[b] = hist[b] + 1
-		samples, gapSum = samples + 1, gapSum + best
+		x.hist[b] = x.hist[b] + 1
+		x.samples, x.gapSum = x.samples + 1, x.gapSum + best
 		sq = sq + (k.pose.x - cx) ^ 2 + (k.pose.y - cy) ^ 2
 	end
 	-- the largest group chained by gaps of LINK or less
@@ -107,10 +123,10 @@ local function measure(g, half)
 			if size > biggest then biggest = size end
 		end
 	end
-	turnsSeen = turnsSeen + 1
-	spreadSum = spreadSum + math.sqrt(sq / #ks)
-	groupSum, kubbSum = groupSum + biggest, kubbSum + #ks
-	groupShare = groupShare + biggest / #ks
+	x.turnsSeen = x.turnsSeen + 1
+	x.spreadSum = x.spreadSum + math.sqrt(sq / #ks)
+	x.groupSum, x.kubbSum = x.groupSum + biggest, x.kubbSum + #ks
+	x.groupShare = x.groupShare + biggest / #ks
 end
 
 local t0 = os.clock()
@@ -129,7 +145,7 @@ for gi = 1, n do
 		if s.kind == "baton" then
 			if g.turn ~= last and not s.kingShot then
 				last = g.turn
-				measure(g, half)
+				measure(g, half, st)
 			end
 			for _, k in ipairs(g:onPitch()) do
 				if k.half == half and k.kind == "field" and k.pose.standing then fieldUp = fieldUp + 1 end
@@ -156,6 +172,8 @@ for gi = 1, n do
 			tosses = tosses + 1
 			local j = m.game.judgment
 			if j then rethrown = rethrown + j.rethrow end
+			-- the inkast is over: what lies there before it is raised
+			if m.game.phase == "raise" then measure(m.game, half, ly, true) end
 		end
 	end
 	turns = turns + m.game.turn
@@ -167,12 +185,15 @@ print(fmt("clusters: %d matches, seed %d, drill mistakes x%g, baton mistakes x%g
 	n, seed, drill, baton, raise, os.clock() - t0))
 print(fmt("  turns a game %.1f, ended on the king %s, kubbs rethrown %s of %d",
 	turns / n, pct(kings, n), pct(rethrown, tosses), tosses))
-print(fmt("  turns measured (two or more field kubbs standing): %d, %.1f kubbs each", turnsSeen,
-	turnsSeen > 0 and kubbSum / turnsSeen or 0))
-print(fmt("  a field kubb's gap to its nearest neighbour: mean %.1f cm", samples > 0 and 100 * gapSum / samples or 0))
-for b = 1, #BUCKETS + 1 do print(fmt("    %-11s %s", LABELS[b], pct(hist[b], samples))) end
-print(fmt("  spread (rms from the group's middle) %.0f cm; largest group chained by gaps of %d cm or less: %.1f kubbs, %s of the field",
-	turnsSeen > 0 and 100 * spreadSum / turnsSeen or 0, LINK * 100, turnsSeen > 0 and groupSum / turnsSeen or 0,
-	turnsSeen > 0 and fmt("%.0f%%", 100 * groupShare / turnsSeen) or "-"))
+local function report(x, what)
+	print(fmt("  %s: %d turns, %.1f kubbs each", what, x.turnsSeen, x.turnsSeen > 0 and x.kubbSum / x.turnsSeen or 0))
+	print(fmt("  a field kubb's gap to its nearest neighbour: mean %.1f cm", x.samples > 0 and 100 * x.gapSum / x.samples or 0))
+	for b = 1, #BUCKETS + 1 do print(fmt("    %-11s %s", LABELS[b], pct(x.hist[b], x.samples))) end
+	print(fmt("  spread (rms from the group's middle) %.0f cm; largest group chained by gaps of %d cm or less: %.1f kubbs, %s of the field",
+		x.turnsSeen > 0 and 100 * x.spreadSum / x.turnsSeen or 0, LINK * 100, x.turnsSeen > 0 and x.groupSum / x.turnsSeen or 0,
+		x.turnsSeen > 0 and fmt("%.0f%%", 100 * x.groupShare / x.turnsSeen) or "-"))
+end
+report(st, "standing at the turn's first baton (two or more field kubbs)")
+report(ly, "lying as the inkast ends, before raising (two or more)")
 print(fmt("  batons at field kubbs %d: missed %s, one %s, two %s, three or more %s", fieldBatons,
 	pct(took[0], fieldBatons), pct(took[1], fieldBatons), pct(took[2], fieldBatons), pct(took[3], fieldBatons)))

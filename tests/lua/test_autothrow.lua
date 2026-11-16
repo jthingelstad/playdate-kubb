@@ -169,6 +169,9 @@ end)
 
 test("a toss goes beside a kubb lying at the basket, never onto it or over it", function()
 	local t = autothrow.tune
+	-- the clear spots alone (into the group off)
+	local into = t.into
+	t.into = 0
 	local lying = { id = "f1", kind = "kubb", role = "field", half = "B", x = t.basketX, y = t.basketY, toppled = true }
 	local s = toss { lying }
 	local x, y = autothrow.spot(s, 1)
@@ -187,6 +190,58 @@ test("a toss goes beside a kubb lying at the basket, never onto it or over it", 
 	local bx, by = autothrow.spot(toss(), -1)
 	expect.near(bx, -t.basketX, 1e-9)
 	expect.near(by, t.basketY, 1e-9)
+	t.into = into
+end)
+
+test("a later kubb is aimed to run into the group: just short of a lying kubb's near face", function()
+	local t = autothrow.tune
+	expect.truthy(t.into ~= 0, "into the group is on")
+	local function lie(id, x, y, angle)
+		return { id = id, kind = "kubb", role = "field", half = "B", x = x, y = y, toppled = true,
+			pose = { x = x, y = y, standing = false, angle = angle } }
+	end
+	-- one kubb lying across the throw at the basket: in its lane, short of its near face
+	local k = lie("f1", t.basketX + 0.04, t.basketY + 0.1, 0)
+	local s = toss { k }
+	s.of = 2
+	local x, y = autothrow.spot(s, 1)
+	expect.near(x, k.x, 1e-9)
+	expect.near(y, k.y - 0.035 - t.intoShort, 1e-9)
+	-- lying along the throw its near face is half a kubb's length short of its centre
+	k.pose.angle = math.pi / 2
+	x, y = autothrow.spot(s, 1)
+	expect.near(y, k.y - 0.075 - t.intoShort, 1e-9)
+	-- a line (fewer than clusterFrom kubbs): in front of the front kubb, so the line grows
+	local back, front = lie("f1", 1.9, 4.9, math.pi / 2), lie("f2", 1.92, 4.74, math.pi / 2)
+	s = toss { back, front }
+	s.of = 3
+	x, y = autothrow.spot(s, 1)
+	expect.near(x, front.x, 1e-9)
+	expect.near(y, front.y - 0.075 - t.intoShort, 1e-9)
+	-- a cluster: in front of the kubb whose aim is nearest the group's middle
+	local a1, a2, a3 = lie("f1", 1.70, 4.95, 0), lie("f2", 1.85, 4.80, 0), lie("f3", 2.0, 4.95, 0)
+	s = toss { a1, a2, a3 }
+	s.of = 5
+	x, y = autothrow.spot(s, 1)
+	expect.truthy(x == a1.x or x == a3.x, "beside the front kubb, into the cluster's middle")
+	expect.near(y, 4.95 - 0.035 - t.intoShort, 1e-9)
+	-- never aimed where it would come down on another kubb: a kubb lying in the
+	-- lane short of the aim blocks it (the clear spots take over)
+	local blocker = lie("f2", k.x, k.y - 0.3, 0)
+	k.pose.angle = 0
+	s = toss { k, blocker }
+	s.of = 2
+	x, y = autothrow.spot(s, 1)
+	expect.truthy(not (math.abs(x - k.x) < 1e-9 and math.abs(y - (k.y - 0.035 - t.intoShort)) < 1e-9),
+		"not in front of the kubb behind the blocker")
+	-- a standing field kubb is never aimed into, and never thrown over
+	local standing = { id = "f1", kind = "kubb", role = "field", half = "B", x = t.basketX, y = t.basketY - 0.3,
+		toppled = false, pose = { x = t.basketX, y = t.basketY - 0.3, standing = true, angle = 0 } }
+	s = toss { standing }
+	s.of = 2
+	x, y = autothrow.spot(s, 1)
+	expect.truthy(math.abs(x - standing.x) >= t.spotLane or y < standing.y or y - standing.y >= t.spotShortStanding,
+		"not in the lane just past a standing kubb")
 end)
 
 test("a baton aims down the lane with the most field kubbs, not at the nearest", function()

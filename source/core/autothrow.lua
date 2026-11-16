@@ -73,6 +73,8 @@ autothrow.tune = {
 	                         -- the first kubbs in a cluster
 	spotMinY = 4.05,         -- m from the baseline: no spot nearer the centre line than this
 	spotMaxX = 2.2,          -- m from the middle: no spot nearer the sideline than this
+	into = 1,                -- 1: aim a later kubb into the group (intoSpot) before the clear spots; 0: the clear spots only
+	intoShort = 0.03,        -- m from a lying kubb's near face to where the drill is aimed to rest
 	-- How the mistakes go with the throw (2026-11-16, against the recorded
 	-- tournament games, AGENTS.md "Real games"): real players miss more the
 	-- farther they throw, and drill their kubbs closer than they throw batons.
@@ -163,7 +165,88 @@ end
 -- is its backstop). Nearest counts a step along the throw as little against
 -- one across (a line along the throw) when the turn has fewer than
 -- clusterFrom kubbs to throw, else the same (a cluster). The basket itself
--- when every spot is taken.
+-- when every spot is taken. Since 2026-11-16 a later kubb is first aimed
+-- into the group (intoSpot below).
+
+-- Is (x, y) a spot a drill can be aimed at: on the allowed part of the
+-- half, not on a field kubb and with none in the lane it comes down and runs
+-- on in (a lying one within shortLying short of it, a standing one within
+-- spotShortStanding)? Piece `except` (or nil) is left out.
+local function spotClear(s, t, x, y, shortLying, except)
+	local ax = x < 0 and -x or x
+	if ax > t.spotMaxX or y < s.lineY + t.spotMinY then return false end
+	for _, p in ipairs(s.pieces) do
+		if p ~= except and p.role == "field" and p.half ~= s.side then
+			local dx, dy = (p.x - x) / t.spotClearX, (p.y - y) / t.spotClearY
+			if dx * dx + dy * dy < 1 then return false end
+			local lx, short = p.x - x, y - p.y
+			if lx < 0 then lx = -lx end
+			if lx < t.spotLane and short > 0
+				and short < (p.toppled and shortLying or t.spotShortStanding) then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+-- Into the group (2026-11-16, Jamie: "good drillers roll into other kubbs
+-- because it is impossible to stop that much energy with just the ground and
+-- grass"). Once a kubb of the far half lies near the basket, a drill is aimed
+-- so that it would rest intoShort in front of a lying kubb's near face, in
+-- that kubb's lane: the half of the run-ons that would carry it on are
+-- stopped by the kubb, so the two end together. A line (fewer than
+-- clusterFrom kubbs this turn): the front kubb of the group nearest the
+-- basket, so the line grows toward the thrower. A cluster: in front of
+-- whichever lying kubb leaves the aim nearest the group's middle, so the
+-- kubbs pile round it. nil when no lying kubb is near the basket, or no aim
+-- in front of one is clear.
+local function intoSpot(s, t, bx, by, shortLying)
+	local near2 = t.basketNear * t.basketNear
+	local cluster = (s.of or 0) >= t.clusterFrom
+	local n, cx, cy = 0, 0, 0
+	for _, p in ipairs(s.pieces) do
+		if p.role == "field" and p.half ~= s.side and p.toppled then
+			local dx, dy = p.x - bx, p.y - by
+			if dx * dx + dy * dy < near2 then n, cx, cy = n + 1, cx + p.x, cy + p.y end
+		end
+	end
+	if n == 0 then return nil end
+	cx, cy = cx / n, cy / n
+	local best, bestX, bestY
+	for _, p in ipairs(s.pieces) do
+		if p.role == "field" and p.half ~= s.side and p.toppled then
+			local dx, dy = p.x - bx, p.y - by
+			if dx * dx + dy * dy < near2 then
+				-- the kubb's half extent along the throw (it lies along its angle)
+				local a = p.pose and p.pose.angle or 0
+				local ca, sa = cos(a), math.sin(a)
+				if ca < 0 then ca = -ca end
+				if sa < 0 then sa = -sa end
+				local ext = 0.075 * sa + 0.035 * ca
+				local x, y = p.x, p.y - ext - t.intoShort
+				-- clear of every other kubb (this one is the backstop: the aim
+				-- sits in its own clear ellipse on purpose)
+				local ok = spotClear(s, t, x, y, shortLying, p)
+				if ok then
+					local cost
+					if cluster then
+						local ex, ey = x - cx, y - cy
+						cost = ex * ex + ey * ey
+					else
+						-- the front of the group: least y, then nearest the basket across
+						local ex = x - bx
+						cost = y * 100 + ex * ex
+					end
+					if not best or cost < best - 1e-9 then best, bestX, bestY = cost, x, y end
+				end
+			end
+		end
+	end
+	if not best then return nil end
+	return bestX, bestY
+end
+
 function autothrow.spot(s, side)
 	local t = autothrow.tune
 	local bx, by = side * t.basketX, s.lineY + t.basketY
@@ -171,29 +254,17 @@ function autothrow.spot(s, side)
 	local costY = ((s.of or 0) >= t.clusterFrom) and t.spotCostYCluster or t.spotCostY
 	local shortLying = tw.drill.slideFor(plan.loftFor(plan.arcFor("drill")), s.surface)
 	if shortLying < t.spotShortLying then shortLying = t.spotShortLying end
+	if t.into ~= 0 then
+		local ix, iy = intoSpot(s, t, bx, by, shortLying)
+		if ix then return ix, iy end
+	end
 	for i = -t.spotCols, t.spotCols do
 		for j = -t.spotRows, t.spotRows do
 			local x, y = bx + i * t.spotStepX, by + j * t.spotStepY
-			local ax = x < 0 and -x or x
-			if ax <= t.spotMaxX and y >= s.lineY + t.spotMinY then
-				local clear = true
-				for _, p in ipairs(s.pieces) do
-					if p.role == "field" and p.half ~= s.side then
-						local dx, dy = (p.x - x) / t.spotClearX, (p.y - y) / t.spotClearY
-						if dx * dx + dy * dy < 1 then clear = false; break end
-						local lx, short = p.x - x, y - p.y
-						if lx < 0 then lx = -lx end
-						if lx < t.spotLane and short > 0
-							and short < (p.toppled and shortLying or t.spotShortStanding) then
-							clear = false; break
-						end
-					end
-				end
-				if clear then
-					local cx, cy = i, j * costY
-					local cost = cx * cx + cy * cy
-					if not best or cost < best - 1e-9 then best, bestX, bestY = cost, x, y end
-				end
+			if spotClear(s, t, x, y, shortLying) then
+				local cx, cy = i, j * costY
+				local cost = cx * cx + cy * cy
+				if not best or cost < best - 1e-9 then best, bestX, bestY = cost, x, y end
 			end
 		end
 	end
