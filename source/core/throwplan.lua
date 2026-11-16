@@ -191,11 +191,11 @@ function plan.backFor(reachM)
 	return z + (-a + sqrt(a * a + 4 * c * reachM)) / (2 * c)
 end
 
--- The speed that carries R (m) from hand height h to the ground at loft e
--- (radians), the drag-free arc of flight.predict.
-local function carrySpeed(R, e, h, g)
-	local ce = cos(e)
-	return sqrt(g * R * R / (2 * ce * ce * (R * tan(e) + h)))
+-- The speed that carries a baton R (m) from hand height h to the ground at
+-- loft e (radians) through still air, with its drag: flight.predict's arc
+-- (flight.speedForCarry).
+local function carrySpeed(R, e, h)
+	return flight.speedForCarry(R, e, h, flight.tune.dragK.baton)
 end
 
 -- The launch speed (m/s) a backswing gives with a full flick: the speed whose
@@ -204,7 +204,7 @@ function plan.speedFor(backDeg)
 	local R = plan.reach(backDeg)
 	if R <= 0 then return 0 end
 	local ft = flight.tune
-	return carrySpeed(R, rad(plan.tune.refLoftDeg), ft.handHeight, ft.g)
+	return carrySpeed(R, rad(plan.tune.refLoftDeg), ft.handHeight)
 end
 
 -- How far a launch speed carries at the reference arc (m): the reach it is.
@@ -322,7 +322,7 @@ function plan.solve(q, out)
 		local d = sqrt(dx * dx + dy * dy)
 		local ft = flight.tune
 		out.swivel, out.dist, out.loft = atan(dx, dy), d, loft
-		out.speed = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight, ft.g)
+		out.speed = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight)
 		out.tumble, out.flightT = plan.tumbleFor(out.speed, loft), plan.flightTime(out.speed, loft)
 	end
 	local back = plan.backForSpeed(out.speed)
