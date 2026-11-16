@@ -90,6 +90,20 @@ test("II.B.2 advantage line through the field kubb closest to the centerline; nA
 	expect.eq(tw.pitch.advantageMeters("B", 7.5), 0)
 end)
 
+test("II.B.2 the advantage line follows a field kubb that settled before the turn's first throw", function()
+	local g = toTurn3(newGame(), { land(0, 6.5, "stand"), land(1, 5.2, "stand") })
+	misses(g, 6)
+	expect.near(g.advantageY, 5.2, 1e-12)
+	-- core/match settles a carried leaning kubb and moves its pose, then asks again
+	local k
+	for _, f in ipairs(g:fieldKubbs("B")) do if math.abs(f.pose.y - 5.2) < 1e-9 then k = f end end
+	k.pose = { x = k.pose.x, y = 5.6, standing = true, angle = k.pose.angle }
+	g:_advantage()
+	expect.near(g.advantageY, 5.6, 1e-12)
+	expect.eq(g.sheet.turns[4].advantage, 2, "2.4 m from B's baseline")
+	expect.near(g:need().throwY, 5.6, 1e-12)
+end)
+
 test("II.B.2 king shots are from the baseline even with an advantage line; K wins", function()
 	local g = toTurn3(newGame(), { land(0, 6.5, "stand"), land(1, 5.2, "stand") })
 	misses(g, 6)

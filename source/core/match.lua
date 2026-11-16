@@ -323,6 +323,10 @@ function match.settleStanding(m, s)
 	end
 	debris.carry(d, res, side)
 	debris.recordExact(d, g, res, side)
+	-- a field kubb that settled may have moved the line the turn throws from
+	-- (fixed for the turn once its first kubb or baton is thrown: II.C.4b)
+	local cur = g.sheet.current
+	if g.tossSeq == 0 and cur and #cur.batons == 0 then g:_advantage() end
 	s.pieces = outcome.pieces(g, side)
 	debris.applyExact(d, s.pieces, side)
 	s.debris = debris.pieces(d, side)

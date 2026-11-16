@@ -205,7 +205,18 @@ function Game:_startTurn()
 	-- half; the line runs through the center of the one closest to the
 	-- centerline. The inkast cannot legally move them (II.C.4b puts them
 	-- back), so it is fixed for the turn.
+	self:_advantage()
+	self.phase = "toss"
+	self:_next()
+end
+
+-- The advantage line from the attacker's own field kubbs as they stand now,
+-- written to the sheet. _startTurn sets it; core/match calls it again when it
+-- settles a carried standing kubb before the turn's first throw.
+function Game:_advantage()
+	local att = self.attacker
 	self.advantageY = nil
+	self.sheet:advantage(nil)
 	local own = self:fieldKubbs(att)
 	if #own > 0 then
 		local best
@@ -215,8 +226,6 @@ function Game:_startTurn()
 		self.advantageY = best.pose.y
 		self.sheet:advantage(pitch.advantageMeters(att, best.pose.y))
 	end
-	self.phase = "toss"
-	self:_next()
 end
 
 -- Pick the phase and current piece from the queues.
