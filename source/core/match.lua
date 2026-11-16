@@ -248,7 +248,8 @@ function match.setup(m)
 		surface = match.surfaceName(g) }
 	debris.applyExact(m.debris, s.pieces, side)
 	s.debris = debris.pieces(m.debris, side)
-	if m.debris.settle then match.settleStanding(m, s) end
+	-- settling can move the advantage line (and so the throw request's line)
+	if m.debris.settle and match.settleStanding(m, s) > 0 then n = g:need() end
 	if g.advantageY then s.advY = frame.y(side, g.advantageY) end
 	if n.kind == "toss" then
 		s.projectile, s.kubb = "kubb", n.kubb
