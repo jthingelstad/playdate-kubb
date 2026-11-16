@@ -464,6 +464,7 @@ local BX, BY, BZ, BR, AW, SPD, NXT = {}, {}, {}, {}, {}, {}, {}
 -- Bodies woken in this step's pair loop (indices), and for each the index below
 -- which its pairs with sleepers were passed untested (world.step).
 local WK, WLO = {}, {}
+local WT, WPOS = {}, {}
 
 -- Implicit gyroscopic step (Bullet's computeGyroscopicImpulseImplicit_Body):
 -- one Newton step of I w' = I w - dt w' x I w' in the body frame. Keeps a
@@ -935,6 +936,8 @@ function world.step(w)
 							nWoke = nWoke + 1
 							WK[nWoke] = s
 							WLO[nWoke] = (s == i) and j or s
+							WT[s] = i * (nb + 1) + j
+							WPOS[s] = nWoke
 						end
 					end
 				end
@@ -949,18 +952,50 @@ function world.step(w)
 	-- against a wall for that step: the blow went into the wall and was gone,
 	-- and the neighbour woke a step later to nothing. The loop above wakes
 	-- the pairs it still comes to (wokeStep); these are the pairs it had
-	-- already passed while both slept. Nothing runs here in a step that
-	-- wakes nobody.
+	-- already passed while both slept. Two bodies both woken this step, or a
+	-- woken body and a stake, can also be a pair the loop passed while neither
+	-- was awake (a baton wakes two kubbs that touch each other): their contact
+	-- is made here too, once, so they do not sink into each other for a step
+	-- (Codex on the web game's sync). WT is where the pair loop was when a
+	-- body woke (past its end for one woken here): a pair it came to before
+	-- both of those was skipped. WPOS is a body's place in the queue; the
+	-- earlier of two woken bodies makes their contact. Nothing runs here in a
+	-- step that wakes nobody.
 	if nWoke > 0 then
 		local q = 1
 		while q <= nWoke do
 			local s, lo = WK[q], WLO[q]
 			local o = bodies[s]
+			local ts = WT[s]
 			for k = 1, nb do
-				if k >= lo then break end
-				if k ~= s and not AW[k] then
+				if k ~= s and (AW[k] or bodies[k].static) then
+					-- awake already, or a stake: only the contact, nobody wakes
 					local c = bodies[k]
-					if not c.static then
+					local pt = (k < s) and (k * (nb + 1) + s) or (s * (nb + 1) + k)
+					local skipped = ts > pt
+					if skipped and not c.static then
+						skipped = c.wokeStep == stamp and WT[k] > pt and WPOS[k] > q
+					end
+					if skipped then
+						local margin = tmargin + (SPD[s] + SPD[k]) * dt
+						local dx, dy, dz = BX[s] - BX[k], BY[s] - BY[k], BZ[s] - BZ[k]
+						local reach = BR[s] + BR[k] + margin
+						if dx * dx + dy * dy + dz * dz < reach * reach then
+							local a, b = o, c
+							if k < s then a, b = c, o end
+							if P then P.narrow = P.narrow + 1 end
+							if a.shape == 1 then
+								if b.shape == 1 then boxBox(a, b, margin)
+								else capsuleBox(b, a, margin) end
+							else
+								if b.shape == 1 then capsuleBox(a, b, margin)
+								else capsuleCapsule(a, b, margin) end
+							end
+						end
+					end
+				elseif k ~= s and k < lo then
+					local c = bodies[k]
+					do
 						local margin = tmargin + SPD[s] * dt
 						local dx, dy, dz = BX[s] - BX[k], BY[s] - BY[k], BZ[s] - BZ[k]
 						local reach = BR[s] + BR[k] + margin
@@ -990,6 +1025,8 @@ function world.step(w)
 								nWoke = nWoke + 1
 								WK[nWoke] = k
 								WLO[nWoke] = nb + 1
+								WT[k] = (nb + 1) * (nb + 1)
+								WPOS[k] = nWoke
 							end
 						end
 					end
