@@ -298,7 +298,7 @@ hits pass ("Physics", "Baton hits"; `tools/batonprobe.lua --rates 400`, its own 
 base kubbs 44% -> 48%, a field kubb 2 to 5 m out 64% -> 71%, the king 51% either way;
 40 physics matches (seed 2) 20.4 -> 25.9 turns, base 42% -> 48%, field 58% -> 61% (more
 kubbs knocked down means more come back as field kubbs, so games run longer).
-`tools/physmatch.lua [--n --seed --out --maxturns -v]` plays whole matches through
+`tools/physmatch.lua [--n --seed --out --maxturns --surface --scatter -v]` plays whole matches through
 `core/match` with every throw run by `core/world` to rest (the match scene's path without
 the screen; about 0.7 s a match on a Mac) and writes the game files. Team sizes go round
 one to six (game i: Team A `(i - 1) % 6 + 1` players, Team B `(i + 1) % 6 + 1`), and every
@@ -326,6 +326,9 @@ what each baton took, not where anything stood or how it was thrown, so it says 
 rates differ, never why; and the real games are tournament and club players, the game's
 are the computer at club level against itself.
 
+- **What the real games are** (Jamie, 2026-11-16): all tournament games, often the final
+  rounds of a bracket, so read them as club to high club play; some are pro (players who
+  ranked high at Worlds). They are the mark for those levels, not for a beginner.
 - **How it counts.** A baton is "at field kubbs" when a field kubb stood when it was thrown
   (the turn's `startField` less what earlier batons took), "at base kubbs" when none did
   and a base kubb was left; king shots are `K` and `=`; `X` is not a throw. Clearing the
@@ -347,6 +350,15 @@ are the computer at club level against itself.
   - **The king**: 84% of 179 shots -> 46% of 259.
   - **Kubbs thrown in**: rethrown 14% -> 2.5%, punishment kubbs 1.3% -> 0.1%. Real players
     throw at a tighter group and miss it more; the computer's basket is safe.
+  - **A steadier computer does not close it** (`tools/physmatch.lua --scatter`, `make
+    realgames REAL_SCATTER=0.6`: every mistake of the computer's swing times that; 150
+    matches each, seed 2; real / scatter 1 / 0.6 / 0.3). Base kubbs from 8 m 33% / 41% /
+    73% / 98%; the king 84% / 46% / 71% / 98%; a baton at field kubbs missed 25% / 37% /
+    17% / 5%, took two 16% / 7% / 11% / 17%, three or more 10% / 0.4% / 0.6% / 1.8%;
+    cleared six field kubbs 79% / 22% / 54% / 87%, eight 68% / 4% / 17% / 39%; turns a
+    game 8.9 / 21.9 / 20.5 / 14.9; rethrown 14% / 2.5% / 1.9% / 0.8%. At 0.3 the computer
+    hits a base kubb from 8 m three times as often as tournament players and still takes
+    three with a baton a fifth as often: the gap is not accuracy.
   - What it does not show: the real players' groups. Jamie (2026-11-16): "Multiple fields
     kubbs is all about drilling tight clusters." The sheets agree as far as they can: real
     players rethrow 14% of their kubbs (they drill at a tight group and pay for it), the

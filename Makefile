@@ -59,11 +59,12 @@ games:
 # games people scored in a pk-kubb-score checkout (read only; not on GitHub).
 REAL_N    := 150
 REAL_SEED := 2
+REAL_SCATTER := 1
 
 realgames:
 	@test -d "$(PKSCORE)/games" || { echo "realgames: no games folder in a pk-kubb-score checkout (set PK_KUBB_SCORE)"; exit 1; }
 	@rm -rf build/realgames
-	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --out build/realgames
+	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --scatter $(REAL_SCATTER) --out build/realgames
 	"$(NODE)" tools/realgames.mjs "$(PKSCORE)/games" build/realgames
 
 # Each scenario is its own Simulator launch, killed after SIM_TIMEOUT seconds.
