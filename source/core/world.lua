@@ -126,6 +126,10 @@ world.tune = {
 --     trip      rad/s^2 per m/s: a baton sliding upright on an end (within
 --               30 degrees) faster than tripSpeed is tipped toward the way it
 --               is going, as its foot catches
+--     foot, footSpeed  1/s and m/s: a kubb or the king standing (within 30
+--               degrees of upright) whose foot slides faster than footSpeed
+--               loses this share of that slip a second, taken at the foot, so
+--               it slows and tips the way it is going (plough adds to it)
 --     plough    1/s per m (optional): the drag grows with the distance a piece
 --               has slid since it last left the ground (snow piles up in front
 --               of it), so a slide starts slick and ends heavy
@@ -135,7 +139,7 @@ world.surfaces = {
 		dig = 1.0, digSpeed = 0.3, digRamp = 1.5, digLever = 0.006, digTime = 0.15,
 		roll = 0.01,
 		texture = { cell = 0.25, muVar = 0.3, eVar = 0.5, digVar = 0.5, bump = 0.12, bumpSpeed = 0.8,
-			drag = 2.5, grip = 12, gripSpeed = 0.5, trip = 60, tripSpeed = 0.15 },
+			drag = 2.5, grip = 12, gripSpeed = 0.5, trip = 60, tripSpeed = 0.15, foot = 25, footSpeed = 0.3 },
 	},
 	-- sand (DESIGN 5): very high dig, almost no bounce or slide; pieces plug where
 	-- they land, so placement is all in the air. Its texture: soft and packed
@@ -157,7 +161,8 @@ world.surfaces = {
 		dig = 2.5, digSpeed = 0.3, digRamp = 1.2, digLever = 0.025, digTime = 0.4,
 		roll = 0.004,
 		texture = { cell = 0.3, muVar = 0.5, eVar = 0.3, digVar = 0.8, bump = 0.1, bumpSpeed = 0.8,
-			drag = 0.6, grip = 4, gripSpeed = 0.3, trip = 70, tripSpeed = 0.15, plough = 1.5 },
+			drag = 0.6, grip = 4, gripSpeed = 0.3, trip = 70, tripSpeed = 0.15, plough = 1.5,
+			foot = 12, footSpeed = 0.3 },
 	},
 	-- ICE (stage 7, not built): very low friction for the Minnesota slide,
 	-- something like mu = 0.05, e = 0.1, dig = 0, roll = 0.0005. Add it
@@ -1527,6 +1532,37 @@ function world.step(w)
 							if b.shape == 2 and v2 > tex.tripSpeed * tex.tripSpeed then
 								local k = tex.trip * dt
 								b.wx, b.wy = b.wx - k * vy, b.wy + k * vx
+							elseif b.shape == 1 and not b.slipDrag then
+								-- a kubb (or the king) standing and sliding: its foot catches
+								-- too. The turf holds the slip of the point under its centre:
+								-- that share of the slip is taken away there, which slows the
+								-- piece and tips it the way it is going
+								local ft = tex.foot
+								if ft then
+									local h = b.z
+									local wx, wy = b.wx, b.wy
+									local sx, sy = vx - h * wy, vy + h * wx
+									local s2 = sx * sx + sy * sy
+									if s2 > tex.footSpeed * tex.footSpeed then
+										local pl = tex.plough
+										if pl then
+											local d = b.plough + sqrt(s2) * dt
+											b.plough = d
+											ft = ft + pl * d
+										end
+										ft = ft * dt
+										if ft > 1 then ft = 1 end
+										local im = b.im
+										local jx = -ft * sx / (im + h * h * b.i22)
+										local jy = -ft * sy / (im + h * h * b.i11)
+										-- r = (0, 0, -h): r x J = (h jy, -h jx, 0)
+										local tx, ty = h * jy, -h * jx
+										b.vx, b.vy = vx + im * jx, vy + im * jy
+										b.wx = wx + b.i11 * tx + b.i12 * ty
+										b.wy = wy + b.i12 * tx + b.i22 * ty
+										b.wz = b.wz + b.i13 * tx + b.i23 * ty
+									end
+								end
 							end
 						elseif b.slipDrag then
 							-- a drilled kubb: the blades hold the slip of its lowest

@@ -111,3 +111,33 @@ test("ground: every surface a game can be played on has its texture", function()
 		expect.truthy(s and s.texture, name .. " has a texture")
 	end
 end)
+
+-- A standing kubb shoved at its centre (no spin) to speed v across the ground,
+-- run to rest: did it topple, and how far did it go.
+local function shove(surface, v, seed, texture)
+	local w = world.new { surface = surface, stakes = false, texture = texture,
+		pieces = { { id = "k", kind = "kubb", x = 0.3, y = 2, yaw = 0 } }, groundSeed = seed }
+	local k = w.byId.k
+	for _ = 1, 4 do world.step(w) end
+	world.wake(k)
+	k.vy = v
+	local y0 = k.y
+	while not world.isAtRest(w) and w.time < 6 do world.step(w) end
+	return k.toppled, k.y - y0
+end
+
+test("ground: a standing kubb sliding on snow catches its foot and tips; a nudge leaves it standing", function()
+	-- flat snow is too slick to tip a sliding kubb (mu 0.25 against the 0.47
+	-- its footprint needs): it glides standing
+	local flatDown, flatSlide = shove("snow", 2, 1, false)
+	expect.truthy(not flatDown, "flat snow: glides standing")
+	expect.truthy(flatSlide > 0.5, "flat snow: slid " .. flatSlide .. " m")
+	local down, nudged = 0, 0
+	for seed = 1, 10 do
+		if shove("snow", 2, seed) then down = down + 1 end
+		if shove("snow", 0.5, seed) then nudged = nudged + 1 end
+		if shove("grass", 0.5, seed) then nudged = nudged + 1 end
+	end
+	expect.truthy(down >= 9, "textured snow: " .. down .. " of 10 tipped at 2 m/s")
+	expect.eq(nudged, 0)
+end)

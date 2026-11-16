@@ -985,7 +985,8 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     dropping end first is.
   - **Grass holds.** A baton or a lying piece touching the ground loses `drag` of its ground
     speed and spin a second, and `grip` more below `gripSpeed`, so it stops instead of
-    creeping. Standing or falling kubbs are left alone (a falling kubb must still fall).
+    creeping. Falling kubbs are left alone (a falling kubb must still fall); a standing one
+    that slides has "A kubb's foot catches" below.
   - **Snow ploughs** (`plough`, 1/s per m): the drag grows with the distance a piece has
     slid since it last left the ground (`b.plough`, reset off the ground, in the lone
     flight too), so a slide on snow starts slick and ends heavy.
@@ -1002,6 +1003,36 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   - **Nothing slides on an end.** A baton within 30 degrees of upright, touching the
     ground and sliding faster than `tripSpeed`, is tipped toward the way it is going
     (`trip` rad/s^2 per m/s): its foot catches.
+  - **A kubb's foot catches** (Jamie, 2026-11-15: the texture "does not apply to kubbs",
+    and it did not: a standing kubb that slid got no drag, grip, plough or trip). A kubb or
+    the king within 30 degrees of upright, on the ground, whose foot (the point under its
+    centre) slides faster than `footSpeed` (0.3 m/s) loses `foot` of that slip a second,
+    as an impulse at the foot, so it slows and tips the way it is going; `plough` adds to
+    it on snow. Grass 25, snow 12, sand none (a drill still drilling is left out: its
+    `slipDrag` branch is its own). Measured (a standing kubb shoved to a speed, 20 grounds;
+    before -> after). **Snow** is where it matters: flat snow's friction (0.25) is under the
+    0.47 a kubb's footprint needs to tip, so a kubb shoved at its centre glided standing
+    and never fell: 0.19 / 0.42 / 0.75 / 1.69 m at 1 / 1.5 / 2 / 3 m/s, toppled 0% at every
+    speed -> 0.19 / 0.31 / 0.49 / 1.08 m, toppled 85 / 100 / 100 / 100%; a 0.5 m/s nudge
+    still stands (0.046 -> 0.036 m). Shoved low (3 cm) at 1 m/s it falls less often (100%
+    -> 60%: the foot is held before the shove's own spin tips it). **Grass** barely changes,
+    and that is the finding: grass friction (0.7) already stops a foot within a centimetre
+    or two, and a kubb whose foot stops dead needs 0.5 m/s to go over, which is what was
+    measured before (a centre nudge at 0.5 m/s stands, 1 m/s falls, both before and
+    after). Slides shorten a little (centre shove at 2 m/s 0.33 -> 0.30 m, 0.10 -> 0.03 s
+    sliding upright). Rows end on (`tools/compound.lua --quick`): four touching, all four
+    22% -> 21%, any 81% -> 82%; four 3 cm apart, all four 24% -> 30%; three touching, all
+    three 53% -> 56%; all within the sweep's noise (about 72 hits a row). A foot value of
+    150 gave the same rows and stopped a low shove at 1 m/s from toppling a lone kubb (95%
+    -> 35%), so it stays mild. Sand was tried at 25 and dropped: its friction (0.9) needs
+    no help, and a low shove at 1 m/s toppled 55% instead of 95%. 40 physics matches (seed
+    2): 21.2 -> 18.5 turns, field kubbs 63% -> 62%, base 50% -> 46% (different games, not
+    a different rate: `tools/groundstats.lua` topples a kubb in 11.7% -> 11.0% of 400
+    batons, slide 1.76 m both). `make bench`: step costs unchanged (ground 0.010, multi
+    0.013 to 0.015 ms); the branch runs only for a standing box sliding on textured
+    ground. Not bit-identical: any textured throw where a standing kubb or the king slides
+    faster than `footSpeed`. Flat worlds (`texture = false`, so `test_physics.lua`), drills
+    while they drill and the lone flight are unchanged.
   - **The seed** is the throw's own (`world.seedFrom` of the launch position and
     velocities, set in `world.launch`): the same throw meets the same ground (replays,
     tests, the autobench), every other throw its own. `world.new{ groundSeed = n }` fixes
@@ -1103,8 +1134,10 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     (seed 2) 22.5 -> 21.2 turns. Not bit-identical: a step where two touching sleepers,
     or a sleeper touching a stake, wake together.
   - Still true: a baton that clips the top of the front kubb mostly goes over the row, and
-    a low sweep slides the row upright more often than it trips it (a flat plane has no
-    turf to catch a sliding kubb's foot).
+    a low sweep slides the row upright more often than it trips it. The foot catch ("The
+    ground's texture") did not change that on grass: the row shares the blow, moves at a
+    quarter of the struck kubb's speed and is stopped by friction within 1 to 2 cm, too
+    slow for any foot to trip (a row shoved at 2 m/s: nobody falls, before and after).
 - Tried and rejected (2026-11-13): `dt` 1/120 halves the steps but fails three behaviour
   tests and the bigger contact margin gives ghost hits; 3 solver iterations instead of 4
   would save about 8% of a collision step but changes the feel, so it was not applied.
