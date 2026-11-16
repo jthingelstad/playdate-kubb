@@ -17,7 +17,7 @@ SIM_TIMEOUT := 60
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-.PHONY: sync-notation build test test-lua test-node games selftest bench clean release
+.PHONY: sync-notation build test test-lua test-node games realgames selftest bench clean release
 
 build: $(PDX)
 
@@ -33,6 +33,7 @@ test-lua:
 test-node:
 	"$(NODE)" tests/node/notation-gate.mjs tests/fixtures/games
 	"$(NODE)" tests/node/gate-rejects.mjs
+	"$(NODE)" tools/realgames.mjs tests/fixtures/games tests/fixtures/games > /dev/null
 
 # Headless games: GAMES_N seeded random games through the rules engine
 # (tools/games.lua, no physics) into build/games, then the notation gate over
@@ -52,6 +53,18 @@ games:
 	"$(NODE)" tests/node/notation-gate.mjs build/games
 	"$(LUA)" tools/physmatch.lua --n $(PHYS_N) --seed $(GAMES_SEED) --out build/physgames
 	"$(NODE)" tests/node/notation-gate.mjs build/physgames
+
+# Real games against the game's own (tools/realgames.mjs): REAL_N physics
+# matches into build/realgames, then the same figures from them and from the
+# games people scored in a pk-kubb-score checkout (read only; not on GitHub).
+REAL_N    := 150
+REAL_SEED := 2
+
+realgames:
+	@test -d "$(PKSCORE)/games" || { echo "realgames: no games folder in a pk-kubb-score checkout (set PK_KUBB_SCORE)"; exit 1; }
+	@rm -rf build/realgames
+	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --out build/realgames
+	"$(NODE)" tools/realgames.mjs "$(PKSCORE)/games" build/realgames
 
 # Each scenario is its own Simulator launch, killed after SIM_TIMEOUT seconds.
 # The runner writes its marker in the game's Data folder (the only place Lua
