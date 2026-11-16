@@ -106,7 +106,9 @@ flight.carry = carry
 -- The speed (m/s) that carries R (m) at loft e (radians) from h (m) above the
 -- ground through still air with drag k (flight.carry's inverse): from the
 -- drag-free speed, a scaled step and then secant steps to within 0.1 um (so
--- the two invert each other).
+-- the two invert each other on the desktop), or until a step changes nothing:
+-- the device's 32-bit floats stop well short of 0.1 um, and two equal carries
+-- would divide by zero.
 function flight.speedForCarry(R, e, h, k)
 	local g = flight.tune.g
 	local c = cos(e)
@@ -117,8 +119,10 @@ function flight.speedForCarry(R, e, h, k)
 	for _ = 1, 10 do
 		local r1 = carry(v1, e, h, k)
 		local err = r1 - R
-		if err < 1e-7 and err > -1e-7 then break end
-		local v2 = v1 - err * (v1 - v0) / (r1 - r0)
+		local dr = r1 - r0
+		if (err < 1e-7 and err > -1e-7) or dr == 0 then break end
+		local v2 = v1 - err * (v1 - v0) / dr
+		if v2 == v1 or v2 ~= v2 then break end
 		v0, r0, v1 = v1, r1, v2
 	end
 	return v1
