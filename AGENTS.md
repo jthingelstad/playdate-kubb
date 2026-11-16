@@ -366,6 +366,47 @@ are the computer at club level against itself.
     kubb or two apart). So the first place to look is how tight the game's groups are, the
     computer's and a player's, before the baton or the physics.
 
+### How tight the groups are
+
+`lua5.4 tools/clusters.lua [--n 60] [--seed 2] [--drill 1] [--baton 1] [--raise
+apart|together]` (Jamie approved the measuring, 2026-11-16; no game changes) plays physics
+matches with the computer's mistakes scaled separately for its kubbs and its batons, and at
+the first baton of every turn with two or more field kubbs standing measures each one's gap
+to its nearest neighbour (edge to edge), the group's spread and the largest group chained
+by gaps of 15 cm or less; then what the turn's batons at field kubbs took. 60 matches each,
+seed 2:
+
+| kubbs x, batons x, raised | gap (mean) | within 7 cm | within 15 cm | largest group | took two | three + | turns |
+|---|---|---|---|---|---|---|---|
+| real tournament games | | | | | 16% | 10% | 8.9 |
+| 1, 1, apart (the game) | 39 cm | 3% | 18% | 1.4 | 6.7% | 0.4% | 21.0 |
+| 0.5, 1, apart | 41 | 2% | 14% | 1.3 | 5.4% | 0.3% | 18.6 |
+| 0.25, 1, apart | 44 | 5% | 20% | 1.5 | 6.2% | 0.7% | 19.6 |
+| 0, 1, apart | 26 | 19% | 60% | 3.3 | 8.4% | 5.3% | 15.7 |
+| 1, 1, together | 23 | 36% | 60% | 2.5 | 11.9% | 1.4% | 18.9 |
+| 0.25, 1, together | 29 | 30% | 53% | 2.5 | 10.7% | 2.0% | 18.7 |
+| 0.25, 0.6, together | 24 | 37% | 61% | 3.1 | 18.0% | 4.2% | 13.1 |
+| 0, 0.6, together | 18 | 9% | 81% | 4.3 | 14.3% | 18.3% | 5.9 |
+
+- **The physics can do it.** With every kubb drilled clean onto one spot, raised toward
+  each other and a steadier baton, a baton takes two or more 33% of the time (real 26%)
+  and a game takes 5.9 turns (real 8.9). The game's doubles and triples are missing because
+  its groups are loose, as Jamie said, not because a baton cannot take three.
+- **The game's groups are loose**: a field kubb's nearest neighbour is 39 cm away on
+  average and only 3% stand within 7 cm (a kubb's width); the largest group a baton could
+  chain through is 1.4 kubbs of 5.
+- **Which end is raised matters as much as the drill.** The engine's default policy raises
+  each kubb on the end farthest from the others (`apart`); `together` alone halves the
+  gap (39 -> 23 cm) and doubles the doubles (6.7% -> 11.9%). Which a real defender picks
+  is a rules and play question for Jamie.
+- **A steadier arm does not tighten the group until it is perfect** (x0.5 and x0.25 are
+  no tighter than x1; x0 is). Not explained yet: at x0 every drill is the same throw and
+  meets the same ground (the ground's seed is the throw's), so the likely floor is the
+  ground's patches and kubbs knocking the ones already there, not the swing. That is the
+  next thing to measure before anything is tuned.
+- Not measured: a player's drills (the tool throws the computer's), and aiming a baton at
+  a group's middle instead of the nearest kubb (`autothrow.choose` never does).
+
 ## Throwing order
 
 Teams of one to six (docs/PLAYERS.md, the plan for saved players and team pass and play;
