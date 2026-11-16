@@ -483,8 +483,17 @@ and the ground flat or textured. Part 2 follows every drill of 40 physics matche
   down, then the power error along the line. Not the ground, and not sideways aim.
 - Flat ground (no texture) is not tighter: with no grass to hold it, the rare shaky drill
   rolls on (across sd 15 cm at the game's drill against 4 textured).
-- Jamie (2026-11-16): "Real defenders raise kubbs away from the cluster." The engine's
-  default raising policy (`apart`) is right and stays.
+- Jamie (2026-11-16): "Real defenders raise kubbs away from combos." The engine's
+  default raising policy (`apart`: the end farthest from the nearest other kubb) stays.
+  A stricter rule was tried and not kept: a kubb in line along the throw counted as
+  nearer (its distance up the pitch times 0.5, and 0.25), so a raised kubb leaves the
+  line a baton carries along. Over 150 physics matches, seed 2 (real / `apart` / 0.5 /
+  0.25): turns 8.9 / 14.6 / 16.6 / 17.9; batons that took two 16 / 18 / 16.5 / 16.6%;
+  three or more 10 / 3.4 / 3.3 / 3.2%; cleared the field 83 / 70 / 63 / 62%. It moves the
+  game away from real play. The defence is not where the gap is: tournament throwers
+  take triples off defenders who raise well, so the missing triples are the attack's
+  (how tight the drills are, and batons thrown at the line of a group).
+  `tools/physmatch.lua --raise apart|together` picks the policy for a run.
 
 ## Throwing order
 
