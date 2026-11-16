@@ -285,7 +285,8 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
   sped up).
   - **Grass:** high friction, little bounce, moderate dig, and a bite: an edge that strikes
     steeply cuts in and is held for a moment. A drill runs on about a metre (2026-11-16; it
-    used to die where it landed). Batons skid and can steamroll.
+    used to die where it landed). Batons skid and can steamroll. The grass holds a piece by
+    how hard it presses: a baton propped on a kubb with one end in the grass is held less.
   - **Sand:** very high dig and almost no bounce or slide. Edges bite hard, so kubbs
     stop soon after they land and placement is mostly in the air; batons stop where they hit, so there are no
     skids into a second kubb.

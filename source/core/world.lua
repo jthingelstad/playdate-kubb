@@ -60,8 +60,6 @@ world.tune = {
 	batonTurnHold = 1,     -- share of the ground's rolling resistance (surf.roll) that also holds a
 	                       -- baton's end-over-end turn on the ground (all of it holds its roll
 	                       -- about the long axis; the plug, dig, holds both)
-	rollCap = 4,           -- a baton's rolling resistance takes the ground's impulse up to this
-	                       -- many times its weight a step (a landing's one hard step is far more)
 	restitutionIterations = 4, -- bounce passes (one pass over a flat landing's corners overshoots)
 	pairMu = 0.4,          -- wood on wood friction, every pair of pieces (kubb on kubb, the king, a baton,
 	                       -- a stake): clean dry wood on wood 0.25 to 0.5, oak on oak sliding 0.48 along
@@ -117,8 +115,9 @@ world.tune = {
 --               bumpSpeed m/s) meets ground sloped up to bump (times its
 --               steepness squared) each way, and that step's push and friction
 --               lean with it, so it is turned and nothing is added
---     drag      1/s: a lying piece or a baton touching the ground loses this
---               share of its ground speed a second (the blades hold it)
+--     drag      1/s: a lying piece or a baton touching the ground with its
+--               full weight loses this share of its ground speed a second (the
+--               blades hold it; pressed more lightly, less)
 --     grip, gripSpeed  1/s and m/s: and this much more a second below
 --               gripSpeed, so it stops instead of creeping
 --     footMu, footSpeed  (optional; snow) a piece standing on an end
@@ -1183,6 +1182,7 @@ function world.step(w)
 				local anx, any = r[K_ANX], r[K_ANY]
 				local v0 = avz + awx * anx + awy * any
 				r[K_V0] = v0
+				if v0 < -t.restitutionSpeed then a.impact = stamp end
 				-- surface friction and bounce, dig, warm start
 				local k = cSlot[i]
 				local mu, e = surf.mu, surf.e
@@ -1553,6 +1553,16 @@ function world.step(w)
 			local gi = b.groundImpulse
 			if gi <= 0 then b.plough = 0 end   -- off the ground: the ploughed snow is left behind
 			if gi > 0 then
+				-- the ground's push this step, as the turf feels it: all of it,
+				-- except in a step where a contact struck (faster than
+				-- restitutionSpeed), when only the weight's share: the strike is
+				-- taken by the contacts and the dig, and one hard step must not
+				-- stop a turn or a slide the plug lets go
+				local load = gi
+				if b.impact == stamp then
+					local wt = b.m * t.g * dt
+					if load > wt then load = wt end
+				end
 				if b.shape == 2 then
 					-- a baton: its spin taken in two parts, each held by an angular
 					-- impulse (lever times the ground's impulse), never past stopping
@@ -1569,11 +1579,9 @@ function world.step(w)
 					local wu = wx * ux + wy * uy + wz * uz
 					local px, py, pz = wx - wu * ux, wy - wu * uy, wz - wu * uz
 					local i11, i12, i13, i22, i23, i33 = b.i11, b.i12, b.i13, b.i22, b.i23, b.i33
-					-- (rolling resistance is the turf giving under its weight: it takes
-					-- the ground's impulse up to rollCap times the weight a step, so the
-					-- one hard step of a landing does not stop a turn the plug lets go)
-					local gr = t.rollCap * b.m * t.g * dt
-					if gi < gr then gr = gi end
+					-- (rolling resistance is the turf giving under the ground's push,
+					-- `load` above: a landing's turn loss is the plug's)
+					local gr = load
 					local L = b.dig * gi + t.batonTurnHold * surf.roll * gr
 					local p2 = px * px + py * py + pz * pz
 					if L > 0 and p2 > 1e-12 then
@@ -1646,6 +1654,10 @@ function world.step(w)
 							-- a baton or a lying piece on grass: the blades hold it,
 							-- harder once it is slow, so it stops instead of creeping
 							-- (in snow, harder the farther it has ploughed)
+							-- (in proportion to how hard it presses: its full weight on
+							-- the ground gives the rates in full, a baton propped on a
+							-- kubb with one end in the grass less; a harder push, a
+							-- landing or a pivot, is the corners' friction's, not more)
 							local f = tex.drag
 							if v2 < tex.gripSpeed * tex.gripSpeed then f = f + tex.grip end
 							local pl = tex.plough
@@ -1654,7 +1666,9 @@ function world.step(w)
 								b.plough = d
 								f = f + pl * d
 							end
-							f = 1 - f * dt
+							local share = load / (b.m * t.g * dt)
+							if share > 1 then share = 1 end
+							f = 1 - f * share * dt
 							if f < 0 then f = 0 end
 							b.vx, b.vy = vx * f, vy * f
 							b.wx, b.wy, b.wz = b.wx * f, b.wy * f, b.wz * f
