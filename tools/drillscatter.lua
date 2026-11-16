@@ -259,12 +259,26 @@ for gi = 1, matches do
 		autothrow.launch(w, s, a)
 		if #group > 0 then
 			local p = w.projectile
-			local v0, vHit, landed = 0, nil, nil
+			-- the drill's own touch of a group kubb, not its first hit of any
+			-- body (a stake or a standing kubb on the way) nor a group kubb
+			-- knocked by something else: a group kubb struck this step with the
+			-- drill's footprint within 2 cm of it
+			local ids = {}
+			for _, gk in ipairs(group) do ids[gk.b.id] = true end
+			local v0, vHit, landed, hitGroup = 0, nil, nil, false
 			while not world.isAtRest(w) and w.time < world.tune.maxTime do
 				v0 = sqrt(p.vx * p.vx + p.vy * p.vy + p.vz * p.vz)
 				world.step(w)
-				if w.firstContact and landed == nil then landed = w.firstContact.with ~= "ground" end
-				if w.firstHit and not vHit then vHit = v0 end
+				if w.firstContact and landed == nil then landed = ids[w.firstContact.with] == true end
+				if not hitGroup and p.touchT then
+					local pf = foot(p)
+					for _, gk in ipairs(group) do
+						if gk.b.touchT and rect.distance(pf, foot(gk.b)) < 0.02 then
+							hitGroup, vHit = true, v0
+							break
+						end
+					end
+				end
 			end
 			into = into + 1
 			local pf = foot(p)
@@ -273,8 +287,6 @@ for gi = 1, matches do
 				local d = rect.distance(pf, foot(gk.b))
 				if d < best then best, bestG = d, gk end
 			end
-			local hitGroup = false
-			for _, gk in ipairs(group) do if gk.b.touched then hitGroup = true end end
 			if hitGroup then
 				reached = reached + 1
 				add(hitV, vHit or 0)
