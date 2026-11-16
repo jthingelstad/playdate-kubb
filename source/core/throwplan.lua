@@ -88,11 +88,23 @@ plan.tune = {
 	overPerDeg = 30,       -- the overpower multiplier grows by overGain per this many
 	                       -- degrees of backswing past the power target
 	steadyBelow = 0.25,    -- shake under this is STEADY
-	-- the baton's tumble from its launch speed (the old swing: 4.5 rad/s at 4.0 m/s
-	-- to 7.0 at 9.2 m/s, a line through those), clamped
-	tumbleV1 = 4.0, tumbleAt1 = 4.5,
-	tumbleV2 = 9.2, tumbleAt2 = 7.0,
-	tumbleMin = 3.0, tumbleMax = 9.0,
+	-- the baton's tumble (plan.tumbleFor, plan.launch; audit 5, 2026-11-16). Held by one end
+	-- and swung underarm, the baton turns with the hand: with a locked wrist at the arm's
+	-- rate, its centre's speed over armR (shoulder to the baton's centre). The wrist
+	-- checks or adds to that, up to wristShare of it either way, and a thrower uses it to
+	-- turn the baton about tumbleTurns over the flight, a habit. So the plan's rate is
+	-- tumbleTurns turns over the clean flight's time, held inside what the wrist can do
+	-- (a short lob cannot turn a whole turn; a long high one turns more than one). The
+	-- release then sets the rate the throw gets: the flick's share of it (a slow flick
+	-- is a slow hand and wrist), and with nerves a seeded draw of sd the level's
+	-- tumbleSd turns over the planned flight, times the swing's roughness and the
+	-- overpower, as the nerves. An early or late release changes the flight, not the
+	-- rate, so it changes the turns too.
+	tumbleTurns = 1.1,     -- turns over the flight a thrower's wrist aims for: about one, a little over
+	armR = 0.9,            -- m: shoulder to the baton's centre held by its end (arm 0.65,
+	                       -- hand 0.1, half the baton 0.15)
+	wristShare = 0.5,      -- the wrist can check or add this share of the arm's rate
+	tumbleMin = 0,         -- rad/s: the drawn rate never goes under this (no backspin)
 	-- Nerves (2026-11-16): before this nothing but the shake put a throw
 	-- left or right, so a long throw was as true as a short one. Every
 	-- throw, the player's and the computer's, gets two seeded draws in plan.launch (opts.nerves): an angle off the planned
@@ -130,13 +142,15 @@ plan.tune = {
 --   nervesDeg    sd of the angle off the planned line (degrees) at effort 1,
 --                a clean swing and no overpower (plan.tune "Nerves")
 --   nervesLen    sd of the length error, a share of the throw, the same way
+--   tumbleSd     sd of the tumble, in turns over the planned flight, times the
+--                swing's roughness and the overpower (plan.tune "the baton's tumble")
 plan.levels = {
 	beginner = { powerHalf = 15, releaseHalf = 30, inGain = 0.1, shakeGain = 0.5,  overGain = 0.5,
-		nervesDeg = 1.6, nervesLen = 0.06 },
+		nervesDeg = 1.6, nervesLen = 0.06, tumbleSd = 0.2 },
 	club     = { powerHalf = 8,  releaseHalf = 18, inGain = 0.3, shakeGain = 0.75, overGain = 0.75,
-		nervesDeg = 0.8, nervesLen = 0.03 },
+		nervesDeg = 0.8, nervesLen = 0.03, tumbleSd = 0.1 },
 	pro      = { powerHalf = 4,  releaseHalf = 10, inGain = 0.6, shakeGain = 1,    overGain = 1,
-		nervesDeg = 0.5, nervesLen = 0.02 },
+		nervesDeg = 0.5, nervesLen = 0.02, tumbleSd = 0.06 },
 }
 plan.LEVELS = { "beginner", "club", "pro" }
 
@@ -222,12 +236,21 @@ function plan.releaseFor(loftDeg)
 	return t.loftRel1 + (loftDeg - t.loftAt1) * (t.loftRel2 - t.loftRel1) / (t.loftAt2 - t.loftAt1)
 end
 
--- The baton's tumble rate (rad/s) for a launch speed.
-function plan.tumbleFor(speed)
+-- The baton's planned tumble rate (rad/s) for a clean launch at speed (m/s)
+-- and loftDeg (plan.tune, "the baton's tumble"): tumbleTurns over the flight,
+-- inside the wrist's range about the arm's rate. The rate only; the clean
+-- flight's time is plan.flightTime.
+function plan.flightTime(speed, loftDeg)
+	local _, _, T = flight.predict(0, 0, 0, loftDeg or plan.tune.refLoftDeg, speed)
+	return T
+end
+function plan.tumbleFor(speed, loftDeg)
 	local t = plan.tune
-	local r = t.tumbleAt1 + (speed - t.tumbleV1) * (t.tumbleAt2 - t.tumbleAt1) / (t.tumbleV2 - t.tumbleV1)
-	if r < t.tumbleMin then return t.tumbleMin end
-	if r > t.tumbleMax then return t.tumbleMax end
+	local T = plan.flightTime(speed, loftDeg)
+	local arm = speed / t.armR
+	local lo, hi = arm * (1 - t.wristShare), arm * (1 + t.wristShare)
+	local r = T > 0 and 2 * pi * t.tumbleTurns / T or 0
+	if r < lo then r = lo elseif r > hi then r = hi end
 	return r
 end
 
@@ -284,6 +307,7 @@ end
 --   powerLo, powerHi      the power target: back -/+ level.powerHalf
 --   release, releaseLo, releaseHi   the release target: release -/+ level.releaseHalf
 --   projectile, px, py, tx, ty, level (the level table)
+--   tumble, flightT   a baton's planned tumble (rad/s) and clean flight time (plan.tumbleFor)
 -- For a kubb also drill.solveAt's x, band and T.
 function plan.solve(q, out)
 	local lv = levelOf(q.level)
@@ -292,12 +316,14 @@ function plan.solve(q, out)
 	local px, py, tx, ty = q.px, q.py, q.tx, q.ty
 	if q.projectile == "kubb" then
 		drill.solveAt(tx, ty, py, loft, out, px, q.surface, (q.spin or 0) * plan.tune.spinPerStep)
+		out.tumble, out.flightT = nil, nil
 	else
 		local dx, dy = tx - px, ty - py
 		local d = sqrt(dx * dx + dy * dy)
 		local ft = flight.tune
 		out.swivel, out.dist, out.loft = atan(dx, dy), d, loft
 		out.speed = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight, ft.g)
+		out.tumble, out.flightT = plan.tumbleFor(out.speed, loft), plan.flightTime(out.speed, loft)
 	end
 	local back = plan.backForSpeed(out.speed)
 	out.back, out.powerLo, out.powerHi = back, back - lv.powerHalf, back + lv.powerHalf
@@ -446,6 +472,8 @@ end
 --   sdSide, sdLen  the nerves' sds this throw had (plan.nervesSd)
 --   sideV      -1 pulled left, 0 straight, 1 pulled right (sideM against straightM)
 --   lenV       -1 short, 0 on, 1 long by the nerves alone (lenM against longM)
+--   tumble     a baton's turn rate (rad/s): the plan's, times the flick, plus a third
+--              nerves draw of sdTurns turns over the planned flight (plan.tune "the baton's tumble")
 -- For a kubb also noseDown, rollLand, spin (rad/s), wobble, jerk
 -- (drill.body: world.launchDrill's arguments after the loft and speed);
 -- tumble is 0 and tilt is only the shake's.
@@ -479,11 +507,12 @@ function plan.launch(sol, r, opts, out)
 	local shakeTilt = t.shakeTiltDeg * se
 	-- sideways and along: the shake's pull (the swing's roughness, one way)
 	-- and the nerves (two seeded draws, either way: opts.nerves)
-	local zs, zl = 0, 0
+	local zs, zl, zt = 0, 0, 0
 	local nv = opts.nerves
 	if nv then
 		local rng = type(nv) == "table" and nv or plan.rng(swingSeed(sol, r))
 		zs, zl = rng.normal(1), rng.normal(1)
+		if not kubb then zt = rng.normal(1) end
 	end
 	local sdSide, sdLen = plan.nervesSd(lv, effBack, shake, m, kubb)
 	local sideDeg = pull * t.lateralDeg * se + zs * sdSide
@@ -518,7 +547,17 @@ function plan.launch(sol, r, opts, out)
 		local tilt = (opts.tilt or 0) + pull * shakeTilt
 		out.tilt = tilt
 		out.legal = (tilt < 0 and -tilt or tilt) <= t.legalTiltDeg
-		out.tumble = plan.tumbleFor(out.speed)
+		-- the release's tumble: the plan's rate (a solve without one: worked
+		-- out here), the flick's share of it, and the nerves' turns
+		local rate, T = sol.tumble, sol.flightT
+		if not rate then
+			local v, l = sol.speed or out.speed, sol.loft or out.loft
+			rate, T = plan.tumbleFor(v, l), plan.flightTime(v, l)
+		end
+		local sdT = (lv.tumbleSd or 0) * (1 + t.roughGain * shake) * m
+		rate = rate * flick + (T and T > 0 and zt * sdT * 2 * pi / T or 0)
+		if rate < t.tumbleMin then rate = t.tumbleMin end
+		out.tumble, out.sdTurns = rate, sdT
 	end
 	return out
 end

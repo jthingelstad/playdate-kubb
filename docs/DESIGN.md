@@ -161,6 +161,12 @@ hardware 2026-11-13).
   is set by the level, and grows with the power of the throw, the swing's roughness and
   overpowering. The draws come from the match's seeded random stream (the computer) or
   from the swing itself (the player), so a recorded match replays exactly.
+- **The baton's turn** (2026-11-16). The wrist sets how fast the baton turns end over end.
+  A thrower's habit is about one turn over the flight (a little over: 1.1), so the plan's
+  rate is that over the clean flight's time, within what the arm and wrist can give (a 2 m
+  lob turns only about two thirds of a turn). A slow flick turns it less, and like the
+  nerves each throw draws its own turn, more for a beginner, so the same plan lands the
+  baton end first one throw and flat the next.
 - **What goes wrong.** Stopping before 6 lets the wind-up down (no throw). Cranking on past
   12 is a sky ball: the highest launch, with a large error. The crank swinging back after a
   throw is ignored for a moment, so it does not start a new one.
@@ -217,6 +223,7 @@ swing's and the run on's (`tw.autothrow.tune.into`, `intoShort`).
 | Shake and overpower costs | low | medium | full |
 | Nerves: degrees off the line, 1 sd, an 8 m baton | 1.5 | 0.75 | 0.5 |
 | Nerves: share long or short, 1 sd, an 8 m baton | 8% | 4% | 2.5% |
+| Nerves: the baton's turn, 1 sd, turns over the flight | 0.2 | 0.1 | 0.06 |
 
 First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.lua`).
 

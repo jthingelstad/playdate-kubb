@@ -3,7 +3,8 @@
 -- swing is the plan's, so the power, release and steadiness verdicts are
 -- ON ON STEADY; the nerves' seeded draw (from the swing and the plan, so the
 -- same every run) still moves the throw off the line, and the fourth cell
--- says which way (PULLED RIGHT: about half a degree, and 3% short, a miss).
+-- says which way (PULLED RIGHT: about half a degree, and 3% short; with the
+-- baton's turn drawn too it clips b3 and takes it).
 -- Frames: 1 aiming, 2 at rest, 3 aiming again (the four verdicts).
 import "selftest/_throw"
 

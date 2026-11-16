@@ -15,7 +15,7 @@ local function shot(loft, d, seed)
 		release = plan.releaseFor(loft), level = "club" }, {})
 	local w = world.new { surface = "grass", pieces = { { id = "k", kind = "kubb", x = 0, y = 8 } },
 		groundSeed = seed or 1, stakes = false }
-	local b = world.launchBaton(w, 0, 0, 0, loft, sol.speed, plan.tumbleFor(sol.speed), 0)
+	local b = world.launchBaton(w, 0, 0, 0, loft, sol.speed, plan.tumbleFor(sol.speed, sol.loft), 0)
 	local k = w.byId.k
 	local maxTilt, air, touchV = 0, 0, nil
 	while not world.isAtRest(w) and w.time < world.tune.maxTime do
@@ -93,7 +93,7 @@ test("baton hits: a baton landing on an end keeps turning", function()
 	local sol = plan.solve({ projectile = "baton", px = 0, py = 0, tx = 0, ty = 7.4,
 		release = plan.releaseFor(17), level = "club" }, {})
 	local w = world.new { surface = "grass", pieces = {}, groundSeed = 1, stakes = false }
-	local b = world.launchBaton(w, 0, 0, 0, 17, sol.speed, plan.tumbleFor(sol.speed), 0)
+	local b = world.launchBaton(w, 0, 0, 0, 17, sol.speed, plan.tumbleFor(sol.speed, sol.loft), 0)
 	local before
 	while not w.firstContact do
 		before = sqrt(b.wx * b.wx + b.wy * b.wy + b.wz * b.wz)

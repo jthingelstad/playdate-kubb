@@ -649,7 +649,8 @@ range. Now one model in `core/throwplan` serves both throwers.
   - `s.vSide` holds the verdict.
   - `s.last` and the trace line carry `sideDeg`, `lenShare`, `sideV` and `lenV`.
   - Self-test `nerves` shows the clean planned swing of `clock-throw`, which now goes
-    0.46 degrees right and 3% short: ON ON STEADY PULLED RIGHT, and a miss.
+    0.46 degrees right and 3% short: ON ON STEADY PULLED RIGHT, and a miss (since the
+    baton's turn is drawn too, "The baton's tumble", it clips b3 and takes it: 1 DOWN).
 - **The aim fan** was tried and dropped. `plan.spread(sol, range, level)` and
   `plan.fan(sol, px, py, tx, ty, level, out)` give the spread and its two edges at the
   target. Drawn as two dotted ground lines from the thrower's feet, it read as a narrow
@@ -700,6 +701,65 @@ range. Now one model in `core/throwplan` serves both throwers.
     rerun.
   Real players likely throw differently at a base kubb from the line, which is a play
   question. Seeds 3 and 4 were not run.
+
+### The baton's tumble
+
+Changed 2026-11-16 (physics audit item 5). Before it the end-over-end rate was a line in
+the launch speed alone (`tumbleV1`..`tumbleAt2`: 4.5 rad/s at 4 m/s to 7 at 9.2, clamped 3
+to 9). Neither the swing nor the nerves moved it, so a given distance and arc always
+landed the baton at the same angle. Real batons vary most in how much they turn, and that
+decides an end-first landing or a flat one.
+
+- **Where the numbers come from.** No published measurement of kubb baton spin was found
+  (a web search on 2026-11-16 found only the rules: the baton is held by one end, thrown
+  underarm, and may turn only end over end). So the range is reasoned from the throw:
+  - Held by its end and swung underarm, the baton turns with the hand. With a locked
+    wrist that is the arm's rate, the baton centre's speed over `armR` 0.9 m (shoulder to
+    the baton's centre: arm 0.65, hand 0.1, half the baton 0.15). That is 4.3 rad/s for a
+    2 m lob (3.8 m/s) and 9.8 for an 8 m throw (8.8 m/s).
+  - Throwers check or add to it with the wrist, `wristShare` 0.5 of it either way, and
+    aim the turn: kubb players speak of about one turn over the flight on a good throw.
+    `tumbleTurns` is 1.1, a little over one, which is also where the old table sat at
+    8 m (1.09 to 1.16 turns), so the landing measures below held. At 1.0 the probe's
+    sweep toppled 79% against 88% and the end-first landings changed character (2 of
+    200 lost their spin against 24 of 133); at 1.2 no throw in the sweep landed end first.
+  - So 8 m at 3 o'clock is 6.5 rad/s over 1.07 s; 8 m at 4 o'clock 7.0; 9.4 m at half
+    past 1 5.2 (the wrist's floor: 1.22 turns); a 2 m lob 6.4 (the wrist's ceiling: 0.63
+    turns). The whole range a game throws is about 4 to 10 rad/s.
+- **The model.** `plan.tumbleFor(speed, loftDeg)` is `2 pi tumbleTurns / T` for the clean
+  flight's time `T` (`plan.flightTime`, flight.predict), held to `arm (1 - wristShare)` ..
+  `arm (1 + wristShare)`. `plan.solve` puts it on a baton's solution as `sol.tumble` and
+  `sol.flightT`. In `plan.launch` the release sets what the throw gets:
+  - the flick's share of it (`flickFrac`: a slow flick is a slow hand and wrist);
+  - with nerves, a third seeded draw after the side and the length: `zt x sdTurns` turns
+    over the planned flight, `sdTurns` the level's `tumbleSd` times `1 + roughGain x shake`
+    times the overpower multiplier (no effort term: the wrist's timing, not the power).
+    A drilled kubb makes no third draw, so a drill takes the same two draws as before.
+  - never under `tumbleMin` 0 (no backspin). `out.sdTurns` is the sd it had.
+  - An early or late release changes the loft and so the flight, not the rate: the turns
+    change with it.
+- **Levels** (`tumbleSd`, turns, 1 sd; first guesses): beginner 0.2, club 0.1, pro 0.06.
+  Club 0.15 was tried first: the computer's king rate fell from 82% to 71%
+  (`tools/batonprobe.lua --rates 400`), at 0.08 79%, at 0 82%.
+- **The aim** does not depend on the tumble: `plan.solve` aims the baton's centre
+  (flight.predict is drag free), so the computer's aim is unchanged.
+- **Measured** (club; before -> after):
+  - `tools/batonprobe.lua --rates 400` (the sweep has no nerves, so it tests the plan's
+    rate alone): touched and toppled 89% -> 90% (696 -> 790 touched), fast and left
+    standing 30 -> 25, end-first landings that lost three quarters of their spin 17% ->
+    22%; the computer at base kubbs 32% -> 29%, a field kubb 84% -> 84%, the king 82% ->
+    78%.
+  - `tools/physmatch.lua --n 40 --seed 2`: 19.0 -> 17.3 turns a game; base 40% -> 39%,
+    field 76% -> 77%, king 35/43 -> 38/50.
+  - `make realgames` (150 matches seed 2; real / before / after): turns a game 8.9 / 21.7
+    / 17.7; the team that threw first won 55% / 38% / 46%; ended on the king 100% / 82% /
+    95%; a baton at field kubbs missed 24.7 / 25.2 / 22.6%, took two 16.0 / 4.9 / 5.7%,
+    three or more 10.0 / 0.2 / 0.3%; cleared the field 83 / 49 / 57%; a base kubb from 8 m
+    32.7 / 33.4 / 30.7%, from an advantage line 51.7 / 62.2 / 67.6%; the king 83.8 / 79.9 /
+    76.3%; turns from an advantage line 14 / 46 / 39%.
+  - `make bench`: no step cost (the tumble is worked out once a throw, outside the step).
+- **Tools.** `tools/batonprobe.lua --set plan.tumbleTurns=1.1` tries a `plan.tune` value.
+  `tools/compound.lua` and `tools/tiltgroups.lua` take the plan's rate at each loft.
 
 ### What scatters a drilled kubb
 
@@ -1293,9 +1353,11 @@ Every number that is a guess lives in one table per module, with a comment:
   anchors: 9 o'clock 4 m, 10 o'clock 8 m), the loft scale (5 o'clock 12 degrees, 3 o'clock
   32), the default arcs by target (`arc`), `arcStepDeg`, the release's range, `tiltStepDeg`
   and `tiltMaxDeg`, `spinSteps` and `spinPerStep`, the sky ball's extra, the helicopter
-  limit, the shake's tilt and pull, overpower, STEADY, the baton's tumble by speed;
+  limit, the shake's tilt and pull, overpower, STEADY, the baton's tumble (`tumbleTurns`,
+  `armR`, `wristShare`, `tumbleMin`: "The baton's tumble");
   `tw.plan.levels` (beginner, club, pro: the targets' half widths, the error inside a
-  target, the shake and overpower costs; `plan.LEVELS` in menu order).
+  target, the shake and overpower costs, the nerves and `tumbleSd`; `plan.LEVELS` in menu
+  order).
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range (5 to 55) and step,
   baton size, wobble. (`boostBelowDeg` and `flight.loftBoost`, the old player's low throw,
   were removed 2026-11-15, as were `swing.tune`'s launch and tumble ranges: the plan's
