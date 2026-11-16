@@ -76,6 +76,7 @@ function body.new(kind, id)
 		groundImpulse = 0,   -- sum of ground normal impulses in this step
 		dig = 0,             -- extra rolling-resistance lever from digging in (m), decays
 		plough = 0,          -- m slid on the ground since it last left it (snow piles up)
+		impact = -1,         -- the last step a ground contact arrived faster than restitutionSpeed
 		index = 0,
 	}
 	if k.static then

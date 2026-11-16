@@ -23,7 +23,9 @@ local function pick(of)
 end
 
 st.scenarios["match-group"] = st.matchScenario {
-	opts = { seed = 5, instant = true, skipHandoff = true },
+	-- (seed 5 until 2026-11-16: any change to the physics plays a different
+	-- match, and that one ended before a turn of five came up; 6, 7 and 8 film both)
+	opts = { seed = 6, instant = true, skipHandoff = true },
 	maxFrames = 6000,
 	step = function(ms, ctx, h)
 		local ts, s = ms.ts, ms.setup

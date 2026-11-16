@@ -1396,8 +1396,8 @@ Every number that is a guess lives in one table per module, with a comment:
   placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
   (Physics, "The ground's texture"). `world.SURFACES` lists the playable ones in order.
 - `tw.collide.tune` (`source/core/collide.lua`): `batonRound`, how rounded a box's edges are
-  to a baton ("Physics", "Baton hits"). `world.tune.batonTurnHold` and `rollCap`: how the
-  ground holds a baton's spin.
+  to a baton ("Physics", "Baton hits"). `world.tune.batonTurnHold`: how the ground holds a
+  baton's spin.
 - `tw.bench` (`source/core/bench.lua`): the benchmark scenario (pieces, throw, seconds,
   and `bench.debris`, the lying batons and kubbs of a full turn).
 - `tw.debris.tune` (`source/core/debris.lua`): `matchEps`, how close the engine's pose of a
@@ -1568,9 +1568,20 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     - groundstats hits: grass 9.3% to 11.3%, sand 8.0% to 7.3%, snow 10.0% to 11.3%
   - **Grass holds.** A baton or a lying piece touching the ground loses `drag` of its ground
     speed and spin a second, and `grip` more below `gripSpeed`, so it stops instead of
-    creeping. Falling kubbs are left alone (a falling kubb must still fall); a standing one
-    that slides is held by its corners' friction, and on snow "A kubb's foot ploughs snow"
-    below.
+    creeping. The rates scale with how hard it presses: the step's `load` (above) over its
+    weight, never more than 1. A baton propped on a kubb with one end in the grass is held
+    less, and a harder push (a landing, a pivot) is left to the contacts' friction. The
+    rates were the same however lightly a piece touched until 2026-11-16 (audit 9). Measured
+    against the cap and the flat rates:
+    - end-first batons that lose most of their spin at once: 13% to 10%
+    - batonprobe toppled: 91% to 93%
+    - the clean drill's run-on (drillscatter 3, cm, loft 47/30): grass 84/155 to 87/158,
+      sand 26/46 to 27/48, snow 88/147 to 89/149
+    - groundstats slide: 1.40/0.51/1.74 to 1.46/0.53/1.77 m; hits within a point
+    - on an end on sand: 0.010 to 0.013 s a throw (90th percentile 0.017 to 0.037)
+
+    Falling kubbs are left alone (a falling kubb must still fall); a standing one that
+    slides is held by its corners' friction, and on snow "A kubb's foot ploughs snow" below.
   - **Snow ploughs** (`plough`, 1/s per m): the drag grows with the distance a piece has
     slid since it last left the ground (`b.plough`, reset off the ground, in the lone
     flight too), so a slide on snow starts slick and ends heavy.
@@ -1695,10 +1706,12 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     on an end lost all of its spin in the one hard step of the landing and went on without
     turning. Now its spin is held in two parts, each never past stopping: the end-over-end
     turn by the plug (`b.dig`) and `batonTurnHold` (1) of the rolling resistance
-    (`surf.roll`), its roll about the long axis by the plug and all of it; the rolling
-    resistance takes the ground's impulse only up to `rollCap` (4) times the baton's weight
-    a step (the turf giving under its weight, not a landing's spike). Boxes keep
-    `rollResist`.
+    (`surf.roll`), its roll about the long axis by the plug and all of it. The rolling
+    resistance is the turf giving under the ground's push, the step's `load`: all of the
+    ground's impulse, except in a step where a contact strikes faster than
+    `restitutionSpeed`, when only the weight's share. The strike's turn loss is the plug's.
+    (Until 2026-11-16, audit 9, a cap of 4 times the weight a step, `rollCap`, kept a
+    landing's spike out. It also took a pivot's hard push out.) Boxes keep `rollResist`.
   - **Measured** (the sweep, 747 to 757 throws that touched the kubb; before -> after):
     toppled 90% -> 90%; fast (over 6 m/s at the touch) and left standing 44 -> 29;
     tilted past 25 degrees and back up 8 -> 3; the kubb off the ground (its lowest point
