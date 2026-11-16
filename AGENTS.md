@@ -449,12 +449,42 @@ play date versions, deploy as needed." The first pass changes only how the compu
   are cleared half as often as real players clear them; games are still half as long
   again; the computer never pays for its group with a rethrow (0.4% against 14%: its
   basket is a safe 25 cm past the centre line and its drill is steadier than its spot is
-  bold); it hits a base kubb from 8 m more often than tournament players. The engine still
-  raises kubbs apart; raising them together took two or more 26% in the sweeps and is
-  Jamie's call. `tools/clusters.lua --set name=value` sets any `autothrow.tune` number for
+  bold); it hits a base kubb from 8 m more often than tournament players. The engine
+  raises kubbs apart, as real defenders do (Jamie, 2026-11-16). `tools/clusters.lua --set name=value` sets any `autothrow.tune` number for
   a sweep.
 - The desktop dumps are not bit-identical with the ones before: the Playdate's throws in
   a match changed on purpose.
+
+### What scatters a drilled kubb
+
+`lua5.4 tools/drillscatter.lua [--n 300] [--matches 40] [--seed 2]` (Jamie approved the
+measuring, 2026-11-16; no game changes). Part 1 throws the computer's drill at the basket
+in an empty half and splits its miss into the air (where it first touches the ground
+against its mark) and the ground (from there to rest), with the swing's mistakes scaled
+and the ground flat or textured. Part 2 follows every drill of 40 physics matches.
+
+- **The ground does not scatter a clean drill.** With no mistakes it rests 0.4 cm from its
+  mark on every one of 300 grounds (sd 0.1 cm): a drill plugs where it lands (it travels
+  8 cm back from its first touch, the same every time). The patches change nothing a
+  watcher could see.
+- **The swing scatters it along the throw, not across.** At the game's drill (`drillScale`
+  0.2) it lands 8.7 cm (sd) long or short and 1.1 cm left or right, and rests 4.4 cm from
+  the mark on average, 1% over 30 cm. At a baton's full mistakes: 31 cm along, 5 across,
+  27 cm from the mark, 27% over 30 cm. Distance is the backswing and the flick; the only
+  sideways mistake is the shake.
+- **The rest is wood.** In matches 29% of drills touch a piece on the way (1127 lying
+  kubbs, 35 standing in 2485 drills): those rest 20 cm from their mark on average and 20%
+  of them over 30 cm, against 5 cm and 1% for the 71% that touch nothing. A touched kubb
+  is moved 8 cm on average, 29% of them over 10 cm. The spots are a kubb's length and a
+  centimetre apart along the throw and the drill is 8.7 cm long or short, so it clips its
+  neighbour about as often as that predicts.
+- 24% of drills go at the basket itself (the first of a group), 76% at a spot beside it.
+- So what loosens the game's groups now is, in order: drills clipping the kubbs already
+  down, then the power error along the line. Not the ground, and not sideways aim.
+- Flat ground (no texture) is not tighter: with no grass to hold it, the rare shaky drill
+  rolls on (across sd 15 cm at the game's drill against 4 textured).
+- Jamie (2026-11-16): "Real defenders raise kubbs away from the cluster." The engine's
+  default raising policy (`apart`) is right and stays.
 
 ## Throwing order
 
