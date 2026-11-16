@@ -172,6 +172,62 @@ test("a three-kubb domino line falls in order", function()
 	expect.eq(#r.toppled, 3, "result counts three")
 end)
 
+-- Four kubbs standing face to face in a row along y (Jamie, 2026-11-15: a
+-- baton bounced off a tight row of field kubbs). `order` lists which kubb of
+-- the row each body index holds, so the front kubb can be first or last.
+local function tightRow(order)
+	local pieces = {}
+	for i, k in ipairs(order) do pieces[i] = { id = "k" .. k, kind = "kubb", x = 0, y = 4 + (k - 1) * 0.07 } end
+	local w = world.new{ texture = false, pieces = pieces }
+	return w
+end
+-- A blow of J N s toward +y at height h on a standing kubb's near face.
+local function blow(a, J, h)
+	world.wake(a)
+	local tx = -(h - a.hz) * J
+	a.vy = J * a.im
+	a.wx, a.wy, a.wz = a.i11 * tx, a.i12 * tx, a.i13 * tx
+end
+
+test("a blow on the front kubb of a touching row wakes the whole row in that step", function()
+	for _, order in ipairs{ { 1, 2, 3, 4 }, { 4, 3, 2, 1 }, { 3, 1, 4, 2 } } do
+		local w = tightRow(order)
+		blow(w.byId.k1, 1.0, 0.13)
+		world.step(w)
+		local p = 0
+		for k = 1, 4 do
+			local b = w.byId["k" .. k]
+			expect.truthy(b.awake, "k" .. k .. " awake after one step, order " .. table.concat(order))
+			p = p + b.m * b.vy
+		end
+		-- a sleeper is a wall to the solver: with the row asleep the blow went
+		-- into it and under a tenth of it was left after this step
+		expect.truthy(p > 0.5, string.format("the row keeps the blow: %.2f of 1.0 N s", p))
+		expect.truthy(w.byId.k4.vy > 0.1, "the last kubb is moving")
+	end
+end)
+
+test("a hard blow on the front kubb of a touching row takes the whole row down; a tap none", function()
+	for _, order in ipairs{ { 1, 2, 3, 4 }, { 4, 3, 2, 1 } } do
+		local w = tightRow(order)
+		blow(w.byId.k1, 1.6, 0.13)
+		world.run(w)
+		expect.eq(#world.result(w).toppled, 4, "all four down, order " .. table.concat(order))
+	end
+	local w = tightRow{ 1, 2, 3, 4 }
+	blow(w.byId.k1, 0.2, 0.13)
+	world.run(w)
+	expect.eq(#world.result(w).toppled, 0, "a tap leaves the row standing")
+end)
+
+test("a kubb woken far from the others wakes nobody", function()
+	local w = world.new{ texture = false, pieces = {
+		{ id = "k1", kind = "kubb", x = 0, y = 4 }, { id = "k2", kind = "kubb", x = 0, y = 4.3 } } }
+	blow(w.byId.k1, 0.05, 0.13)
+	world.step(w)
+	expect.truthy(not w.byId.k2.awake, "k2 sleeps on")
+end)
+
 local function batonThrow(surface, x, speed, pieces, rate)
 	local w = world.new{ texture = false, surface = surface, pieces = pieces }
 	local b = world.launchBaton(w, x, 0, 0, 35, speed, rate or 7, 0)

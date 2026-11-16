@@ -65,6 +65,10 @@ world.tune = {
 	                       -- many times its weight a step (a landing's one hard step is far more)
 	restitutionIterations = 4, -- bounce passes (one pass over a flat landing's corners overshoots)
 	pairMu = 0.4,          -- wood on wood friction (guess; dry wood 0.25 to 0.5)
+	boxMu = 0.2,           -- friction between two boxes (kubb on kubb, the king; guess: wood sliding
+	                       -- on wood, 0.2). At pairMu a kubb tipped against its neighbour was held
+	                       -- up by the rub of its edge down the neighbour's face, and a tight row
+	                       -- stood through a blow that fells four kubbs (Jamie, 2026-11-15)
 	pairE = 0.2,           -- wood on wood bounce (guess; 0.35 until 2026-11-15: a baton's bounce off a
 	                       -- standing kubb is applied with nothing holding the kubb's footing, so
 	                       -- part of it drove the kubb down and the ground threw it up; at 0.2,
@@ -457,6 +461,9 @@ local nRec = 0
 
 -- Per body, filled each step: position, bounding radius, awake, speed bound.
 local BX, BY, BZ, BR, AW, SPD, NXT = {}, {}, {}, {}, {}, {}, {}
+-- Bodies woken in this step's pair loop (indices), and for each the index below
+-- which its pairs with sleepers were passed untested (world.step).
+local WK, WLO = {}, {}
 
 -- Implicit gyroscopic step (Bullet's computeGyroscopicImpulseImplicit_Body):
 -- one Newton step of I w' = I w - dt w' x I w' in the body frame. Keeps a
@@ -875,6 +882,7 @@ function world.step(w)
 	end
 	local tmargin = t.margin
 	local wakeLin2, wakeAng2 = t.wakeLin * t.wakeLin, t.wakeAng * t.wakeAng
+	local nWoke = 0
 	for i = 1, nb do
 		local sa = SPD[i]
 		local ax, ay, az, ar = BX[i], BY[i], BZ[i], BR[i]
@@ -902,10 +910,12 @@ function world.step(w)
 						local o, s = nil, 0
 						if not a.awake and not a.static then
 							if b.vx * b.vx + b.vy * b.vy + b.vz * b.vz > wakeLin2
-								or b.wx * b.wx + b.wy * b.wy + b.wz * b.wz > wakeAng2 then o, s = a, i end
+								or b.wx * b.wx + b.wy * b.wy + b.wz * b.wz > wakeAng2
+								or b.wokeStep == stamp then o, s = a, i end
 						elseif not b.awake and not b.static then
 							if a.vx * a.vx + a.vy * a.vy + a.vz * a.vz > wakeLin2
-								or a.wx * a.wx + a.wy * a.wy + a.wz * a.wz > wakeAng2 then o, s = b, j end
+								or a.wx * a.wx + a.wy * a.wy + a.wz * a.wz > wakeAng2
+								or a.wokeStep == stamp then o, s = b, j end
 						end
 						if o then
 							epoch = epoch + 1
@@ -920,11 +930,72 @@ function world.step(w)
 							for k = s, 1, -1 do
 								if NXT[k] > s then NXT[k] = s else break end
 							end
+							-- the group it rests against wakes with it (below)
+							o.wokeStep = stamp
+							nWoke = nWoke + 1
+							WK[nWoke] = s
+							WLO[nWoke] = (s == i) and j or s
 						end
 					end
 				end
 			end
 			j = j + 1
+		end
+	end
+	-- A body woken this step wakes every sleeper it touches, and so on through
+	-- the group (Jamie, 2026-11-15: a baton bounced off four field kubbs
+	-- standing in a tight row). A sleeper is immovable to the solver, so a
+	-- kubb woken by a blow and leaning on a sleeping neighbour stood braced
+	-- against a wall for that step: the blow went into the wall and was gone,
+	-- and the neighbour woke a step later to nothing. The loop above wakes
+	-- the pairs it still comes to (wokeStep); these are the pairs it had
+	-- already passed while both slept. Nothing runs here in a step that
+	-- wakes nobody.
+	if nWoke > 0 then
+		local q = 1
+		while q <= nWoke do
+			local s, lo = WK[q], WLO[q]
+			local o = bodies[s]
+			for k = 1, nb do
+				if k >= lo then break end
+				if k ~= s and not AW[k] then
+					local c = bodies[k]
+					if not c.static then
+						local margin = tmargin + SPD[s] * dt
+						local dx, dy, dz = BX[s] - BX[k], BY[s] - BY[k], BZ[s] - BZ[k]
+						local reach = BR[s] + BR[k] + margin
+						if dx * dx + dy * dy + dz * dz < reach * reach then
+							local a, b = o, c
+							if k < s then a, b = c, o end
+							local before = C.n
+							if P then P.narrow = P.narrow + 1 end
+							if a.shape == 1 then
+								if b.shape == 1 then boxBox(a, b, margin)
+								else capsuleBox(b, a, margin) end
+							else
+								if b.shape == 1 then capsuleBox(a, b, margin)
+								else capsuleCapsule(a, b, margin) end
+							end
+							if C.n > before then
+								epoch = epoch + 1
+								c.awake = true
+								c.everAwake = true
+								c.sleepTime = 0
+								c.vz = c.vz - g * dt
+								c.groundImpulse = 0
+								c.wokeStep = stamp
+								AW[k] = true
+								local vx, vy, vz, wx, wy, wz = c.vx, c.vy, c.vz, c.wx, c.wy, c.wz
+								SPD[k] = sqrt(vx * vx + vy * vy + vz * vz) + sqrt(wx * wx + wy * wy + wz * wz) * c.radius
+								nWoke = nWoke + 1
+								WK[nWoke] = k
+								WLO[nWoke] = nb + 1
+							end
+						end
+					end
+				end
+			end
+			q = q + 1
 		end
 	end
 	if P then local now = pc(); P.pairs = P.pairs + now - pt; pt = now end
@@ -946,6 +1017,7 @@ function world.step(w)
 	-- 3. prepare: one record per contact with an awake body
 	local slop, pushRate, maxPush = t.slop, t.pushRate, t.maxPush
 	local warmF, pairMu, pairE = t.warm, t.pairMu, t.pairE
+	local boxMu = t.boxMu
 	local m = 0
 	for i = 1, n do
 		local a, b = cA[i], cB[i]
@@ -1155,7 +1227,11 @@ function world.step(w)
 				end
 				r[K_MN], r[K_MT1], r[K_MT2] = 1 / kn, 1 / k1, 1 / k2
 				r[K_V0] = v0
-				r[K_MU], r[K_E] = pairMu, pairE
+				if cA[i].shape == 1 and cB[i].shape == 1 then
+					r[K_MU], r[K_E] = boxMu, pairE
+				else
+					r[K_MU], r[K_E] = pairMu, pairE
+				end
 				r[K_LN] = 0
 			end
 		end
