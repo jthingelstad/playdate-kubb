@@ -470,8 +470,14 @@ function match.carryDebris(m, s, res, turn, batonRec)
 		-- poses are carried. A kubb whose support was picked up at the
 		-- judgment lies flat where it is, not floating at its old height.
 		debris.recordExact(d, g, res, s.side)
-		for _, id in ipairs(g.judgment and g.judgment.lifted or {}) do
+		local j = g.judgment
+		for _, id in ipairs(j and j.lifted or {}) do
 			d.exact[id] = nil
+			d.settle = true
+		end
+		-- a kubb picked up for a rethrow, a rescue or a punishment may have been
+		-- propping a standing one sideways: settle whenever the judgment took any
+		if j and ((j.rethrow or 0) > 0 or (j.rescue or 0) > 0 or (j.punish or 0) > 0) then
 			d.settle = true
 		end
 		return
