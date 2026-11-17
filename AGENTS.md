@@ -1699,6 +1699,24 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   crossing at 0.2 m, in the air: an upright baton touches the ground with its centre
   about 0.15 m up and pivots, so a crossing at 0.15 m measured the landing. Not
   bit-identical: every throw (a launch 2 to 3 cm longer at the same speed).
+- **The turn in flight** (2026-11-16, from the reference engine's finding 2). A drilled
+  kubb in the air (the projectile with `b.aeroK`, until its first contact) takes the air's
+  turn and the gyroscopic term in `world.tune.flightTurns` (4) substeps of the step, in
+  `flightTurn`, called by the lone flight and by stage 5 of the full step (stage 1 skips
+  both terms for it). It works in the kubb's own frame: the air past it is turned against
+  the spin each substep, the air's turn is a kick to the two cross axes, and a kubb's
+  square section (Ix = Iy) makes the gyroscopic term an exact turn of the cross spin at
+  (Ix - Iz) wz / Ix (Euler's equations). The attitude is normalized and the rotation and
+  world inertia made once at the end, so it costs about a third more than one plain step
+  for that body (lone drill step 1.5 -> 2.0 us on the desktop), nothing for anything else.
+  Before, both terms were applied once a 1/240 s step to a kubb spinning at 25 to 69
+  rad/s: up to 3 degrees too steep at the touch. The nose in flight, the last sample
+  before the touch, against MuJoCo (72 drill cases): within 0.5 degrees (mean 0.11),
+  was 2.9 (mean 1.28); at 240 Hz now within 0.2 degrees of the same engine at 9600 Hz.
+  A baton is left alone: its slower turn moves its landing by 0.02 degrees, and
+  substepping it changed the bench scenario for nothing. What players get: the same
+  drills, the nose at the touch 0.2 degrees less steep on average, run-on within noise
+  (`tools/drillscatter.lua --only 3`, grass loft 30: median 138 cm, was 139).
 - Lone flight (`world.loneFlight`, on): when exactly one body is awake and it cannot reach
   the ground or any other body within this step (its height above the ground, and above the
   top of every other body, beats its speed plus a step of gravity and its spin, with a
@@ -2207,6 +2225,10 @@ no extra work for it.
       the worst gap is 1.3 standard errors. With the spiral, one tap left is -19 rad/s and
       one right is +25, and grass shows a 3.1 standard-error gap at ±1.
     - Whether one tap should roll the most is a design question, not a defect.
+    - With the turn in flight substepped (2026-11-16) the grid keeps its shape: grass
+      run-on by tap -3..+3 is 72, 66, 53, 93, 52, 67, 76 cm (was 75, 70, 54, 95, 53, 71,
+      75), the gap at one tap -12.7 cm (was -11.3). The precession is converged and MuJoCo
+      shows it too (reference engine, finding 2).
   - **The tilt grid.** Tilt is monotonic and mirrored on every surface. It sends the baton
     0.33 to 0.51 cm a degree across the line, and hits stay at 78 to 83%. Penetration shows
     up in 8.7% of these throws, more than in the fuzz, because every one strikes a lone kubb
@@ -2345,6 +2367,8 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
   - Boxes on the ground, and every pair of pieces: condim 3 with pairMu.
   - Drag (`k|v|v`) and the drill's `aeroTurn` torque are applied through `xfrc_applied` to
     the projectile until its first contact, as in `world.step`.
+- A drill's nose in flight (`noseDeg`) is read at the last sample before the touch. The
+  first sample after it already carries the impact's turn.
 - Restitution: MuJoCo has no coefficient of restitution. Its contact is a damped spring
   (solref = timeconst, dampratio). For each variant and each target e, the damping ratio is
   set by bisection on a drop test: a kubb lying flat lands at 2 m/s, and the result is the
@@ -2397,14 +2421,20 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
        contact's whole normal impulse. That is about 30 lines in stage 7. Then retune the
        texture drag and grip and `drill.tune.slide` (`tools/drillscatter.lua`), and rerun
        `tools/batonprobe.lua` and `make realgames`.
-  2. **A drill's attitude in flight is limited by the time step.** At loft 30 with one tap,
-     ours lands nose 51 degrees down against MuJoCo's 40. Ours at 2400 Hz gives 38. Turning
-     off the gyroscopic term moves it the other way. Cause: `aeroTurn` and the implicit
-     gyroscopic step (`gyro`) are applied once per 1/240 s to a body spinning at 25 rad/s or
-     more, in the lone flight and in `world.step`. MuJoCo is the closer one: this is
-     integration error, not a model choice. Fix: substep only the projectile's rotation in
-     flight (4 substeps of aeroTurn, gyro and the quaternion). It is one body, so cheap,
-     about 15 lines. Then retune `noseDownDeg` and the slide table.
+  2. **A drill's attitude in flight is limited by the time step.** Fixed 2026-11-16
+     ("Physics", "The turn in flight"): the nose in flight is now within 0.5 degrees of
+     MuJoCo in every drill case (mean 0.11; was 2.9, mean 1.28). What it was:
+     - The headline (loft 30, one tap: 51 degrees against MuJoCo's 40) was mostly the
+       metric. It read the first sample after the touch, when the impact is already
+       turning the kubb. `compare.py` now reads the last sample in the air: 39.7 degrees
+       against 37.1 before the fix, 37.1 against 37.1 after.
+     - The step error was real but small: `aeroTurn` and `gyro` once a 1/240 s step, up to
+       3 degrees too steep.
+     - Not a defect: one tap rolls a drill sideways most and lands it lowest (33 to 37
+       degrees, yaw 22 to 37 degrees at the touch). That is precession under the air's
+       turn. It is converged (the same at 240 Hz with substeps, 2400 and 9600 Hz) and
+       MuJoCo agrees. Left and right differ at one tap because the wrist's spiral makes
+       them -19 and +25 rad/s; with `drill.spiral=0` they mirror exactly.
   3. **Free flight lands 2 to 3 cm short of the aim.** Fixed 2026-11-16 ("Physics",
      "Free flight"): the flight is stepped by the trapezoid and lands within +0.05 to
      +0.34 cm and +0.1 to +0.5 ms of MuJoCo. What it was:

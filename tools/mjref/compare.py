@@ -40,7 +40,7 @@ SCALES = {
     "cToppled": (1, "d", "the third kubb toppled"),
     "bTilt": (15, "c", "the second kubb's largest tilt (deg)"),
     "landY": (0.10, "c", "where it first touched, along the throw (m)"),
-    "noseDeg": (15, "c", "long axis below the horizontal at the first touch (deg)"),
+    "noseDeg": (15, "c", "long axis below the horizontal in flight, the last sample before the touch (deg)"),
     "fromMark": (0.10, "c", "rest distance from the mark (m)"),
     "pose": (1, "d", "final pose: standing or lying"),
     "crossY": (0.05, "c", "distance when the centre comes down through 0.3 m (m)"),
@@ -193,7 +193,12 @@ def metrics(case, tr, P):
         if i0 is None:
             return None
         m["landY"] = float(a[i0, 1])
-        u = axis(a[i0:i0 + 1])[0]
+        # the attitude in flight: the last sample before the touch (both
+        # engines sample at SAMPLE_HZ). The first sample that touched comes up
+        # to 8 ms after it, when ours has already turned the kubb with the
+        # whole impact of one step and MuJoCo's soft contact only begun to
+        ia = max(i0 - 1, 0)
+        u = axis(a[ia:ia + 1])[0]
         m["noseDeg"] = float(math.degrees(math.asin(min(1.0, abs(u[2])))))
         lp = lowest(a, k)
         m["apex"] = float(lp[i0:].max() - lp[-1])

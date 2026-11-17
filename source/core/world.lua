@@ -72,6 +72,10 @@ world.tune = {
 	                       -- without the kubb's footing (AGENTS.md, "The pair bounce with its footing")
 	warm = 0.9,            -- fraction of last step's ground impulses applied up front
 	gyro = true,           -- gyroscopic term (torque-free precession; implicit, stable)
+	flightTurns = 4,       -- a drilled kubb's turn in flight (the air's turn, the gyroscopic term
+	                       -- and its attitude) is stepped this many times a step: a drill spinning
+	                       -- at 25 rad/s or more precesses too far in one 1/240 s step (AGENTS.md,
+	                       -- "Physics", "The turn in flight")
 	sleepLin = 0.03,       -- m/s: below this ...
 	sleepAng = 0.3,        -- rad/s: ... and this ...
 	sleepTime = 0.25,      -- s: ... for this long while touching something: the body sleeps
@@ -522,7 +526,8 @@ world.airDrag = airDrag
 -- axis and K = rho (k2 - k1) volume (world.tune.aeroK per kind). A spiral
 -- turns that into a precession, so the nose follows the flight path; with
 -- too little spin the kubb tumbles. Applied like airDrag: only to
--- w.projectile until its first contact.
+-- w.projectile until its first contact. The step applies it in substeps,
+-- in the kubb's frame (flightTurn); this is the same term in world axes.
 local function aeroTurn(w, b, dt)
 	local k = b.aeroK
 	if not k or k == 0 then return end
@@ -574,6 +579,88 @@ local function gyro(b, dt)
 	local dy = (c12 * fx + (a11 * a33 - a13 * a31) * fy + (a13 * a21 - a11 * a23) * fz) * inv
 	local dz = (c13 * fx + (a12 * a31 - a11 * a32) * fy + (a11 * a22 - a12 * a21) * fz) * inv
 	ox, oy, oz = ox - dx, oy - dy, oz - dz
+	b.wx = r11 * ox + r12 * oy + r13 * oz
+	b.wy = r21 * ox + r22 * oy + r23 * oz
+	b.wz = r31 * ox + r32 * oy + r33 * oz
+end
+
+-- A drilled kubb's turn in flight (the projectile with an air's turn,
+-- b.aeroK, until its first contact), in n substeps of dt / n: a kubb
+-- spinning at 25 rad/s or more precesses too far in one 1/240 s step
+-- (AGENTS.md, "Physics", "The turn in flight"). It works in the kubb's own
+-- frame, where both terms are cheap: the air's velocity past it (the wind
+-- less its own velocity, constant over the step) is turned against the
+-- kubb's spin each substep, the air's turn (aeroTurn's tau = K (v.z)(v x z))
+-- is a kick to the two cross axes, and the gyroscopic term of a body with a
+-- square section (Ix = Iy, every kubb) is an exact turn of the cross spin at
+-- (Ix - Iz) wz / Ix (Euler's equations; Cayley's rotation, which keeps its
+-- size). The attitude takes each substep's spin (q <- q + hs/2 q (0, w));
+-- it is normalized and the rotation matrix, world inverse inertia and world
+-- spin are made once at the end. Called by the lone step and by world.step's
+-- stage 5, so the two stay identical; stage 1 applies neither term to it.
+-- Written out: one call a step, no tables, one square root.
+local function flightTurn(w, b, dt, n, useGyro)
+	local hs = dt / n
+	local h = 0.5 * hs
+	local r11, r12, r13, r21, r22, r23, r31, r32, r33 =
+		b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33
+	-- spin and the air's velocity past it, in the kubb's frame
+	local wx, wy, wz = b.wx, b.wy, b.wz
+	local ox = r11 * wx + r21 * wy + r31 * wz
+	local oy = r12 * wx + r22 * wy + r32 * wz
+	local oz = r13 * wx + r23 * wy + r33 * wz
+	local vx, vy, vz = b.vx, b.vy, b.vz
+	if w.windOn then vx, vy = vx - w.windX, vy - w.windY end
+	local ux = r11 * vx + r21 * vy + r31 * vz
+	local uy = r12 * vx + r22 * vy + r32 * vz
+	local uz = r13 * vx + r23 * vy + r33 * vz
+	local ka = (b.aeroK or 0) * hs
+	local iIx, iIy = b.iIx, b.iIy
+	-- the cross spin turns at gz x wz a second (0 without the gyroscopic term)
+	local gz = useGyro and (b.Ix - b.Iz) * iIx * hs or 0
+	local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
+	for _ = 1, n do
+		-- the air's turn: tau = K (v . z)(v x z), z the long axis = (0, 0, 1)
+		local s = ka * uz
+		ox, oy = ox + s * uy * iIx, oy - s * ux * iIy
+		-- the gyroscopic term: (ox, oy) turned by -gz oz (Cayley)
+		local t = 0.5 * gz * oz
+		local d = 1 / (1 + t * t)
+		local c, sn = (1 - t * t) * d, 2 * t * d
+		ox, oy = c * ox + sn * oy, c * oy - sn * ox
+		-- the attitude: q <- q + hs/2 q (0, o)
+		qw, qx, qy, qz = qw - h * (qx * ox + qy * oy + qz * oz),
+			qx + h * (qw * ox + qy * oz - qz * oy),
+			qy + h * (qw * oy + qz * ox - qx * oz),
+			qz + h * (qw * oz + qx * oy - qy * ox)
+		-- the air's velocity in the turned frame: u <- u - hs o x u, to second order
+		local cx, cy, cz = oy * uz - oz * uy, oz * ux - ox * uz, ox * uy - oy * ux
+		local ex, ey, ez = oy * cz - oz * cy, oz * cx - ox * cz, ox * cy - oy * cx
+		ux, uy, uz = ux - hs * cx + h * hs * ex, uy - hs * cy + h * hs * ey, uz - hs * cz + h * hs * ez
+	end
+	local qn = sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
+	if qn < 1e-12 then
+		qw, qx, qy, qz = 1, 0, 0, 0
+	else
+		qn = 1 / qn
+		qw, qx, qy, qz = qw * qn, qx * qn, qy * qn, qz * qn
+	end
+	b.qw, b.qx, b.qy, b.qz = qw, qx, qy, qz
+	local xx, yy, zz = qx * qx, qy * qy, qz * qz
+	local xy, xz, yz = qx * qy, qx * qz, qy * qz
+	local xw, yw, zw = qw * qx, qw * qy, qw * qz
+	r11, r12, r13 = 1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw)
+	r21, r22, r23 = 2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw)
+	r31, r32, r33 = 2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy)
+	b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33 = r11, r12, r13, r21, r22, r23, r31, r32, r33
+	local ia, ic, ie = iIx, iIy, b.iIz
+	b.i11 = r11 * r11 * ia + r12 * r12 * ic + r13 * r13 * ie
+	b.i12 = r11 * r21 * ia + r12 * r22 * ic + r13 * r23 * ie
+	b.i13 = r11 * r31 * ia + r12 * r32 * ic + r13 * r33 * ie
+	b.i22 = r21 * r21 * ia + r22 * r22 * ic + r23 * r23 * ie
+	b.i23 = r21 * r31 * ia + r22 * r32 * ic + r23 * r33 * ie
+	b.i33 = r31 * r31 * ia + r32 * r32 * ic + r33 * r33 * ie
+	-- the spin back in the world frame, by the new attitude
 	b.wx = r11 * ox + r12 * oy + r13 * oz
 	b.wy = r21 * ox + r22 * oy + r23 * oz
 	b.wz = r31 * ox + r32 * oy + r33 * oz
@@ -821,8 +908,10 @@ local function loneStep(w, b, t, P)
 		local kd = k * dt * sqrt(rx * rx + ry * ry + rz * rz)
 		b.vx, b.vy, b.vz = b.vx + kd * rx, b.vy + kd * ry, b.vz + kd * rz
 	end
-	if b.aeroK and b == w.projectile and not w.firstContact then aeroTurn(w, b, dt) end
-	if t.gyro then gyro(b, dt) end
+	-- the turn: a drill in flight takes the air's turn and the gyroscopic
+	-- term in substeps as it moves (flightTurn); anything else here
+	local drillTurn = b.aeroK and b == w.projectile and not w.firstContact
+	if not drillTurn and t.gyro then gyro(b, dt) end
 	b.groundImpulse = 0
 	b.plough = 0   -- in the air: as the full step does for a body off the ground
 	-- 2-4. no contacts
@@ -832,35 +921,39 @@ local function loneStep(w, b, t, P)
 	-- 5. integrate (no contact: the trapezoid move, as world.step's stage 5)
 	local h = 0.5 * dt
 	b.x, b.y, b.z = b.x + (vx + b.vx) * h, b.y + (vy + b.vy) * h, b.z + (vz + b.vz) * h
-	local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
-	wx, wy, wz = b.wx, b.wy, b.wz
-	local dw = -(wx * qx + wy * qy + wz * qz)
-	local dx = wx * qw + wy * qz - wz * qy
-	local dy = wy * qw + wz * qx - wx * qz
-	local dz = wz * qw + wx * qy - wy * qx
-	qw, qx, qy, qz = qw + h * dw, qx + h * dx, qy + h * dy, qz + h * dz
-	local qn = sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
-	if qn < 1e-12 then
-		qw, qx, qy, qz = 1, 0, 0, 0
+	if drillTurn then
+		flightTurn(w, b, dt, t.flightTurns, t.gyro)
 	else
-		qn = 1 / qn
-		qw, qx, qy, qz = qw * qn, qx * qn, qy * qn, qz * qn
+		local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
+		wx, wy, wz = b.wx, b.wy, b.wz
+		local dw = -(wx * qx + wy * qy + wz * qz)
+		local dx = wx * qw + wy * qz - wz * qy
+		local dy = wy * qw + wz * qx - wx * qz
+		local dz = wz * qw + wx * qy - wy * qx
+		qw, qx, qy, qz = qw + h * dw, qx + h * dx, qy + h * dy, qz + h * dz
+		local qn = sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
+		if qn < 1e-12 then
+			qw, qx, qy, qz = 1, 0, 0, 0
+		else
+			qn = 1 / qn
+			qw, qx, qy, qz = qw * qn, qx * qn, qy * qn, qz * qn
+		end
+		b.qw, b.qx, b.qy, b.qz = qw, qx, qy, qz
+		local xx, yy, zz = qx * qx, qy * qy, qz * qz
+		local xy, xz, yz = qx * qy, qx * qz, qy * qz
+		local xw, yw, zw = qw * qx, qw * qy, qw * qz
+		local r11, r12, r13 = 1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw)
+		local r21, r22, r23 = 2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw)
+		local r31, r32, r33 = 2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy)
+		b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33 = r11, r12, r13, r21, r22, r23, r31, r32, r33
+		local ia, ic, ie = b.iIx, b.iIy, b.iIz
+		b.i11 = r11 * r11 * ia + r12 * r12 * ic + r13 * r13 * ie
+		b.i12 = r11 * r21 * ia + r12 * r22 * ic + r13 * r23 * ie
+		b.i13 = r11 * r31 * ia + r12 * r32 * ic + r13 * r33 * ie
+		b.i22 = r21 * r21 * ia + r22 * r22 * ic + r23 * r23 * ie
+		b.i23 = r21 * r31 * ia + r22 * r32 * ic + r23 * r33 * ie
+		b.i33 = r31 * r31 * ia + r32 * r32 * ic + r33 * r33 * ie
 	end
-	b.qw, b.qx, b.qy, b.qz = qw, qx, qy, qz
-	local xx, yy, zz = qx * qx, qy * qy, qz * qz
-	local xy, xz, yz = qx * qy, qx * qz, qy * qz
-	local xw, yw, zw = qw * qx, qw * qy, qw * qz
-	local r11, r12, r13 = 1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw)
-	local r21, r22, r23 = 2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw)
-	local r31, r32, r33 = 2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy)
-	b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33 = r11, r12, r13, r21, r22, r23, r31, r32, r33
-	local ia, ic, ie = b.iIx, b.iIy, b.iIz
-	b.i11 = r11 * r11 * ia + r12 * r12 * ic + r13 * r13 * ie
-	b.i12 = r11 * r21 * ia + r12 * r22 * ic + r13 * r23 * ie
-	b.i13 = r11 * r31 * ia + r12 * r32 * ic + r13 * r33 * ie
-	b.i22 = r21 * r21 * ia + r22 * r22 * ic + r23 * r23 * ie
-	b.i23 = r21 * r31 * ia + r22 * r32 * ic + r23 * r33 * ie
-	b.i33 = r31 * r31 * ia + r32 * r32 * ic + r33 * r33 * ie
 	-- 6-8. nothing to relax, bounce or store; the tail for b (no ground
 	-- impulse: no rolling resistance, and it cannot fall asleep)
 	w.time = w.time + dt
@@ -871,6 +964,7 @@ local function loneStep(w, b, t, P)
 		if b.dig < 1e-5 then b.dig = 0 end
 	end
 	local sinTopple = sin(rad(t.toppleDeg))
+	local r33 = b.r33
 	if b.shape == 1 and not b.toppled and r33 <= sinTopple and r33 >= -sinTopple then b.toppled = true; b.toppleT = w.time end
 	local x, y = b.x, b.y
 	local half, len, om = t.pitchHalfWidth, t.pitchLength, t.outMargin
@@ -916,8 +1010,9 @@ function world.step(w)
 				local kd = k * dt * sqrt(rx * rx + ry * ry + rz * rz)
 				b.vx, b.vy, b.vz = b.vx + kd * rx, b.vy + kd * ry, b.vz + kd * rz
 			end
-			if b == proj and b.aeroK and not w.firstContact then aeroTurn(w, b, dt) end
-			if useGyro then gyro(b, dt) end
+			-- a drill in flight takes the air's turn and the gyroscopic term
+			-- in substeps as it moves (stage 5, flightTurn)
+			if useGyro and not (inAir and b == proj and b.aeroK) then gyro(b, dt) end
 			b.groundImpulse = 0
 		end
 	end
@@ -1409,35 +1504,40 @@ function world.step(w)
 			else
 				b.x, b.y, b.z = b.x + (OVX[i] + b.vx) * h, b.y + (OVY[i] + b.vy) * h, b.z + (OVZ[i] + b.vz) * h
 			end
-			local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
-			local wx, wy, wz = b.wx, b.wy, b.wz
-			local dw = -(wx * qx + wy * qy + wz * qz)
-			local dx = wx * qw + wy * qz - wz * qy
-			local dy = wy * qw + wz * qx - wx * qz
-			local dz = wz * qw + wx * qy - wy * qx
-			qw, qx, qy, qz = qw + h * dw, qx + h * dx, qy + h * dy, qz + h * dz
-			local qn = sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
-			if qn < 1e-12 then
-				qw, qx, qy, qz = 1, 0, 0, 0
+			if inAir and b == proj and b.aeroK and b.cStep ~= stamp then
+				-- the thrown piece in flight: its turn in substeps (flightTurn)
+				flightTurn(w, b, dt, t.flightTurns, useGyro)
 			else
-				qn = 1 / qn
-				qw, qx, qy, qz = qw * qn, qx * qn, qy * qn, qz * qn
+				local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
+				local wx, wy, wz = b.wx, b.wy, b.wz
+				local dw = -(wx * qx + wy * qy + wz * qz)
+				local dx = wx * qw + wy * qz - wz * qy
+				local dy = wy * qw + wz * qx - wx * qz
+				local dz = wz * qw + wx * qy - wy * qx
+				qw, qx, qy, qz = qw + h * dw, qx + h * dx, qy + h * dy, qz + h * dz
+				local qn = sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
+				if qn < 1e-12 then
+					qw, qx, qy, qz = 1, 0, 0, 0
+				else
+					qn = 1 / qn
+					qw, qx, qy, qz = qw * qn, qx * qn, qy * qn, qz * qn
+				end
+				b.qw, b.qx, b.qy, b.qz = qw, qx, qy, qz
+				local xx, yy, zz = qx * qx, qy * qy, qz * qz
+				local xy, xz, yz = qx * qy, qx * qz, qy * qz
+				local xw, yw, zw = qw * qx, qw * qy, qw * qz
+				local r11, r12, r13 = 1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw)
+				local r21, r22, r23 = 2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw)
+				local r31, r32, r33 = 2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy)
+				b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33 = r11, r12, r13, r21, r22, r23, r31, r32, r33
+				local ia, ic, ie = b.iIx, b.iIy, b.iIz
+				b.i11 = r11 * r11 * ia + r12 * r12 * ic + r13 * r13 * ie
+				b.i12 = r11 * r21 * ia + r12 * r22 * ic + r13 * r23 * ie
+				b.i13 = r11 * r31 * ia + r12 * r32 * ic + r13 * r33 * ie
+				b.i22 = r21 * r21 * ia + r22 * r22 * ic + r23 * r23 * ie
+				b.i23 = r21 * r31 * ia + r22 * r32 * ic + r23 * r33 * ie
+				b.i33 = r31 * r31 * ia + r32 * r32 * ic + r33 * r33 * ie
 			end
-			b.qw, b.qx, b.qy, b.qz = qw, qx, qy, qz
-			local xx, yy, zz = qx * qx, qy * qy, qz * qz
-			local xy, xz, yz = qx * qy, qx * qz, qy * qz
-			local xw, yw, zw = qw * qx, qw * qy, qw * qz
-			local r11, r12, r13 = 1 - 2 * (yy + zz), 2 * (xy - zw), 2 * (xz + yw)
-			local r21, r22, r23 = 2 * (xy + zw), 1 - 2 * (xx + zz), 2 * (yz - xw)
-			local r31, r32, r33 = 2 * (xz - yw), 2 * (yz + xw), 1 - 2 * (xx + yy)
-			b.r11, b.r12, b.r13, b.r21, b.r22, b.r23, b.r31, b.r32, b.r33 = r11, r12, r13, r21, r22, r23, r31, r32, r33
-			local ia, ic, ie = b.iIx, b.iIy, b.iIz
-			b.i11 = r11 * r11 * ia + r12 * r12 * ic + r13 * r13 * ie
-			b.i12 = r11 * r21 * ia + r12 * r22 * ic + r13 * r23 * ie
-			b.i13 = r11 * r31 * ia + r12 * r32 * ic + r13 * r33 * ie
-			b.i22 = r21 * r21 * ia + r22 * r22 * ic + r23 * r23 * ie
-			b.i23 = r21 * r31 * ia + r22 * r32 * ic + r23 * r33 * ie
-			b.i33 = r31 * r31 * ia + r32 * r32 * ic + r33 * r33 * ie
 		end
 	end
 
