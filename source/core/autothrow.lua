@@ -31,6 +31,9 @@ local autothrow = {}
 
 autothrow.tune = {
 	level = "club",          -- the throw level it solves at (tw.plan.levels) when none is given
+	-- the swing's mistakes times this at each level (autothrow.cpuLevel); pro is
+	-- the recorded tournament games (Jamie, 2026-11-17), club and beginner below it
+	swingScale = { beginner = 1.6, club = 1.3, pro = 1 },
 	batonShort = 0,          -- m the baton's target is short of the kubb's center: none, the
 	                         -- center, where a player's target snaps (measured 2026-11-15 with
 	                         -- the plan's arcs: a clean baton landing up to 0.2 m past the
@@ -286,6 +289,25 @@ function autothrow.swing(sol, r, scale, out)
 	return out
 end
 
+-- The computer's level tables (2026-11-17). A level's gauge forgiveness
+-- (powerHalf, releaseHalf, inGain, shakeGain, overGain) is there to help a
+-- player's crank; the computer's swing has the same mistakes at every
+-- level, so forgiving it more made club throw better than pro. So the
+-- computer always throws on pro's gauge, with the named level's nerves and
+-- tumble, and its swing's mistakes times tune.swingScale for the level.
+-- Pro is the recorded tournament games (Jamie, 2026-11-17). Made once.
+local cpuLevels = {}
+for name, lv in pairs(plan.levels) do
+	local pro = plan.levels.pro
+	cpuLevels[name] = { powerHalf = pro.powerHalf, releaseHalf = pro.releaseHalf, inGain = pro.inGain,
+		shakeGain = pro.shakeGain, overGain = pro.overGain, nervesDeg = lv.nervesDeg,
+		nervesLen = lv.nervesLen, tumbleSd = lv.tumbleSd }
+end
+-- The computer's level table for a level name (tune.level when unknown).
+function autothrow.cpuLevel(name)
+	return cpuLevels[name] or cpuLevels[autothrow.tune.level] or cpuLevels.club
+end
+
 -- A throw for match setup `s` (view frame). Batons: target the nearest
 -- live target and stand behind it as far forward as allowed (never nearer
 -- than minRange), its centre aimed through the target at plan.aimZFor's
@@ -296,7 +318,10 @@ end
 function autothrow.choose(s, r, scale, level)
 	scale = scale or 1
 	local t = autothrow.tune
-	local q = { level = level or t.level, surface = s.surface }
+	local lname = level or t.level
+	if type(lname) ~= "string" then lname = t.level end
+	scale = scale * (t.swingScale[lname] or 1)
+	local q = { level = autothrow.cpuLevel(lname), surface = s.surface }
 	local tx, ty, py, arc
 	if s.kind == "toss" then
 		local side = autothrow.basket(s, r)
