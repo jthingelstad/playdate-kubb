@@ -18,7 +18,7 @@ Needs the Playdate SDK 3.1.2 at `~/Developer/PlaydateSDK`, Lua 5.4 from Homebrew
 (`lua@5.4`) and Node. The notation parser the tests use is vendored in
 `tests/vendor/pk-kubb-score/`.
 
-What is built and how it works: `AGENTS.md`.
+What is built and how it works: `AGENTS.md` and `docs/notes/`.
 
 ## License
 

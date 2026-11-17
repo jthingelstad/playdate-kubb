@@ -1,4 +1,4 @@
--- Scenario "camera-swing": the aim camera's two views (AGENTS.md "The aim
+-- Scenario "camera-swing": the aim camera's two views (docs/notes/throw.md "The aim
 -- camera"). On the practice pitch with a baton: first person (frame 1); B
 -- held swings the camera out over the shoulder and zooms out (frame 2 half
 -- way, frame 3 settled: the whole target half, the arc and the circle); B +

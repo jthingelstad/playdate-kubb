@@ -1,4 +1,4 @@
-// Real games against the game's own (AGENTS.md "Headless games", "Real games").
+// Real games against the game's own (docs/notes/headless-games.md "Headless games", docs/notes/real-games.md "Real games").
 //
 //   node tools/realgames.mjs <real dir> <game dir> [--json]
 //

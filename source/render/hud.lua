@@ -17,7 +17,7 @@
 -- Everything else stays out of the clear area (the full width down to y 156,
 -- then x 58 to 246 down to y 222).
 --
--- Speed (AGENTS.md, "Drawing speed"): a graphics call costs 20 to 50 us on the
+-- Speed (docs/notes/performance.md, "Drawing speed"): a graphics call costs 20 to 50 us on the
 -- device and a line of text about 0.6 ms. The rail and every plaque is an
 -- image drawn again only when a value it shows changes, so a normal frame
 -- makes no text call. The clock and the minimap are layers: drawn straight to
@@ -46,7 +46,7 @@ hud.tune = {
 	-- Labels: Roobert 10 Bold from the system, capitals only (DESIGN "Type").
 	labelFont = "/System/Fonts/Roobert-10-Bold.pft",
 	-- The display font: big numbers and words. Throwing Wood Display at cap 16
-	-- (render/ui, AGENTS.md "Woodcut type"); the system font if it cannot be loaded.
+	-- (render/ui, docs/notes/presentation.md "Woodcut type"); the system font if it cannot be loaded.
 	displayFont = "fonts/ThrowingWoodDisplay-16",
 	labelTop = 2,       -- px from a label's box top to its font's cell top (centres the caps)
 	displayTop = -2,    -- the same for the display font

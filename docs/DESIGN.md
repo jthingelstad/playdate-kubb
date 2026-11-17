@@ -64,7 +64,7 @@ behind the thrower: 3 m behind the throwing line, 3.4 m up, long lens (focal len
   arc, tilt or spin) the camera swings out over the right shoulder, lower and wider, and
   zooms out until the whole target half, the planned arc and the circle are in view (far
   kubbs about 4 to 9 px tall); letting B go swings it back. Both moves take 0.4 s, eased.
-  The fixed high drill view went with it; a drill shows its planned arc too. AGENTS.md "The aim camera".
+  The fixed high drill view went with it; a drill shows its planned arc too. docs/notes/throw.md "The aim camera".
 
 **HUD** (the Woodcut layout, `docs/design/README.md`). The pitch keeps a clear area in the
 middle of the screen; the HUD sits around it: a black rail along the top (team, projectile
@@ -229,7 +229,7 @@ First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.
 
 ### Practice drills
 
-PRACTICE's drills (AGENTS.md "Practice drills") are how a real player practises and how the
+PRACTICE's drills (docs/notes/drills.md "Practice drills") are how a real player practises and how the
 throw gets tuned: every throw in a drill is recorded with the drill's name. 8 METERS
 (baselines), THE HOUSE, KING SHOTS, BLAST (a bucket of kubbs to drill), AROUND THE PITCH,
 and two new ones: DOUBLES (field kubbs in pairs and triples, 3, 7 and 15 cm apart: a point
@@ -348,7 +348,7 @@ Rules V4.0 unless a question below changes it.
   out is a punishment kubb (`P`). A kubb out then knocked in is not rethrown; a rescue knocked
   back in is no rescue. A kubb that touches a field kubb in the thrower's own half (II.C.4b)
   is out whatever happens to it later; that field kubb is put back at once. The king toppled
-  by a kubb still loses at once. Details: AGENTS.md "Judged at the final position".
+  by a kubb still loses at once. Details: docs/notes/rules-engine.md "Judged at the final position".
 - **Raising:** see Q2.
 - Opening batons: see Q1. Early base kubbs: see Q3.
 
@@ -425,7 +425,7 @@ tools/             camera mockups, AI-vs-AI game generator, crank trace tools
   `playdate.argv`). A scenario scripts crank samples and button presses, saves frames with
   `playdate.simulator.writeToFile`, and quits with `playdate.simulator.exit()`. Lua `print`
   does not reach the Simulator's stdout and Lua can only write text inside the Data folder, so
-  the result marker goes there and the Makefile collects it (details in `AGENTS.md`). Frames are
+  the result marker goes there and the Makefile collects it (details in `docs/notes/selftests.md`). Frames are
   saved at 1x for the subagents' own checks and at 2x for anything Jamie looks at.
 - `make build`, `make test`, `make selftest`, `make games` with full SDK paths; no
   `PLAYDATE_SDK_PATH` needed.
@@ -488,7 +488,7 @@ point where a baton strikes a kubb, designed together with the hit sound. The ph
 already records the time and place of the first hit, and the slow motion gives it time to
 be read.
 
-**Stage 3 match as built** (the bare two-player game; AGENTS.md "Match"):
+**Stage 3 match as built** (the bare two-player game; docs/notes/match.md "Match"):
 
 - It is pass and play on one Playdate (stage 5's mode, without names): teams "Team A" and
   "Team B" with one player each, a hand-off card before each team's turn, and Team B
@@ -515,7 +515,7 @@ be read.
   are raised. The hand-off clears it all and the pitch is the engine's again. The rules
   engine stays the judge: a kubb already down adds nothing when it is hit again.
 
-**Woodcut as built** (type, title, cards and launcher from `docs/design/`; AGENTS.md
+**Woodcut as built** (type, title, cards and launcher from `docs/design/`; docs/notes/presentation.md
 "Woodcut type, title, cards and launcher"):
 
 - The display face is Throwing Wood Display, a 1-bit cut of Londrina Solid Black (SIL OFL

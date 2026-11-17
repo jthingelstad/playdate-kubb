@@ -1,7 +1,7 @@
 # Status
 
 Out of date: this is where the work stood on 2026-11-14, before the clock throw, saved
-players, HOW TO THROW and HOW TO PLAY. For what is built now, see `AGENTS.md`.
+players, HOW TO THROW and HOW TO PLAY. For what is built now, see `AGENTS.md` and `docs/notes/`.
 
 ## On `main`
 
@@ -19,7 +19,7 @@ Everything built is merged except the diagnostic timing hooks on branch `soak-pr
   one twice running, each at a slightly different pitch.
 - Hit bursts (TOK!, KLAK KLAK!, KING!) at the baton's impact; SLOW MOTION flag;
   the camera's half circle round a hit in slow motion.
-- Smooth playback of throws (`AGENTS.md`, "Playback"); the Woodcut look
+- Smooth playback of throws (`docs/notes/throw.md`, "Playback"); the Woodcut look
   (`docs/design/README.md`).
 - QA tooling: the device soak (`source/soak.lua`, with a breakdown of each slow frame) and
   a self-test run that survives the Simulator's crash on quitting.
@@ -97,7 +97,7 @@ merged).
 
 Grass, sand and snow each have a texture: patches vary in friction, bounce and how far a
 landing digs in, steep landings are turned a little off line, pieces stop instead of
-creeping, nothing slides along on an end, and snow ploughs (AGENTS.md "Physics", "The
+creeping, nothing slides along on an end, and snow ploughs (docs/notes/physics.md "Physics", "The
 ground's texture"). Slide after touching down, over 400 scripted throws: grass 1.4 m, sand
 0.46, snow 1.85. Practice picks the surface in the System Menu; a match plays on its own
 surface, chosen on the match options screen before each match, with the opening (2-4-6 or
@@ -156,7 +156,7 @@ for the surface.
 ## Device testing
 
 `nolock` is no longer in the game's Data folder on Jamie's Playdate (checked 2026-11-15), so it
-auto-locks as usual. Put it back for unattended testing over USB (AGENTS.md "Measuring on the
+auto-locks as usual. Put it back for unattended testing over USB (docs/notes/performance.md "Measuring on the
 device") and delete it when the testing is done.
 
 The Playdate stopped answering over USB at about 5:00 on 2026-11-14 during a soak of the

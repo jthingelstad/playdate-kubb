@@ -1,6 +1,6 @@
 -- The throw scene: aim, wind up and flick the crank, watch the baton fly
 -- and knock kubbs over, then do it again. The throw is DESIGN 4 "the crank
--- as a clock" (AGENTS.md "The throw"): the d-pad moves the target circle
+-- as a clock" (docs/notes/throw.md "The throw"): the d-pad moves the target circle
 -- over the far half (it snaps onto a standing kubb or the king), A + d-pad
 -- walks, B + d-pad plans (up/down the arc, left/right tilt or spin), the
 -- crank alone throws. The swivel is always the plan's (core/throwplan): the
@@ -76,7 +76,7 @@ throw.tune = {
 	lineY = 0,            -- the throwing line: Team A's baseline
 	surface = "grass",    -- the practice pitch (tw.world.surfaces)
 	set = "classic",      -- the practice pitch's kubb set (render.world.SETS; a match's from its options)
-	-- The flight's pacing (AGENTS.md "Playback"). In flight the display runs
+	-- The flight's pacing (docs/notes/throw.md "Playback"). In flight the display runs
 	-- unlocked (flightRate 0: the next frame starts when this one is done)
 	-- and each frame gives the physics what is left of framePeriod after the
 	-- frame's own work (update, draw and the display, each estimated from
@@ -150,7 +150,7 @@ throw.tune = {
 --   s.drillRun           the practice drill's id during a drill run (scenes/drills),
 --                        written to the trace line
 --
--- The aim (AGENTS.md "The throw"): the target circle s.markerX, s.markerY
+-- The aim (docs/notes/throw.md "The throw"): the target circle s.markerX, s.markerY
 -- (view frame), the stance s.playerX, s.playerY (s.stanceSet once A has
 -- walked it; until then plan.stance behind the target), the plan s.release
 -- (s.arcSet once B has moved it; until then plan.arcFor the target's kind),
@@ -296,7 +296,7 @@ local function kindOf(it)
 	return "base"
 end
 
--- The aim camera for this frame (AGENTS.md "The aim camera"): first person
+-- The aim camera for this frame (docs/notes/throw.md "The aim camera"): first person
 -- (camera.aim, straight behind the thrower, looking circleBeyond past the
 -- target circle), and while B is held the plan view over the shoulder
 -- (camera.shoulder, fitted to the target half, the planned arc and the

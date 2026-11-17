@@ -3,7 +3,7 @@
 -- A replayed report from 2026-11-16, rebuilt from its geometry: a player
 -- stood 0.63 m in front of the baseline, level with a field kubb 5.9 m up the
 -- pitch, and threw the plan's clean baton (release 60, aimed at the kubb's
--- middle). AGENTS.md ("Aim") says a clean baton hits a kubb at 5.27 m every
+-- middle). docs/notes/real-games.md ("Aimed through the piece") says a clean baton hits a kubb at 5.27 m every
 -- time; each ground seed below is a different patch of turf under the
 -- landing, which must not matter for a throw that strikes the kubb in the air.
 local throws = {}

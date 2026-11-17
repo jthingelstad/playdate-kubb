@@ -12,7 +12,7 @@
 -- the ground (the contact shadow). Painter's order: shadows first (they lie
 -- on the ground), then pieces far to near by depth along the view axis.
 --
--- Speed (AGENTS.md, "Drawing speed"): on the device a Lua call costs about
+-- Speed (docs/notes/performance.md, "Drawing speed"): on the device a Lua call costs about
 -- 9 us and a graphics call 20 to 50 us, so
 -- - a frame that shows exactly what the previous one showed (same camera,
 --   no pose changed, same baton) is a copy of a cached image of the world;

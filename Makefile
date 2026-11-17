@@ -71,7 +71,7 @@ realgames:
 	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --scatter $(REAL_SCATTER) --level $(REAL_LEVEL) --out build/realgames
 	"$(NODE)" tools/realgames.mjs "$(PKSCORE)/games" build/realgames
 
-# The physics fuzzer (tools/physfuzz.lua, AGENTS.md "Physics fuzz"): N seeded
+# The physics fuzzer (tools/physfuzz.lua, docs/notes/physics-fuzz.md "Physics fuzz"): N seeded
 # throws on SURFACE through every physics check, a table and the failures'
 # clusters with a repro command each. About 0.045 s a throw on grass.
 N       := 2000
@@ -120,7 +120,7 @@ selftest: build
 	if [ -d "$(OUT)/games" ]; then "$(NODE)" tests/node/notation-gate.mjs "$(OUT)/games" || fail=1; fi; \
 	exit $$fail
 
-# The reference-engine comparison (tools/mjref, AGENTS.md "Reference engine"):
+# The reference-engine comparison (tools/mjref, docs/notes/reference-engine.md "Reference engine"):
 # the same throws through core/world and MuJoCo, the report in build/mjref.
 # MJPY is a Python with mujoco and numpy (python3 -m venv <dir>, then
 # <dir>/bin/pip install mujoco numpy; make mjref MJPY=<dir>/bin/python).

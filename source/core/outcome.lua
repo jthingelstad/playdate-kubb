@@ -1,7 +1,7 @@
 -- Physics <-> rules. Turns the rules engine's pitch (tw.rules poses, world
 -- frame) into physics pieces in the thrower's view frame (core/frame), and a
 -- finished physics throw (tw.world.result, view frame) back into the outcome
--- records the engine takes (AGENTS.md "Baton outcome", "Kubb-toss outcome").
+-- records the engine takes (docs/notes/rules-engine.md "Baton outcome", "Kubb-toss outcome").
 -- Pure Lua: no playdate.*. Not a per-frame path: once per throw.
 --
 --   local pieces = outcome.pieces(g, side)        -- what is on the pitch now

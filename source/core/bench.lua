@@ -28,7 +28,7 @@ bench.pieces = {
 -- far as 6.0 did with none (before 2026-11-16), into the same group
 bench.throw = { x = 0, lineY = 0, swivel = 0, loft = 35, speed = 6.11, tumble = 7, tilt = 0 }
 
--- A match's worst case for the bodies a throw starts with (AGENTS.md
+-- A match's worst case for the bodies a throw starts with (docs/notes/match.md
 -- "Match"): six batons and ten kubbs lying on the pitch from earlier throws
 -- of the turn, already down and asleep, away from the scenario's throw
 -- except two batons and a kubb just behind the group (the throw may reach

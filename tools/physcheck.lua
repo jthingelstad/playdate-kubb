@@ -11,7 +11,7 @@
 --   while not world.isAtRest(w) do world.step(w); mon:step() end
 --   local findings = mon:finish()   -- { { check, sub, value, t, detail }, ... }
 --
--- Checks (thresholds in physcheck.tune, each measured: AGENTS.md "Physics fuzz"):
+-- Checks (thresholds in physcheck.tune, each measured: docs/notes/physics-fuzz.md "Physics fuzz"):
 --   energy       kinetic + potential never rises from one step to the next by
 --                more than energyStep after the projectile's first contact
 --                (in flight only gravity and the air act: flightStep), nor
