@@ -68,6 +68,12 @@ function body.new(kind, id)
 		bounceStep = -1,     -- the last step it bounced off another piece (world.step's restitution)
 		cStep = -1,          -- the last step it had a contact (world.step: a body with none moves by
 		                     -- the trapezoid)
+		-- what holds it up and what it waits for before it sleeps (world.step, phase 8):
+		restStep = -1,       -- the last step it pressed on a sleeping or static piece
+		propStep = -1,       -- the last step it pressed on an awake piece, propBy
+		propBy = false,
+		mateStep = -1,       -- the last step it pressed on an awake piece, and mateMin the
+		mateMin = 0,         -- least sleep timer among those pieces (the step before)
 		-- bounding sphere radius about the center
 		radius = (k.shape == 1) and sqrt(k.hx ^ 2 + k.hy ^ 2 + k.hz ^ 2) or (k.hl + k.r),
 		-- the outcome of the throw

@@ -276,6 +276,36 @@ test("a kubb lying across a lying kubb rests on it at any angle", function()
 	end
 end)
 
+-- A piece held up only by another piece sleeps once that one is held up too
+-- (Physics fuzz, 2026-11-16: it stayed awake at 0.00 m/s for the full 12 s,
+-- because the sleep test wanted a push from the ground), and a knock on the
+-- piece under it still wakes it.
+test("a kubb resting on a lying kubb sleeps, and wakes when the one under it is knocked", function()
+	local a1, b1, c1, d1 = quat.fromAxisAngle(0, 1, 0, math.pi / 2)
+	local yw, yx, yy, yz = quat.fromAxisAngle(0, 0, 1, math.rad(90))
+	local e, f, g, h = quat.mul(yw, yx, yy, yz, a1, b1, c1, d1)
+	local w = world.new{ texture = false, stakes = false, pieces = {
+		{ id = "lo", kind = "kubb", x = 0, y = 0, qw = a1, qx = b1, qy = c1, qz = d1, z = 0.035 },
+		{ id = "hi", kind = "kubb", x = 0, y = 0, qw = e, qx = f, qy = g, qz = h, z = 0.115 },
+	} }
+	local lo, hi = w.byId.lo, w.byId.hi
+	world.wake(hi)
+	local slept
+	for _ = 1, 960 do
+		world.step(w)
+		if not hi.awake and not lo.awake then slept = w.time; break end
+	end
+	expect.truthy(slept and slept < 2, "both asleep within 2 s: " .. tostring(slept))
+	expect.near(hi.z, 0.105, 0.002, "still on the lower kubb")
+	world.wake(lo)
+	lo.vx = 3
+	world.step(w)
+	expect.truthy(hi.awake, "the knock on the lower kubb wakes the one on it")
+	for _ = 1, 480 do world.step(w) end
+	-- the lower kubb slides out from under it (about 0.5 m) and it drops
+	expect.truthy(hi.z < 0.05, string.format("it fell to the ground: z %.3f", hi.z))
+end)
+
 test("a kubb tipped into a neighbour turned on the ground does not sink into it", function()
 	local function deepest(P, Q)
 		local SX, SY, SZ = collide.SX, collide.SY, collide.SZ

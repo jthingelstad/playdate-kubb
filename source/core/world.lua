@@ -1643,6 +1643,22 @@ function world.step(w)
 				noteContact(w, a, nil, cPx[idx], cPy[idx], cPz[idx])
 			end
 		elseif r[K_LNMAX] > 0 then
+			-- what holds a piece up, for its sleep: a sleeping or static piece,
+			-- or an awake one (propBy); and an awake piece it presses on is a
+			-- mate, whose sleep timer it waits for (the sleep test below)
+			local a = r[K_A]
+			if kind == 3 then
+				a.restStep = stamp
+			else
+				local b = r[K_B]
+				a.propStep, a.propBy = stamp, b
+				b.propStep, b.propBy = stamp, a
+				local ta, tb = a.sleepTime, b.sleepTime
+				if a.mateStep ~= stamp then a.mateStep, a.mateMin = stamp, tb
+				elseif tb < a.mateMin then a.mateMin = tb end
+				if b.mateStep ~= stamp then b.mateStep, b.mateMin = stamp, ta
+				elseif ta < b.mateMin then b.mateMin = ta end
+			end
 			local other = cB[idx]
 			local first = cA[idx]
 			first.touched, other.touched = true, true
@@ -1801,9 +1817,26 @@ function world.step(w)
 			local x, y = b.x, b.y
 			if x > half + om or x < -(half + om) or y < -om or y > len + om then b.leftPitch = true end
 			local vx, vy, vz, wx, wy, wz = b.vx, b.vy, b.vz, b.wx, b.wy, b.wz
-			if vx * vx + vy * vy + vz * vz < sleepLin2 and wx * wx + wy * wy + wz * wz < sleepAng2 and gi > 0 then
-				b.sleepTime = b.sleepTime + dt
-				if b.sleepTime >= sleepTime then
+			-- held up: by the ground, by a sleeping or static piece, or by an
+			-- awake piece that is itself held up that way (a kubb lying on a
+			-- kubb never touches the ground; Physics fuzz, 2026-11-16)
+			local held = gi > 0 or b.restStep == stamp
+			if not held and b.propStep == stamp then
+				local p = b.propBy
+				held = not p.awake or p.groundImpulse > 0 or p.restStep == stamp
+			end
+			if vx * vx + vy * vy + vz * vz < sleepLin2 and wx * wx + wy * wy + wz * wz < sleepAng2 and held then
+				local st = b.sleepTime + dt
+				b.sleepTime = st
+				-- an awake piece it presses on that is still settling holds it
+				-- awake until both are ready, so they sleep in the same step: one
+				-- that slept first left the other its weight's worth of warm
+				-- started push from the ground, which kicked it and woke the
+				-- sleeper again (a leaner woke 20 times, 1:14364)
+				local ready = st >= sleepTime
+				if ready and b.mateStep == stamp and b.mateMin > 0
+					and b.mateMin + dt < sleepTime then ready = false end
+				if ready then
 					epoch = epoch + 1
 					b.awake = false
 					b.vx, b.vy, b.vz, b.wx, b.wy, b.wz = 0, 0, 0, 0, 0, 0

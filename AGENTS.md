@@ -1659,6 +1659,23 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   degrees from upright, the king past about 17). `world.step` applies it when a box goes to
   sleep, never while it is still rocking; `world.result` applies it to anything still moving
   when the throw ran out of time; `world.add` applies it to a piece placed already leaning.
+- Sleep (`world.step`, phase 8): a piece sleeps once it has moved slower than the sleep
+  thresholds for `sleepTime` while held up. Held up means one of these, in that step:
+  - it pressed on the ground;
+  - it pressed on a sleeping or static piece (`b.restStep`);
+  - it pressed on an awake piece that is itself on the ground or on a sleeping or static
+    piece, or asleep (`b.propStep`, `b.propBy`).
+
+  Until 2026-11-16 only the ground counted, so a kubb lying flat on a lying kubb stayed
+  awake at 0.00 m/s for the full 12 s. Pieces pressing on each other also wait for each
+  other: one that is ready waits while an awake piece it presses on (`b.mateStep`,
+  `b.mateMin`, the least of their sleep timers) still needs more than a step, so they sleep
+  in the same step. One that slept first left the other the warm started push from the
+  ground for their shared weight, which kicked it and woke the sleeper again (a kubb woke
+  6 times and the baton on it 5, until 11.8 s; 1:1658). A piece knocked later still wakes
+  everything it touches (`test_physics`: "a kubb resting on a lying kubb sleeps, and wakes
+  when the one under it is knocked"). The record is three numbers and a reference on each
+  body, set in the store loop: no tables in the step.
 - `core/playback`: compute ahead and play back. Poses are recorded every 1/50 s of
   simulated time (per body, only from the first frame it moved); the screen shows any time
   between two records (`playback.poseAt` interpolates) at the pace of "Playback" below.
@@ -2226,10 +2243,10 @@ no extra work for it.
   | defect | check | grass | sand | snow | repro | real? | fix |
   |---|---|---|---|---|---|---|---|
   | a baton sinks into a kubb or the king | penetration | 4.7% | 4.1% | 4.5% | 1:66, 1:5977 (66 mm) | real | fixed 2026-11-16: `capsuleBox` clips to the feature |
-  | a piece resting on a piece never sleeps | rest, no rest | 0.92% | 0.91% | 0.85% | 1:10 | real | sleep on pair support, small |
+  | a piece resting on a piece never sleeps | rest, no rest | 0.92% | 0.91% | 0.85% | 1:10 | real | fixed 2026-11-16: sleep on a resting support |
   | 240 Hz disagrees with 480 Hz | dt | 0.86% | 0.91% | 1.15% | 1:433 | step-size error | accepted |
   | energy rises with an overlap (the push) | energy | about 0.45% | 0.45% | 0.22% | 1:645, 1:6360 | real, same overlap | fixed with the first |
-  | a resting kubb keeps being woken | rest, wake cycles | 0.26% | 0.54% | 0.20% | 1:14364 (21 times) | real | sleep hysteresis, small |
+  | a resting kubb keeps being woken | rest, wake cycles | 0.26% | 0.54% | 0.20% | 1:14364 (21 times) | real | mostly fixed with the one above; a baton's creep is left |
   | a baton dips into the ground | penetration ground | 0.08% | 0.55% | under 0.1% | 1:846, 1:5548 | real | ground margin from spin, small |
   | a pair bounce adds energy | energy | 0.03% | 0.32% | under 0.1% | 1:2106 (0.38 J), sand 1:1921 (0.83 J) | real | bound the pair's bounce, small to medium |
   | the mirror disagrees | mirror | 0.04% | 0.09% | 0% | 1:19670 | solver order | accepted |
@@ -2309,7 +2326,28 @@ no extra work for it.
       `groundImpulse > 0`.
     - The throw is judged right, because `world.result` applies the leaner rule. It just
       runs the full 12 s (2880 steps).
-    - Fix: count a pair contact's support as well. Small.
+    - Fixed 2026-11-16 (Physics, "Sleep"): a piece held up by a sleeping or static piece,
+      or by an awake one that is on the ground, sleeps; pieces pressing on each other
+      sleep in the same step. Pinned: `kubb-on-kubb-sleeps` (1:64, 12 s -> 1.35 s) and
+      `kubbs-stay-asleep` (1:1658: woke 6 times until 11.8 s -> none, 1.31 s).
+    - Measured on main at 21519af (seed 1, realistic rates, before -> after):
+
+      | check | grass (2000) | sand (1000) | snow (1000) |
+      |---|---|---|---|
+      | rest | 1.27 -> 0.19% | 0.98 -> 0.25% | 0.80 -> 0.18% |
+      | any | 3.40 -> 2.31% | 3.84 -> 3.10% | 3.17 -> 2.56% |
+
+      Every "no rest" is gone (grass 0.87%, sand 0.73%, snow 0.61%). Wake cycles of a
+      kubb drop from 5 to 3 throws on grass and stay at 2 on sand and 1 on snow; what is
+      left is a kubb a creeping baton keeps touching (below). The other checks are
+      unchanged.
+    - Throws that ended in one of these now end at about 1.3 s instead of 12. In matches
+      the effect is small, because few throws met it: `tools/throwprof.lua --n 20` gives
+      415 -> 409 steps a throw (the games diverge, so that is within their noise), and the
+      slow tail stays at 17% of steps. 150 physics matches (`make realgames`): 20.2 ->
+      19.9 turns a game; two or more per hit 16.0 -> 16.9%, cleared every field kubb 61.9
+      -> 63.6%, king toppled 94.9 -> 93.7%: within noise. `make bench` is unchanged (lone
+      0.001, air 0.005, ground 0.011, multi 0.017 ms).
   - **Energy climbs while a baton lies against a kubb** (aim at 3 m: up to 26 mJ, 1:645).
     - The baton slides into the kubb and the push apart adds the energy back, mJ by mJ.
     - It is the same overlap as the first defect, seen through the push. On main before
