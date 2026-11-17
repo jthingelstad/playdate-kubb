@@ -20,14 +20,14 @@ written, with what pass 2 changed in it under "Pass 2 against pass 1".
   frame, so the ground is a calibrated ruler, and nothing is cut or chosen for its result.
   The 2026 video of the series was skipped.
 
-  | Video | Segments (calibrations) | Drills | Batons | Into a group | Events |
-  |---|---|---|---|---|---|
-  | [RTK6pMfhLZk](https://www.youtube.com/watch?v=RTK6pMfhLZk) | A, A2, B, C | 22 | 14 | 7 | 43 |
-  | [hR18YZf5xp8](https://www.youtube.com/watch?v=hR18YZf5xp8) | A, B | 41 | 14 | 2 | 57 |
-  | [SbjUuNI_rlQ](https://www.youtube.com/watch?v=SbjUuNI_rlQ) | A, A2 | 17 | 13 | 3 | 33 |
-  | [RGfefP5-hjQ](https://www.youtube.com/watch?v=RGfefP5-hjQ) | A0, A, B | 15 | 14 | 1 | 30 |
-  | [o8l4InhmxsU](https://www.youtube.com/watch?v=o8l4InhmxsU) | A, A2, B | 24 | 10 | 1 | 35 |
-  | all | | 119 | 65 | 14 | 198 |
+  | Video | Segments (calibrations) | Drills | Batons | Into a group | Baton sequences | Events |
+  |---|---|---|---|---|---|---|
+  | [RTK6pMfhLZk](https://www.youtube.com/watch?v=RTK6pMfhLZk) | A, A2, B, C | 22 | 14 | 7 | | 43 |
+  | [hR18YZf5xp8](https://www.youtube.com/watch?v=hR18YZf5xp8) | A, B | 41 | 11 | 2 | 3 | 57 |
+  | [SbjUuNI_rlQ](https://www.youtube.com/watch?v=SbjUuNI_rlQ) | A, A2 | 17 | 13 | 3 | | 33 |
+  | [RGfefP5-hjQ](https://www.youtube.com/watch?v=RGfefP5-hjQ) | A0, A, B | 15 | 14 | 1 | | 30 |
+  | [o8l4InhmxsU](https://www.youtube.com/watch?v=o8l4InhmxsU) | A, A2, B | 24 | 10 | 1 | | 35 |
+  | all | | 119 | 62 | 14 | 3 | 198 |
 
   Every record has `setup: "cage camera"` and its `segment`; `t` is seconds into the video.
 - Measured: the near half only (y 0 to about 4.3 m from the camera's baseline), where the
@@ -74,9 +74,11 @@ copy is not in the repository.
 The nine tight-group hits (time, kubbs fell of the group): RTK6 578.5 1 of 5, 592.13 2 of
 4, 596.53 2 of 2 (the same cluster three times, so not independent), 260.88 3 of 4; hR18
 181.65 3 of 3; SbjU 755.07 2 of 6, 760.57 3 of 4 (4 of 5 with a kubb beside it), 1166.6 3
-of 4; o8l4 430.85 5 of 8. Three more hR18 groups whose gaps could not be measured fell 4
-of 4, 4 of 4 and 7 of 7. Wider groups (7 to 18 cm): 2 of 4, 2 of 2, 2 of 2, 1 of 2, 3 of
-3, 2 of 4.
+of 4; o8l4 430.85 5 of 8. Not in these counts: three hR18 groups (4, 4 and about 7
+kubbs) cleared over several batons of one turn (`category: "baton sequence"`, turn totals,
+not single throws). Wider groups (7 to 18 cm): 2 of 4, 2 of 2, 2 of 2, 1 of 2, 3 of
+3; and RGfef 479.03, a pair 4 cm apart (1 of 2 fell) that slid into a touching pair 12 cm
+away (1 of 2 fell), 2 of 4 in all.
 
 ### Pass 2 against pass 1
 
