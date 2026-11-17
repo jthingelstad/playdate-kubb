@@ -4,8 +4,8 @@
 --
 -- traces.jsonl is written by the game when "Record crank" is on in the System
 -- Menu: in the Simulator at
--- ~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/traces.jsonl,
--- on the device in Data/com.thingelstad.throwingwood/ (Data Disk mode).
+-- ~/Developer/PlaydateSDK/Disk/Data/com.throwingwood.playdate/traces.jsonl,
+-- on the device in Data/com.throwingwood.playdate/ (Data Disk mode).
 -- Each line prints what the game recorded and what today's swing tunables
 -- make of the same samples, so a tuning change can be checked against real
 -- throws. The swing that wrote the line is in brackets ("clock", "stop", or

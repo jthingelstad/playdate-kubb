@@ -12,7 +12,7 @@ the 2017 Planet Kubb glossary, and Inside Playdate for SDK 3.1.2.
 ## 1. What it is
 
 - Title "Kubb: Throwing Wood", repo `~/Projects/playdate-kubb`, bundle
-  `com.thingelstad.throwingwood`, Lua, SDK 3.1.2. A plain Kubb game.
+  `com.throwingwood.playdate`, Lua, SDK 3.1.2. A plain Kubb game.
 - Modes: Practice (drills), Versus Computer, Pass and Play.
 - The crank is the throwing arm. Outcomes come from a physics simulation at real dimensions,
   not from dice.
@@ -566,7 +566,7 @@ with the Playdate keyboard; the id is the lowercased name with anything but lett
 (`j` style ids if two names collide). The computer is team "Playdate" with the level as its
 player. On the device, a Games list opens a scoresheet view of any saved game with hit % and
 efficiency. Files are read off the device in Data Disk mode, and in the Simulator from
-`~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/games/`. Optional extra: a QR
+`~/Developer/PlaydateSDK/Disk/Data/com.throwingwood.playdate/games/`. Optional extra: a QR
 code that opens the game in the Planet Kubb Score stats page.
 
 **Q6. Practice drills.** *Recommendation:* five. 8 Meters (six batons at five base kubbs, hit
