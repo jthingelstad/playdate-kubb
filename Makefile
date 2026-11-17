@@ -108,6 +108,21 @@ selftest: build
 	if [ -d "$(OUT)/games" ]; then "$(NODE)" tests/node/notation-gate.mjs "$(OUT)/games" || fail=1; fi; \
 	exit $$fail
 
+# The reference-engine comparison (tools/mjref, AGENTS.md "Reference engine"):
+# the same throws through core/world and MuJoCo, the report in build/mjref.
+# MJPY is a Python with mujoco and numpy (python3 -m venv <dir>, then
+# <dir>/bin/pip install mujoco numpy; make mjref MJPY=<dir>/bin/python).
+MJPY  ?= python3
+MJREF := build/mjref
+
+.PHONY: mjref
+mjref:
+	@mkdir -p $(MJREF)
+	"$(LUA)" tools/mjref/export.lua $(MJREF)
+	"$(LUA)" tools/mjref/ours.lua $(MJREF)
+	"$(MJPY)" tools/mjref/mjsim.py $(MJREF)
+	"$(MJPY)" tools/mjref/compare.py $(MJREF)
+
 # The physics benchmark on the desktop (the device runs the same scenario from
 # the System Menu "Bench" item).
 bench:
