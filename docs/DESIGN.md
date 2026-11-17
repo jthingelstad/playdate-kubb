@@ -271,7 +271,9 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
 - **Kubbs and king:** boxes. Ground contact at the eight corners with friction and low
   restitution; a bounce between two pieces is solved with their footing. Tipping about an
   edge, rocking back upright, and falling are all the same contact solver, not a state
-  machine. A standing kubb sleeps until something touches it.
+  machine. A standing kubb sleeps until something touches it. A piece at rest on another
+  piece sleeps too, once what holds it up is asleep or on the ground, and pieces resting on
+  each other fall asleep together (2026-11-16).
 - **Collisions:** capsule against box (closest point on the segment to the box, the box's
   edges rounded by a centimetre: wood is never a knife edge, and a baton that clips a kubb's
   top edge tips it rather than pressing it into the grass; Tyler's play test, 2026-11-15;
