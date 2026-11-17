@@ -1882,10 +1882,16 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     point is within the margin, the segment is clipped to the feature that point is on (a
     face spans two of the box's axes, a rounded edge one, a corner none), and each end of
     the clipped piece more than `CLIP_GAP` (4 cm) from the closest point gets its own
-    `sphereBox`: two or three contacts along a face, never a contact off the box. A
-    contact whose closest point is beyond the margin returns at once, so the clip costs
-    nothing in flight. The two repros now reach 2.3 and 6.7 mm. A gap of 10 cm left
-    1.25% penetration in a quick fuzz against 0.50% at 4 cm.
+    `sphereBox`: two or three contacts along a face, never a contact off the box. The
+    closest point is found on the box less its rounding (as `sphereBox` meets it), and
+    either end of the baton is taken instead when it is nearer: for a baton nearly
+    parallel to the box the projection creeps, and Codex (PR #139) found an end 2.3 mm
+    into the king's rounded edge while the projected point was 5.9 mm clear. A baton
+    whose nearest point is beyond the margin returns at once, so flight costs no more.
+    The two repros now reach 3.1 and 0.2 mm. A gap of 10 cm left
+    1.25% penetration in a quick fuzz against 0.50% at 4 cm. More kubbs fall to one
+    baton: in four `compound` matches 14.5% of batons took two or more, from 11.4%, and
+    four kubbs one behind the other fell three deep 15.6% of the time, from 7.7%.
   - **The bounce.** The restitution passes act on the contacts that bounce and nothing else,
     so a baton's bounce off a standing kubb was applied with nothing holding the kubb's
     footing: part of it drove the kubb into the grass and the ground threw it up the next
@@ -2249,8 +2255,8 @@ no extra work for it.
   - **The tilt grid.** Tilt is monotonic and mirrored on every surface. It sends the baton
     0.33 to 0.51 cm a degree across the line, and hits stay at 78 to 83%. Penetration shows
     up in 8.7% of these throws, more than in the fuzz, because every one strikes a lone kubb
-    squarely. It is the first defect again. With it fixed, penetration shows up in 1.8%
-    (grass 9.6 -> 1.8%, sand 5.7 -> 2.2%, snow 10.7 -> 1.6%).
+    squarely. It is the first defect again. With it fixed, penetration shows up in 1.1%
+    (grass 9.6 -> 1.0%, sand 5.7 -> 1.2%, snow 10.7 -> 0.9%).
 
   - **A baton sinks into a kubb or the king** (4.7% of all throws; up to 66 mm into the
     king, 1:5977; most last 0.02 to 0.05 s).
@@ -2269,14 +2275,13 @@ no extra work for it.
 
       | check | grass (2000) | sand (1000) | snow (1000) |
       |---|---|---|---|
-      | penetration | 3.89 -> 0.96% | 4.52 -> 1.11% | 4.34 -> 0.49% |
-      | energy | 0.62 -> 0.07% | 0.68 -> 0.31% | 0.31 -> 0.06% |
-      | rest | 1.21 -> 1.30% | 0.80 -> 1.11% | 0.98 -> 0.74% |
-      | any | 6.42 -> 3.40% | 6.80 -> 3.70% | 6.56 -> 2.34% |
+      | penetration | 3.89 -> 0.65% | 4.52 -> 0.92% | 4.34 -> 0.43% |
+      | energy | 0.62 -> 0.07% | 0.68 -> 0.18% | 0.31 -> 0% |
+      | rest | 1.21 -> 1.70% | 0.80 -> 1.48% | 0.98 -> 0.62% |
+      | any | 6.42 -> 3.51% | 6.80 -> 4.13% | 6.56 -> 2.58% |
 
-    - What is left is mostly a fast-spinning baton entering the king or a kubb in one
-      step (3:356, 15.5 mm): the contacts are points on the baton as it was, and the
-      spin carries its end past them. Rest rises a little on grass and sand: a kubb a
+    - Of the penetration left on grass, half is the baton dipping into the ground (its
+      own defect below); into a kubb or the king it is 0.3%. Rest rises a little on grass and sand: a kubb a
       baton now rests on, instead of sinking into, keeps waking (wake cycles), which the
       sleep fix below clears.
   - **A kubb gains energy in a pair bounce** (drilled kubbs into groups, more often when

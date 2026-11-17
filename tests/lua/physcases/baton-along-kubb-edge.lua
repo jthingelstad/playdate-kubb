@@ -6,7 +6,7 @@
 -- closest point; the baton turned about it and the next steps found the
 -- segment deeper further along: 18.9 mm inside for 0.02 s. With the
 -- stretch along the edge clipped to the kubb and a contact at each end, the
--- deepest is 2.3 mm. It must topple f1, cleanly.
+-- deepest is 3.1 mm. It must topple f1, cleanly.
 return {
 	name = "baton along a box sinks in (1:66)",
 	surface = "grass",

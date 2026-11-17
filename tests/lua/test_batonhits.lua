@@ -57,6 +57,24 @@ test("baton hits: a baton meets a kubb's edges rounded (collide.tune.batonRound)
 	expect.near(nz0, 1, 1e-9, "square: straight up")
 end)
 
+-- Codex on PR #139: for a baton nearly parallel to the king's rounded edge
+-- the projection that finds the closest point creeps, and stopped 5.9 mm
+-- clear while an end was 2.3 mm in. The nearer end must be the contact.
+test("baton hits: an end touching a rounded edge is a contact when the closest point is not", function()
+	local sx, sy, sz, dx, dy, dz = -0.045, 0.063, -0.128, 0, 0.02, 0.2552175543
+	local L = sqrt(dx * dx + dy * dy + dz * dz)
+	local A = { hl = L / 2, r = 0.022, x = sx + dx / 2, y = sy + dy / 2, z = sz + dz / 2,
+		r13 = dx / L, r23 = dy / L, r33 = dz / L, static = false }
+	local B = { x = 0, y = 0, z = 0, r11 = 1, r12 = 0, r13 = 0, r21 = 0, r22 = 1, r23 = 0,
+		r31 = 0, r32 = 0, r33 = 1, hx = 0.045, hy = 0.045, hz = 0.15 }
+	local C = collide.C
+	C.n = 0
+	expect.truthy(collide.capsuleBox(A, B, 0.004), "found")
+	local n = C.n
+	C.n = 0
+	expect.eq(n, 1, "one contact, at the end")
+end)
+
 test("baton hits: a fast baton that clips a kubb's top edge tips it over", function()
 	-- loft 23 carried to 7.6 to 7.8 m: it skips off the grass and catches the
 	-- kubb's top; with square edges a fast one slid over and left it standing.

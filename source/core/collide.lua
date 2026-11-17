@@ -670,7 +670,10 @@ function collide.capsuleBox(A, B, margin)
 	local uy = r12 * dx + r22 * dy + r32 * dz - p1y
 	local uz = r13 * dx + r23 * dy + r33 * dz - p1z
 	local uu = ux * ux + uy * uy + uz * uz
-	local hx, hy, hz = B.hx, B.hy, B.hz
+	-- the box as sphereBox meets it: its half sides less the rounding
+	local br = ROUND.batonRound
+	if A.static then br = 0 end
+	local hx, hy, hz = B.hx - br, B.hy - br, B.hz - br
 	-- closest points by alternating projection (segment <-> box), starting
 	-- from the segment point nearest the box center
 	local t = -(p1x * ux + p1y * uy + p1z * uz) / uu
@@ -686,17 +689,37 @@ function collide.capsuleBox(A, B, margin)
 		if dt_ < 1e-4 and dt_ > -1e-4 then t = nt break end
 		t = nt
 	end
+	-- the projection creeps when the baton lies nearly parallel to the box,
+	-- so an end can be nearer than where it stopped: take the nearest of
+	-- the three (Codex on PR #139: an end 2.3 mm into the king's rounded
+	-- edge, the projected point 5.9 mm clear)
+	local sx, sy, sz = p1x + ux * t, p1y + uy * t, p1z + uz * t
+	local qx = sx > hx and hx or (sx < -hx and -hx or sx)
+	local qy = sy > hy and hy or (sy < -hy and -hy or sy)
+	local qz = sz > hz and hz or (sz < -hz and -hz or sz)
+	local best = (sx - qx) * (sx - qx) + (sy - qy) * (sy - qy) + (sz - qz) * (sz - qz)
+	if t > 0 then
+		qx = p1x > hx and hx or (p1x < -hx and -hx or p1x)
+		qy = p1y > hy and hy or (p1y < -hy and -hy or p1y)
+		qz = p1z > hz and hz or (p1z < -hz and -hz or p1z)
+		local d2 = (p1x - qx) * (p1x - qx) + (p1y - qy) * (p1y - qy) + (p1z - qz) * (p1z - qz)
+		if d2 < best then best, t = d2, 0 end
+	end
+	if t < 1 then
+		sx, sy, sz = p1x + ux, p1y + uy, p1z + uz
+		qx = sx > hx and hx or (sx < -hx and -hx or sx)
+		qy = sy > hy and hy or (sy < -hy and -hy or sy)
+		qz = sz > hz and hz or (sz < -hz and -hz or sz)
+		if (sx - qx) * (sx - qx) + (sy - qy) * (sy - qy) + (sz - qz) * (sz - qz) < best then t = 1 end
+	end
 	-- the closest pair; nothing nearer than the margin, no contact at all
 	if not sphereBox(A, B, x1 + 2 * ax * t, y1 + 2 * ay * t, z1 + 2 * az * t, r, margin) then
 		return false
 	end
-	-- the stretch [lo, hi] of the segment within the feature's extent (the
-	-- box's half sides less the rounding, as sphereBox meets it)
-	local br = ROUND.batonRound
-	if A.static then br = 0 end
+	-- the stretch [lo, hi] of the segment within the feature's extent
 	local lo, hi = 0, 1
 	if SNX == 0 then
-		local e = hx - br
+		local e = hx
 		if ux > 1e-12 or ux < -1e-12 then
 			local ta, tb = (-e - p1x) / ux, (e - p1x) / ux
 			if ta > tb then ta, tb = tb, ta end
@@ -705,7 +728,7 @@ function collide.capsuleBox(A, B, margin)
 		end
 	end
 	if SNY == 0 then
-		local e = hy - br
+		local e = hy
 		if uy > 1e-12 or uy < -1e-12 then
 			local ta, tb = (-e - p1y) / uy, (e - p1y) / uy
 			if ta > tb then ta, tb = tb, ta end
@@ -714,7 +737,7 @@ function collide.capsuleBox(A, B, margin)
 		end
 	end
 	if SNZ == 0 then
-		local e = hz - br
+		local e = hz
 		if uz > 1e-12 or uz < -1e-12 then
 			local ta, tb = (-e - p1z) / uz, (e - p1z) / uz
 			if ta > tb then ta, tb = tb, ta end
