@@ -441,9 +441,8 @@ are the computer at club level against itself.
   engine's figures, with intervals and a ranked list of where the engine sits outside.
   Pass 2 (198 events, a tournament cage camera calibrated by a homography on the painted
   lines, engine at `3703fe4`): a real drill on grass moves a median 0.22 m from its first
-  touch to rest (61% under 0.3 m) against the engine's 0.88 m (4%), and comes to rest in
-  0.37 s against 0.78; touching groups do not all fall (every kubb 2 hits in 9), which
-  withdraws pass 1's 16 of 16.
+  touch to rest (61% under 0.3 m) against the engine's 0.88 m (4%); touching groups do not
+  all fall (every kubb 2 hits in 9), which withdraws pass 1's 16 of 16.
 
 ### How tight the groups are
 

@@ -44,12 +44,15 @@ Intervals are 95% Wilson intervals on the counts. Engine figures are at commit `
 ("Free flight lands where it is aimed", main on 2026-11-16, after the physics audit):
 `tools/drillscatter.lua --only 3` (the plan's clean drill, 12 markers x 24 grounds, grass
 at half past 1, loft 47), `tools/batonprobe.lua --quick` and `tools/compound.lua --quick`.
-The engine's drill run-on is unsigned (the distance from the first touch to rest); its signed
-figure along the throw is from a scratch copy of part 3 that also printed it (grass, loft
-47; the unsigned figures it printed are the tool's to the digit). Struck-kubb travel in the
-engine is from a scratch copy of batonprobe's sweep that also
-printed the distance from the kubb's start (0, 8) to its rest for every toppled kubb; neither
-copy is in the repository.
+The engine's drill run-on is unsigned (the distance from the first touch to rest); its
+signed figure along the throw is from a scratch copy of part 3 that also printed it
+(grass, loft 47; the unsigned figures it printed are the tool's to the digit). The same
+copy timed the drill from its first touch to its last visible motion (the last step its
+centre was over 1 cm from its rest or its long axis over 3 degrees from it), as a camera
+sees it: the tool's own time runs to `world.isAtRest`, which waits `world.tune.sleepTime`
+(0.25 s) of stillness first. Struck-kubb travel in the engine is from a scratch copy of
+batonprobe's sweep that also printed the distance from the kubb's start (0, 8) to its rest
+for every toppled kubb; neither copy is in the repository.
 
 | Quantity | Real (pass 2) | Engine at `3703fe4` | Inside? |
 |---|---|---|---|
@@ -59,7 +62,7 @@ copy is in the repository.
 | The same, drills that touched nothing | median 0.16 m; under 0.3 m 22 of 31 (71%, 53-84%) | as above (the clean drill touches nothing) | **No** |
 | Drill run-on along the throw (signed: below 0 is back toward the thrower) | median 0.02 m, p10 -0.16, p90 0.29, -0.33 to 0.78 (n 73, each +-0.07 to 0.31) | p10 0.38 m, p50 0.88, p90 1.55, -0.01 to 2.58 | **No** |
 | Drill ends behind its first touch (signed run-on below 0) | 34 of 73 (47%, 36-58%) | 1 of 288 (0.3%, 0-2%) | **No** |
-| Drill time, first touch to rest | median 0.37 s, mean 0.39, max 0.74 (n 69) | mean 0.78 s, max 1.64 | **No** |
+| Drill time, first touch to last visible motion | median 0.37 s, p10 0.20, p90 0.64, max 0.74 (n 69); over 0.78 s 0 of 69 (0-5%) | median 0.43 s, p10 0.27, p90 0.78, max 1.36 (moving under 1 cm and 3 deg after it); the tool's 0.78 s mean adds the 0.25 s sleep wait | Close; the engine's tail is longer |
 | Drill first touches on an end or corner | 40 of 54 seen (74%, 61-84%) | nose down 47 deg at the touch | Plausible; not a count |
 | Drill bounces before rest | 0 in 39, 1 in 16, never 2 or more | not counted by a tool | Not compared |
 | Drill rests standing on an end | 1 of 89 (1%, 0-6%) | grass 0% (rest flat 100%) | Yes |
@@ -106,8 +109,8 @@ of 2 fell), 2 of 4 in all.
   pass 2's median is 0.52 m and the share under 0.3 m (28%) is the engine's to the point.
 - **Overturns: drills on an end.** Pass 1 had 1 of 9 grass drills resting on an end and
   ranked the engine's 0% third; pass 2 has 1 of 89, so the engine is inside. Withdrawn.
-- New: a real drill ends behind its first touch about half the time (47%), and comes to
-  rest in about 0.4 s.
+- New: a real drill ends behind its first touch about half the time (47%), and stops
+  moving about 0.4 s after it (the engine's clean drill 0.43 s, timed the same way).
 
 ### Where the engine sits outside, ranked
 
@@ -123,17 +126,14 @@ Most confident first. None of these changes anything in `source/`.
    drill's tumble at the touch (`world.launchDrill`, `world.aeroTurn`). Pass 1's direction
    stands, now with a number: a real drill landing on an end loses nearly all of its
    forward speed at the touch.
-2. **The drill's time to rest.** Real median 0.37 s (max 0.74); engine mean 0.78 s (max
-   1.64). The same cause as 1 seen from the clock: the real kubb is dead within a dozen
-   frames.
-3. **Drills end behind their first touch.** 47% of real drills rest behind where they
+2. **Drills end behind their first touch.** 47% of real drills rest behind where they
    first touched (median -0.01 m on an end, -0.06 m flat): the kubb lands on its leading
    end and falls back over it. The engine's clean drill does 1 time in 288 (signed p10
    +0.38 m). Fixing 1 may fix this; check it as its own count.
-4. **The struck kubb's tail.** The median and the share under 0.3 m match; the engine's
+3. **The struck kubb's tail.** The median and the share under 0.3 m match; the engine's
    p90 (2.26 m) and maximum (6.2 m) run past the real maximum (2.39 m, n 25). Weak: the
    engine's figure is a lone kubb from 8 m, the real ones are field kubbs from 3 to 6 m.
-5. **Touched another kubb** (61% real against 43%): not a physics gap. The real drills aim
+4. **Touched another kubb** (61% real against 43%): not a physics gap. The real drills aim
    at piles; the figure is the throwers', and the engine number is from pass 1's main.
 
 ### Methods, pass 2
