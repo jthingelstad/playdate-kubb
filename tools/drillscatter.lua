@@ -351,6 +351,10 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 	for _, loft in ipairs { 47, 30 } do
 		local rel, tch, turned, run, rest, ttr, along = acc(), acc(), acc(), acc(), acc(), acc(), acc()
 		local runs, dead, flat, onEnd, other, worstT = {}, 0, 0, 0, 0, 0
+		-- REALCLIPS's measures: signed run on along the throw, and the time from
+		-- the touch to the last step the centre was over 1 cm from its rest or
+		-- the long axis over 3 degrees from it (as a camera sees it)
+		local signed, seen, under30, over43, behind = {}, {}, 0, 0, 0
 		local yaw = { 0, 0, 0 }
 		for _, my in ipairs(MY) do
 			for _, mx in ipairs(MX) do
@@ -363,6 +367,7 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 					local n0 = deg(asin(-b.r33))
 					local ax0, ay0, az0 = b.r13, b.r23, b.r33
 					local land, n1, t1, ax1, ay1, az1
+					local tx, ty, ta1, ta2, ta3, tt = {}, {}, {}, {}, {}, {}
 					while not world.isAtRest(w) do
 						local az = b.r33
 						local qx, qy, qz = b.r13, b.r23, b.r33
@@ -372,13 +377,30 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 							n1 = deg(asin(-az))
 							ax1, ay1, az1 = qx, qy, qz
 						end
+						if land then
+							local k = #tx + 1
+							tx[k], ty[k], ta1[k], ta2[k], ta3[k], tt[k] = b.x, b.y, b.r13, b.r23, b.r33, w.time
+						end
 					end
+					local last = t1
+					for k = #tx, 1, -1 do
+						local c = abs(ta1[k] * b.r13 + ta2[k] * b.r23 + ta3[k] * b.r33)
+						if (tx[k] - b.x) ^ 2 + (ty[k] - b.y) ^ 2 > 0.0001 or c < math.cos(math.rad(3)) then
+							last = tt[k]; break
+						end
+					end
+					seen[#seen + 1] = last - t1
 					add(rel, n0); add(tch, n1)
 					local dot = ax0 * ax1 + ay0 * ay1 + az0 * az1
 					if dot > 1 then dot = 1 elseif dot < -1 then dot = -1 end
 					add(turned, deg(math.acos(dot)))
 					local d = sqrt((b.x - land.x) ^ 2 + (b.y - land.y) ^ 2)
 					add(run, d); runs[#runs + 1] = d
+					local sa = (b.x - land.x) * math.sin(sol.swivel) + (b.y - land.y) * math.cos(sol.swivel)
+					signed[#signed + 1] = sa
+					if d < 0.3 then under30 = under30 + 1 end
+					if d >= 0.43 then over43 = over43 + 1 end
+					if sa < 0 then behind = behind + 1 end
 					if d < 0.05 then dead = dead + 1 end
 					add(rest, sqrt((b.x - mx) ^ 2 + (b.y - my) ^ 2))
 					add(along, (b.x - mx) * math.sin(sol.swivel) + (b.y - my) * math.cos(sol.swivel))
@@ -406,6 +428,11 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 			cm(mean(rest)), cm(mean(along)), 100 * flat / N, 100 * onEnd / N, 100 * other / N,
 			100 * yaw[1] / math.max(1, ny), 100 * yaw[2] / math.max(1, ny), 100 * yaw[3] / math.max(1, ny),
 			mean(ttr), worstT))
+		table.sort(signed); table.sort(seen)
+		local function qq(t, p) return t[math.max(1, math.floor(p * #t + 0.5))] end
+		print(fmt("          REALCLIPS: run on under 0.3 m %.0f%%, 0.43 m or more %.0f%%; along the throw p10 %+.2f p50 %+.2f p90 %+.2f m, behind its touch %.1f%%; last visible motion p10 %.2f p50 %.2f p90 %.2f max %.2f s",
+			100 * under30 / N, 100 * over43 / N, qq(signed, 0.1), qq(signed, 0.5), qq(signed, 0.9), 100 * behind / N,
+			qq(seen, 0.1), qq(seen, 0.5), qq(seen, 0.9), seen[#seen]))
 	end
 	end
 end

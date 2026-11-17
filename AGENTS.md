@@ -1780,9 +1780,13 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   - a clean drill runs on less and spreads wider for its length ("Drilling", "On the
     ground"): grass at half past 1 median 0.68 m, p10 0.17, p90 1.44 (was 0.88 / 0.44 /
     1.53), loft 30 median 1.26 (1.38); sand median 0.15 and 0.35 (0.19 and 0.37), dead
-    stops 26% at half past 1 (11%). That is the way `docs/reference/REALCLIPS.md`'s first
-    item points (real drills near a group stopped within a kubb length or two), still well
-    short of it. BLAST and THE WALL score less for a clean drill ("Practice
+    stops 26% at half past 1 (11%). Against `docs/reference/REALCLIPS.md` pass 2 (119
+    tournament drills; `tools/drillscatter.lua --only 3` now prints its measures), grass
+    at half past 1, real / before / after: run on any direction median 0.22 / 0.88 /
+    0.68 m; under 0.3 m 61% / 4% / 19%; 0.43 m or more 13% / 91% / 68%; along the throw
+    median +0.02 / +0.86 / +0.57 m, p10 -0.16 / +0.38 / +0.12; behind the touch 11%
+    (clearly) / 0.3% / 1.0% (at all); last visible motion median 0.37 / 0.42 / 0.50 s.
+    About a third of the gap in the median; the rest is the next item. BLAST and THE WALL score less for a clean drill ("Practice
     drills");
   - struck kubbs slide less, and touching rows fall less from one baton:
     `tools/compound.lua --quick`, four in a line face to face, one or more down 75.3%
