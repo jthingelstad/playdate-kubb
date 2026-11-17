@@ -143,7 +143,7 @@ function physcheck.monitor(w, opts)
 	local t = physcheck.tune
 	local m = {
 		w = w, worst = {}, order = {},
-		e = world.energy(w), eMin = nil, pairRuns = {}, groundRuns = {}, over = {},
+		e = world.energy(w), eMin = nil, pairRuns = {}, groundRuns = {}, over = {}, seenAwake = {},
 		vMax = speedLimit(opts.launchSpeed or 10),
 		slow = {}, asleep = {}, cycles = {},
 	}
@@ -242,12 +242,15 @@ function physcheck.monitor(w, opts)
 		for i = 1, w.n do
 			local b = bodies[i]
 			if not b.static then
-				if b.awake and m.asleep[i] and b.everAwake and w.steps > 1 then
+				-- (a reawakening: the monitor saw it awake in an earlier step; the
+				-- first time a resting layout piece is struck is not a cycle)
+				if b.awake and m.asleep[i] and m.seenAwake[i] then
 					m.cycles[i] = (m.cycles[i] or 0) + 1
 					if m.cycles[i] > t.wakeCycles then note("rest", "wake cycles " .. b.kind, m.cycles[i],
 						string.format("%s fell asleep and woke %d times", b.id, m.cycles[i])) end
 				end
 				m.asleep[i] = not b.awake
+				if b.awake then m.seenAwake[i] = true end
 				local s = m.slow[i]
 				if b.awake then
 					local v2 = b.vx * b.vx + b.vy * b.vy + b.vz * b.vz
