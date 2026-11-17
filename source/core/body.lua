@@ -66,6 +66,8 @@ function body.new(kind, id)
 		awake = false, sleepTime = 0, everAwake = false,
 		wokeStep = -1,       -- the step a touch woke it in (world.step wakes the group it rests against)
 		bounceStep = -1,     -- the last step it bounced off another piece (world.step's restitution)
+		cStep = -1,          -- the last step it had a contact (world.step: a body with none moves by
+		                     -- the trapezoid)
 		-- bounding sphere radius about the center
 		radius = (k.shape == 1) and sqrt(k.hx ^ 2 + k.hy ^ 2 + k.hz ^ 2) or (k.hl + k.r),
 		-- the outcome of the throw

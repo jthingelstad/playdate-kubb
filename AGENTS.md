@@ -1626,8 +1626,10 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   `drill.solveAt` (with the kubb's k, to its landing height) and `autothrow.speedFor` all
   use them (a baton aimed at a standing piece carries to `handHeight - aimZ`, its centre
   through the piece at `plan.aimZFor`'s height: "Aimed through the piece"), so a clean
-  throw still comes down where it is aimed (the world's centre within
-  2 to 4 cm, as before: the fixed step's own error). `plan.solve` costs 11 us (baton) and
+  throw comes down where it is aimed: the world's centre within 0.1 mm of `carry` with no
+  drag and about 2 mm with it (`carry`'s own step), since the flight's position is
+  stepped by the trapezoid (below, "Free flight"). Before 2026-11-16 the world came down
+  2 to 4 cm short and 2 to 4 ms early, the fixed step's error. `plan.solve` costs 11 us (baton) and
   16 us (drill) on the desktop, from 0.7 and 2.1. The power scale is unchanged in metres:
   a backswing carries as far as before and needs a little more speed for it.
   On the device a carry costs about 0.7 ms, and the aim solves every frame the circle or
@@ -1681,6 +1683,22 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   arithmetic is term for term the plain version's, so results did not change: a change to
   these files should keep a dump of every body after a fixed scenario bit-identical on the
   desktop, or say why not.
+- **Free flight** (2026-11-16, from the reference engine's finding 3). A body with no
+  contact this step moves by the trapezoid: x += (v before the step's forces + v after) / 2
+  x dt, which is exact under gravity alone and drops nothing of the drag's turn. Until
+  then it moved by the step's end velocity (x += v dt after v += g dt), which loses g dt^2
+  / 2 a step: over a flight 2.0 to 2.9 cm short and 2 to 4 ms early at every loft and
+  speed against MuJoCo and `flight.carry`. Now within +0.05 to +0.34 cm and +0.1 to +0.5
+  ms of MuJoCo (`make mjref`, flight cases; their D 0.54 -> 0.05 at most). A body with any
+  contact record this step (`b.cStep`, stamped in stage 3) moves as before, so contacts,
+  rests and stacks are untouched. Both copies (the full step's stage 5 and the lone flight)
+  do it the same way; the velocity before the forces is kept per awake body in `OVX`,
+  `OVY`, `OVZ` (file scope, no tables a step). Cost: an add and a multiply per coordinate
+  (`make bench`: lone 0.001, air 0.005, ground 0.010 to 0.011, multi 0.016 to 0.017 ms
+  a step, the same as before within the bench's resolution). `test_wind` now measures its
+  crossing at 0.2 m, in the air: an upright baton touches the ground with its centre
+  about 0.15 m up and pivots, so a crossing at 0.15 m measured the landing. Not
+  bit-identical: every throw (a launch 2 to 3 cm longer at the same speed).
 - Lone flight (`world.loneFlight`, on): when exactly one body is awake and it cannot reach
   the ground or any other body within this step (its height above the ground, and above the
   top of every other body, beats its speed plus a step of gravity and its spin, with a
@@ -2387,7 +2405,9 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
      integration error, not a model choice. Fix: substep only the projectile's rotation in
      flight (4 substeps of aeroTurn, gyro and the quaternion). It is one body, so cheap,
      about 15 lines. Then retune `noseDownDeg` and the slide table.
-  3. **Free flight lands 2 to 3 cm short of the aim.**
+  3. **Free flight lands 2 to 3 cm short of the aim.** Fixed 2026-11-16 ("Physics",
+     "Free flight"): the flight is stepped by the trapezoid and lands within +0.05 to
+     +0.34 cm and +0.1 to +0.5 ms of MuJoCo. What it was:
      - MuJoCo matches `flight.carry` to 1 mm. Ours comes down through 0.3 m 2.0 to 2.9 cm
        short, and 2 to 4 ms early, at every loft and speed (7.18 against 7.21 m at loft 30,
        9 m/s).
