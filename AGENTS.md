@@ -2,6 +2,8 @@
 
 A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; read it first.
 `CLAUDE.md` is a symlink to this file.
+Selling it in the Playdate Catalog: `docs/CATALOG.md` (what Panic asks for, where the game
+stands, the listing assets and the accessibility disclosure).
 
 ## Repo and pull requests
 

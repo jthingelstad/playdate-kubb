@@ -201,6 +201,13 @@ local function chips(left, top, w, h, u)
 end
 
 -- After the world, before the HUD.
+-- the system's Reduce Flashing setting (SDK 1.13 and later); false when the
+-- runtime has no such call
+function burst.reduceFlashing()
+	local f = playdate.getReduceFlashing
+	return f ~= nil and f() == true
+end
+
 function burst.draw(B, cam)
 	local inv = false
 	if B.kind and not B.done then
@@ -212,7 +219,9 @@ function burst.draw(B, cam)
 			l, tp, w, h, u = drawOne(cam, B.kind, B.x1, B.y1, B.z1, B.age)
 		end
 		if l then chips(l, tp, w, h, u) end
-		inv = B.kind == "king" and B.age < burst.tune.flash
+		-- the king's flash inverts the whole screen; never with the system's
+		-- Settings > Accessibility > Reduce Flashing on (Catalog guidelines)
+		inv = B.kind == "king" and B.age < burst.tune.flash and not burst.reduceFlashing()
 	end
 	if inv ~= B.inverted then
 		playdate.display.setInverted(inv)
