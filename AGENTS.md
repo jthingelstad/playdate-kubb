@@ -1833,7 +1833,7 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     pass (a spinning baton's corner swung between all of its bounce and none, 1:822; a
     baton on a kubb on the ground crept, 1:669), and the fuzz's energy rises went from 5
     to 24. A joint solve of the sliding and normal rows (tried) left 16 to 17. Row only:
-    6. `world.bouncePasses` counts the passes.
+    6. Only the islands that grew go past four (`b.rowStep`, spread like the bounce mark): a bounce elsewhere in the same step keeps its four passes (Codex on #145). `world.bouncePasses` counts the passes.
   - B's arm in a pair record was taken at A's surface, across the speculative gap, so a
     gap-open contact turned B about the wrong point. It is now `p - n*sep - B.pos`.
   - The ground warm start was applied as each record was built, so a body's later

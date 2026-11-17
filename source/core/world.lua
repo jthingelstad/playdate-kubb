@@ -1647,9 +1647,31 @@ function world.step(w)
 				if r[K_KIND] == 2 and r[K_LNMAX] > 0 then
 					local a, b = r[K_A], r[K_B]
 					if a.bounceStep == stamp then
-						if b.bounceStep ~= stamp then b.bounceStep = stamp; grew = true; row = true end
+						if b.bounceStep ~= stamp then
+							b.bounceStep = stamp; b.rowStep = stamp; grew = true; row = true
+						end
 					elseif b.bounceStep == stamp then
-						a.bounceStep = stamp; grew = true; row = true
+						a.bounceStep = stamp; a.rowStep = stamp; grew = true; row = true
+					end
+				end
+			end
+		end
+		if row then
+			-- the islands that grew: spread rowStep from the pieces the bounce
+			-- reached through the same contacts, so only their contacts get the
+			-- extra passes (a bounce elsewhere in the step keeps its four)
+			grew = true
+			while grew do
+				grew = false
+				for i = 1, m do
+					local r = REC[i]
+					if r[K_KIND] == 2 and r[K_LNMAX] > 0 then
+						local a, b = r[K_A], r[K_B]
+						if a.rowStep == stamp then
+							if b.rowStep ~= stamp then b.rowStep = stamp; grew = true end
+						elseif b.rowStep == stamp then
+							a.rowStep = stamp; grew = true
+						end
 					end
 				end
 			end
@@ -1680,6 +1702,18 @@ function world.step(w)
 			local dm = solve(K_REST, BOUNCE, nb)
 			passes = passes + 1
 			if passes >= most or (passes >= least and dm < tol) then break end
+			if passes == least and row then
+				-- past restitutionIterations only the rows' contacts go on
+				local k = 0
+				for i = 1, nb do
+					local r = BOUNCE[i]
+					if r[K_A].rowStep == stamp or (r[K_KIND] == 2 and r[K_B].rowStep == stamp) then
+						k = k + 1
+						BOUNCE[k] = r
+					end
+				end
+				nb = k
+			end
 		end
 		w.bouncePasses = w.bouncePasses + passes
 	end
