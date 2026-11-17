@@ -1524,13 +1524,21 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   launch at loft e from h above the ground carries through still air with drag k, and its
   time (midpoint steps of `carryStep` 1/20 s, within 2.5 mm of a fine integration on any
   throw the game makes); `flight.speedForCarry(R, e, h, k)` inverts it (the drag-free speed,
-  a scaled step and secant steps to 0.1 um: 4 or 5 carries). `flight.predict` (the cameras,
+  a scaled step and secant steps to 0.1 um, or until a step stops getting closer, which
+  is where the device's 32-bit floats end: 4 or 5 carries; it also returns the flight
+  time, which `plan.solve` keeps as `flightT` instead of carrying again). `flight.predict` (the cameras,
   `plan.reachForSpeed`), `throwplan`'s `carrySpeed` (`plan.solve`, `plan.speedFor`),
   `drill.solveAt` (with the kubb's k, to its landing height) and `autothrow.speedFor` all
   use them, so a clean throw still comes down where it is aimed (the world's centre within
   2 to 4 cm, as before: the fixed step's own error). `plan.solve` costs 11 us (baton) and
   16 us (drill) on the desktop, from 0.7 and 2.1. The power scale is unchanged in metres:
   a backswing carries as far as before and needs a little more speed for it.
+  On the device a carry costs about 0.7 ms, and the aim solves every frame the circle or
+  the stance moves. The first drag build took the autobench's "aim target" frame from 4.1
+  to 10.0 ms of update (32.9 to 27.6 fps). So `plan.solve` makes 6 carries instead of 8
+  (desktop results unchanged bit for bit), and the throw scene's arc reads a baton plan's
+  `dist` and `flightT` instead of predicting twice a frame. That brings it to 8.6 ms of
+  update and 30.5 fps (aim walk 29.7) (2026-11-16).
 - **The bite** (2026-11-16, Jamie: "I think we need to add the bite to the ground model…
   it is key… and this is where grass, snow, and sand will act different"). An edge or
   corner that strikes the turf steeply cuts in and is held: a ground contact gets extra

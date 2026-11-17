@@ -104,28 +104,33 @@ end
 flight.carry = carry
 
 -- The speed (m/s) that carries R (m) at loft e (radians) from h (m) above the
--- ground through still air with drag k (flight.carry's inverse): from the
--- drag-free speed, a scaled step and then secant steps to within 0.1 um (so
--- the two invert each other on the desktop), or until a step changes nothing:
--- the device's 32-bit floats stop well short of 0.1 um, and two equal carries
--- would divide by zero.
+-- ground through still air with drag k (flight.carry's inverse), and its
+-- flight time T (s): from the drag-free speed, a scaled step and then secant
+-- steps to within 0.1 um (so the two invert each other on the desktop), or
+-- until a step stops getting closer: the device's 32-bit floats stop well
+-- short of 0.1 um, and stepping on there only spent carries (the aim solves
+-- this every frame the target moves). Two equal carries would divide by zero.
 function flight.speedForCarry(R, e, h, k)
 	local g = flight.tune.g
 	local c = cos(e)
 	local v0 = sqrt(g * R * R / (2 * c * c * (R * sin(e) / c + h)))
-	if k <= 0 then return v0 end
-	local r0 = carry(v0, e, h, k)
+	if k <= 0 then return v0, timeToGround(h, v0 * sin(e), g) end
+	local r0, T0 = carry(v0, e, h, k)
+	local best = r0 - R
+	if best < 0 then best = -best end
 	local v1 = v0 * sqrt(R / r0)
 	for _ = 1, 10 do
-		local r1 = carry(v1, e, h, k)
+		local r1, T = carry(v1, e, h, k)
 		local err = r1 - R
+		local a = err < 0 and -err or err
+		if a >= best then return v0, T0 end
 		local dr = r1 - r0
-		if (err < 1e-7 and err > -1e-7) or dr == 0 then break end
+		if a < 1e-7 or dr == 0 then return v1, T end
 		local v2 = v1 - err * (v1 - v0) / dr
-		if v2 == v1 or v2 ~= v2 then break end
-		v0, r0, v1 = v1, r1, v2
+		if v2 == v1 or v2 ~= v2 then return v1, T end
+		v0, r0, T0, v1, best = v1, r1, T, v2, a
 	end
-	return v1
+	return v0, T0
 end
 
 -- Predicted landing point and flight time of the baton's center:

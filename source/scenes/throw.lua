@@ -1408,11 +1408,17 @@ local unpack = table.unpack
 -- circle by what it slides on: sol.land out), in the plan's sol.T. The flight
 -- has the air's drag (flight.carry); the arc is drawn as the plain parabola
 -- from the hand to the same landing in the same time, within 2 to 4 cm of it.
+-- A baton's plan already lands its center on the target (plan.solve: sol.dist
+-- out, in sol.flightT), so the arc reads them and carries nothing: it is
+-- drawn twice a frame (drawArc, shoulderFit), and a carry costs about half a
+-- millisecond on the device.
 local function arcLaunch(s)
 	local sol = s.sol
 	local speed, loft, sw = sol.speed or 0, sol.loft or 32, sol.swivel or 0
 	local T, R, z1 = sol.T, sol.land, drill.tune.landZ
-	if not (s.drill and T and R) then
+	if s.projectile ~= "kubb" and sol.flightT and sol.dist then
+		T, R, z1 = sol.flightT, sol.dist > 0.1 and sol.dist or 0.1, 0
+	elseif not (s.drill and T and R) then
 		local lx, ly
 		lx, ly, T = flight.predict(s.playerX, s.playerY, sw, loft, speed)
 		lx, ly = lx - s.playerX, ly - s.playerY
