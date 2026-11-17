@@ -1753,9 +1753,10 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     sand (0.33), 0.00 on snow (0.07);
   - run on, median: grass 1.10 m (MuJoCo 1.15, was 2.56), sand 0.62 (0.74, was 1.56),
     snow 6.99 (7.01, was 8.16);
-  - D by scenario, before -> after: broadside 0.087 -> 0.031, domino 0.059 -> 0.038,
-    drill 0.192 -> 0.089, end on 0.272 -> 0.141, king 0.158 -> 0.032, landing 0.639 ->
-    0.432, tip 0.027 -> 0.025; drop 0.083 -> 0.104 (a kubb dropped on sand at 1 m/s
+  - D by scenario, before (main at 5160562) -> after (on top of the `capsuleBox` clip):
+    broadside 0.087 -> 0.031, domino 0.059 -> 0.041, drill 0.192 -> 0.072, end on 0.272
+    -> 0.138, king 0.158 -> 0.030, landing 0.639 -> 0.430, tip 0.027 -> 0.025; drop
+    0.083 -> 0.104 (a kubb dropped on sand at 1 m/s
     bounces 0.020 of its speed, was 0.010, against 0.03 asked and MuJoCo's 0).
   The held contacts get friction too. Without it (tried) the king, broadside and end-on
   cases move back toward before (king D 0.124) and a row of two struck 7 cm apart falls
@@ -1784,28 +1785,31 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     short of it. BLAST and THE WALL score less for a clean drill ("Practice
     drills");
   - struck kubbs slide less, and touching rows fall less from one baton:
-    `tools/compound.lua --quick`, four in a line face to face, one or more down 66.7%
-    of hits (was 98.7), two or more 23.1% (69.3); 3 cm apart 44.3 / 6.3% (94.9 / 32.1).
+    `tools/compound.lua --quick`, four in a line face to face, one or more down 75.3%
+    of hits (was 98.7), two or more 27.3% (69.3); 3 cm apart 61.5 / 10.3% (94.9 / 32.1);
+    before measured at 5160562, after with the `capsuleBox` clip.
     Against MuJoCo, the same 100 throws from 0.03 s before the first touch (grass, bare):
     on the row of four, when the baton reaches the row, MuJoCo fells exactly one (the
-    back kubb, the front three leaning) in 60 of 60; ours one in 47, two in 1, none in
-    12 (were one in 52, two in 8). On a row of two 7 cm apart MuJoCo fells 1.33 on
-    average (none 1, one 38, two 21); ours 1.32 (was 1.92, two in 55).
-  - matches (`make realgames`, 150 games, seed 2; real games / before / after): turns a
-    game 8.9 / 22.1 / 18.7; batons that missed 24.7 / 14.5 / 18.5%; took two 16.0 / 12.2
-    / 5.4%, three or more 10.0 / 1.5 / 0.3%; cleared every field kubb 83.4 / 59.2 /
-    62.1%; base kubb from the baseline 32.7 / 29.2 / 25.6%; the king 83.8 / 95.5 /
-    92.8%. Shorter games and more misses, nearer the real ones; fewer multi-kubb
+    back kubb, the front three leaning) in 60 of 60; ours one in 48, none in 12 (were
+    one in 53, two in 6, three in 1, with the `capsuleBox` clip). On a row of two 7 cm
+    apart MuJoCo fells 1.33 on average (none 1, one 38, two 21); ours 1.33 (was 1.77,
+    two in 46).
+  - matches (`make realgames`, 150 games, seed 2; real games / before / after, both
+    with the `capsuleBox` clip): turns a game 8.9 / 20.2 / 18.7; batons that missed 24.7
+    / 14.5 / 18.2%; took two 16.0 / 12.1 / 5.7%, three or more 10.0 / 1.6 / 0.1%;
+    cleared every field kubb 83.4 / 61.9 / 63.1%; base kubb from the baseline 32.7 /
+    27.6 / 25.6%; the king 83.8 / 94.9 / 94.5%. Shorter games and more misses, nearer the real ones; fewer multi-kubb
     batons, farther from them ("Tuned toward the real games").
-  `make physfuzz N=2000 SEED=1`, before -> after (failed throws): energy 2 -> 8,
-  penetration 83 -> 68, rest 18 -> 24, finite 0 -> 1, dt 13 -> 23 (marginal 171 -> 89),
-  mirror 1 -> 6 (marginal 55 -> 42); 1149 -> 1074 pieces toppled at 240 Hz against
-  1113 -> 1051 at 480 Hz. Of the eight energy rises six are under 0.03 J; one drill
-  nose first into a lying kubb (1:728) gains 0.72 J in the step after, in the push out
-  of the overlap the impact left (the bias passes); the same state stepped by the engine
-  before this change gains 0.08 J. Left open. The finite one (1:1177) is a baton glancing off a kubb's upright edge
-  sideways and rolling about its own axis at 204 rad/s, the check's limit 200: rolling
-  without slip at the slip it had (Coulomb with the baton's small roll inertia).
+  `make physfuzz N=2000 SEED=1`, before (main with the `capsuleBox` clip) -> after
+  (failed throws): energy 5 -> 5, penetration 14 -> 12, rest 22 -> 26, finite 0 -> 0, dt
+  18 -> 20 (marginal 169 -> 88), mirror 2 -> 3 (marginal 58 -> 47); 1163 -> 1087 pieces
+  toppled at 240 Hz against 1114 -> 1080 at 480 Hz. Of the five energy rises four are
+  under 0.03 J; one drill nose first into a lying kubb (1:728) gains 0.72 J in the step
+  after, in the push out of the overlap the impact left (the bias passes); the same
+  state stepped by the engine before this change gains 0.08 J. Left open. Before the
+  clip (main at 5160562) the change took penetration 83 -> 68 and added a baton glancing
+  off a kubb's upright edge that rolled about its own axis at 204 rad/s (1:1177, limit
+  200); with the clip that throw is clean.
 - Lone flight (`world.loneFlight`, on): when exactly one body is awake and it cannot reach
   the ground or any other body within this step (its height above the ground, and above the
   top of every other body, beats its speed plus a step of gravity and its spin, with a
