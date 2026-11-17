@@ -1,5 +1,5 @@
 {
- "about": "Per-throw reference events from public Kubb video, measured frame by frame. Times are seconds into the source video. Pass 1 (the first 22 events): mixed clips, lengths in kubb lengths (15 cm) where the camera gives no better scale. Pass 2 (setup 'cage camera'): national-final videos from a fixed corner camera, positions in metres on the pitch (x across from one sideline, y from the near baseline) from a ground homography; 'measured' says whether an event has positions ('full') or outcomes only. See REALCLIPS.md.",
+ "about": "Per-throw reference events from public Kubb video, measured frame by frame. Times are seconds into the source video. Pass 1 (the first 22 events): mixed clips, lengths in kubb lengths (15 cm) where the camera gives no better scale. Pass 2 (setup 'cage camera'): national-final videos from a fixed corner camera, positions in metres on the pitch (x across from one sideline, y from the near baseline) from a ground homography; 'measured' says whether an event has positions ('full') or outcomes only. Category 'baton sequence' is a group cleared over several batons of one turn (a turn total, not one throw). See REALCLIPS.md.",
  "events": [
   {
    "src": "https://www.youtube.com/watch?v=h_9u7GiQoVg",
@@ -2665,7 +2665,7 @@
    "surface": "grass, mown tournament field",
    "camera": "fixed wide-angle cage camera, low at one near-baseline corner, 1080p 30 fps; ground positions from a homography fitted to the painted pitch lines (see REALCLIPS.md, Methods, pass 2)",
    "fps": 30,
-   "category": "baton",
+   "category": "baton sequence",
    "measured": "outcome only",
    "uncertainty": "times +-1 s; counts from the 1-2 s overview; batons mostly not visible at the overview scale",
    "note": "Group of four raised (two stacked) knocked over by batons at about 542, 549 and 554; all down and cleared by 582.",
@@ -2677,7 +2677,9 @@
    "landed": null,
    "struck_kubb": null,
    "struck_travel_m": null,
-   "left_standing": 0
+   "left_standing": 0,
+   "batons": "several (one turn)",
+   "kubbs_fell_note": "turn total over several batons, not one throw"
   },
   {
    "src": "https://www.youtube.com/watch?v=hR18YZf5xp8",
@@ -2902,7 +2904,7 @@
    "surface": "grass, mown tournament field",
    "camera": "fixed wide-angle cage camera, low at one near-baseline corner, 1080p 30 fps; ground positions from a homography fitted to the painted pitch lines (see REALCLIPS.md, Methods, pass 2)",
    "fps": 30,
-   "category": "baton",
+   "category": "baton sequence",
    "measured": "outcome only",
    "uncertainty": "times +-1 s; counts from the 1-2 s overview; batons mostly not visible at the overview scale",
    "note": "Row of four raised kubbs; baton at 620 knocked the left ones, further hits at about 624 and 629; all lying by 630.",
@@ -2914,7 +2916,9 @@
    "landed": null,
    "struck_kubb": null,
    "struck_travel_m": null,
-   "left_standing": 0
+   "left_standing": 0,
+   "batons": "several (one turn)",
+   "kubbs_fell_note": "turn total over several batons, not one throw"
   },
   {
    "src": "https://www.youtube.com/watch?v=hR18YZf5xp8",
@@ -3265,7 +3269,7 @@
    "surface": "grass, mown tournament field",
    "camera": "fixed wide-angle cage camera, low at one near-baseline corner, 1080p 30 fps; ground positions from a homography fitted to the painted pitch lines (see REALCLIPS.md, Methods, pass 2)",
    "fps": 30,
-   "category": "baton",
+   "category": "baton sequence",
    "measured": "outcome only",
    "uncertainty": "times +-1 s; counts from the 1-2 s overview; batons mostly not visible at the overview scale",
    "note": "Large raised group (about seven, some stacked) knocked down over about 912-926; all field kubbs were down before the base kubb hits at 950 and 959.",
@@ -3277,7 +3281,9 @@
    "landed": null,
    "struck_kubb": null,
    "struck_travel_m": null,
-   "left_standing": 0
+   "left_standing": 0,
+   "batons": "several (one turn)",
+   "kubbs_fell_note": "turn total over several batons, not one throw"
   },
   {
    "src": "https://www.youtube.com/watch?v=hR18YZf5xp8",
@@ -5087,10 +5093,10 @@
    "category": "chain",
    "measured": "outcome only",
    "uncertainty": "counts +-1; gap +-3 cm; kubbs 15-20 px tall at the far corner (x 4.8-5, y 3.6-3.9); depth 3-4.5 cm/px",
-   "note": "of the gap-4 cm pair 1 of 2 fell; of the touching pair hit by the flying kubb 1 of 2 fell; travel not readable",
+   "note": "of the targeted pair (4 cm gap) 1 of 2 fell; it slid into the touching pair about 12 cm to the left and knocked 1 of those 2 down; 2 of the 4 fell in all; travel not readable",
    "target": "two field kubbs about 4 cm apart (a separate touching pair about 12 cm to their left)",
-   "group_size": 2,
-   "group_gap_cm": 4,
+   "group_size": 4,
+   "group_gap_cm": null,
    "kubbs_hit": 1,
    "kubbs_fell": 2,
    "landed": "direct",
@@ -5105,7 +5111,8 @@
    "stand_xy_m": [
     4.796,
     3.928
-   ]
+   ],
+   "group_gaps_cm": "4 within the targeted pair, 0 within the touching pair, about 12 between the pairs"
   },
   {
    "src": "https://www.youtube.com/watch?v=RGfefP5-hjQ",
