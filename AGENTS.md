@@ -35,8 +35,8 @@ stands, the listing assets and the accessibility disclosure).
   same files. It prints a count of the rare events it produced (rescues, punishment kubbs,
   early kings, helicopters and so on). Then it plays `PHYS_N` (5) matches with real physics
   (`tools/physmatch.lua`, see "Headless games") into `build/physgames/` and gates them too.
-- `make realgames`: plays `REAL_N` (150) physics matches (`REAL_SEED` 2) into
-  `build/realgames/` and prints their figures beside the same figures from the games people
+- `make realgames`: plays `REAL_N` (150) physics matches (`REAL_SEED` 2) at `REAL_LEVEL`
+  (pro: the recorded games are pro play) into `build/realgames/` and prints their figures beside the same figures from the games people
   scored in a pk-kubb-score checkout (`tools/realgames.mjs`, see "Real games"). Needs the
   checkout, so it is not part of `make test`.
 - `make physfuzz` (`N` 2000, `SEED` 1, `SURFACE` Grass): the physics fuzzer
@@ -330,7 +330,8 @@ so games have kubbs knocked in before the round is judged; `make games` prints
 
 `core/autothrow.lua` is the computer thrower, and it throws the player's way (DESIGN 4):
 for a match setup it picks a target, stands behind it (`plan.stance`), takes the default arc
-(`plan.arcFor`), solves the plan at a level (`plan.solve`, `autothrow.tune.level`, club),
+(`plan.arcFor`), solves the plan at a level (`plan.solve` with `autothrow.cpuLevel`,
+`autothrow.tune.level`, club; "The computer's levels" under "Real games"),
 makes a synthetic swing (`autothrow.swing`: core/swing's result fields with seeded mistakes)
 and launches it with `plan.launch`. `choose(setup, rng, scale, level)` returns the launch
 fields (`x, y, swivel, loftDeg, speed, tumbleRate, tilt, legal`), the solve as `a.plan`
@@ -395,12 +396,33 @@ way, so every figure has the same denominator on both sides: the 150 games peopl
 physics (`tools/physmatch.lua --out`). `make realgames` does both. A measuring tool only: it
 changes nothing in the game, and what to tune from it is Jamie's call. A score sheet records
 what each baton took, not where anything stood or how it was thrown, so it says where the
-rates differ, never why; and the real games are tournament and club players, the game's
-are the computer at club level against itself.
+rates differ, never why. The real games are pro play; `tools/physmatch.lua --level`
+(`make realgames REAL_LEVEL=club`) plays the computer at another level against itself.
 
-- **What the real games are** (Jamie, 2026-11-16): all tournament games, often the final
-  rounds of a bracket, so read them as club to high club play; some are pro (players who
-  ranked high at Worlds). They are the mark for those levels, not for a beginner.
+- **What the real games are: pro** (Jamie, 2026-11-17): "there is no professional kubb.
+  So that is essentially the best kubb there is"; some of the recorded players ranked high
+  at the world championship and one team won it. All tournament games, often the final
+  rounds of a bracket. They are the mark for the pro level; club and beginner sit below
+  them on every figure. (2026-11-16 read them as club to high club; superseded.) The
+  figures below before 2026-11-17 compare them with the computer at club.
+- **The computer's levels** (2026-11-17). A level's gauge forgiveness (`powerHalf`,
+  `releaseHalf`, `inGain`, `shakeGain`, `overGain`) helps a player's crank; the computer's
+  swing made the same mistakes at every level, so the wider targets forgave it more and
+  club and beginner out-threw pro (150 matches seed 2, beginner / club / pro: the king
+  97 / 97 / 83%, field kubbs missed 31 / 18 / 25%). Now `autothrow.cpuLevel(name)` throws
+  on pro's gauge at every level with that level's nerves and `tumbleSd`, and the swing's
+  mistakes are multiplied by `autothrow.tune.swingScale` (beginner 1.6, club 1.3, pro 1).
+  Pro's throws are unchanged. `make realgames` per level (150 matches seed 2; real / beginner
+  / club / pro): turns a game 8.9 / 25.2 / 20.5 / 17.8; a baton at field kubbs missed 24.7
+  / 53.4 / 39.4 / 24.8%, took two 16.0 / 2.3 / 3.7 / 5.7%, three or more 10.0 / 0.1 / 0.1
+  / 0.3%; a base kubb from 8 m 32.7 / 6.6 / 16.9 / 33.5%, from an advantage line 51.7 /
+  31.1 / 41.6 / 57.8%; the king 83.8 / 58.3 / 73.5 / 82.8%; illegal 0 / 7.7 / 1.6 / 1.1%;
+  resigned at the turn limit 0 / 30 / 14 / 19. Swing scale 2 at beginner (and 1.4 at
+  club) was tried: 27% helicopters at beginner. The Playdate opponent is club
+  (`autothrow.tune.level`), so it is weaker than before (it hit the king 97% and missed
+  field kubbs 18%). Pro's single throws match the tournament games; what stays off at
+  pro is the multi-kubb batons (two 5.7% against 16%, three or more 0.3% against 10%),
+  so pro games run twice as long.
 - **How it counts.** A baton is "at field kubbs" when a field kubb stood when it was thrown
   (the turn's `startField` less what earlier batons took), "at base kubbs" when none did
   and a base kubb was left; king shots are `K` and `=`; `X` is not a throw. Clearing the

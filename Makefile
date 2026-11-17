@@ -62,11 +62,12 @@ games:
 REAL_N    := 150
 REAL_SEED := 2
 REAL_SCATTER := 1
+REAL_LEVEL := pro
 
 realgames:
 	@test -d "$(PKSCORE)/games" || { echo "realgames: no games folder in a pk-kubb-score checkout (set PK_KUBB_SCORE)"; exit 1; }
 	@rm -rf build/realgames
-	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --scatter $(REAL_SCATTER) --out build/realgames
+	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --scatter $(REAL_SCATTER) --level $(REAL_LEVEL) --out build/realgames
 	"$(NODE)" tools/realgames.mjs "$(PKSCORE)/games" build/realgames
 
 # The physics fuzzer (tools/physfuzz.lua, AGENTS.md "Physics fuzz"): N seeded
