@@ -45,7 +45,11 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
 - `make clean`.
 - `make release`: a clean build zipped as `build/ThrowingWood-<version>.pdx.zip`, for
   friends to sideload (play.date/account/sideload). Raise `version` and `buildNumber` in
-  `source/pdxinfo` for each one (a Playdate keeps the higher build). The zip is published
+  `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
+  `source/core/version.lua` (`tw.version`: `version`, `build`, `text` "0.9.5 (6)"). pdxinfo
+  is the source of truth; `test_version.lua` fails when the two disagree, and `make
+  release` runs it before it builds. The title shows `tw.version.text` small in the sky's
+  top right corner; the web game gets the same pair through its vendor sync. The zip is published
   on files.thingelstad.com and linked from https://playdate.thingelstad.xyz/throwing-wood/
   (that site's repository). 0.1.0 (build 2), 2026-11-14: the first for friends. 0.2.0
   (build 3), 2026-11-14: HOW TO THROW walks through the real crank; drills set the angle.

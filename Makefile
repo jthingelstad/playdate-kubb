@@ -119,9 +119,12 @@ clean:
 # A build for friends to sideload (play.date/account/sideload takes a zipped
 # .pdx): from a clean build/, so nothing stale rides along, zipped as
 # build/ThrowingWood-<version>.pdx.zip. Raise buildNumber in source/pdxinfo for
-# each one, or a Playdate that has the last one will not take it.
+# each one, or a Playdate that has the last one will not take it, and the same
+# pair in source/core/version.lua (the title shows it; the web gets it through
+# its vendor sync): the release stops first when the two disagree.
 VERSION := $(shell sed -n 's/^version=//p' source/pdxinfo)
 release:
+	"$(LUA)" tests/lua/run.lua tests/lua/test_version.lua
 	$(MAKE) clean
 	$(MAKE) build
 	cd build && zip -qr -X ThrowingWood-$(VERSION).pdx.zip ThrowingWood.pdx -x '*.DS_Store'
