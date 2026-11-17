@@ -5,8 +5,8 @@
 -- together for every release.
 import "core/tw"
 
-local VERSION <const> = "0.9.5"
-local BUILD <const> = 6
+local VERSION <const> = "0.9.6"
+local BUILD <const> = 7
 
--- text: as a player sees it, "0.9.5 (6)"
+-- text: as a player sees it, "0.9.6 (7)"
 tw.version = { version = VERSION, build = BUILD, text = VERSION .. " (" .. BUILD .. ")" }
