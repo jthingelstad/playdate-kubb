@@ -2089,7 +2089,9 @@ no extra work for it.
       separate defect. A throw's worst step rose 5.3 mJ at the 99th percentile.
   - **penetration.**
     - A pair or the ground counts when it is deeper than 5 mm for 0.02 s (`penHold`, a frame
-      at 50 fps), or deeper than 20 mm at the end of any one step (`penDeep`).
+      at 50 fps), or deeper than 20 mm at the end of any one step (`penDeep`). The time is
+      kept for each pair and each body on its own, so overlaps of different pieces in
+      successive steps never add up.
     - At rest, 2 mm (`penRest`). The measured worst was 0.7 mm between pieces and 0.56 mm in
       the ground.
     - Tuned from "5 mm at the end of any step". A one-step dip that the next step pushes out
@@ -2152,7 +2154,9 @@ no extra work for it.
     986 s of CPU (19 minutes with three other runs beside it);
   - the pinned cases take 0.04 s.
 - **First findings** (2026-11-16). The table below covers the failures, and the notes after it
-  give their causes. None is fixed yet. Repro commands are `lua5.4 tools/physfuzz.lua
+  give their causes. None is fixed yet. The rates come from the runs above, made before the
+  penetration time was kept per pair: a 2000-iteration grass rerun with it gives penetration
+  3.9% (from 4.7%), the other checks within their noise. Repro commands are `lua5.4 tools/physfuzz.lua
   --repro <seed>:<i> [--surface ...]`.
 
   | defect | check | grass | sand | snow | repro | real? | fix |
