@@ -3,7 +3,7 @@
 SDK      := $(HOME)/Developer/PlaydateSDK
 PDC      := $(SDK)/bin/pdc
 SIM      := $(SDK)/bin/Playdate Simulator.app/Contents/MacOS/Playdate Simulator
-GAMEDATA := $(SDK)/Disk/Data/com.thingelstad.throwingwood
+GAMEDATA := $(SDK)/Disk/Data/com.throwingwood.playdate
 SIMDATA  := $(GAMEDATA)/selftest
 LUA      := /opt/homebrew/opt/lua@5.4/bin/lua5.4
 NODE     := /opt/homebrew/bin/node

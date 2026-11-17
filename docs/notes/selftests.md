@@ -14,7 +14,7 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   `<name>-NN@2x.png` (800x480).
 - Lua `print` does not reach the Simulator's stdout, and `playdate.file` writes only inside
   the game's Data folder. So the runner writes `DONE`/`FAIL` to
-  `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/selftest/<name>.done`, and
+  `~/Developer/PlaydateSDK/Disk/Data/com.throwingwood.playdate/selftest/<name>.done`, and
   the Makefile copies it to `build/selftest/` and checks it and the PNG sizes.
 - The Simulator (SDK 3.1.2) often segfaults as it quits, after the scenario has written its
   marker; now and then the crash leaves it hanging until the timeout (`SIM_TIMEOUT`, 300 s). The Makefile

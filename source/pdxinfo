@@ -1,7 +1,7 @@
 name=Kubb: Throwing Wood
 author=Jamie Thingelstad
 description=Backyard Kubb for the Playdate. The crank is your throwing arm.
-bundleID=com.thingelstad.throwingwood
+bundleID=com.throwingwood.playdate
 version=0.9.6
 buildNumber=7
 imagePath=launcher

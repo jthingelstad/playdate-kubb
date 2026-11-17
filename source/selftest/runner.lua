@@ -6,7 +6,7 @@
 -- <name>-NN@2x.png (2x). A scenario may set ctx.note (one line, e.g. timings)
 -- to have it appended to the DONE marker. When the scenario ends the runner prints
 -- writes "DONE <name> frames=<n>" (or "FAIL <name>: <why>") to the marker
--- Data/com.thingelstad.throwingwood/selftest/<name>.done and quits the
+-- Data/com.throwingwood.playdate/selftest/<name>.done and quits the
 -- Simulator. The Makefile checks the marker and copies it into out.
 -- With film=1 (selftest.start's film) every frame is also saved, 1x, as
 -- <out>/<name>-f00001.png and so on, for cutting a video (tools/film.sh).

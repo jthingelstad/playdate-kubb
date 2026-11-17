@@ -19,3 +19,9 @@ https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository).
   that come down where they are aimed, friction in the bounce (drills run on 0.68 m on
   grass, was 0.88), a row of touching kubbs that falls as a row, and pieces that come to
   rest.
+
+The bundle id changed on 2026-11-17 from `com.thingelstad.throwingwood` to
+`com.throwingwood.playdate`, so every id is rooted at the game's own domain (the iPhone app
+will be `com.throwingwood.app`). Saved data lives under `Data/<bundleID>`, so the old folder
+is left behind: a Playdate that had an earlier build keeps its players, games and traces in
+`Data/com.thingelstad.throwingwood/` and starts fresh under the new id.

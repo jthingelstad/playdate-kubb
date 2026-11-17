@@ -9,7 +9,7 @@ The autobench measures a build on the Playdate with nobody pressing anything:
 
 1. Build and install `build/ThrowingWood.pdx` (data disk mode, copy to `/Games`).
 2. Create an empty file named `autobench` in the game's Data folder
-   (`/Data/com.thingelstad.throwingwood/`), eject, and launch the game
+   (`/Data/com.throwingwood.playdate/`), eject, and launch the game
    (`pdutil <port> run /Games/ThrowingWood.pdx`).
 3. At launch the game deletes the flag, runs `source/autobench.lua` (about two minutes)
    and appends to `bench.txt` in the Data folder: the micro benchmarks, the `core/bench`
@@ -185,7 +185,7 @@ The System Menu has "Record" (and the practice pitch's "Pitch: readout", the deb
 after each throw). Record is
 on by default while the throw is being tuned (self-tests leave it off). With
 Record on, every swing is appended as one JSON line to `traces.jsonl` in the game's Data
-folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/`). It
+folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.throwingwood.playdate/`). It
 stays on in the builds for players (their recordings are how the throw gets tuned), so the
 file is capped: past `logcap.maxBytes` (1 MB, about 750 swings) it becomes
 `traces-1.jsonl`, replacing an older one, and a new one starts (`source/logcap.lua`;

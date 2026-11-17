@@ -10,7 +10,7 @@ SIM="$HOME/Developer/PlaydateSDK/bin/Playdate Simulator.app/Contents/MacOS/Playd
 FF=${FFMPEG:-ffmpeg}
 VERSION=$(sed -n 's/^version=//p' source/pdxinfo)
 OUT="$PWD/build/film"
-DATA="$HOME/Developer/PlaydateSDK/Disk/Data/com.thingelstad.throwingwood/selftest"
+DATA="$HOME/Developer/PlaydateSDK/Disk/Data/com.throwingwood.playdate/selftest"
 make build >/dev/null
 rm -rf "$OUT"
 mkdir -p "$OUT"
