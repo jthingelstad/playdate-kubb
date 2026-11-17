@@ -288,7 +288,8 @@ end
 
 -- A throw for match setup `s` (view frame). Batons: target the nearest
 -- live target and stand behind it as far forward as allowed (never nearer
--- than minRange); the king from the baseline. Kubbs: drilled to the basket
+-- than minRange), its centre aimed through the target at plan.aimZFor's
+-- height; the king from the baseline. Kubbs: drilled to the basket
 -- (autothrow.basket) from the baseline. scale (default 1) multiplies every
 -- mistake: below 1 a steadier thrower. level: a tw.plan level (default
 -- tune.level).
@@ -337,6 +338,9 @@ function autothrow.choose(s, r, scale, level)
 		end
 		ty = target.y - t.batonShort
 		q.projectile = "baton"
+		-- through the piece at its aim height (plan.tune.aimHeightShare), as a
+		-- player's circle on a piece is
+		q.aimZ = plan.aimZFor((s.kingShot or target.role == "king") and "king" or "kubb")
 		if s.kingShot or target.role == "king" then arc = plan.arcFor("king")
 		elseif target.role == "field" then arc = plan.arcFor("field")
 		else arc = plan.arcFor("base") end
