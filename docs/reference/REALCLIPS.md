@@ -52,7 +52,10 @@ centre was over 1 cm from its rest or its long axis over 3 degrees from it), as 
 sees it: the tool's own time runs to `world.isAtRest`, which waits `world.tune.sleepTime`
 (0.25 s) of stillness first. Struck-kubb travel in the engine is from a scratch copy of
 batonprobe's sweep that also printed the distance from the kubb's start (0, 8) to its rest
-for every toppled kubb; neither copy is in the repository.
+for every toppled kubb; neither copy is in the repository. The drill rows were run again
+at `5160562` ("Substep a drilled kubb's turn in flight", merged while this was in review):
+run-on mean 0.95 m, p50 0.88, 11 of 288 under 0.3 m, 1 of 288 behind its touch, last
+visible motion median 0.43 s, the same within about 2 cm and 0.01 s.
 
 | Quantity | Real (pass 2) | Engine at `3703fe4` | Inside? |
 |---|---|---|---|
