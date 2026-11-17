@@ -52,7 +52,7 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
 - `make release`: a clean build zipped as `build/ThrowingWood-<version>.pdx.zip`, for
   friends to sideload (play.date/account/sideload). Raise `version` and `buildNumber` in
   `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
-  `source/core/version.lua` (`tw.version`: `version`, `build`, `text` "0.9.5 (6)"). pdxinfo
+  `source/core/version.lua` (`tw.version`: `version`, `build`, `text` "0.9.6 (7)"). pdxinfo
   is the source of truth; `test_version.lua` fails when the two disagree, and `make
   release` runs it before it builds. The title shows `tw.version.text` small in the sky's
   top right corner; the web game gets the same pair through its vendor sync. The zip is published
@@ -63,7 +63,10 @@ A Kubb game for the Playdate (Lua, SDK 3.1.2). The design is `docs/DESIGN.md`; r
   saved players and teams, DOUBLES and THE WALL. 0.9.5 (build 5), 2026-11-15: the release
   candidate for wider play; HOW TO THROW for the clock throw, the baton hits pass, drilled
   kubbs that settle and a target circle that no longer locks onto kubbs; build 6 the same
-  day adds HOW TO PLAY, the release-candidate polish and the plain-words pass.
+  day adds HOW TO PLAY, the release-candidate polish and the plain-words pass. 0.9.6
+  (build 7), 2026-11-17: the physics-honesty release; the nine audit fixes, throws that
+  come down where they are aimed, friction in the bounce (drills run on 0.68 m on grass,
+  was 0.88), a row of touching kubbs that falls as a row, and pieces that come to rest.
 
 Tools are called by full path: SDK at `~/Developer/PlaydateSDK` (no `PLAYDATE_SDK_PATH`),
 `/opt/homebrew/opt/lua@5.4/bin/lua5.4` (keg-only), `/opt/homebrew/bin/node`. Install

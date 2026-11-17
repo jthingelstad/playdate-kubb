@@ -9,8 +9,8 @@
 -- picture). The menu is drawn over it once per choice into a cached image,
 -- so an idle title costs one image draw a frame.
 --
--- The game's version and build (core/version, the same as pdxinfo: "0.9.5
--- (6)") sit small in the sky's top right corner, black on white, so a player
+-- The game's version and build (core/version, the same as pdxinfo: "0.9.6
+-- (7)") sit small in the sky's top right corner, black on white, so a player
 -- can tell which release they have.
 import "CoreLibs/graphics"
 import "core/tw"
