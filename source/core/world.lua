@@ -1675,7 +1675,8 @@ function world.step(w)
 		local tol, least, most = t.restitutionTol, t.restitutionIterations, t.restitutionMaxIterations
 		if not row then most = least end
 		local passes = 0
-		while true do
+		-- (restitutionIterations 0 turns the bounce off: a diagnostic, AGENTS.md)
+		while least > 0 do
 			local dm = solve(K_REST, BOUNCE, nb)
 			passes = passes + 1
 			if passes >= most or (passes >= least and dm < tol) then break end
