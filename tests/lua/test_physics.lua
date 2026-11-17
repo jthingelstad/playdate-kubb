@@ -320,7 +320,10 @@ end)
 -- restitution, AGENTS.md "The bounce"): applied alone, a baton's bounce off a
 -- standing kubb drove the kubb into the ground (a corner on the ground moving
 -- down at up to 2.2 m/s in these hits at the bounce of 0.35) and the ground
--- threw it up the next step.
+-- threw it up the next step. Counted while the baton touches the kubb: a kubb
+-- kicked into the air lands later on a corner as fast as it tumbles (1.55 m/s
+-- after a quarter second in the air at 23 rad/s, with the baton's contacts at
+-- each end of its face, 2026-11-16), and that is a landing, not this fault.
 test("a baton bouncing off a standing kubb does not drive it into the ground", function()
 	local SX, SY, SZ = collide.SX, collide.SY, collide.SZ
 	local c, s = math.cos(math.pi / 4), math.sin(math.pi / 4)
@@ -345,7 +348,11 @@ test("a baton bouncing off a standing kubb does not drive it into the ground", f
 						local z = k.z + k.r31 * lx + k.r32 * ly + k.r33 * lz
 						if z < bz then bz, vz = z, k.vz + k.wx * ry - k.wy * rx end
 					end
-					if bz < 0.0005 and -vz > worst then worst = -vz end
+					collide.C.n = 0
+					collide.capsuleBox(b, k, 0.005)
+					local touching = collide.C.n > 0
+					collide.C.n = 0
+					if touching and bz < 0.0005 and -vz > worst then worst = -vz end
 				end
 			end
 		end

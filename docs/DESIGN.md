@@ -274,7 +274,9 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
   machine. A standing kubb sleeps until something touches it.
 - **Collisions:** capsule against box (closest point on the segment to the box, the box's
   edges rounded by a centimetre: wood is never a knife edge, and a baton that clips a kubb's
-  top edge tips it rather than pressing it into the grass; Tyler's play test, 2026-11-15),
+  top edge tips it rather than pressing it into the grass; Tyler's play test, 2026-11-15;
+  a baton lying along a face or an edge touches it at both ends of the part that lies
+  along it, so it cannot pivot on one point and sink in; 2026-11-16),
   box against box (corners of each inside the other, plus edge on edge: the closest points of
   two crossing edges, and the points where the edges of crossed faces cross; 2026-11-16).
 - **Ground:** the surface is a game option chosen per game (Jamie, 2026-11-13: "Kubb plays
