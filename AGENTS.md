@@ -437,9 +437,13 @@ are the computer at club level against itself.
   2026-11-16), with seeds 2, 3 and 4.
 
 - **Single throws against real video** (2026-11-16): `docs/reference/REALCLIPS.md` and
-  `realclips.json`, 22 events measured frame by frame from public video (drills, batons,
-  chains) beside the engine's figures, with intervals and a ranked list of where the
-  engine sits outside. A small set: read it as directions, not targets.
+  `realclips.json`, 220 events measured frame by frame from public video beside the
+  engine's figures, with intervals and a ranked list of where the engine sits outside.
+  Pass 2 (198 events, a tournament cage camera calibrated by a homography on the painted
+  lines, engine at `3703fe4`): real drills on grass run on a median 0.02 m (90% under
+  0.3 m) against the engine's 0.95 m mean, and come to rest in 0.37 s against 0.78;
+  touching groups do not all fall (every kubb 2 hits in 9), which withdraws pass 1's
+  16 of 16.
 
 ### How tight the groups are
 
