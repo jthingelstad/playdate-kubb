@@ -7,7 +7,7 @@
 --   multi   two or more bodies awake (a collision)
 --   ...and the slow tail: steps once nothing awake moves faster than
 --   --slow m/s (and turns slower than 3 rad/s) until rest.
--- Desktop ratios mislead on the device (AGENTS.md "Speed"), but the counts of
+-- Desktop ratios mislead on the device (docs/notes/physics.md "Speed"), but the counts of
 -- steps by class do not.
 --
 --   lua5.4 tools/throwprof.lua [--n 3] [--seed 1] [--slow 0.25]

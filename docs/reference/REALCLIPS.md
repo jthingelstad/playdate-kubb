@@ -5,7 +5,7 @@ frame by frame from public YouTube video (2026-11-16). One record per event is i
 `realclips.json` (source link, time in the video, surface, camera, measurements with their
 uncertainty, outcome labels). No video, frames or images are kept in the repository.
 
-Whole-match rates are `tools/realgames.mjs` ("Real games" in AGENTS.md); this set is only
+Whole-match rates are `tools/realgames.mjs` ("Real games" in docs/notes/real-games.md); this set is only
 about single throws. The set has 220 events: 198 from pass 2, a calibrated tournament
 camera, which is the one to read first; 22 from pass 1, highlight clips, kept below as
 written, with what pass 2 changed in it under "Pass 2 against pass 1".

@@ -1,5 +1,5 @@
 -- The bit-identity check for changes to core/world and core/collide
--- (AGENTS.md "Speed"): runs fixed scenarios to rest and prints every body's
+-- (docs/notes/physics.md "Speed"): runs fixed scenarios to rest and prints every body's
 -- state with full precision, every `--every` steps and at the end. Run it
 -- before and after a change and diff the two outputs: they must be identical,
 -- or the change must say why not.

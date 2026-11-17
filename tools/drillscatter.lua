@@ -1,4 +1,4 @@
--- What scatters the drilled kubbs? (AGENTS.md "What scatters a drilled kubb";
+-- What scatters the drilled kubbs? (docs/notes/real-games.md "What scatters a drilled kubb";
 -- Jamie approved the measuring, 2026-11-16; no game changes.) Three parts:
 --
 -- 1. One drill into an empty far half, the computer's own throw at the

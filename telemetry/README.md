@@ -6,9 +6,9 @@ tests.
 
 - `traces.jsonl`: every recorded swing, one JSON line each (format at the top of
   `source/core/trace.lua`). Replay with `lua5.4 tools/replay_traces.lua <file>`.
-- `frames.jsonl`: one line per throw of frame timing (`AGENTS.md`, "Frame-time log").
+- `frames.jsonl`: one line per throw of frame timing (`docs/notes/performance.md`, "Frame-time log").
 - `games/`: the game files the device wrote for finished matches.
-- `bench/`: autobench output (`AGENTS.md`, "Measuring on the device").
+- `bench/`: autobench output (`docs/notes/performance.md`, "Measuring on the device").
 - `watchdog-reset.txt`: the device's crash log entry when a build hung.
 
 ## 2026-11-13
@@ -52,7 +52,7 @@ The overnight QA build, after midnight (US Central).
 | `run8-sets-far-band.txt` | the kubb sets' first version, a black head band on every kubb: the three throws 13.5 s with USA and 13.3 with Wisconsin against 12.0 and 12.3 classic (about a tenth of the shown speed), so it was cut |
 | `run9-sets-near-only.txt` | the sets painted from 20 px only (far kubbs as classic): 11.9 s with USA and 11.8 with Wisconsin against 11.5 and 11.8 classic, within the noise |
 
-`soak/` holds the device soak's `soak.txt` (`AGENTS.md`, "Measuring on the device"):
+`soak/` holds the device soak's `soak.txt` (`docs/notes/performance.md`, "Measuring on the device"):
 
 | Soak file | Build |
 | --- | --- |

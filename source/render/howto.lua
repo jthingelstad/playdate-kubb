@@ -3,7 +3,7 @@
 -- lines and the footer (A: NEXT, TAP B: SKIP) in the label font, white on
 -- black; while B holds the camera out over the shoulder only a strip: the
 -- step's held line (core/howto.heldLine), else its title. One image, drawn again only when what the walkthrough says
--- changes (h.rev), so a frame makes no text call (AGENTS.md "Drawing speed").
+-- changes (h.rev), so a frame makes no text call (docs/notes/performance.md "Drawing speed").
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/howto"

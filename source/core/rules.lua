@@ -3,7 +3,7 @@
 --
 -- The engine knows nothing about physics. It says what is needed next
 -- (game:need()) and consumes resolved throws (THROW OUTCOMES, documented in
--- AGENTS.md "Rules engine") and the defender's choices. Everything it does
+-- docs/notes/rules-engine.md "Rules engine") and the defender's choices. Everything it does
 -- is written to game.sheet (tw.notation) as it happens.
 --
 --   local g = tw.rules.new{ teams = { A = { name = "Jamie", players = { { name = "Jamie" } } },
@@ -444,7 +444,7 @@ function Game:_judge(pid)
 	self.judgment = j
 end
 
--- outcome: see AGENTS.md "Kubb-toss outcome".
+-- outcome: see docs/notes/rules-engine.md "Kubb-toss outcome".
 function Game:toss(o, player)
 	if self.phase ~= "toss" and self.phase ~= "rethrow" then fail("not tossing now (" .. self.phase .. ")") end
 	o = o or {}
@@ -581,7 +581,7 @@ local function set(list)
 	return s
 end
 
--- outcome: see AGENTS.md "Baton outcome".
+-- outcome: see docs/notes/rules-engine.md "Baton outcome".
 function Game:throwBaton(o, player)
 	if self.phase ~= "batons" then fail("not throwing batons now (" .. tostring(self.phase) .. ")") end
 	o = o or {}

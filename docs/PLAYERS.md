@@ -2,7 +2,7 @@
 
 Draft of 2026-11-15. Jamie answered the questions in section 9 the same day: every
 recommendation but one (an old saved match is dropped), so each "Recommended" there is
-the decision. Built the same day (`AGENTS.md`, "Saved players").
+the decision. Built the same day (`docs/notes/saved-players.md`, "Saved players").
 
 Today a match is two teams of one player each, named as the team (`core/names.teams`), and
 the throw is the same for everyone. Jamie decided the throw difficulty, the **Throw level**,
@@ -319,10 +319,10 @@ every game.
    lineups of 1 to 6 a side and returns `thrower`; `tools/thrower.lua` and `make games`
    play teams of every size through `core/order` and check every sheet against II.A.4 and
    II.B.5; `tools/physmatch.lua` too. No screens. Fixtures: a 6-a-side game and a 2-v-4.
-   *Built* (AGENTS.md "Throwing order").
+   *Built* (docs/notes/rules-engine.md "Throwing order").
 2. **The roster and history, no screens.** `core/roster.lua`, `core/history.lua`, the
    datastore files, the migration; tests that fold the fixture games into histories and
-   that a saved roster reads back. *Built* (AGENTS.md "Saved players"; the histories are
+   that a saved roster reads back. *Built* (docs/notes/saved-players.md "Saved players"; the histories are
    tested on generated games).
 3. **Players screens.** Players, Player, New player, remove; self-test `players` (frames:
    the list, a player, the keyboard step, the remove card). *Built*.

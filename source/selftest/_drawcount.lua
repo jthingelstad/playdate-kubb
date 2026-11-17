@@ -1,5 +1,5 @@
 -- Draw-call counting for the "drawcalls" self-test. On the device a
--- graphics call costs 20 to 50 us (AGENTS.md "Drawing speed"), so the number
+-- graphics call costs 20 to 50 us (docs/notes/performance.md "Drawing speed"), so the number
 -- of calls a frame makes is the figure to watch. Modules keep graphics
 -- functions in locals when they are imported, so the wrapping must happen
 -- before them: main.lua imports this file first, and it wraps only when the

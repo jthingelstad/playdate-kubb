@@ -1,4 +1,4 @@
--- The physics defect finder (AGENTS.md "Physics fuzz"). Each iteration draws
+-- The physics defect finder (docs/notes/physics-fuzz.md "Physics fuzz"). Each iteration draws
 -- one seeded throw the game could make, runs it to rest through the game's
 -- own path (core/autothrow's choose and launch, core/world) and checks the
 -- invariants of tools/physcheck.lua after every step; then the same throw
@@ -118,7 +118,7 @@ local CLASSES = {
 }
 local AIM_SHARE = 0.06
 local AIM_D = { 3, 5.27, 8 }
-local AIM_CLAIM = { [3] = nil, [5.27] = 1.0, [8] = 0.98 }   -- AGENTS.md "Aimed through the piece"
+local AIM_CLAIM = { [3] = nil, [5.27] = 1.0, [8] = 0.98 }   -- docs/notes/real-games.md "Aimed through the piece"
 local AIM_TUMBLE = { 0.8, 0.9, 1.0, 1.1, 1.2 }
 local GAPS = { 0, 0.005, 0.01, 0.03, 0.07 }
 

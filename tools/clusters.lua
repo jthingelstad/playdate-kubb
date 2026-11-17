@@ -1,5 +1,5 @@
 -- How tight are the groups the kubbs are drilled into, and what do batons
--- take from them? (AGENTS.md "Real games": Jamie, "Multiple fields kubbs is
+-- take from them? (docs/notes/real-games.md "Real games": Jamie, "Multiple fields kubbs is
 -- all about drilling tight clusters.") Plays physics matches like
 -- tools/physmatch.lua, with the computer's mistakes scaled separately for
 -- its kubbs and its batons, and measures, at the first baton of every turn

@@ -246,7 +246,7 @@ end)
 -- (MuJoCo fells two to four at 2.0 N s by its variant, all four at 3.0. This
 -- was 2.5 for a day: with an impact's friction solved in the bounce and the
 -- bounce cut off at the front kubb, 2.0 felled two; the bounce reaches the
--- row now and 2.0 fells all four again, AGENTS.md, "The bounce reaches the
+-- row now and 2.0 fells all four again, docs/notes/physics.md, "The bounce reaches the
 -- row".)
 test("a hard blow on the front kubb of a touching row fells most of the row; a tap none", function()
 	for _, order in ipairs{ { 1, 2, 3, 4 }, { 4, 3, 2, 1 } } do
@@ -355,7 +355,7 @@ test("a kubb tipped into a neighbour turned on the ground does not sink into it"
 end)
 
 -- The bounce between two pieces is solved with their footing (world.step's
--- restitution, AGENTS.md "The bounce"): applied alone, a baton's bounce off a
+-- restitution, docs/notes/physics.md "The bounce"): applied alone, a baton's bounce off a
 -- standing kubb drove the kubb into the ground (a corner on the ground moving
 -- down at up to 2.2 m/s in these hits at the bounce of 0.35) and the ground
 -- threw it up the next step. Counted while the baton touches the kubb: a kubb

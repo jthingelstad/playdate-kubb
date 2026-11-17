@@ -60,7 +60,7 @@ collide.SX, collide.SY, collide.SZ = SX, SY, SZ
 -- The functions below run for every pair and corner of every step, so they
 -- write out add, pointBox, the extents and math.abs instead of calling them
 -- (on the device a Lua call costs about 9 us, a C call about 4 us; see
--- AGENTS.md, "Physics"). The arithmetic is the same, term for term.
+-- docs/notes/physics.md, "Physics"). The arithmetic is the same, term for term.
 
 -- Box b against the ground plane z = 0: each corner below `margin`.
 function collide.groundBox(b, margin)

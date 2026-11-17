@@ -104,7 +104,7 @@ test("baton hits: struck kubbs seldom bounce back up, and some fly", function()
 	-- keeps it off the ground 0.2 s or more in 47 of 60 hits, this engine in
 	-- 43 (30 until the bounce reached the row, 2026-11-17: B's arm was taken
 	-- at the baton's side of the gap, and the drag down the face held the
-	-- kubb back; AGENTS.md, "The bounce reaches the row"). On the turf the
+	-- kubb back; docs/notes/physics.md, "The bounce reaches the row"). On the turf the
 	-- dig and bite hold it down more: 16 of these 43 fly, and in the sweep
 	-- (tools/batonprobe.lua) 4 bounce back and 260 of 725 fly (221 before).
 	local touched, back, flew = 0, 0, 0

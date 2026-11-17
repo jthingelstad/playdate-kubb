@@ -2,7 +2,7 @@
 -- folder at launch, the game deletes it, runs this, appends every figure to
 -- bench.txt in the Data folder and then carries on into the normal game.
 -- Nobody needs to press anything, so a build can be measured on the device
--- over USB (AGENTS.md, "Measuring on the device").
+-- over USB (docs/notes/performance.md, "Measuring on the device").
 --
 -- Sections: the micro benchmarks of core/microbench, the core/bench physics
 -- scenario (garbage made with the collector stopped, the plain timing line,

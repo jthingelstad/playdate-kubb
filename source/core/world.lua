@@ -68,16 +68,16 @@ world.tune = {
 	                       -- a stake): clean dry wood on wood 0.25 to 0.5, oak on oak sliding 0.48 along
 	                       -- the grain and 0.32 across it (Engineering ToolBox, friction coefficients).
 	                       -- Kubb on kubb was 0.2 (wet wood) from 2026-11-15 to 2026-11-16 so a tight row
-	                       -- fell; at 0.4 it stands more (AGENTS.md, "Edge on edge")
+	                       -- fell; at 0.4 it stands more (docs/notes/physics.md, "Edge on edge")
 	pairE = 0.35,          -- wood on wood bounce: no measured wood on wood figure found; a wooden
 	                       -- ball on concrete is 0.60 (The Physics Factbook, 2005) and a block gives
 	                       -- up more. 0.2 from 2026-11-15 to 2026-11-16, to hide a bounce solved
-	                       -- without the kubb's footing (AGENTS.md, "The pair bounce with its footing")
+	                       -- without the kubb's footing (docs/notes/physics.md, "The pair bounce with its footing")
 	warm = 0.9,            -- fraction of last step's ground impulses applied up front
 	gyro = true,           -- gyroscopic term (torque-free precession; implicit, stable)
 	flightTurns = 4,       -- a drilled kubb's turn in flight (the air's turn, the gyroscopic term
 	                       -- and its attitude) is stepped this many times a step: a drill spinning
-	                       -- at 25 rad/s or more precesses too far in one 1/240 s step (AGENTS.md,
+	                       -- at 25 rad/s or more precesses too far in one 1/240 s step (docs/notes/physics.md,
 	                       -- "Physics", "The turn in flight")
 	sleepLin = 0.03,       -- m/s: below this ...
 	sleepAng = 0.3,        -- rad/s: ... and this ...
@@ -457,7 +457,7 @@ end
 -- ---------------------------------------------------------------------------
 -- The solver's contacts
 --
--- Speed on the device (AGENTS.md "Physics", device costs): a Lua function
+-- Speed on the device (docs/notes/physics.md "Physics", device costs): a Lua function
 -- call costs about 9 us there, a C call (math.sqrt, math.abs, math.min) about
 -- 4 us and every switch to another table a cache miss, so the hot paths below
 -- are written out in full: no helper calls per pair, per contact or per pass,
@@ -593,7 +593,7 @@ end
 -- A drilled kubb's turn in flight (the projectile with an air's turn,
 -- b.aeroK, until its first contact), in n substeps of dt / n: a kubb
 -- spinning at 25 rad/s or more precesses too far in one 1/240 s step
--- (AGENTS.md, "Physics", "The turn in flight"). It works in the kubb's own
+-- (docs/notes/physics.md, "Physics", "The turn in flight"). It works in the kubb's own
 -- frame, where both terms are cheap: the air's velocity past it (the wind
 -- less its own velocity, constant over the step) is turned against the
 -- kubb's spin each substep, the air's turn (aeroTurn's tau = K (v.z)(v x z))
@@ -1512,7 +1512,7 @@ function world.step(w)
 	-- speed with its earlier corners' warm start in it, and after a hard
 	-- landing (last step's impulses, the bounce's among them, are large) a
 	-- corner at rest read an approach of metres a second and was given a
-	-- bounce off it (AGENTS.md, "Physics", "The bounce reaches the row")
+	-- bounce off it (docs/notes/physics.md, "Physics", "The bounce reaches the row")
 	if warm then
 		for i = 1, m do
 			local r = REC[i]
@@ -1608,13 +1608,13 @@ function world.step(w)
 	-- in the bias passes a speculative contact's impulse only takes the
 	-- approach speed past the gap still to close, so a landing kept 0.6 to
 	-- 0.9 of its ground speed, and how much depended on where the step fell
-	-- (AGENTS.md, "Physics", "Friction in the bounce").
+	-- (docs/notes/physics.md, "Physics", "Friction in the bounce").
 	-- The bounce reaches the whole group of awake pieces pressed together,
 	-- not only the pieces that bounce: a baton striking the front of a row
 	-- of touching kubbs strikes the row, and with the bounce cut off at the
 	-- front kubb's own contacts the second kubb was free in these passes, so
 	-- the front two took the blow as a light pair, met the third a step later
-	-- and stopped (AGENTS.md, "Physics", "The bounce reaches the row"). When
+	-- and stopped (docs/notes/physics.md, "Physics", "The bounce reaches the row"). When
 	-- it reaches past the pieces that bounce (a row), the passes run until
 	-- the impulses settle (restitutionTol), up to restitutionMaxIterations:
 	-- each pass carries the push one kubb further, and four left it short
@@ -1697,7 +1697,7 @@ function world.step(w)
 		local tol, least, most = t.restitutionTol, t.restitutionIterations, t.restitutionMaxIterations
 		if not row then most = least end
 		local passes = 0
-		-- (restitutionIterations 0 turns the bounce off: a diagnostic, AGENTS.md)
+		-- (restitutionIterations 0 turns the bounce off: a diagnostic, docs/notes/physics.md)
 		while least > 0 do
 			local dm = solve(K_REST, BOUNCE, nb)
 			passes = passes + 1

@@ -11,7 +11,7 @@
 --              clean = true },       -- and no check found anything
 --   }
 --
--- How to make one from a fuzz failure or a replayed report: AGENTS.md,
+-- How to make one from a fuzz failure or a replayed report: docs/notes/physics-fuzz.md,
 -- "Physics fuzz".
 local here = debug.getinfo(1, "S").source:match("^@(.*)/[^/]*$") or "."
 local physcheck = assert(loadfile(here .. "/../../tools/physcheck.lua"))()

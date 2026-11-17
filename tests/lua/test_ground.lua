@@ -1,5 +1,5 @@
 -- core/world: the ground texture (world.surfaces.*.texture; DESIGN 5 and
--- AGENTS.md "Physics", "The ground's texture").
+-- docs/notes/physics.md "Physics", "The ground's texture").
 import "core/world"
 import "core/autothrow"
 local world, autothrow = tw.world, tw.autothrow
@@ -67,7 +67,7 @@ test("ground: on textured grass a baton hardly ever slides on an end and stops s
 	-- falling back, its centre moving at 0.2 to 0.4 m/s, which the trip's
 	-- added spin cut short). Before 2026-11-15 the flat ground was the comparison
 	-- (2.3 s over these 80 against 0.44 textured), but a baton that keeps the
-	-- spin it lands with (the turn and roll held apart, AGENTS.md "Physics")
+	-- spin it lands with (the turn and roll held apart, docs/notes/physics.md "Physics")
 	-- hardly slides on an end on flat grass either now (0.2 s). Since an
 	-- impact's friction is solved in the bounce (2026-11-16) a landing end
 	-- grips and vaults more often: 0.018 s a throw (0.006 before), still the

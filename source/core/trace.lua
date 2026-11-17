@@ -15,7 +15,7 @@
 -- 2026-11-15; meanings at swing.lua's release()): back, releaseAngle,
 -- flickDps, flickFrac, smoothness, shake, pull, how ("stopped" or "sky"),
 -- frames. The game adds the throw's plan and what it made of the swing
--- (AGENTS.md "The throw", 2026-11-15), y measured from the thrower's line:
+-- (docs/notes/throw.md "The throw", 2026-11-15), y measured from the thrower's line:
 --   "level"       the throw level (beginner, club, pro)
 --   "projectile"  "baton" or "kubb" (a drilled kubb)
 --   "drillId"     the practice drill's id in a drill run (8m, doubles, wall, ...)
