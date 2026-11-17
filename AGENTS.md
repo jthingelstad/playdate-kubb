@@ -2048,7 +2048,7 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
 - Setup: any Python 3 with `mujoco` and `numpy`. Create a venv anywhere
   (`python3 -m venv <dir>`, then `<dir>/bin/pip install mujoco numpy`), then
   `make mjref MJPY=<dir>/bin/python`. `MJPY` defaults to `python3`.
-- Runtime: about 5 minutes on a 10-core Mac. Our engine takes 7 s for all 1063 cases in
+- Runtime: 5 to 12 minutes on a 10-core Mac, depending on what else is running. Our engine takes 7 s for all 1063 cases in
   both modes. MuJoCo takes the rest: four solver variants at 9600 to 19200 Hz, spread over
   the cores, after about 50 s of restitution calibration.
 - The pipeline:
@@ -2106,7 +2106,7 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
     the variant nearest ours.
   - Scales: 0.10 m for distances, 0.02 m for apex heights, 15 degrees for angles, 0.2 for
     ratios, 0.05 m for flight distance, and 20 percent for a tip threshold.
-  - 1039 of 1063 cases count. MuJoCo is not converged on:
+  - 1038 of 1063 cases count. MuJoCo is not converged on:
     - the apex and spin kept of a tumbling baton's landing (about half the cases);
     - a drill's run on and rest distance from the mark (about two thirds);
     - how far a struck kubb slides (20 of 35);
@@ -2127,9 +2127,10 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
        with no friction at all. A probe of a flat baton at 7 m/s forward and 4.5 down
        matched this exactly: Δv along the ground was 0.7 × (4.5 − gap/dt).
      - The same gap shows in other scenarios: struck kubbs and the king slide farther (king
-       hit at 5 cm: 0.53 to 0.80 m against 0.31 to 0.42). Tyler's end-on baton at
-       0.3 m short slides into the kubb and topples it where MuJoCo's stops short (phi 120
-       to 150). The drill runs on 30 percent farther on grass and snow.
+       hit at 5 cm: 0.53 to 0.80 m against 0.31 to 0.42). When Tyler's end-on baton
+       reaches the kubb, ours pushes it 2 to 4 times as far (0.3 m short: 0.5 to 2.3 m
+       against 0.1 to 1.1). Whether it topples agrees. The drill runs on 30 percent farther
+       on grass and snow.
      - MuJoCo is the closer one here: the full impulse times mu is what Coulomb friction
        does to a rigid body on turf. The game's turf drag and grip (`texture.drag`, `grip`)
        and the drill's `slide` table were tuned on top of the shortfall.

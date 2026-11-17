@@ -152,7 +152,7 @@ function cases.all()
 			local g = world.tune.g
 			-- back along the arc (the tumble turns phi down by w a second)
 			local y0 = -short - vy * T0
-			local z0 = zc - vz * T0 + 0.5 * g * T0 * T0
+			local z0 = zc - vz * T0 - 0.5 * g * T0 * T0
 			add(list, { id = "endon-" .. fmt(short) .. "-" .. phiDeg, scen = "endon", group = "short " .. fmt(short),
 				params = { short = short, phi = phiDeg }, surface = "grass", duration = 5,
 				bodies = {
