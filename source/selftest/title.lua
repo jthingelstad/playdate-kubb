@@ -2,7 +2,7 @@
 -- right twice to PRACTICE, then A, which must ask for the practice pitch.
 -- Frames: 1 VS PLAYDATE chosen, 2 PRACTICE chosen, 3 a new player's title
 -- (the HOW TO PLAY line), 4 a resume line with long team names cut to the
--- turn (title.resumeText).
+-- turn (title.resumeText). Every frame shows the version top right.
 import "core/tw"
 import "scenes/title"
 import "input"
@@ -19,6 +19,9 @@ tw.selftest.scenarios.title = {
 		title.update(s)
 		title.draw(s)
 		if ctx.frame == 2 then
+			if not tw.version or tw.version.text ~= tw.version.version .. " (" .. tw.version.build .. ")" then error("no version text") end
+			if playdate.metadata and playdate.metadata.version ~= tw.version.version then error("version " .. tw.version.version .. " is not pdxinfo's " .. tostring(playdate.metadata.version)) end
+			if playdate.metadata and tonumber(playdate.metadata.buildNumber) ~= tw.version.build then error("build " .. tw.version.build .. " is not pdxinfo's " .. tostring(playdate.metadata.buildNumber)) end
 			if s.choice ~= 1 or title.choices[1].id ~= "vs" then error("expected VS PLAYDATE first") end
 			ctx:capture()
 		elseif ctx.frame == 5 then

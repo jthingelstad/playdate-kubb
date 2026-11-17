@@ -8,8 +8,13 @@
 -- (images/title, made by tools/art/build.py; the launch image is the same
 -- picture). The menu is drawn over it once per choice into a cached image,
 -- so an idle title costs one image draw a frame.
+--
+-- The game's version and build (core/version, the same as pdxinfo: "0.9.5
+-- (6)") sit small in the sky's top right corner, black on white, so a player
+-- can tell which release they have.
 import "CoreLibs/graphics"
 import "core/tw"
+import "core/version"
 import "render/ui"
 
 local gfx <const> = playdate.graphics
@@ -30,6 +35,8 @@ title.tune = {
 	gap = 8,          -- between items in a row
 	startRight = 388, -- the A START button's right edge and top (board: disc centre 346, 225)
 	startY = 218,
+	versionRight = 394, -- the version's right edge and top, in the white sky above the wordmark
+	versionY = 4,
 }
 
 -- saved: a line about the match in progress ("ASH V BIRCH, TURN 7"), or
@@ -73,6 +80,7 @@ local function render(choice, saved, hint)
 	local font = ui.display(16)
 	gfx.pushContext(img)
 	background:draw(0, 0)
+	ui.text(ui.label(), tw.version.text, t.versionRight, t.versionY, false, "right")
 	local n, per = #title.choices, title.perRow
 	for row = 0, (n - 1) // per do
 		local first, last = row * per + 1, math.min(n, row * per + per)
