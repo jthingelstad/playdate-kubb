@@ -13,7 +13,8 @@ stands, the listing assets and the accessibility disclosure).
 - `main` takes changes only through a pull request with a green `validate` check on a
   branch that is up to date with `main` (ruleset "main: pull requests on a green
   validate"). Merges are rebase merges; auto-merge is on; branches are deleted on merge.
-- `validate` (`.github/workflows/validate.yml`) runs the Lua tests and the notation gate.
+- `validate` (`.github/workflows/validate.yml`) runs the vendor check, the Lua tests and
+  the notation gate.
   Before opening a pull request run `make test` and `make selftest` locally: the Simulator
   cannot run on GitHub.
 - Codex reviews every pull request. Read its inline findings and fix or answer each one
@@ -24,42 +25,25 @@ stands, the listing assets and the accessibility disclosure).
 ## Commands
 
 - `make build`: `pdc` compiles `source/` to `build/ThrowingWood.pdx`.
-- `make test`: the Lua tests (`tests/lua/run.lua` on Lua 5.4) and the notation gate
-  (`tests/node/notation-gate.mjs` over `tests/fixtures/games/`, then
-  `tests/node/gate-rejects.mjs`, which checks every game in `tests/fixtures/bad/` is refused).
-- `make selftest`: builds, then runs every scenario in `source/selftest/` in the Simulator.
-  Frames land in `build/selftest/`. Each run takes about 2 seconds.
-- `make games`: plays `GAMES_N` (500) seeded random games through the rules engine with
-  `tools/games.lua` (no physics; `GAMES_SEED`, default 1), writes them to `build/games/`, then
-  runs the notation gate over all of them. Every game must pass with zero warnings. Same seed,
-  same files. It prints a count of the rare events it produced (rescues, punishment kubbs,
-  early kings, helicopters and so on). Then it plays `PHYS_N` (5) matches with real physics
-  (`tools/physmatch.lua`, see `docs/notes/headless-games.md`) into `build/physgames/` and gates them too.
-- `make realgames`: plays `REAL_N` (150) physics matches (`REAL_SEED` 2) at `REAL_LEVEL`
-  (pro: the recorded games are pro play) into `build/realgames/` and prints their figures beside the same figures from the games people
-  scored in a pk-kubb-score checkout (`tools/realgames.mjs`, see `docs/notes/real-games.md`). Needs the
-  checkout, so it is not part of `make test`.
-- `make physfuzz` (`N` 2000, `SEED` 1, `SURFACE` Grass): the physics fuzzer
-  (`tools/physfuzz.lua`, see `docs/notes/physics-fuzz.md`). It is a measuring tool, not part of `make test`.
-  Its pinned cases are part of `make test`, in `tests/lua/test_physcases.lua`.
-- `make bench`: the physics benchmark on the desktop (`tools/bench.lua`, three runs of
-  `core/bench`, prints each and the best; then the same three runs with a full turn's debris
-  asleep on the pitch, and the difference). `lua5.4 tools/bench.lua [runs] [--profile]
-  [--micro]` adds the per-phase profile of `world.step` and the micro benchmarks of
-  `core/microbench`. The device side: `docs/notes/performance.md`.
-- `make mjref`: the reference-engine comparison, the same throws through `core/world` and
-  MuJoCo, into `build/mjref/report.md` (`MJPY`, a Python with `mujoco` and `numpy`; see
-  `docs/notes/reference-engine.md`). Not part of `make test`.
+- `make test`: `make vendor-check`, the Lua tests (`tests/lua/run.lua` on Lua 5.4: the
+  Playdate's own modules) and the notation gate's own tests (`tests/node/notation-gate.mjs`
+  over `tests/fixtures/games/`, `tests/node/gate-rejects.mjs` over `tests/fixtures/bad/`).
+- `make selftest`: builds, then runs every scenario in `source/selftest/` in the Simulator,
+  and gates the game files its matches write. Frames land in `build/selftest/`.
+- `make vendor-sync TAG=vX.Y.Z` and `make vendor-check`: see "The core is vendored".
+- `make bench`: the physics benchmark on the desktop (`tools/bench.lua`; `--micro` adds
+  `device/microbench`). The device side: `docs/notes/performance.md`.
+- `make games`, `realgames`, `physfuzz`, `mjref` and the core's tests and measuring tools
+  are kubb-engine's: run them there.
 - `make clean`.
 - `make release`: a clean build zipped as `build/ThrowingWood-<version>.pdx.zip`, for
   friends to sideload (play.date/account/sideload). Raise `version` and `buildNumber` in
   `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
-  `source/core/version.lua` (`tw.version`: `version`, `build`, `text` "0.9.6 (7)"). pdxinfo
-  is the source of truth; `test_version.lua` fails when the two disagree, and `make
-  release` runs it before it builds. The title shows `tw.version.text` small in the sky's
-  top right corner; the web game gets the same pair through its vendor sync. The zip is published
-  on files.thingelstad.com and linked from https://playdate.thingelstad.xyz/throwing-wood/
-  (that site's repository). Each release so far: `docs/notes/releases.md`.
+  `source/device/version.lua` (`tw.version`, shown on the title). pdxinfo is the source of
+  truth; `test_version.lua` fails when the two disagree, and `make release` runs it first.
+  The zip is published on files.thingelstad.com and linked from
+  https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository). Each release so
+  far: `docs/notes/releases.md`.
 
 Tools are called by full path: SDK at `~/Developer/PlaydateSDK` (no `PLAYDATE_SDK_PATH`),
 `/opt/homebrew/opt/lua@5.4/bin/lua5.4` (keg-only), `/opt/homebrew/bin/node`. Install
@@ -76,87 +60,43 @@ nothing else without asking.
 - `tests/lua/run.lua` defines a global `import` that loads `source/<name>.lua` once the same
   way, so core files run unchanged under desktop Lua and under `pdc`.
 
-## The pure core rule
+## The core is vendored
 
-`source/core/` is pure Lua 5.4: no `playdate.*` and no `CoreLibs` imports. A test fails the
-build if either appears. Drawing, input and files live outside `core/` (`main.lua`,
-`input.lua`, `recorder.lua`, `scenes/`, `render/`, `selftest/`). Camera, swing, flight
-and trace math are in `core/` and tested on the desktop. In per-frame paths avoid making
-tables or closures: cameras and scratch arrays are reused, `camera.project` returns
-numbers. Playdate floats are 32-bit, desktop doubles: test
-outcomes with tolerances, never bit-exact.
+- `source/core/` is the Kubb Engine's `core/` (`jthingelstad/kubb-engine`) at the release
+  tag in `engine-core.json`, byte for byte. Never edit `source/core`. Fix behaviour in
+  kubb-engine, release it there as a tag, then `make vendor-sync TAG=vX.Y.Z` here (it
+  reads the tag from the checkout `../kubb-engine` or `$KUBB_ENGINE` through git, never
+  its working tree, and refuses files that disagree with the tag's `engine.json`). Never
+  write in the kubb-engine checkout from here.
+- `make vendor-check` (in `make test` and CI) fails when `source/core` differs from
+  `engine-core.json`; with an engine checkout present it also checks `engine-core.json`
+  against the tag.
+- The core's rules (pure Lua, no `playdate.*`, no tables per physics step, tolerances not
+  bit-exact) and its notes, tests and tools are in kubb-engine's `AGENTS.md`.
+- Playdate-only pure modules live in `source/device/` (`version`, `frametel`,
+  `microbench`), tested on the desktop like the core and kept free of `playdate.*`.
+  Drawing, input and files live in `main.lua`, `input.lua`, `recorder.lua`, `scenes/`,
+  `render/` and `selftest/`. In per-frame paths avoid making tables or closures.
 
 ## Tests
 
-- Lua: add `tests/lua/test_<thing>.lua`. Use `test(name, fn)`, `expect.eq`, `expect.near`,
-  `expect.truthy`. The runner picks up every `test_*.lua`.
-- Notation gate: every game file must pass the pk-kubb-score grammar, `kubb.js` must find the
-  same winner as `[Win]`, and warnings fail unless `--allow-warnings` is passed. Player ids
-  are letters and underscores only. Positions are errors (even with `--allow-warnings`) when
-  one does not parse as positions (its token has no `at`), a token has more than it counts,
-  one is off the pitch, or `kubb.js` reads the game differently with every position taken
-  out; the gate prints how many it saw. `tests/fixtures/bad/` has a game for each.
-
-## pk-kubb-score is vendored
-
-The gate loads `notation-parser.js` and `kubb.js` from `tests/vendor/pk-kubb-score/`, copies
-of pk-kubb-score's `site/assets` files (Jamie approved the copy 2026-11-13, so the gate runs
-on any machine and on GitHub). Never edit the copies; `make sync-notation` refreshes them
-from the sibling checkout `../pk-kubb-score` in the throwingwood folder (or `$PK_KUBB_SCORE`). The checkout itself is
-still read only: never write there and never run `npm install` there.
-
-Synced 2026-11-16 for optional positions on the pitch (Jamie: "Approved also for the
-extending of the notation system."): a comment that starts with `@` after kubbs thrown in or
-a baton, `2I (@ b6 c7)` or exact meters `(@ 1.32,5.87)`, seen from Team A's baseline, `^`
-for where the thrower stood. The parser and `kubb.js` put them on the token as `at`. The
-game writes them since 2026-11-16 ("Positions" in `docs/notes/rules-engine.md`).
-
-The web game (kubb.thingelstad.xyz, at throwingwood.com) runs `source/core` unchanged:
-its `vendor/core/` is this repository's `source/core/` copied byte for byte (its `npm run
-vendor:sync` and `vendor:check`, run from that repository). So a change to `source/core`
-is a change to the web game at its next sync: keep the core pure and portable, fix core
-behaviour here (never in the copy), and never write in that checkout from here.
+- Lua: add `tests/lua/test_<thing>.lua` for a `source/device` module. Use `test(name,
+  fn)`, `expect.eq`, `expect.near`, `expect.truthy`. The runner picks up every
+  `test_*.lua`.
+- Notation gate: every game file the game writes must pass the pk-kubb-score grammar with
+  zero warnings and `kubb.js` must find the same winner as `[Win]` (`make selftest` runs it
+  over the self-tests' matches). `tests/vendor/pk-kubb-score/` holds copies of
+  pk-kubb-score's `site/assets` parser and scorer (Jamie approved the copy 2026-11-13).
+  Never edit them; `make sync-notation` refreshes them from `../pk-kubb-score` (or
+  `$PK_KUBB_SCORE`), which is read only: never write there or run `npm install` there.
 
 ## Rules to know before editing
 
-The detail behind each of these is in the subsystem notes below.
+The detail behind each of these is in the subsystem notes below. The rules engine,
+notation, physics, throwing order and tunables are kubb-engine's (its `AGENTS.md`).
 
-- **Rules engine** (`core/rules.lua`): a pure state machine that knows nothing about
-  physics. Physics hands it outcome records (the fields are in "Baton outcome" and
-  "Kubb-toss outcome", `docs/notes/rules-engine.md`); an action called out of phase raises
-  an error. Kubbs are `a1`..`a5`, `b1`..`b5` and `king`; `g:census()` is always 10.
-- **Judged at the final position** (Jamie, 2026-11-13): a thrown kubb is not judged in or
-  out when it stops. Every kubb of a round stays a piece on the pitch until the round's
-  last throw is at rest, then all are judged at once; rethrows come last. Moving a kubb
-  thrown this turn is never II.C.4b.
-- **Notation**: player ids are letters and underscores only; `Y` is never written; a
-  position comment never holds more places than its token counts; positions are in Team
-  A's frame (`notation.pitchXY`); no `os.time` in core (times are passed in). Screens
-  show sheets without positions (`gamefile.shown`); the file keeps them. Every game the
-  engine writes must pass the notation gate with zero warnings (`make games`).
-- **Throwing order** (`core/order`): who throws is decided before the throw within II.B.5
-  and II.A.4; `order.checkSheet` checks every finished sheet in `test_games`, `make games`
-  and `tools/physmatch.lua`.
-- **Real-play measuring** (`make realgames`, `tools/clusters.lua`,
-  `tools/drillscatter.lua`) changes nothing in the game; what to tune from it is Jamie's
-  call, and play questions (raising policy, the basket) are his.
-- **Tunables**: every number that is a guess lives in its module's `tune` table with a
-  comment (the list is in `docs/notes/throw.md`, "Tunables"). Piece sizes are DESIGN 2,
-  not tunables.
 - **Input**: scenes never read `playdate.buttonIsPressed`/`getCrankChange` directly; they
   read the input provider (`source/input.lua`, `tw.input`), so self-tests can script it.
-- **Physics** (`core/world`, `core/collide`): meters, kilograms, seconds, radians; x across,
-  y from Team A's baseline (0) to Team B's (8), z up; a fixed step of 1/240 s. The hot
-  paths are written out in full for the device (no helper calls per pair, contact or
-  pass; no tables or closures a step). A change there should keep a dump of every body
-  after a fixed scenario bit-identical on the desktop, or say why not. Outcomes are
-  tested with tolerances.
-- **Pinned physics cases**: `tests/lua/physcases/*.lua`, run by `make test` through
-  `tests/lua/test_physcases.lua`; how to make one from a fuzz failure is in
-  `docs/notes/physics-fuzz.md`.
-- **The view frame** (`core/frame`): Team B's throws are made in the pitch turned 180
-  degrees, so the throw scene, cameras, flight, HUD and physics always throw from y = 0
-  toward +y. `core/outcome` turns results back into the world frame.
 - **Drawing**: change a piece's pose only through `render.world.setPose`; after changing
   `render.world.tune` or anything else the caches cannot see, call
   `render.world.invalidate()`. A new HUD part that depends on something must put it in its
@@ -181,45 +121,25 @@ The detail behind each of these is in the subsystem notes below.
 
 ## Subsystem notes
 
-Detail, measurements and history live in `docs/notes/`. Read a file before changing
-the part it covers; section names quoted in code comments (`docs/notes/physics.md
-"Friction in the bounce"`) are headings or bold items in these files.
+Detail, measurements and history live in `docs/notes/`. Read a file before changing the
+part it covers; section names quoted in code comments are headings or bold items there.
+The core's notes (rules engine, headless games, real games, physics, physics fuzz,
+reference engine) moved to kubb-engine's `docs/notes/`; the files here of those names
+only point there, and the core's tools and tests that older notes cite are the engine's.
 
-- `docs/notes/rules-engine.md`: Rules engine (Poses, Baton outcome, Kubb-toss outcome,
-  Judged at the final position), Notation conventions, Throwing order. Before touching
-  `core/rules`, `core/notation`, `core/gamefile`, `core/order` or the outcome records.
-- `docs/notes/headless-games.md`: the random thrower, `core/autothrow` (the computer
-  thrower), `tools/physmatch.lua`, `tools/compound.lua`. Before changing how the computer
-  throws or the headless tools.
-- `docs/notes/real-games.md`: Real games (the computer's levels, How tight the groups are,
-  Tuned toward the real games, Nerves, The baton's tumble, Aimed through the piece, What
-  scatters a drilled kubb). Before tuning levels, nerves, the aim or the computer's
-  drills, or comparing with recorded games.
+- `docs/notes/throw.md`: the throw scene, HOW TO PLAY, HOW TO THROW, the aim camera,
+  the input provider, playback. Before touching `scenes/throw.lua` or the input.
 - `docs/notes/saved-players.md`: the roster, histories, PLAYERS, TEAMS, the save version,
-  throw levels. Before touching `core/roster`, `core/history`, `core/lineup` or the
-  datastore files.
+  throw levels. Before touching the players screens or the datastore files.
 - `docs/notes/selftests.md`: running the Simulator, film mode, the helpers and every
   scenario. Before adding or changing a self-test.
-- `docs/notes/throw.md`: The throw, HOW TO PLAY, HOW TO THROW, The aim arc, The aim
-  camera, Wind, Input provider, Tunables, Playback. Before touching `scenes/throw.lua`,
-  `core/swing`, `core/throwplan`, `core/camera`, `core/wind` or a `tune` table.
-- `docs/notes/physics.md`: Physics (the air's drag, the bite, sleep, free flight,
-  friction in the bounce, the bounce reaches the row, the ground's texture, baton hits
-  and the rest of the physics history). Before any change to `core/world`,
-  `core/collide`, `core/body` or `core/flight`.
-- `docs/notes/physics-fuzz.md`: `tools/physfuzz.lua`, its checks, clusters and pinned
-  cases. When a physics change needs checking or a fuzz failure needs a case.
-- `docs/notes/reference-engine.md`: the MuJoCo comparison (`make mjref`). When measuring
-  the physics against a reference.
 - `docs/notes/performance.md`: Measuring on the device (autobench, soak, flag files),
   Drawing speed (caches, layers, plates, the clock), Frame-time log, Crank traces. Before
   touching `render/`, the HUD, or anything on a per-frame path.
-- `docs/notes/drills.md`: Practice drills, Throw scene practice, Drilling (the drilled
-  kubb, the aim allowance). Before touching `core/drill`, `core/drills` or the practice
-  pitch.
-- `docs/notes/match.md`: Match (the view frame, outcomes, `core/match`, the match scene,
-  debris, raising and settling, saves) and Kubb sets. Before touching `core/match`,
-  `scenes/match`, `core/debris` or `core/save`.
+- `docs/notes/drills.md`: Practice drills, Throw scene practice, Drilling. Before touching
+  the practice pitch.
+- `docs/notes/match.md`: the match scene, debris, raising and settling, saves, Kubb sets.
+  Before touching `scenes/match`.
 - `docs/notes/presentation.md`: Woodcut type, title, cards and launcher; Slow motion; Hit
   bursts; Knocks. Before changing the look, the cards, the bursts or the sounds.
 - `docs/notes/releases.md`: every release so far.

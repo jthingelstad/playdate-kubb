@@ -427,7 +427,7 @@ tools/             camera mockups, AI-vs-AI game generator, crank trace tools
   does not reach the Simulator's stdout and Lua can only write text inside the Data folder, so
   the result marker goes there and the Makefile collects it (details in `docs/notes/selftests.md`). Frames are
   saved at 1x for the subagents' own checks and at 2x for anything Jamie looks at.
-- `make build`, `make test`, `make selftest`, `make games` with full SDK paths; no
+- `make build`, `make test`, `make selftest` with full SDK paths (`make games` is kubb-engine's); no
   `PLAYDATE_SDK_PATH` needed.
 
 ## 9. Stages

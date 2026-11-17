@@ -20,7 +20,7 @@ SIM_TIMEOUT := 300
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-.PHONY: sync-notation build test test-lua test-node games realgames physfuzz selftest bench clean release
+.PHONY: sync-notation vendor-sync vendor-check build test test-lua test-node games realgames physfuzz mjref selftest bench clean release
 
 build: $(PDX)
 
@@ -28,7 +28,19 @@ $(PDX): $(SOURCES)
 	@mkdir -p build
 	"$(PDC)" -sdkpath "$(SDK)" -q source $(PDX)
 
-test: test-lua test-node
+test: vendor-check test-lua test-node
+
+# source/core is kubb-engine's core/ at the tag in engine-core.json, byte for
+# byte (tools/vendor-engine.mjs). Never edit it: fix the engine, tag, then
+# `make vendor-sync TAG=vX.Y.Z`. The engine is read from $(KUBB_ENGINE) or
+# ../kubb-engine through git, at the tag.
+TAG ?=
+vendor-sync:
+	"$(NODE)" tools/vendor-engine.mjs sync $(TAG)
+	git --no-pager diff --stat -- source/core engine-core.json
+
+vendor-check:
+	"$(NODE)" tools/vendor-engine.mjs check
 
 test-lua:
 	"$(LUA)" tests/lua/run.lua
@@ -36,50 +48,10 @@ test-lua:
 test-node:
 	"$(NODE)" tests/node/notation-gate.mjs tests/fixtures/games
 	"$(NODE)" tests/node/gate-rejects.mjs
-	"$(NODE)" tools/realgames.mjs tests/fixtures/games tests/fixtures/games > /dev/null
 
-# Headless games: GAMES_N seeded random games through the rules engine
-# (tools/games.lua, no physics) into build/games, then the notation gate over
-# all of them. Same seed, same files.
-GAMES_N    := 500
-GAMES_SEED := 1
-
-#
-# Then PHYS_N matches with real physics (tools/physmatch.lua: core/match
-# driven by core/autothrow, every throw run by core/world, the match scene's
-# path without the screen) into build/physgames, gated the same way.
-PHYS_N := 5
-
-games:
-	@rm -rf build/games build/physgames
-	"$(LUA)" tools/games.lua --n $(GAMES_N) --seed $(GAMES_SEED) --out build/games
-	"$(NODE)" tests/node/notation-gate.mjs build/games
-	"$(LUA)" tools/physmatch.lua --n $(PHYS_N) --seed $(GAMES_SEED) --out build/physgames
-	"$(NODE)" tests/node/notation-gate.mjs build/physgames
-
-# Real games against the game's own (tools/realgames.mjs): REAL_N physics
-# matches into build/realgames, then the same figures from them and from the
-# games people scored in a pk-kubb-score checkout (read only; not on GitHub).
-REAL_N    := 150
-REAL_SEED := 2
-REAL_SCATTER := 1
-REAL_LEVEL := pro
-
-realgames:
-	@test -d "$(PKSCORE)/games" || { echo "realgames: no games folder in a pk-kubb-score checkout (set PK_KUBB_SCORE)"; exit 1; }
-	@rm -rf build/realgames
-	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --scatter $(REAL_SCATTER) --level $(REAL_LEVEL) --out build/realgames
-	"$(NODE)" tools/realgames.mjs "$(PKSCORE)/games" build/realgames
-
-# The physics fuzzer (tools/physfuzz.lua, docs/notes/physics-fuzz.md "Physics fuzz"): N seeded
-# throws on SURFACE through every physics check, a table and the failures'
-# clusters with a repro command each. About 0.045 s a throw on grass.
-N       := 2000
-SEED    := 1
-SURFACE := Grass
-
-physfuzz:
-	"$(LUA)" tools/physfuzz.lua --n $(N) --seed $(SEED) --surface $(SURFACE)
+# The core's tests and measuring tools moved to kubb-engine with the core.
+games realgames physfuzz mjref:
+	@echo "make $@ lives in kubb-engine now (with the core's tests and tools): run it there"; exit 2
 
 # Each scenario is its own Simulator launch, killed after SIM_TIMEOUT seconds.
 # The runner writes its marker in the game's Data folder (the only place Lua
@@ -120,21 +92,6 @@ selftest: build
 	if [ -d "$(OUT)/games" ]; then "$(NODE)" tests/node/notation-gate.mjs "$(OUT)/games" || fail=1; fi; \
 	exit $$fail
 
-# The reference-engine comparison (tools/mjref, docs/notes/reference-engine.md "Reference engine"):
-# the same throws through core/world and MuJoCo, the report in build/mjref.
-# MJPY is a Python with mujoco and numpy (python3 -m venv <dir>, then
-# <dir>/bin/pip install mujoco numpy; make mjref MJPY=<dir>/bin/python).
-MJPY  ?= python3
-MJREF := build/mjref
-
-.PHONY: mjref
-mjref:
-	@mkdir -p $(MJREF)
-	"$(LUA)" tools/mjref/export.lua $(MJREF)
-	"$(LUA)" tools/mjref/ours.lua $(MJREF)
-	"$(MJPY)" tools/mjref/mjsim.py $(MJREF)
-	"$(MJPY)" tools/mjref/compare.py $(MJREF)
-
 # The physics benchmark on the desktop (the device runs the same scenario from
 # the System Menu "Bench" item).
 bench:
@@ -147,8 +104,8 @@ clean:
 # .pdx): from a clean build/, so nothing stale rides along, zipped as
 # build/ThrowingWood-<version>.pdx.zip. Raise buildNumber in source/pdxinfo for
 # each one, or a Playdate that has the last one will not take it, and the same
-# pair in source/core/version.lua (the title shows it; the web gets it through
-# its vendor sync): the release stops first when the two disagree.
+# pair in source/device/version.lua (the title shows it): the release stops
+# first when the two disagree.
 VERSION := $(shell sed -n 's/^version=//p' source/pdxinfo)
 release:
 	"$(LUA)" tests/lua/run.lua tests/lua/test_version.lua
@@ -157,8 +114,9 @@ release:
 	cd build && zip -qr -X ThrowingWood-$(VERSION).pdx.zip ThrowingWood.pdx -x '*.DS_Store'
 	@echo "build/ThrowingWood-$(VERSION).pdx.zip"
 
-# Refresh the vendored notation parser and scorer from a pk-kubb-score checkout,
-# then show what changed. Review, run `make test` and `make games`, commit.
+# Refresh the vendored notation parser and scorer (the gate over the game files
+# the self-tests write) from a pk-kubb-score checkout, then show what changed.
+# Review, run `make test`, commit.
 sync-notation:
 	cp "$(PKSCORE)/site/assets/notation-parser.js" "$(PKSCORE)/site/assets/kubb.js" tests/vendor/pk-kubb-score/
 	git --no-pager diff --stat -- tests/vendor/pk-kubb-score

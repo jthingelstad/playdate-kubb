@@ -3,6 +3,11 @@
 Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also in
 `AGENTS.md`; this file keeps the detail and the history. Paths are from the repo root.
 
+Kept here for the Playdate's throw scene, screens, input provider and playback. The core
+modules it describes (`core/swing`, `core/throwplan`, `core/camera`, `core/wind`, the
+`tune` tables) are kubb-engine's since v0.2.0, and the engine's copy of this note
+(`docs/notes/throw.md` there) is the one to update for a change to them.
+
 ## The throw
 
 DESIGN 4 is the rule book (Jamie and Tyler, 2026-11-15, after play-testing the stop on the

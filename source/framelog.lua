@@ -1,13 +1,13 @@
 -- Frame-time log: appends one JSON line per throw (practice and match) to
 -- frames.jsonl in the game's Data folder, once the throw is at rest, never
--- during the flight. The line is core/frametel's (format there and in
+-- during the flight. The line is device/frametel's (format there and in
 -- docs/notes/performance.md "Frame-time log"). Separate from the crank recorder's
 -- traces.jsonl. On by default outside self-tests; the device autobench
 -- turns it off while it runs, as it does the recorder. logcap keeps the file
 -- to about 1 MB (older lines in frames-1.jsonl).
 import "core/tw"
 import "logcap"
-import "core/frametel"
+import "device/frametel"
 
 local framelog = {
 	path = "frames.jsonl",

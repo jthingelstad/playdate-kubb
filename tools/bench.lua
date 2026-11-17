@@ -3,7 +3,7 @@
 --
 --   lua5.4 tools/bench.lua [runs] [--profile] [--micro]
 -- --profile adds the per-phase breakdown of world.step, --micro the micro
--- benchmarks of core/microbench (the device autobench runs both).
+-- benchmarks of device/microbench (the device autobench runs both).
 
 local here = arg[0]:match("^(.*)/[^/]*$") or "."
 local sourceDir = here .. "/../source"
@@ -14,7 +14,7 @@ function import(name)
 	return assert(loadfile(sourceDir .. "/" .. name .. ".lua"))()
 end
 import "core/bench"
-import "core/microbench"
+import "device/microbench"
 local bench = tw.bench
 
 local runs, profile, micro = 3, false, false
