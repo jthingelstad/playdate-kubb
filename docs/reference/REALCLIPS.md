@@ -55,7 +55,12 @@ batonprobe's sweep that also printed the distance from the kubb's start (0, 8) t
 for every toppled kubb; neither copy is in the repository. The drill rows were run again
 at `5160562` ("Substep a drilled kubb's turn in flight", merged while this was in review):
 run-on mean 0.95 m, p50 0.88, 11 of 288 under 0.3 m, 1 of 288 behind its touch, last
-visible motion median 0.43 s, the same within about 2 cm and 0.01 s.
+visible motion median 0.43 s, the same within about 2 cm and 0.01 s. The baton rows were
+run again at `21519af` (the baton's contacts clipped to the face or edge it lies along,
+also merged in review; it touches only baton contacts): toppled 93% (261 of 280), left the
+ground 57%, end-first plugs 15%; struck travel median 0.65 m, 67 of 261 under 0.3 m (26%);
+one baton fells all of 3 touching in a line 74%, 4 touching 16%, 4 at 3 cm 15%, two or
+more of 2 in line at 3 cm 82%, of 2 side by side 26%. No verdict in the table changes.
 
 | Quantity | Real (pass 2) | Engine at `3703fe4` | Inside? |
 |---|---|---|---|
