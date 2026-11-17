@@ -19,7 +19,7 @@ SIM_TIMEOUT := 300
 SCENARIOS := $(filter-out runner _%,$(basename $(notdir $(wildcard source/selftest/*.lua))))
 SOURCES   := $(shell find source -type f)
 
-.PHONY: sync-notation build test test-lua test-node games realgames selftest bench clean release
+.PHONY: sync-notation build test test-lua test-node games realgames physfuzz selftest bench clean release
 
 build: $(PDX)
 
@@ -68,6 +68,16 @@ realgames:
 	@rm -rf build/realgames
 	"$(LUA)" tools/physmatch.lua --n $(REAL_N) --seed $(REAL_SEED) --scatter $(REAL_SCATTER) --out build/realgames
 	"$(NODE)" tools/realgames.mjs "$(PKSCORE)/games" build/realgames
+
+# The physics fuzzer (tools/physfuzz.lua, AGENTS.md "Physics fuzz"): N seeded
+# throws on SURFACE through every physics check, a table and the failures'
+# clusters with a repro command each. About 0.045 s a throw on grass.
+N       := 2000
+SEED    := 1
+SURFACE := Grass
+
+physfuzz:
+	"$(LUA)" tools/physfuzz.lua --n $(N) --seed $(SEED) --surface $(SURFACE)
 
 # Each scenario is its own Simulator launch, killed after SIM_TIMEOUT seconds.
 # The runner writes its marker in the game's Data folder (the only place Lua
