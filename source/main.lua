@@ -342,6 +342,18 @@ else
 
 	open("title")
 
+	-- The system quits the game (the Home button, a crash report aside) or
+	-- puts the device to sleep: a match in progress is saved once more, so
+	-- nothing since the last throw's save is lost (Catalog guidelines).
+	local function saveForSystem()
+		if kind == "match" and current then
+			local ok = pcall(match.saveNow, current)
+			if not ok then print("save on exit failed") end
+		end
+	end
+	function playdate.gameWillTerminate() saveForSystem() end
+	function playdate.deviceWillSleep() saveForSystem() end
+
 	-- Testing on the device over hours (a bench, installs): a file named
 	-- "nolock" in the Data folder keeps the game from auto-locking. Read once
 	-- at launch; delete the file when the testing is done.

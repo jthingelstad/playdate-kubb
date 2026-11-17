@@ -140,6 +140,14 @@ local function persist(s)
 end
 scene.persist = persist
 
+-- The system is about to quit the game or put the device to sleep (main.lua's
+-- playdate.gameWillTerminate, deviceWillSleep): write the save once more. A
+-- finished match is left alone, so its save is never deleted before archive
+-- has written its game file.
+function scene.saveNow(s)
+	if s and s.m and not cmatch.over(s.m) then persist(s) end
+end
+
 -- The game file of a finished match, written once, before its resume save
 -- is deleted: the match is never in neither place.
 local function archive(s)
