@@ -304,7 +304,10 @@ test("drills: THE WALL with real physics: hard, but clean drills at the stake bu
 	-- over thirty grounds: 0.80 in the wall on average, three on the best
 	-- grounds, none on fifteen (twelve grounds until the run on was measured
 	-- again with the air's drag: 0.75 then, 0.33 on those twelve since; 0.72
-	-- over sixty).
+	-- over sixty). Since an impact's friction is solved in the bounce
+	-- (2026-11-16) the run on is shorter and wider for its length, and the
+	-- wall harder: 0.20 on these thirty, two at best (0.19 over ninety,
+	-- against 0.60 before).
 	local drill = tw.drill
 	local function wall(seed)
 		local d = drills.byId("wall")
@@ -330,7 +333,7 @@ test("drills: THE WALL with real physics: hard, but clean drills at the stake bu
 		sum = sum + v
 		if v > best then best = v end
 	end
-	expect.truthy(sum / G >= 0.4, string.format("clean drills build %.2f on average", sum / G))
+	expect.truthy(sum / G >= 0.1, string.format("clean drills build %.2f on average", sum / G))
 	expect.truthy(best >= 2, string.format("a wall of %d at best", best))
 end)
 

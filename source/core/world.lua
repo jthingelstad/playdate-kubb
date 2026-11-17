@@ -13,7 +13,8 @@
 --   5. move and turn the bodies
 --   6. `relaxIterations` passes without the push bias, so pushing apart
 --      does not leave pieces with extra speed (no energy gain)
---   7. restitution, from each contact's approach speed before the solve
+--   7. restitution, from each contact's approach speed before the solve,
+--      with its friction
 --   8. rolling resistance and dig, sleep, topple and touch bookkeeping
 -- Tipping about an edge, rocking back and falling are all just contacts.
 --
@@ -485,9 +486,11 @@ local K_BIAS <const>, K_RELAX <const> = 53, 54                  -- velocity targ
 local K_V0 <const>, K_MU <const>, K_E <const> = 55, 56, 57
 local K_LN <const>, K_LT1 <const>, K_LT2 <const> = 58, 59, 60   -- accumulated impulses
 local K_LNMAX <const> = 61                                      -- largest normal impulse seen
+local K_REST <const> = 62                                       -- a bounce pass's velocity target
 
 local REC = {}   -- the records of this step's active contacts, 1 .. nRec (reused)
 local nRec = 0
+local BOUNCE = {}   -- the records a bounce pass solves, 1 .. nBounce (reused)
 
 -- Per body, filled each step: position, bounding radius, awake, speed bound.
 local BX, BY, BZ, BR, AW, SPD, NXT = {}, {}, {}, {}, {}, {}, {}
@@ -685,10 +688,13 @@ local function noteContact(w, b, other, px, py, pz)
 	if other and not w.firstHit then w.firstHit = rec end
 end
 
--- One sequential-impulse pass over the contacts; tk = K_BIAS or K_RELAX.
-local function solve(tk)
-	for i = 1, nRec do
-		local r = REC[i]
+-- One sequential-impulse pass over records 1 .. n of list (REC, or the
+-- bounce pass's BOUNCE), each held to its target r[tk] (K_BIAS, K_RELAX or
+-- K_REST): the normal impulse, then the friction, capped at mu times the
+-- normal impulse accumulated so far.
+local function solve(tk, list, n)
+	for i = 1, n do
+		local r = list[i]
 		local a, kind = r[K_A], r[K_KIND]
 		local ima = a.im
 		local avx, avy, avz, awx, awy, awz = a.vx, a.vy, a.vz, a.wx, a.wy, a.wz
@@ -1484,7 +1490,7 @@ function world.step(w)
 
 	if P then local now = pc(); P.prepare = P.prepare + now - pt; pt = now end
 	-- 4. solve with the push bias
-	for _ = 1, t.iterations do solve(K_BIAS) end
+	for _ = 1, t.iterations do solve(K_BIAS, REC, m) end
 
 	if P then local now = pc(); P.solve = P.solve + now - pt; pt = now end
 	-- 5. integrate positions (quaternion step, normalize, rotation matrix and
@@ -1543,7 +1549,7 @@ function world.step(w)
 
 	if P then local now = pc(); P.integrate = P.integrate + now - pt; pt = now end
 	-- 6. relax: remove the push-apart speed
-	for _ = 1, t.relaxIterations do solve(K_RELAX) end
+	for _ = 1, t.relaxIterations do solve(K_RELAX, REC, m) end
 
 	if P then local now = pc(); P.relax = P.relax + now - pt; pt = now end
 	-- 7. restitution, the bounce of each contact that arrived faster than
@@ -1555,6 +1561,12 @@ function world.step(w)
 	-- footing on the ground, a neighbour), held to the target they had in the
 	-- relax pass: applied alone, a baton's bounce off a standing kubb drove
 	-- the kubb into the ground and the ground threw it up the next step.
+	-- Friction is solved in these passes too, capped at mu times the
+	-- contact's whole normal impulse (the push, the relax and the bounce):
+	-- in the bias passes a speculative contact's impulse only takes the
+	-- approach speed past the gap still to close, so a landing kept 0.6 to
+	-- 0.9 of its ground speed, and how much depended on where the step fell
+	-- (AGENTS.md, "Physics", "Friction in the bounce").
 	local rs = t.restitutionSpeed
 	local any, pair = false, false
 	for i = 1, m do
@@ -1570,55 +1582,23 @@ function world.step(w)
 		end
 	end
 	if any then
-		for _ = 1, t.restitutionIterations do
-			for i = 1, m do
-				local r = REC[i]
-				local v0 = r[K_V0]
-				local a, kind = r[K_A], r[K_KIND]
-				local tgt
-				if v0 < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then
-					tgt = -r[K_E] * v0
-				elseif pair and r[K_LNMAX] > 0 and (a.bounceStep == stamp
-					or (kind == 2 and r[K_B].bounceStep == stamp)) then
-					tgt = r[K_RELAX]
-				end
-				if tgt then
-					local vn
-					if kind == 1 then
-						vn = a.vz + a.wx * r[K_ANX] + a.wy * r[K_ANY]
-					else
-						vn = a.vx * r[K_NX] + a.vy * r[K_NY] + a.vz * r[K_NZ]
-							+ a.wx * r[K_ANX] + a.wy * r[K_ANY] + a.wz * r[K_ANZ]
-						if kind == 2 then
-							local b = r[K_B]
-							vn = vn - (b.vx * r[K_NX] + b.vy * r[K_NY] + b.vz * r[K_NZ])
-								- (b.wx * r[K_BNX] + b.wy * r[K_BNY] + b.wz * r[K_BNZ])
-						end
-					end
-					local old = r[K_LN]
-					local lam = old - r[K_MN] * (vn - tgt)
-					if lam < 0 then lam = 0 end
-					r[K_LN] = lam
-					if lam ~= old then
-						local d = lam - old
-						local ima = a.im
-						if kind == 1 then
-							a.vz = a.vz + ima * d
-						else
-							local nx, ny, nz = r[K_NX], r[K_NY], r[K_NZ]
-							a.vx, a.vy, a.vz = a.vx + ima * d * nx, a.vy + ima * d * ny, a.vz + ima * d * nz
-							if kind == 2 then
-								local b = r[K_B]
-								local imb = b.im
-								b.vx, b.vy, b.vz = b.vx - imb * d * nx, b.vy - imb * d * ny, b.vz - imb * d * nz
-								b.wx, b.wy, b.wz = b.wx - d * r[K_WBNX], b.wy - d * r[K_WBNY], b.wz - d * r[K_WBNZ]
-							end
-						end
-						a.wx, a.wy, a.wz = a.wx + d * r[K_WANX], a.wy + d * r[K_WANY], a.wz + d * r[K_WANZ]
-					end
-				end
+		local nb = 0
+		for i = 1, m do
+			local r = REC[i]
+			local v0 = r[K_V0]
+			local a, kind = r[K_A], r[K_KIND]
+			if v0 < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then
+				nb = nb + 1
+				BOUNCE[nb] = r
+				r[K_REST] = -r[K_E] * v0
+			elseif pair and r[K_LNMAX] > 0 and (a.bounceStep == stamp
+				or (kind == 2 and r[K_B].bounceStep == stamp)) then
+				nb = nb + 1
+				BOUNCE[nb] = r
+				r[K_REST] = r[K_RELAX]
 			end
 		end
+		for _ = 1, t.restitutionIterations do solve(K_REST, BOUNCE, nb) end
 	end
 
 	if P then local now = pc(); P.restitution = P.restitution + now - pt; pt = now end

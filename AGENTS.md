@@ -1737,6 +1737,75 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   substepping it changed the bench scenario for nothing. What players get: the same
   drills, the nose at the touch 0.2 degrees less steep on average, run-on within noise
   (`tools/drillscatter.lua --only 3`, grass loft 30: median 138 cm, was 139).
+- **Friction in the bounce** (2026-11-16, from the reference engine's finding 1). Stage 7
+  of `world.step` (the restitution passes) now solves each contact's friction as well as
+  its normal, capped at mu times the contact's whole normal impulse (`r[K_LN]`, the bias
+  passes' and the bounce's together). `solve(tk, list, n)` runs over a list: stages 4 and
+  6 pass every record (`REC`), stage 7 the bounce group (`BOUNCE`, file scope): the
+  contacts that bounce, with their target -e v0 in `r[K_REST]`, and the other contacts of
+  the pieces that bounce, held at their relax target. Before, friction was solved only in
+  the bias passes, which for a speculative contact take only the approach speed past the
+  gap still to close; the rest of the impact and the bounce came with no friction. So a
+  landing kept 0.56 to 0.89 of its speed along the ground (mean 0.75, by where the step
+  fell) against Coulomb's and MuJoCo's 0.41. Now (`make mjref`, landing cases, bare):
+  - speed kept: grass 0.47 to 0.51 (MuJoCo 0.41), sand 0.35 (0.28), snow 0.82 (0.80);
+  - the same landing started 2, 6 or 10 mm up: spread 0.02 on grass (was 0.33), 0.04 on
+    sand (0.33), 0.00 on snow (0.07);
+  - run on, median: grass 1.10 m (MuJoCo 1.15, was 2.56), sand 0.62 (0.74, was 1.56),
+    snow 6.99 (7.01, was 8.16);
+  - D by scenario, before -> after: broadside 0.087 -> 0.031, domino 0.059 -> 0.038,
+    drill 0.192 -> 0.089, end on 0.272 -> 0.141, king 0.158 -> 0.032, landing 0.639 ->
+    0.432, tip 0.027 -> 0.025; drop 0.083 -> 0.104 (a kubb dropped on sand at 1 m/s
+    bounces 0.020 of its speed, was 0.010, against 0.03 asked and MuJoCo's 0).
+  The held contacts get friction too. Without it (tried) the king, broadside and end-on
+  cases move back toward before (king D 0.124) and a row of two struck 7 cm apart falls
+  as before; with it, a row of four face to face struck on the front kubb falls less
+  than MuJoCo's at low power (below). The turf terms (`texture.drag`, `grip`, the
+  bite) are not retuned: none was tuned against the shortfall (drag and grip came for
+  the creep and the slide on an end, the bite on Jamie's word), and the turf now takes
+  the same share of a landing as before or less (game against bare run on: grass 0.49 ->
+  0.64, sand 0.33 -> 0.37, snow 0.26 -> 0.29). `drill.tune.slide` is measured again
+  ("Drilling", "The aim allowance"). Cost (the desktop, best of 30): lone 0.001, air
+  0.005, ground 0.010 to 0.011 ms a step as before; multi 0.016 to 0.017 -> 0.018 and the
+  bench throw 0.0131 -> 0.0146 to 0.0149 ms (about a tenth more where pieces collide: the
+  bounce passes now run the friction rows too); the whole match case 0.005 to 0.006 as
+  before. Not bit-identical: every throw with a contact. What players get:
+  - a baton kicks on less after landing: the 8 m/s test throw 0.21 m on grass in play
+    (0.55 bare; MuJoCo bare 0.48; was 2.98 bare), and over the kick sweep (loft 35, 6 to
+    9 m/s, tumble 5 to 9) grass median 0.19 m in play (was 0.82), bare 0.41 (MuJoCo 0.46);
+  - batons that skip off the grass arrive at the kubb with about half their speed (2 to
+    4 m/s, were 4 to 8); `tools/groundstats.lua` grass slide after touching down 1.01 m
+    (was 1.50), hits 7.3% (12.7%);
+  - a clean drill runs on less and spreads wider for its length ("Drilling", "On the
+    ground"): grass at half past 1 median 0.68 m, p10 0.17, p90 1.44 (was 0.88 / 0.44 /
+    1.53), loft 30 median 1.26 (1.38); sand median 0.15 and 0.35 (0.19 and 0.37), dead
+    stops 26% at half past 1 (11%). That is the way `docs/reference/REALCLIPS.md`'s first
+    item points (real drills near a group stopped within a kubb length or two), still well
+    short of it. BLAST and THE WALL score less for a clean drill ("Practice
+    drills");
+  - struck kubbs slide less, and touching rows fall less from one baton:
+    `tools/compound.lua --quick`, four in a line face to face, one or more down 66.7%
+    of hits (was 98.7), two or more 23.1% (69.3); 3 cm apart 44.3 / 6.3% (94.9 / 32.1).
+    Against MuJoCo, the same 100 throws from 0.03 s before the first touch (grass, bare):
+    on the row of four, when the baton reaches the row, MuJoCo fells exactly one (the
+    back kubb, the front three leaning) in 60 of 60; ours one in 47, two in 1, none in
+    12 (were one in 52, two in 8). On a row of two 7 cm apart MuJoCo fells 1.33 on
+    average (none 1, one 38, two 21); ours 1.32 (was 1.92, two in 55).
+  - matches (`make realgames`, 150 games, seed 2; real games / before / after): turns a
+    game 8.9 / 22.1 / 18.7; batons that missed 24.7 / 14.5 / 18.5%; took two 16.0 / 12.2
+    / 5.4%, three or more 10.0 / 1.5 / 0.3%; cleared every field kubb 83.4 / 59.2 /
+    62.1%; base kubb from the baseline 32.7 / 29.2 / 25.6%; the king 83.8 / 95.5 /
+    92.8%. Shorter games and more misses, nearer the real ones; fewer multi-kubb
+    batons, farther from them ("Tuned toward the real games").
+  `make physfuzz N=2000 SEED=1`, before -> after (failed throws): energy 2 -> 8,
+  penetration 83 -> 68, rest 18 -> 24, finite 0 -> 1, dt 13 -> 23 (marginal 171 -> 89),
+  mirror 1 -> 6 (marginal 55 -> 42); 1149 -> 1074 pieces toppled at 240 Hz against
+  1113 -> 1051 at 480 Hz. Of the eight energy rises six are under 0.03 J; one drill
+  nose first into a lying kubb (1:728) gains 0.72 J in the step after, in the push out
+  of the overlap the impact left (the bias passes); the same state stepped by the engine
+  before this change gains 0.08 J. Left open. The finite one (1:1177) is a baton glancing off a kubb's upright edge
+  sideways and rolling about its own axis at 204 rad/s, the check's limit 200: rolling
+  without slip at the slip it had (Coulomb with the baton's small roll inertia).
 - Lone flight (`world.loneFlight`, on): when exactly one body is awake and it cannot reach
   the ground or any other body within this step (its height above the ground, and above the
   top of every other body, beats its speed plus a step of gravity and its spin, with a
@@ -2488,31 +2557,21 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
   - Those are reported, not scored.
 - Headline results (2026-11-16, ranked by size × confidence):
   1. **Impacts lose too little speed to friction, and how much depends on where the step
-     falls.**
-     - A baton landing at 0 to 60 degrees keeps 0.56 to 0.89 of its ground speed in ours
-       (mean 0.75) against MuJoCo's 0.41. With mu 0.7, Coulomb predicts about 0.5.
-     - It also runs on twice as far: 2.5 m against 1.2 on grass, 1.4 against 0.75 on sand.
-     - The same landing started 2 or 10 mm up keeps 0.59 or 0.79 of its speed in ours.
-       MuJoCo is flat at 0.38 to 0.40.
-     - Cause, in `world.step`: friction is solved only in the bias passes (`solve`), capped
-       at mu times the normal impulse found there. For a speculative contact, that impulse
-       only removes the approach speed beyond the gap still to close (target sep/dt). The
-       restitution passes (stage 7) then add the rest of the impact impulse and the bounce,
-       with no friction at all. A probe of a flat baton at 7 m/s forward and 4.5 down
-       matched this exactly: Δv along the ground was 0.7 × (4.5 − gap/dt).
-     - The same gap shows in other scenarios: struck kubbs and the king slide farther (king
-       hit at 5 cm: 0.53 to 0.80 m against 0.31 to 0.42). When Tyler's end-on baton
-       reaches the kubb, ours pushes it 2 to 4 times as far (0.3 m short: 0.5 to 2.3 m
-       against 0.1 to 1.1). Whether it topples agrees, except end first at 0.4 m short
-       (ours topples, MuJoCo's does not). The drill runs on 30 percent farther
-       on grass and snow.
-     - MuJoCo is the closer one here: the full impulse times mu is what Coulomb friction
-       does to a rigid body on turf. The game's turf drag and grip (`texture.drag`, `grip`)
-       and the drill's `slide` table were tuned on top of the shortfall.
-     - Fix: solve the friction rows in the restitution passes too, capped by mu times the
-       contact's whole normal impulse. That is about 30 lines in stage 7. Then retune the
-       texture drag and grip and `drill.tune.slide` (`tools/drillscatter.lua`), and rerun
-       `tools/batonprobe.lua` and `make realgames`.
+     falls.** Fixed 2026-11-16 ("Physics", "Friction in the bounce"): a landing keeps
+     0.47 to 0.51 of its ground speed on grass (MuJoCo 0.41), the same from any step
+     phase, and runs on 1.10 m (MuJoCo 1.15). What it was:
+     - A baton landing at 0 to 60 degrees kept 0.56 to 0.89 of its ground speed (mean
+       0.75) against MuJoCo's 0.41, and ran on 2.5 m against 1.2 on grass, 1.4 against
+       0.75 on sand. Started 2 or 10 mm up, the same landing kept 0.59 or 0.79.
+     - Cause: friction was solved only in the bias passes, capped at mu times the normal
+       impulse found there, which for a speculative contact removes only the approach
+       speed past the gap still to close. The restitution passes (stage 7) then added the
+       rest of the impact and the bounce with no friction.
+     - The turf drag and grip were not tuned against it (they came for the creep and the
+       slide on an end) and are unchanged; `drill.tune.slide` was measured again.
+     - Still open from it: a row of four face to face struck at low power. MuJoCo fells
+       the back kubb every time; ours none in 12 of 60 such throws. And when the baton
+       passes 6 cm to the side of the row, 1 mm clear of it in MuJoCo, ours touches it.
   2. **A drill's attitude in flight is limited by the time step.** Fixed 2026-11-16
      ("Physics", "The turn in flight"): the nose in flight is now within 0.5 degrees of
      MuJoCo in every drill case (mean 0.11; was 2.9, mean 1.28). What it was:
@@ -2538,8 +2597,10 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
      - Fix: in flight, x += v dt + g dt² / 2 (one line in each of the two copies), or make
        `carry` step as the engine does. Small, but every aim carries it.
   4. **Low strikes on a standing kubb need 10 to 26 percent more J in ours.**
-     - On grass at h 0.02, J is 0.435 in ours against 0.345. Snow is the same or worse at h
-       0.04 to 0.06, and ours is not monotone there.
+     - On grass at h 0.02, J is 0.403 in ours against 0.345 (0.435 before the bounce
+       friction); at h 0.04 0.320 against 0.296 (was equal). Snow is the same or worse at
+       h 0.04 to 0.06 (0.373 and 0.745 against 0.296 and 0.639), and ours is not monotone
+       there.
      - High strikes match exactly: grass h 0.08 to 0.14 gives the same J in both, and both
        sit within 7 percent of the rigid-pivot estimate.
      - Iterations (16) and warm starting change nothing. At 960 Hz ours moves to 0.373.
@@ -2547,8 +2608,8 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
        contacts of `collide.groundBox` at 240 Hz.
      - No cheap fix. Accept it unless play shows foot hits feel wrong.
   5. **Smaller ones:**
-     - An end-first landing (phi 90) runs on 5.0 m in ours against 3.5 to 3.9 m. That is
-       probably item 1 again after it falls flat.
+     - An end-first landing (phi 90) runs on 4.4 m in ours against 3.5 to 3.9 m (4.2 to
+       4.7 before the bounce friction).
      - Snow's high-strike threshold is one grid step (8 percent) higher in ours.
      - Dominoes agree (D ≤ 0.16). Ours topples the second kubb a little less often right at
        the threshold.
@@ -2725,7 +2786,11 @@ hit rate (records in `playdate.datastore` "drills").
   38 cm; 40% at loft 30, median 56 cm), so a clean run scores about 4.1 of 6, against 6
   before the run on and 5.3 before the physics audit (the table's re-measure moved it by
   under 2 points; the audit's ground changes did the rest). `blastCm` stays 50 (a tighter
-  30 cm would score a perfect swing 38% of the time).
+  30 cm would score a perfect swing 38% of the time). Since the friction in the bounce
+  ("Physics", 2026-11-16) it is 51% at half past 1 (median 49 cm) and 26% at loft 30
+  (median 68 cm), a clean run about 3.1 of 6; the same count just before gave 62% and 47%
+  (3.7 of 6). THE WALL is harder too: six clean drills at the stake build 0.19 on average
+  over 90 grounds (0.60 before; `test_drills`).
   AROUND THE PITCH: five batons, each from in front of the next base kubb. An illegal
   throw (a helicopter) scores nothing.
 - DOUBLES: six batons from the baseline, each at its own group of standing field kubbs
@@ -2839,15 +2904,16 @@ the throw scene with `s.drill` on.
   speed that lands the kubb `drill.slideFor` short of the circle: its mean run on by the
   loft, the ground, the distance and the planned spin; `plan.solve` passes `q.surface` and
   `q.spin`; the allowance does not depend on the spin); the circle is where a clean drill
-  most likely ends, not where every one does (it runs on 0.4 to 1.6 m, p10 to p90 on grass
-  at half past 1). `plan.launch` judges the swing and gives the
+  most likely ends, not where every one does (it runs on 0.17 to 1.44 m, p10 to p90 on
+  grass at half past 1). `plan.launch` judges the swing and gives the
   body through `drill.body` (noseDown, rollLand, spin, wobble). The aim camera is
   the baton's ("The aim camera": first person behind the thrower, looking past the circle,
   and the plan view while B is held, with the drill's planned arc; it replaced
   `camera.drillAim`, the fixed high drill view, 2026-11-15); the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
   and the minimap's aim line goes to the circle. Self-test `clock-drill` (a drill at half
-  past 1 with a tap of spin rests within 1 m of the circle on the Simulator: 0.16 m since
-  the run on was measured again with the air's drag, 0.28 since the bite, 0.18 before it,
+  past 1 with a tap of spin rests within 1 m of the circle on the Simulator: 0.72 m since
+  the friction in the bounce, 0.16 when the run on was measured again with the air's
+  drag, 0.28 since the bite, 0.18 before it,
   2026-11-16; 0.4 m before the drill ran on. One drill's rest is spread over half a metre
   either way, so the bound stays 1 m).
 - **The band launch** (`drill.launch`, `drill.solve`): the power error against the band is
@@ -2878,12 +2944,17 @@ the throw scene with `s.drill` on.
   left in `core/world` (`digGain`, `edgeRound`, `digBySpin`, `slipDrag`, `rollDrag`,
   `plugGain`, `bumpGain`, the drill-over rule and its settle went on 2026-11-16). It meets
   the turf like every body ("Physics", "The bite"). Grass, the plan's clean drill (run on
-  mean / p10 / p90 / max, rest from the circle, touch to rest): half past 1 0.95 / 0.41 /
-  1.60 / 3.82 m, 43 cm, 0.78 s; loft 30 1.49 / 0.88 / 2.28 / 4.39 m, 52 cm, 0.92 s. Sand
-  0.26 m at half past 1 (12% dead stops under 5 cm), 0.51 at loft 30; snow 0.96 and 1.53
-  (no bite: packed snow lets an edge skate). It ends turned every way (yaw to the throw
-  0-30 / 30-60 / 60-90: 43 / 31 / 26% on grass at half past 1). Measured after the nine
-  physics audit items (2026-11-16), with the aim allowance measured again.
+  mean / p10 / p50 / p90 / max, rest from the circle, touch to rest): half past 1 0.76 /
+  0.17 / 0.68 / 1.44 / 2.53 m, 51 cm, 0.84 s; loft 30 1.36 / 0.59 / 1.26 / 2.27 / 3.98
+  m, 69 cm, 1.04 s. Sand 0.21 m at half past 1 (p50 0.15, p90 0.49; 26% dead stops under
+  5 cm), 0.45 at loft 30 (p50 0.35, p90 0.94; 6%); snow 0.83 and 1.39 (no bite: packed
+  snow lets an edge skate). It ends turned every way (yaw to the throw 0-30 / 30-60 /
+  60-90: 50 / 30 / 20% on grass at half past 1). Measured after the friction in the
+  bounce (2026-11-16, `tools/drillscatter.lua --only 3`), with the aim allowance measured
+  again. Before it (the same tool, the table then): grass mean 0.95 / p10 0.44 / p50 0.88
+  / p90 1.53 m at half past 1, 1.53 / 0.82 / 1.38 / 2.47 at loft 30, rest 42 and 56 cm;
+  sand 0.26 (p50 0.19, p90 0.57; 11% dead) and 0.50 (p50 0.37, p90 1.00; 1%); snow 0.96
+  and 1.51.
 - **What spin does now.** Jamie (2026-11-16): "in the real world spin does move the Kubb
   when it lands… but at most it will move it one to three rotations… not the several the
   game was doing before." Honest physics gives exactly that: spin steadies the drill in the
@@ -2897,9 +2968,14 @@ the throw scene with `s.drill` on.
   where it lands, a table by loft (26 / 37 / 47 / 57) and landing distance R (1.5 to 7.5
   m) per ground, read bilinearly (outside the table, its edge). The run on grows with the
   landing's speed, so `drill.landFor` solves R + slideFor(R) = d (six fixed-point steps,
-  never under 0.5 m) and `drill.solveAt` lands the kubb there. Grass at half past 1: 0.20
-  m from 1.5 m, 0.88 from 4.5, 0.63 from 7.5; low lofts run on most (1.94 m at loft 26
-  from 4.5 m). Measured again after the nine physics audit items (2026-11-16, with the
+  never under 0.5 m) and `drill.solveAt` lands the kubb there. Grass at half past 1: 0.18
+  m from 1.5 m, 0.70 from 4.5, 0.31 from 7.5; low lofts run on most (1.84 m at loft 26
+  from 4.5 m). Measured again once an impact's friction was solved in the bounce
+  ("Physics", "Friction in the bounce", 2026-11-16): the cells fell by 0 to 0.67 m (grass
+  at half past 1 was 0.20 / 0.88 / 0.63, loft 26 from 4.5 m 1.94), and the clean drill's
+  mean rest along the throw from the circle (`--only 3`) went from -8 / -25 cm with the
+  old table to +5 / -1 cm (grass, half past 1 / loft 30), sand +2 / 0, snow +2 / +1.
+  Before that, measured after the nine physics audit items (2026-11-16, with the
   air's drag, the foot catch, the tilted landing, the pair bounce and the load-scaled
   grip) by `tools/drillscatter.lua --only 5 --grounds 60`: the plan's clean drill aimed to
   land R m out with no allowance, 3 lines x 60 grounds a cell, the mean rest along the
@@ -2916,6 +2992,9 @@ the throw scene with `s.drill` on.
   off on average over ten grounds (0.38 m; 0.73 while stale); the backstop below 8 of 10
   grounds (9; 87 of 100); `test_autothrow` the computer's basket drill under 0.5 m from
   it on average over 40 grounds and in it (0.4 m) on 40% of them (0.41 m, 20 of 40).
+  Since the friction in the bounce the run on is shorter but wider for its length, and
+  those two bounds are 0.7 m and 30%: `test_throwplan` 0.59 m off, `test_autothrow` 0.60
+  m and 15 of 40 in.
 - **Into other kubbs.** A drill that runs into a lying kubb stops by it (0.12 to 0.36 m
   centre to centre in `test_drill`'s backstop) and the struck kubb moves 0 to 20 cm; one
   that lands on top of a kubb shoves it 0.2 to 0.45 m. The drill-over rule below makes it
