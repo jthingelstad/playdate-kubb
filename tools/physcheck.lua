@@ -87,8 +87,10 @@ physcheck.groundDepth = groundDepth
 local function finite(v) return v == v and v ~= huge and v ~= -huge end
 
 -- The deepest pair and ground overlaps in the world now. awakeOnly: only
--- pairs with an awake body (a step moves nothing else).
-local function deepest(w, awakeOnly)
+-- pairs with an awake body (a step moves nothing else). over (optional):
+-- every pair deeper than pairBar goes in over.pairs[i][j] = depth (i < j, or
+-- j the static body), every body deeper than groundBar in over.ground[i].
+local function deepest(w, awakeOnly, over, pairBar, groundBar)
 	local bodies, n = w.bodies, w.n
 	local pd, pa, pb, gd, gb = 0, nil, nil, 0, nil
 	for i = 1, n do
@@ -97,6 +99,7 @@ local function deepest(w, awakeOnly)
 			if not awakeOnly or a.awake then
 				local g = groundDepth(a)
 				if g > gd then gd, gb = g, a end
+				if over and g > groundBar then over.ground[i] = g end
 			end
 			for j = 1, n do
 				local b = bodies[j]
@@ -106,6 +109,11 @@ local function deepest(w, awakeOnly)
 					if dx * dx + dy * dy + dz * dz < reach * reach then
 						local d = pairDepth(a, b)
 						if d and d > pd then pd, pa, pb = d, a, b end
+						if over and d and d > pairBar then
+							local row = over.pairs[i]
+							if not row then row = {}; over.pairs[i] = row end
+							row[j] = d
+						end
 					end
 				end
 			end
@@ -135,7 +143,7 @@ function physcheck.monitor(w, opts)
 	local t = physcheck.tune
 	local m = {
 		w = w, worst = {}, order = {},
-		e = world.energy(w), eMin = nil, pairRun = 0, groundRun = 0, pairMax = 0, groundMax = 0,
+		e = world.energy(w), eMin = nil, pairRuns = {}, groundRuns = {}, over = {},
 		vMax = speedLimit(opts.launchSpeed or 10),
 		slow = {}, asleep = {}, cycles = {},
 	}
@@ -194,26 +202,41 @@ function physcheck.monitor(w, opts)
 		-- penetration, pairs and ground that this step could move
 		-- (an overlap over the bar counts once it has lasted penHold, or at once
 		-- past penDeep: a one-step dip the next step pushes out is not seen)
-		local pd, pa, pb, gd, gb = deepest(w, true)
-		local hold = t.penHold - 1e-9
-		if pd > t.penStep then
-			m.pairRun = m.pairRun + world.tune.dt
-			if pd > m.pairMax then m.pairMax, m.pairWho = pd, pa.id .. " inside " .. pb.id end
-			if m.pairRun >= hold or pd > t.penDeep then note("penetration", "in a step " .. pairName(pa, pb), m.pairMax,
-				string.format("%s %.1f mm deep, over %.0f mm for %.3f s", m.pairWho, m.pairMax * 1000,
-					t.penStep * 1000, m.pairRun)) end
-		else
-			m.pairRun, m.pairMax = 0, 0
+		-- (per pair and per body: each overlap's own run, so overlaps of
+		-- different pieces in successive steps are not added together)
+		local over = m.over
+		over.pairs, over.ground = {}, {}
+		deepest(w, true, over, t.penStep, t.penGround)
+		local hold, dt0 = t.penHold - 1e-9, world.tune.dt
+		local runs = {}
+		for i, row in pairs(over.pairs) do
+			for j, d in pairs(row) do
+				local key = i * 1024 + j
+				local r = m.pairRuns[key]
+				r = r and { t = r.t + dt0, max = r.max > d and r.max or d } or { t = dt0, max = d }
+				runs[key] = r
+				if r.t >= hold or d > t.penDeep then
+					local a, b = bodies[i], bodies[j]
+					note("penetration", "in a step " .. pairName(a, b), r.max,
+						string.format("%s and %s %.1f mm deep, over %.0f mm for %.3f s", a.id, b.id, r.max * 1000,
+							t.penStep * 1000, r.t))
+				end
+			end
 		end
-		if gd > t.penGround then
-			m.groundRun = m.groundRun + world.tune.dt
-			if gd > m.groundMax then m.groundMax, m.groundWho = gd, gb.id end
-			if m.groundRun >= hold or gd > t.penDeep then note("penetration", "in a step ground " .. gb.kind, m.groundMax,
-				string.format("%s %.1f mm below the ground, over %.0f mm for %.3f s", m.groundWho, m.groundMax * 1000,
-					t.penGround * 1000, m.groundRun)) end
-		else
-			m.groundRun, m.groundMax = 0, 0
+		m.pairRuns = runs
+		local gruns = {}
+		for i, d in pairs(over.ground) do
+			local r = m.groundRuns[i]
+			r = r and { t = r.t + dt0, max = r.max > d and r.max or d } or { t = dt0, max = d }
+			gruns[i] = r
+			if r.t >= hold or d > t.penDeep then
+				local b = bodies[i]
+				note("penetration", "in a step ground " .. b.kind, r.max,
+					string.format("%s %.1f mm below the ground, over %.0f mm for %.3f s", b.id, r.max * 1000,
+						t.penGround * 1000, r.t))
+			end
 		end
+		m.groundRuns = gruns
 		-- rest: creep and wake cycles
 		local dt = world.tune.dt
 		for i = 1, w.n do
