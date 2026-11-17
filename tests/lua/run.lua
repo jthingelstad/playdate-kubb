@@ -1,4 +1,5 @@
--- Desktop test runner for source/core, on plain Lua 5.4.
+-- Desktop test runner for the Playdate-only pure modules (source/device) and
+-- the autobench match case, on plain Lua 5.4. The core's own tests are in kubb-engine.
 --   lua5.4 tests/lua/run.lua [test_file.lua ...]
 -- With no arguments it runs every tests/lua/test_*.lua. Exits non-zero if any
 -- test fails. No dependencies.

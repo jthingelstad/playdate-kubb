@@ -38,7 +38,7 @@ import "render/burst"
 import "core/burstpick"
 import "recorder"
 import "framelog"
-import "core/frametel"
+import "device/frametel"
 import "core/drill"
 import "core/throwplan"
 import "core/howto"
@@ -527,7 +527,7 @@ function throw.new(provider)
 		projectile = "baton", projectileId = nil, projItem = nil,
 		auto = true,
 		sceneName = "practice",  -- or "match": the frame-time log's scene
-		ft = frametel.new(),     -- this throw's frame times (core/frametel), reset per throw
+		ft = frametel.new(),     -- this throw's frame times (device/frametel), reset per throw
 		ftInfo = {},             -- the rest of its log line, filled once at rest
 		drill = false,           -- the throw is a drilled kubb
 		thisDrill = false,       -- the throw in the air (or at rest) was drilled

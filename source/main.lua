@@ -13,7 +13,7 @@
 --              The throw scene reads it through throw.levelFor (a named
 --              player's level can take its place later)
 --   "Record"   append each swing's crank samples to traces.jsonl in the
---              Data folder (replay with tools/replay_traces.lua). On by
+--              Data folder (replay with kubb-engine tools/replay_traces). On by
 --              default while the throw is being tuned; self-tests leave it off.
 --   "Pitch"    practice only: play (nothing) / how to (HOW TO THROW over the
 --              pitch, core/howto; chosen while it runs, it ends it) / reset (stand every piece back

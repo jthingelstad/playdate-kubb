@@ -149,7 +149,7 @@ and copying a full-screen image about 0.7 ms. So:
 
 To tell the deliberate slow motion from dropped frames, every throw (practice and match)
 appends one JSON line to `frames.jsonl` in the Data folder (`source/framelog.lua`, on outside
-self-tests, no menu item; the line is `core/frametel.encode`, written once in the throw
+self-tests, no menu item; the line is `device/frametel.encode`, written once in the throw
 scene's `landed`, never during the flight; not in instant mode). Past
 `logcap.maxBytes` (1 MB) the file becomes `frames-1.jsonl` (replacing an older one) and a
 new one starts (`source/logcap.lua`; checked before each line). Collected with a dozen
@@ -193,7 +193,7 @@ checked before each line; at most about 4 MB of logs in all). Read both when col
 The format is documented at the top of `source/core/trace.lua` (samples are
 `[dt, raw crank degrees]` per frame from the first wind-up frame to release or let-down,
 not the cooldown after a release, plus the result: what the swing measured, then the
-plan and the launch, "The throw"). `lua5.4 tools/replay_traces.lua <file>` replays each
+plan and the launch, "The throw"). kubb-engine's `lua5.4 tools/replay_traces.lua <file>` replays each
 line through the current `core/swing.lua` and prints recorded vs replayed results;
 `--current-sign` replays with today's `forwardSign` instead of the recorded one. The test
 fixture is `tests/fixtures/traces/sample.jsonl`. Drill lines add the fields in "Drilling"

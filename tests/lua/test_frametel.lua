@@ -1,6 +1,6 @@
--- Frame-time telemetry (core/frametel): phases around the slow motion,
+-- Frame-time telemetry (device/frametel): phases around the slow motion,
 -- starved frames and stalls, and the log line.
-import "core/frametel"
+import "device/frametel"
 import "core/playback"
 import "core/trace"
 import "core/bench"

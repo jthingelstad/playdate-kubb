@@ -4,7 +4,7 @@
 -- Nobody needs to press anything, so a build can be measured on the device
 -- over USB (docs/notes/performance.md, "Measuring on the device").
 --
--- Sections: the micro benchmarks of core/microbench, the core/bench physics
+-- Sections: the micro benchmarks of device/microbench, the core/bench physics
 -- scenario (garbage made with the collector stopped, the plain timing line,
 -- the per-phase profile), draw timings of the throw scene by frame type
 -- (aim with the camera still, swivelling, walking, a full throw split into
@@ -12,7 +12,7 @@
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/bench"
-import "core/microbench"
+import "device/microbench"
 import "core/world"
 import "input"
 import "scenes/throw"

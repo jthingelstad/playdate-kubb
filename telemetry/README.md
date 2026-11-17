@@ -5,7 +5,7 @@ done away from the device. One folder per day. Nothing here is read by the build
 tests.
 
 - `traces.jsonl`: every recorded swing, one JSON line each (format at the top of
-  `source/core/trace.lua`). Replay with `lua5.4 tools/replay_traces.lua <file>`.
+  `core/trace.lua`). Replay with `lua5.4 tools/replay_traces.lua <file>` in kubb-engine.
 - `frames.jsonl`: one line per throw of frame timing (`docs/notes/performance.md`, "Frame-time log").
 - `games/`: the game files the device wrote for finished matches.
 - `bench/`: autobench output (`docs/notes/performance.md`, "Measuring on the device").
