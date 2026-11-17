@@ -46,9 +46,11 @@ test("still air drags: a baton carries as much less as flight.carry says, and th
 	for _, loft in ipairs { 15, 30, 45 } do
 		local e = math.rad(loft)
 		local v = auto.speedFor(8, loft)
-		-- an upright baton (the end down) first touches with its center 0.15 m up
-		local lost = crossing(v, loft, 0.15, false) - crossing(v, loft, 0.15)
-		local want = flight.carry(v, e, ft.handHeight - 0.15, 0) - flight.carry(v, e, ft.handHeight - 0.15, ft.dragK.baton)
+		-- crossed at 0.2 m, still in the air: an upright baton (the end down)
+		-- touches with its center about 0.15 m up and then pivots on its end,
+		-- so a crossing at 0.15 m measured the landing, not the flight
+		local lost = crossing(v, loft, 0.2, false) - crossing(v, loft, 0.2)
+		local want = flight.carry(v, e, ft.handHeight - 0.2, 0) - flight.carry(v, e, ft.handHeight - 0.2, ft.dragK.baton)
 		expect.truthy(lost > 0.3 and lost < 0.6, "loft " .. loft .. ": lost " .. lost)
 		expect.near(lost, want, 0.01, "loft " .. loft .. ": the world's drag is flight.carry's")
 		-- the aim's speed carries the center to 8 m through the drag

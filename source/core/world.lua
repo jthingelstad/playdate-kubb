@@ -487,6 +487,9 @@ local nRec = 0
 
 -- Per body, filled each step: position, bounding radius, awake, speed bound.
 local BX, BY, BZ, BR, AW, SPD, NXT = {}, {}, {}, {}, {}, {}, {}
+-- Per awake body, its velocity before this step's forces (world.step stage 1),
+-- for the trapezoid move of a body with no contact (stage 5)
+local OVX, OVY, OVZ = {}, {}, {}
 -- Bodies woken in this step's pair loop (indices), and for each the index below
 -- which its pairs with sleepers were passed untested (world.step).
 local WK, WLO = {}, {}
@@ -826,9 +829,9 @@ local function loneStep(w, b, t, P)
 	C.n = 0
 	w.contacts = 0
 	nRec = 0
-	-- 5. integrate
+	-- 5. integrate (no contact: the trapezoid move, as world.step's stage 5)
 	local h = 0.5 * dt
-	b.x, b.y, b.z = b.x + b.vx * dt, b.y + b.vy * dt, b.z + b.vz * dt
+	b.x, b.y, b.z = b.x + (vx + b.vx) * h, b.y + (vy + b.vy) * h, b.z + (vz + b.vz) * h
 	local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
 	wx, wy, wz = b.wx, b.wy, b.wz
 	local dw = -(wx * qx + wy * qy + wz * qz)
@@ -904,6 +907,7 @@ function world.step(w)
 		local b = bodies[i]
 		if b.awake then
 			awakeCount = awakeCount + 1
+			OVX[i], OVY[i], OVZ[i] = b.vx, b.vy, b.vz
 			b.vz = b.vz - g * dt
 			if inAir and b == proj then
 				-- the air's drag (airDrag, written out)
@@ -1135,6 +1139,8 @@ function world.step(w)
 			local r = REC[m]
 			if not r then r = {}; REC[m] = r end
 			r[K_A], r[K_B], r[K_IDX] = a, b, i
+			a.cStep = stamp
+			if b then b.cStep = stamp end
 			local px, py, pz = cPx[i], cPy[i], cPz[i]
 			local ax, ay, az = a.x, a.y, a.z
 			local rax, ray, raz = px - ax, py - ay, pz - az
@@ -1387,12 +1393,22 @@ function world.step(w)
 
 	if P then local now = pc(); P.solve = P.solve + now - pt; pt = now end
 	-- 5. integrate positions (quaternion step, normalize, rotation matrix and
-	-- world inverse inertia: quat.integrate and body.updateDerived written out)
+	-- world inverse inertia: quat.integrate and body.updateDerived written out).
+	-- A body with no contact this step moves by the mean of its velocity
+	-- before and after the forces (the trapezoid: exact for gravity, and what
+	-- flight.carry's midpoint steps do), so a throw flies as far as the aim
+	-- says; the semi-implicit move (the velocity after) dropped g dt t / 2 and
+	-- came down 2 to 3 cm short. A body in contact moves by its solved
+	-- velocity, so a piece at rest stays put.
 	local h = 0.5 * dt
 	for i = 1, nb do
 		local b = bodies[i]
 		if b.awake then
-			b.x, b.y, b.z = b.x + b.vx * dt, b.y + b.vy * dt, b.z + b.vz * dt
+			if b.cStep == stamp then
+				b.x, b.y, b.z = b.x + b.vx * dt, b.y + b.vy * dt, b.z + b.vz * dt
+			else
+				b.x, b.y, b.z = b.x + (OVX[i] + b.vx) * h, b.y + (OVY[i] + b.vy) * h, b.z + (OVZ[i] + b.vz) * h
+			end
 			local qw, qx, qy, qz = b.qw, b.qx, b.qy, b.qz
 			local wx, wy, wz = b.wx, b.wy, b.wz
 			local dw = -(wx * qx + wy * qy + wz * qz)
