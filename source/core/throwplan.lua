@@ -193,7 +193,7 @@ end
 
 -- The speed that carries a baton R (m) from hand height h to the ground at
 -- loft e (radians) through still air, with its drag: flight.predict's arc
--- (flight.speedForCarry).
+-- (flight.speedForCarry), and that flight's time (s).
 local function carrySpeed(R, e, h)
 	return flight.speedForCarry(R, e, h, flight.tune.dragK.baton)
 end
@@ -239,14 +239,15 @@ end
 -- The baton's planned tumble rate (rad/s) for a clean launch at speed (m/s)
 -- and loftDeg (plan.tune, "the baton's tumble"): tumbleTurns over the flight,
 -- inside the wrist's range about the arm's rate. The rate only; the clean
--- flight's time is plan.flightTime.
+-- flight's time is plan.flightTime, or T when the caller has it already
+-- (plan.solve: the speed's own solve gives it).
 function plan.flightTime(speed, loftDeg)
 	local _, _, T = flight.predict(0, 0, 0, loftDeg or plan.tune.refLoftDeg, speed)
 	return T
 end
-function plan.tumbleFor(speed, loftDeg)
+function plan.tumbleFor(speed, loftDeg, T)
 	local t = plan.tune
-	local T = plan.flightTime(speed, loftDeg)
+	T = T or plan.flightTime(speed, loftDeg)
 	local arm = speed / t.armR
 	local lo, hi = arm * (1 - t.wristShare), arm * (1 + t.wristShare)
 	local r = T > 0 and 2 * pi * t.tumbleTurns / T or 0
@@ -322,8 +323,9 @@ function plan.solve(q, out)
 		local d = sqrt(dx * dx + dy * dy)
 		local ft = flight.tune
 		out.swivel, out.dist, out.loft = atan(dx, dy), d, loft
-		out.speed = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight)
-		out.tumble, out.flightT = plan.tumbleFor(out.speed, loft), plan.flightTime(out.speed, loft)
+		local speed, T = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight)
+		out.speed = speed
+		out.tumble, out.flightT = plan.tumbleFor(speed, loft, T), T
 	end
 	local back = plan.backForSpeed(out.speed)
 	out.back, out.powerLo, out.powerHi = back, back - lv.powerHalf, back + lv.powerHalf
