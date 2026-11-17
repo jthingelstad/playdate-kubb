@@ -31,12 +31,13 @@
 import "core/tw"
 import "core/flight"
 import "core/drill"
+import "core/body"
 
 local sqrt, sin, cos, tan, atan, rad, deg = math.sqrt, math.sin, math.cos, math.tan, math.atan, math.rad, math.deg
 local floor, log, pi = math.floor, math.log, math.pi
 
 local plan = {}
-local flight, drill = tw.flight, tw.drill
+local flight, drill, body = tw.flight, tw.drill, tw.body
 
 plan.tune = {
 	-- the power scale (plan.reach): reach = a u + c u^2 with u = back - reachZeroDeg,
@@ -88,6 +89,14 @@ plan.tune = {
 	overPerDeg = 30,       -- the overpower multiplier grows by overGain per this many
 	                       -- degrees of backswing past the power target
 	steadyBelow = 0.25,    -- shake under this is STEADY
+	-- Where a baton is aimed (Tyler's report, 2026-11-16: "all of them went clean
+	-- over the field kubb"). A thrower aims at the kubb, not at the turf under it:
+	-- the clean throw sends the baton's centre through the target piece at this
+	-- share of the piece's height (a kubb 0.15 m tall: 7.5 cm up; the king 0.30
+	-- m: 15 cm), so it meets the piece's face instead of coming down at its foot.
+	-- A target not on a piece (an empty spot) is aimed at the ground, as before.
+	-- Drilled kubbs are not aimed this way (drill.solveAt has its own landing).
+	aimHeightShare = 0.5,
 	-- the baton's tumble (plan.tumbleFor, plan.launch; audit 5, 2026-11-16). Held by one end
 	-- and swung underarm, the baton turns with the hand: with a locked wrist at the arm's
 	-- rate, its centre's speed over armR (shoulder to the baton's centre). The wrist
@@ -197,6 +206,8 @@ end
 local function carrySpeed(R, e, h)
 	return flight.speedForCarry(R, e, h, flight.tune.dragK.baton)
 end
+-- (h is the hand's height over the point the carry ends at: the ground, or
+-- in plan.solve the aim height, plan.aimZFor)
 
 -- The launch speed (m/s) a backswing gives with a full flick: the speed whose
 -- clean flight at refLoftDeg carries plan.reach(backDeg).
@@ -204,7 +215,8 @@ function plan.speedFor(backDeg)
 	local R = plan.reach(backDeg)
 	if R <= 0 then return 0 end
 	local ft = flight.tune
-	return carrySpeed(R, rad(plan.tune.refLoftDeg), ft.handHeight)
+	local v = carrySpeed(R, rad(plan.tune.refLoftDeg), ft.handHeight)
+	return v
 end
 
 -- How far a launch speed carries at the reference arc (m): the reach it is.
@@ -241,8 +253,8 @@ end
 -- inside the wrist's range about the arm's rate. The rate only; the clean
 -- flight's time is plan.flightTime, or T when the caller has it already
 -- (plan.solve: the speed's own solve gives it).
-function plan.flightTime(speed, loftDeg)
-	local _, _, T = flight.predict(0, 0, 0, loftDeg or plan.tune.refLoftDeg, speed)
+function plan.flightTime(speed, loftDeg, z)
+	local _, _, T = flight.predict(0, 0, 0, loftDeg or plan.tune.refLoftDeg, speed, z)
 	return T
 end
 function plan.tumbleFor(speed, loftDeg, T)
@@ -266,6 +278,15 @@ end
 -- The default release for a target kind: "base", "king", "field" or "drill".
 function plan.arcFor(kind)
 	return plan.tune.arc[kind] or plan.tune.arc.base
+end
+
+-- The height (m) a baton's centre is aimed through a piece of this kind:
+-- "king" the king, anything else a kubb ("base", "field", "kubb"); nil (no
+-- piece: an empty spot) the ground, 0. aimHeightShare of the piece's height.
+function plan.aimZFor(kind)
+	if not kind then return 0 end
+	local k = kind == "king" and body.kinds.king or body.kinds.kubb
+	return plan.tune.aimHeightShare * 2 * k.hz
 end
 
 -- ---------------------------------------------------------------------------
@@ -297,18 +318,22 @@ end
 -- Solve the plan. q = { projectile = "baton" | "kubb", px, py (the stance),
 -- tx, ty (the target), release (planned degrees, clamped to the plan's
 -- range), level (name or table), surface and spin (a kubb's ground and
--- planned spin in taps: how far it runs on, drill.slideFor; nil: grass, none) }. Fills and returns `out`:
+-- planned spin in taps: how far it runs on, drill.slideFor; nil: grass, none),
+-- aimZ (a baton: the height its centre is aimed through at the target,
+-- plan.aimZFor; nil: 0, the ground) }. Fills and returns `out`:
 --   swivel     radians, + = right
 --   dist       m from the stance to the target
 --   loft       degrees, loftFor(release)
---   speed      m/s of the clean launch: a baton's center comes down on the
---              target (flight.predict); a kubb's drill rests on it
---              (drill.solveAt at that loft)
+--   speed      m/s of the clean launch: a baton's center passes through the
+--              target at aimZ (flight.carry to that height); a kubb's drill
+--              rests on it (drill.solveAt at that loft)
+--   aimZ       the height the baton's centre is aimed at (0 for a kubb)
 --   back       the backswing that gives that speed with a full flick
 --   powerLo, powerHi      the power target: back -/+ level.powerHalf
 --   release, releaseLo, releaseHi   the release target: release -/+ level.releaseHalf
 --   projectile, px, py, tx, ty, level (the level table)
---   tumble, flightT   a baton's planned tumble (rad/s) and clean flight time (plan.tumbleFor)
+--   tumble, flightT   a baton's planned tumble (rad/s) and clean flight time to the
+--              target at aimZ (plan.tumbleFor)
 -- For a kubb also drill.solveAt's x, band and T.
 function plan.solve(q, out)
 	local lv = levelOf(q.level)
@@ -317,13 +342,14 @@ function plan.solve(q, out)
 	local px, py, tx, ty = q.px, q.py, q.tx, q.ty
 	if q.projectile == "kubb" then
 		drill.solveAt(tx, ty, py, loft, out, px, q.surface, (q.spin or 0) * plan.tune.spinPerStep)
-		out.tumble, out.flightT = nil, nil
+		out.tumble, out.flightT, out.aimZ = nil, nil, 0
 	else
 		local dx, dy = tx - px, ty - py
 		local d = sqrt(dx * dx + dy * dy)
 		local ft = flight.tune
-		out.swivel, out.dist, out.loft = atan(dx, dy), d, loft
-		local speed, T = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight)
+		local z = q.aimZ or 0
+		out.swivel, out.dist, out.loft, out.aimZ = atan(dx, dy), d, loft, z
+		local speed, T = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight - z)
 		out.speed = speed
 		out.tumble, out.flightT = plan.tumbleFor(speed, loft, T), T
 	end
@@ -554,7 +580,8 @@ function plan.launch(sol, r, opts, out)
 		local rate, T = sol.tumble, sol.flightT
 		if not rate then
 			local v, l = sol.speed or out.speed, sol.loft or out.loft
-			rate, T = plan.tumbleFor(v, l), plan.flightTime(v, l)
+			T = plan.flightTime(v, l, sol.aimZ)
+			rate = plan.tumbleFor(v, l, T)
 		end
 		local sdT = (lv.tumbleSd or 0) * (1 + t.roughGain * shake) * m
 		rate = rate * flick + (T and T > 0 and zt * sdT * 2 * pi / T or 0)

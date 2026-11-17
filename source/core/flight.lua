@@ -135,10 +135,12 @@ end
 
 -- Predicted landing point and flight time of the baton's center:
 -- lx, ly, T (flight.carry with the baton's drag): the arc flight.step follows.
-function flight.predict(x, lineY, swivel, loftDeg, speed)
+-- z (nil: 0, the ground) is the height the centre comes down to: plan.solve
+-- aims it through a piece at its aim height (plan.aimZFor).
+function flight.predict(x, lineY, swivel, loftDeg, speed, z)
 	local t = flight.tune
 	local dx, dy = sin(swivel), cos(swivel)
-	local R, T = carry(speed, rad(loftDeg), t.handHeight, t.dragK.baton)
+	local R, T = carry(speed, rad(loftDeg), t.handHeight - (z or 0), t.dragK.baton)
 	return x + R * dx, lineY + R * dy, T
 end
 

@@ -695,8 +695,9 @@ range. Now one model in `core/throwplan` serves both throwers.
   - `s.vSide` holds the verdict.
   - `s.last` and the trace line carry `sideDeg`, `lenShare`, `sideV` and `lenV`.
   - Self-test `nerves` shows the clean planned swing of `clock-throw`, which now goes
-    0.46 degrees right and 3% short: ON ON STEADY PULLED RIGHT, and a miss (since the
-    baton's turn is drawn too, "The baton's tumble", it clips b3 and takes it: 1 DOWN).
+    1.42 degrees right and 0.5% long: ON ON STEADY PULLED RIGHT, and a miss (since the
+    clean throw is aimed through the kubb at half its height, "Aimed through the piece",
+    the draws fall differently: 0.46 degrees right and 3% short before, which clipped b3).
 - **The aim fan** was tried and dropped. `plan.spread(sol, range, level)` and
   `plan.fan(sol, px, py, tx, ty, level, out)` give the spread and its two edges at the
   target. Drawn as two dotted ground lines from the thrower's feet, it read as a narrow
@@ -788,7 +789,8 @@ decides an end-first landing or a flat one.
   Club 0.15 was tried first: the computer's king rate fell from 82% to 71%
   (`tools/batonprobe.lua --rates 400`), at 0.08 79%, at 0 82%.
 - **The aim** does not depend on the tumble: `plan.solve` aims the baton's centre
-  (flight.predict is drag free), so the computer's aim is unchanged.
+  (flight.predict is drag free), so the computer's aim is unchanged. The flight time it
+  turns over is the time to the aim height (`sol.flightT`; "Aimed through the piece").
 - **Measured** (club; before -> after):
   - `tools/batonprobe.lua --rates 400` (the sweep has no nerves, so it tests the plan's
     rate alone): touched and toppled 89% -> 90% (696 -> 790 touched), fast and left
@@ -806,6 +808,81 @@ decides an end-first landing or a flat one.
   - `make bench`: no step cost (the tumble is worked out once a throw, outside the step).
 - **Tools.** `tools/batonprobe.lua --set plan.tumbleTurns=1.1` tries a `plan.tune` value.
   `tools/compound.lua` and `tools/tiltgroups.lua` take the plan's rate at each loft.
+
+### Aimed through the piece
+
+Tyler's play test (2026-11-16): "all of them went clean over the field kubb". A clean
+baton was aimed at the target's foot: its centre came down at z = 0 on the kubb's centre,
+so it met the kubb low, often landed short of it on an end, bounced and went over.
+
+- **The aim** (Jamie's call): with the circle on a standing kubb or the king (within the
+  scene's `snapRadius`, or the computer's target), the clean throw aims the baton's centre
+  through the piece at `plan.aimZFor(kind)`, `aimHeightShare` (0.5) of its height: a kubb
+  0.075 m, the king 0.15 m. `plan.solve` takes `q.aimZ` and carries to
+  `flight.tune.handHeight - aimZ` (no extra carries a frame); `sol.aimZ`, `sol.flightT`
+  (to that height) and `sol.tumble` follow it. At the same loft a higher aim needs a little
+  more speed and less time. A circle on no piece, and every drill (`drill.solveAt`), keeps
+  z = 0. `autothrow` sets the same aim for the computer. `tests/lua/test_aimheight.lua`;
+  `lua5.4 tools/aimsweep.lua [--ranges] [--release] [--seeds] [--set
+  plan.aimHeightShare=0]` measures it (0 is the old aim at the foot).
+- **Measured** (before -> after):
+  - `tools/aimsweep.lua`, a lone kubb on grass, release 60 (loft 22), 8 seeds x 5 tumbles
+    (0.8 to 1.2 of the plan's) a cell, the aim moved -0.4 to +0.2 m along the line; toppled
+    at -0.4 / -0.3 / -0.2 / -0.1 / 0 / +0.1 / +0.2 m and overall, then missed over / short
+    of 280:
+
+    | range | aim | -0.4 | -0.3 | -0.2 | -0.1 | 0 | +0.1 | +0.2 | all | over / short |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    | 3 m | foot | 45 | 52 | 60 | 92 | 100 | 100 | 100 | 79% | 6 / 54 |
+    | 3 m | mid-height | 48 | 58 | 88 | 100 | 100 | 100 | 40 | 76% | 32 / 35 |
+    | 5.27 m | foot | 52 | 78 | 75 | 95 | 80 | 100 | 100 | 83% | 33 / 15 |
+    | 5.27 m | mid-height | 72 | 78 | 80 | 80 | 100 | 100 | 80 | 84% | 39 / 5 |
+    | 8 m | foot | 80 | 90 | 75 | 80 | 80 | 100 | 100 | 86% | 38 / 0 |
+    | 8 m | mid-height | 80 | 70 | 80 | 92 | 98 | 100 | 100 | 89% | 32 / 0 |
+
+    The clean throw at 5.27 and 8 m now takes the kubb (80 -> 100%, 80 -> 98%); a throw
+    20 cm long from 3 m now sails over it more often (100 -> 40%).
+  - `tools/batonprobe.lua --rates 400`: the sweep is unchanged (its own aim at the foot:
+    826 touched, 93% toppled); the computer at base kubbs 31% -> 28%, a field kubb 85% ->
+    93%, the king 80% -> 95%.
+  - `tools/drillscatter.lua --only 3`: unchanged to the digit (drills keep their aim).
+  - `make realgames` (150 physics matches, seed 2; real / before / after):
+
+    | | real | before | after |
+    |---|---|---|---|
+    | turns a game | 8.9 | 18.3 | 19.6 |
+    | won by the team that threw first | 55.3% | 52.0% | 44.0% |
+    | ended on the king | 100% | 92.7% | 88.0% |
+    | a baton at field kubbs: missed | 24.7% | 20.6% | 14.2% |
+    | took one | 49.4% | 70.1% | 72.2% |
+    | took two | 16.0% | 8.7% | 12.3% |
+    | three or more | 10.0% | 0.7% | 1.2% |
+    | cleared the field | 83.4% | 56.4% | 62.1% |
+    | five kubbs | 84.5% | 68.8% | 87.2% |
+    | six kubbs | 78.6% | 44.7% | 65.4% |
+    | eight kubbs | 67.6% | 8.2% | 16.3% |
+    | turns from an advantage line | 14.4% | 39.4% | 34.0% |
+    | a base kubb from 8 m | 32.7% | 33.0% | 29.5% |
+    | a base kubb from an advantage line | 51.7% | 71.5% | 68.2% |
+    | the king | 83.8% | 80.3% | 95.0% |
+    | kubbs rethrown | 14.1% | 5.7% | 6.0% |
+    | punishment kubbs | 1.3% | 1.1% | 1.0% |
+    | illegal throws | 0% | 0.7% | 0.6% |
+
+  - Self-tests: `aim-arc`, `camera-swing`, `clock-throw`, `clock-plan`, `hit`, `miss`,
+    `field`, `king`, `low-hard`, `nerves` and `flight` pass.
+- **Still off.** The computer now hits the king more often than tournament players (95%
+  against 84%) and misses field kubbs less (14% against 25%); base kubbs stay near real
+  play. The nerves and levels are not retuned here.
+- **The end-first bounce** (looked at, not changed). A baton landing end first on grass
+  rises off the ground at up to about 1 m/s. Set down end first at 4 m/s down (flat and
+  textured grass): straight down and not turning it plugs (0 m/s); leaning 20 degrees with
+  4 m/s forward 0.35 m/s, with its spin 0.91; leaning 10 degrees, spinning, 5 m/s forward
+  1.94. With the ground's bounce `e` set to 0 those are 0, 0, 0.77; with the bite at 0
+  about the same. So part is the forward speed vaulting over the planted end (mechanics)
+  and part the ground's bounce, which the dig takes away only on a steep strike. A
+  pointed hardwood end may plug more than that on a leaning strike, but there is no
+  measured baton-on-turf figure to tune to, so it stays.
 
 ### What scatters a drilled kubb
 
@@ -1280,7 +1357,9 @@ landing `sol.land`, its centre at `drill.tune.landZ`; since 2026-11-16 that is s
 `drill.slideFor`, so the arc ends where it lands and the circle is where it most likely
 ends; the circle and the dotted line stay); drawn as the plain parabola from the hand to
 that landing in the flight's time, which is within 2 to 4 cm of the flight with the air's
-drag (`arcLaunch`); dashed (`arcPoints` 24,
+drag (`arcLaunch`); a baton's on a standing kubb or the king (since 2026-11-16) ends at
+that piece's near face (`s.aimFace`, set by `replan`) at the plan's aim height
+(`sol.aimZ`, "Aimed through the piece"), where the clean throw meets it; dashed (`arcPoints` 24,
 every other gap drawn, the first `arcSkip` left out, `arcWidth` 2 px). It shows the plan,
 not the throw: the backswing, the flick and where the crank stops still decide it (and the
 wind will not show in it).
@@ -1401,7 +1480,8 @@ Every number that is a guess lives in one table per module, with a comment:
   32), the default arcs by target (`arc`), `arcStepDeg`, the release's range, `tiltStepDeg`
   and `tiltMaxDeg`, `spinSteps` and `spinPerStep`, the sky ball's extra, the helicopter
   limit, the shake's tilt and pull, overpower, STEADY, the baton's tumble (`tumbleTurns`,
-  `armR`, `wristShare`, `tumbleMin`: "The baton's tumble");
+  `armR`, `wristShare`, `tumbleMin`: "The baton's tumble"), the height a clean baton's
+  centre goes through a standing piece (`aimHeightShare` 0.5: "Aimed through the piece");
   `tw.plan.levels` (beginner, club, pro: the targets' half widths, the error inside a
   target, the shake and overpower costs, the nerves and `tumbleSd`; `plan.LEVELS` in menu
   order).
@@ -1533,7 +1613,9 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   time, which `plan.solve` keeps as `flightT` instead of carrying again). `flight.predict` (the cameras,
   `plan.reachForSpeed`), `throwplan`'s `carrySpeed` (`plan.solve`, `plan.speedFor`),
   `drill.solveAt` (with the kubb's k, to its landing height) and `autothrow.speedFor` all
-  use them, so a clean throw still comes down where it is aimed (the world's centre within
+  use them (a baton aimed at a standing piece carries to `handHeight - aimZ`, its centre
+  through the piece at `plan.aimZFor`'s height: "Aimed through the piece"), so a clean
+  throw still comes down where it is aimed (the world's centre within
   2 to 4 cm, as before: the fixed step's own error). `plan.solve` costs 11 us (baton) and
   16 us (drill) on the desktop, from 0.7 and 2.1. The power scale is unchanged in metres:
   a backswing carries as far as before and needs a little more speed for it.
