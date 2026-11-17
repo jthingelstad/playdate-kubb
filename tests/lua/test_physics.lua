@@ -243,12 +243,15 @@ end)
 -- With one wood-on-wood friction for every pair (0.4, 2026-11-16; kubb on
 -- kubb was 0.2 before), a hard blow fells two or three of the four: the
 -- kubbs lean on each other face to face and the rub holds some of them.
--- (2.0 N s until an impact's friction was solved in the bounce: it fells two
--- now. MuJoCo fells two to four at 2.0 by its variant, all four at 3.0.)
+-- (MuJoCo fells two to four at 2.0 N s by its variant, all four at 3.0. This
+-- was 2.5 for a day: with an impact's friction solved in the bounce and the
+-- bounce cut off at the front kubb, 2.0 felled two; the bounce reaches the
+-- row now and 2.0 fells all four again, AGENTS.md, "The bounce reaches the
+-- row".)
 test("a hard blow on the front kubb of a touching row fells most of the row; a tap none", function()
 	for _, order in ipairs{ { 1, 2, 3, 4 }, { 4, 3, 2, 1 } } do
 		local w = tightRow(order)
-		blow(w.byId.k1, 2.5, 0.13)
+		blow(w.byId.k1, 2.0, 0.13)
 		world.run(w)
 		local r = world.result(w)
 		expect.truthy(#r.toppled >= 3, "three or more down, order " .. table.concat(order) .. ": " .. #r.toppled)

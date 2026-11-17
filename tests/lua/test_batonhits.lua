@@ -96,14 +96,17 @@ test("baton hits: a fast baton that clips a kubb's top edge tips it over", funct
 	expect.truthy(fast >= 5, "fast touches: " .. fast)
 end)
 
-test("baton hits: struck kubbs seldom bounce back up or fly", function()
+test("baton hits: struck kubbs seldom bounce back up, and some fly", function()
 	-- 48 throws at one kubb across lofts and carries: few tilt past 25
-	-- degrees and come back up, and few leave the ground for 0.2 s or more
-	-- (the full sweep, tools/batonprobe.lua: 3 bounce-backs and 140 of 747
-	-- off the ground that long, against 8 and 168 before). Since the pair
-	-- bounce is solved with the kubb's footing (2026-11-16) a kubb kicked at
-	-- the foot keeps more of the kick: 9 of these 42 fly against 3, 277 of 764
-	-- in the sweep against 162 (AGENTS.md, "The pair bounce with its footing")
+	-- degrees and come back up. A struck kubb often leaves the ground: it
+	-- pivots on its front edge and the blow throws it on over. Given the same
+	-- baton states at a lone kubb on bare grass (no dig, no bite), MuJoCo
+	-- keeps it off the ground 0.2 s or more in 47 of 60 hits, this engine in
+	-- 43 (30 until the bounce reached the row, 2026-11-17: B's arm was taken
+	-- at the baton's side of the gap, and the drag down the face held the
+	-- kubb back; AGENTS.md, "The bounce reaches the row"). On the turf the
+	-- dig and bite hold it down more: 16 of these 43 fly, and in the sweep
+	-- (tools/batonprobe.lua) 4 bounce back and 260 of 725 fly (221 before).
 	local touched, back, flew = 0, 0, 0
 	for loft = 20, 47, 9 do
 		for dd = -0.45, 0.31, 0.065 do
@@ -117,7 +120,7 @@ test("baton hits: struck kubbs seldom bounce back up or fly", function()
 	end
 	expect.truthy(touched >= 30, "touched " .. touched)
 	expect.truthy(back <= 1, "bounced back " .. back)
-	expect.truthy(flew <= 0.3 * touched, string.format("flew %d of %d", flew, touched))
+	expect.truthy(flew <= 0.5 * touched, string.format("flew %d of %d", flew, touched))
 end)
 
 test("baton hits: a baton landing on an end keeps turning", function()

@@ -1761,7 +1761,7 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   The held contacts get friction too. Without it (tried) the king, broadside and end-on
   cases move back toward before (king D 0.124) and a row of two struck 7 cm apart falls
   as before; with it, a row of four face to face struck on the front kubb falls less
-  than MuJoCo's at low power (below). The turf terms (`texture.drag`, `grip`, the
+  than MuJoCo's at low power (below; fixed 2026-11-17 by the next item). The turf terms (`texture.drag`, `grip`, the
   bite) are not retuned: none was tuned against the shortfall (drag and grip came for
   the creep and the slide on an end, the bite on Jamie's word), and the turf now takes
   the same share of a landing as before or less (game against bare run on: grass 0.49 ->
@@ -1791,19 +1791,21 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   - struck kubbs slide less, and touching rows fall less from one baton:
     `tools/compound.lua --quick`, four in a line face to face, one or more down 75.3%
     of hits (was 98.7), two or more 27.3% (69.3); 3 cm apart 61.5 / 10.3% (94.9 / 32.1);
-    before measured at 5160562, after with the `capsuleBox` clip.
+    before measured at 5160562, after with the `capsuleBox` clip. Since the next item
+    (2026-11-17): 93.5 / 53.2%, all four 35.1%; 3 cm apart 76.9 / 17.9%.
     Against MuJoCo, the same 100 throws from 0.03 s before the first touch (grass, bare):
     on the row of four, when the baton reaches the row, MuJoCo fells exactly one (the
     back kubb, the front three leaning) in 60 of 60; ours one in 48, none in 12 (were
     one in 53, two in 6, three in 1, with the `capsuleBox` clip). On a row of two 7 cm
     apart MuJoCo fells 1.33 on average (none 1, one 38, two 21); ours 1.33 (was 1.77,
-    two in 46).
+    two in 46). Since the next item: one or more in 60 of 60, and 1.50 on the row of two.
   - matches (`make realgames`, 150 games, seed 2; real games / before / after, both
     with the `capsuleBox` clip): turns a game 8.9 / 20.2 / 18.7; batons that missed 24.7
     / 14.5 / 18.2%; took two 16.0 / 12.1 / 5.7%, three or more 10.0 / 1.6 / 0.1%;
     cleared every field kubb 83.4 / 61.9 / 63.1%; base kubb from the baseline 32.7 /
     27.6 / 25.6%; the king 83.8 / 94.9 / 94.5%. Shorter games and more misses, nearer the real ones; fewer multi-kubb
-    batons, farther from them ("Tuned toward the real games").
+    batons, farther from them ("Tuned toward the real games"). The next item's figures
+    supersede these.
   `make physfuzz N=2000 SEED=1`, before (main with the `capsuleBox` clip) -> after
   (failed throws): energy 5 -> 5, penetration 14 -> 12, rest 22 -> 26, finite 0 -> 0, dt
   18 -> 20 (marginal 169 -> 88), mirror 2 -> 3 (marginal 58 -> 47); 1163 -> 1087 pieces
@@ -1814,6 +1816,73 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
   clip (main at 5160562) the change took penetration 83 -> 68 and added a baton glancing
   off a kubb's upright edge that rolled about its own axis at 204 rad/s (1:1177, limit
   200); with the clip that throw is clean.
+- **The bounce reaches the row** (2026-11-17). After "Friction in the bounce" one baton
+  fell far fewer kubbs from a row of touching kubbs (`tools/compound.lua --quick`, four
+  face to face, all four down 16.2% of hits -> 0). The friction was right; three things
+  in stage 7 kept the push from crossing the row, plus a warm start bug they exposed:
+  - The bounce group stopped at the pieces that bounce and their own contacts, so the
+    front kubb's friction and bounce were solved against a second kubb held at its relax
+    target, and the third and fourth never saw the impact inside the step. Now the
+    group spreads (an island, no tables: a mark on the body) through every pressing
+    contact between two awake pieces (kind 2) to all the pieces pressed against them.
+  - Four bounce passes do not carry a push across four bodies. When the spread added a
+    body (`row`), the passes now run until no impulse changes by `restitutionTol`
+    (1e-4 N s), up to `restitutionMaxIterations` (32); a row of four settles in 10 to
+    30. Any other bounce keeps `restitutionIterations` (4). Run to convergence there
+    too (tried), a sliding contact's friction and its push fed each other pass after
+    pass (a spinning baton's corner swung between all of its bounce and none, 1:822; a
+    baton on a kubb on the ground crept, 1:669), and the fuzz's energy rises went from 5
+    to 24. A joint solve of the sliding and normal rows (tried) left 16 to 17. Row only:
+    6. `world.bouncePasses` counts the passes.
+  - B's arm in a pair record was taken at A's surface, across the speculative gap, so a
+    gap-open contact turned B about the wrong point. It is now `p - n*sep - B.pos`.
+  - The ground warm start was applied as each record was built, so a body's later
+    corners read their approach speed with the earlier corners' warm start in it (a
+    resting kubb's corner read -4.03 m/s and bounced: an energy rise in the fuzz,
+    1:1305). It is now applied in one loop after every record is built.
+  Measured (main at ae88c82 -> this):
+  - `tools/compound.lua --quick`, one or more / two or more / all, before "Friction in
+    the bounce" / main / now: four touching 97.3 / 74.3 / 16.2, 75.3 / 27.3 / 0, 93.5 /
+    53.2 / 35.1; four 3 cm apart 96.2 / 47.4 / 15.4, 61.5 / 10.3 / 0, 76.9 / 17.9 / 1.3;
+    three touching 97.3 / 85.1 / 74.3, 98.7 / 81.3 / 62.7, 98.7 / 89.3 / 81.3; three 3
+    cm apart 97.4 / 75.0 / 67.1, 94.9 / 60.3 / 33.3, 98.7 / 71.8 / 52.6. Two behind,
+    two or more: 7 cm 79.7 / 62.7 / 66.7, 30 cm 54.1 / 54.3 / 62.9. Side by side about
+    the same. The match sample, two or more toppled 12.2 / 5.1 / 6.1%.
+  - Against MuJoCo (100 throws from 0.03 s before the first touch, grass, bare): the row
+    of four, one or more down in 60 of 60 (MuJoCo 60, main 48); three touching agree in
+    58 of 60 (main 49); the row of two 7 cm apart 1.50 on average (MuJoCo 1.33, main
+    1.33); the row of four struck at the ground 0.57 (MuJoCo 0.82, main 0.17); one kubb
+    felled 59 of 60 (MuJoCo 60, main 58), in the air 0.2 s or more 43 (MuJoCo 47, main
+    30; mean 0.276 s against 0.322).
+  - `make mjref`: the landing cases unchanged (grass 0.47 to 0.51 kept, spread 0.02,
+    run on 1.10 m; sand 0.35 / 0.04 / 0.62; snow 0.82 / 0.00 / 6.99). D by scenario:
+    broadside 0.032 -> 0.028, domino 0.038 -> 0.043, drill 0.075, drop 0.104, end on
+    0.129 -> 0.125, flight 0.025, king 0.031 -> 0.029, landing 0.432, tip 0.025.
+  - `tools/batonprobe.lua` (725 touched): toppled 621 -> 619, bounce backs 5 -> 4,
+    flew 0.2 s or more 221 -> 260, end first spin lost 106 -> 105.
+  - `tools/drillscatter.lua --only 3`: unchanged within a point (grass 47, run on
+    median 0.68 m, under 0.3 m 19%, 0.43 m or more 68 -> 69%, along the throw +0.57,
+    behind the touch 1.0 -> 1.4%).
+  - `make realgames` (real / main / now): turns 8.9 / 18.7 / 19.1; missed 24.7 / 17.6
+    / 17.9%; took two 16.0 / 5.7 / 6.3%, three or more 10.0 / 0.2 / 0.2%; cleared 83.4
+    / 63.1 / 61.7%; base kubb from the baseline 32.7 / 25.7 / 25.7%; king 83.8 / 94.5 /
+    96.6%. Matches barely move: match groups are seldom touching (0.4% of hits).
+  - `make physfuzz N=2000 SEED=1`: energy 5 -> 6, penetration 12 -> 12, rest 1 -> 3
+    (wake cycles in rows: 1:699, 1:1458, 1:1272), finite 0, dt 20 -> 22 (marginal 88 ->
+    83), mirror 3 -> 4 (marginal 47 -> 38); 1:728 rises 0.56 J (was 0.72); toppled 1087
+    -> 1110 at 240 Hz, 1080 -> 1089 at 480 Hz.
+  - `docs/reference/REALCLIPS.md`: a tight group fell whole 2 of 9 (6 to 55%), groups of
+    four or more 0 of 6 (0 to 39%), two or more 8 of 9 (56 to 98%). Ours: four touching
+    all 35% (inside), three touching all 81% (above), two or more 53 to 89%.
+  - Cost (`make bench`, desktop): 68.0k -> 64.6k steps a second, collision phase 0.051
+    -> 0.054 ms a step (with debris 0.055 -> 0.058), multi 0.016 -> 0.017; lone, air,
+    ground and the match case as before.
+  - Tests: the row hard blow back to 2.0 N s (C had raised it to 2.5); the baton hits
+    bound now `flew <= 0.5 * touched`; `kubb-on-kubb-sleeps` launches at 0.98; THE WALL
+    best one or more (0.10 grounds on its thirty seeds, one at best; 0.17 and two over
+    ninety, 0.20 on main). Not bit-identical: every throw that touches two pieces.
+  Still open: the side pass (6 cm to the side of a row, 1 mm clear in MuJoCo, ours
+  touches), and three touching falling whole more often than the clips.
 - Lone flight (`world.loneFlight`, on): when exactly one body is awake and it cannot reach
   the ground or any other body within this step (its height above the ground, and above the
   top of every other body, beats its speed plus a step of gravity and its spin, with a
@@ -2577,8 +2646,9 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
        rest of the impact and the bounce with no friction.
      - The turf drag and grip were not tuned against it (they came for the creep and the
        slide on an end) and are unchanged; `drill.tune.slide` was measured again.
-     - Still open from it: a row of four face to face struck at low power. MuJoCo fells
-       the back kubb every time; ours none in 12 of 60 such throws. And when the baton
+     - A row of four face to face struck at low power, where MuJoCo fells the back kubb
+       every time and ours felled none in 12 of 60, is fixed 2026-11-17 ("Physics", "The
+       bounce reaches the row"): 60 of 60. Still open: when the baton
        passes 6 cm to the side of the row, 1 mm clear of it in MuJoCo, ours touches it.
   2. **A drill's attitude in flight is limited by the time step.** Fixed 2026-11-16
      ("Physics", "The turn in flight"): the nose in flight is now within 0.5 degrees of

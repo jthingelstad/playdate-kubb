@@ -6,6 +6,10 @@
 -- stayed awake at 0.00 m/s for the full 12 s. Held up by a piece that is
 -- asleep or on the ground, it sleeps and the throw ends at 1.35 s.
 -- It must topple f2, cleanly (the rest check included).
+-- The launch is 2 percent slower than the fuzz found it (2026-11-17): since
+-- the bounce reaches the row, the captured throw tipped f2 into f1's edge,
+-- threw it up and it landed standing; at 0.98 of the speed f2 comes to rest
+-- on f1 again (at 1.32 s), which is what this case is for.
 return {
 	name = "kubb resting on a kubb sleeps (1:64)",
 	surface = "grass",
@@ -21,7 +25,7 @@ return {
 		{ id = "x1", kind = "baton", x = -1.0039852265843792, y = 4.5463470290842523, z = 0.021998996533863877, qw = 0.46091295158720502, qx = -0.4609115184880046, qy = -0.53624397439594962, qz = 0.53624828494671084 },
 	},
 	throws = {
-		{ groundSeed = 131450214, state = { kind = "baton", id = "baton", exact = true, 1.3994142054210308, 2.3203989001858591, 0.59999999999999998, 0.99652819806726622, 0.00025478995023785862, 0.083199593067495012, -0.00305176216174763, 0.039599455067091796, 6.4653799061589501, 2.6565558442983099, -10.459182624973961, 0.06406088093935762, 1.7587549889608847 } },
+		{ groundSeed = 131450214, state = { kind = "baton", id = "baton", exact = true, 1.3994142054210308, 2.3203989001858591, 0.59999999999999998, 0.99652819806726622, 0.00025478995023785862, 0.083199593067495012, -0.00305176216174763, 0.038807465965749958, 6.3360723080357708, 2.6034247274123437, -10.459182624973961, 0.06406088093935762, 1.7587549889608847 } },
 	},
 	expect = { toppled = { "f2" }, clean = true },
 }
