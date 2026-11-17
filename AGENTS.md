@@ -1875,6 +1875,17 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     edge gives a normal between its faces (`sphereBox`; the contact point stays on the
     baton). Stakes meet boxes square (THE WALL's measurements stand). Boxes meet the ground
     and each other as before.
+  - **A baton along a face or an edge** (physics fuzz, 2026-11-16). `collide.capsuleBox`
+    made one contact at the closest point, plus the end spheres. A baton lying along a
+    kubb's edge or face turned about that one point and its other half sank in: 66 mm into
+    the king (1:5977), 19 mm along a kubb's upright edge (1:66). Now, once the closest
+    point is within the margin, the segment is clipped to the feature that point is on (a
+    face spans two of the box's axes, a rounded edge one, a corner none), and each end of
+    the clipped piece more than `CLIP_GAP` (4 cm) from the closest point gets its own
+    `sphereBox`: two or three contacts along a face, never a contact off the box. A
+    contact whose closest point is beyond the margin returns at once, so the clip costs
+    nothing in flight. The two repros now reach 2.3 and 6.7 mm. A gap of 10 cm left
+    1.25% penetration in a quick fuzz against 0.50% at 4 cm.
   - **The bounce.** The restitution passes act on the contacts that bounce and nothing else,
     so a baton's bounce off a standing kubb was applied with nothing holding the kubb's
     footing: part of it drove the kubb into the grass and the ground threw it up the next
@@ -2016,7 +2027,12 @@ DESIGN.md section 5. Pure Lua in `source/core/`: `quat`, `body`, `collide`, `wor
     ground for 0.2 s or more, the limit 30%), so 0.5 was not taken.
   - **The fault is gone.** `test_physics` has it: a baton driven into a standing kubb at 4,
     7 and 10 m/s, three heights, two descents; the kubb's lowest corner, on the ground,
-    moved down at up to 2.17 m/s with the old passes at 0.35 and 0.78 m/s now (limit 1).
+    moved down at up to 2.17 m/s with the old passes at 0.35 and 0.78 m/s with the fix
+    (limit 1). Since the `capsuleBox` clip (2026-11-16) the test counts only the steps
+    where the baton touches the kubb: one throw kicked the kubb into the air, and its
+    landing on a corner a quarter second later, tumbling at 23 rad/s, came down at
+    1.55 m/s. That is a landing, not this fault. While touching, the worst is 0.52 m/s
+    (0.23 before the clip).
     Over the batonprobe sweep (764 throws that touched the kubb; steps where a box corner
     on the ground moves down faster than 0.3 m/s): main at 0.2 792 (mean 1.00 m/s, max
     4.00), main at 0.35 877 (1.10, 4.52), this at 0.35 224 (0.72, 2.84).
@@ -2190,17 +2206,18 @@ no extra work for it.
     986 s of CPU (19 minutes with three other runs beside it);
   - the pinned cases take 0.04 s.
 - **First findings** (2026-11-16). The table below covers the failures, and the notes after it
-  give their causes. None is fixed yet. The rates come from the runs above, made before the
+  give their causes. The first defect is fixed (see its note); the table keeps the rates
+  found before it. The rates come from the runs above, made before the
   penetration time was kept per pair: a 2000-iteration grass rerun with it gives penetration
   3.9% (from 4.7%), the other checks within their noise. Repro commands are `lua5.4 tools/physfuzz.lua
   --repro <seed>:<i> [--surface ...]`.
 
   | defect | check | grass | sand | snow | repro | real? | fix |
   |---|---|---|---|---|---|---|---|
-  | a baton sinks into a kubb or the king | penetration | 4.7% | 4.1% | 4.5% | 1:66, 1:5977 (66 mm) | real | `capsuleBox` two-point clip, medium |
+  | a baton sinks into a kubb or the king | penetration | 4.7% | 4.1% | 4.5% | 1:66, 1:5977 (66 mm) | real | fixed 2026-11-16: `capsuleBox` clips to the feature |
   | a piece resting on a piece never sleeps | rest, no rest | 0.92% | 0.91% | 0.85% | 1:10 | real | sleep on pair support, small |
   | 240 Hz disagrees with 480 Hz | dt | 0.86% | 0.91% | 1.15% | 1:433 | step-size error | accepted |
-  | energy rises with an overlap (the push) | energy | about 0.45% | 0.45% | 0.22% | 1:645, 1:6360 | real, same overlap | follows the first fix |
+  | energy rises with an overlap (the push) | energy | about 0.45% | 0.45% | 0.22% | 1:645, 1:6360 | real, same overlap | fixed with the first |
   | a resting kubb keeps being woken | rest, wake cycles | 0.26% | 0.54% | 0.20% | 1:14364 (21 times) | real | sleep hysteresis, small |
   | a baton dips into the ground | penetration ground | 0.08% | 0.55% | under 0.1% | 1:846, 1:5548 | real | ground margin from spin, small |
   | a pair bounce adds energy | energy | 0.03% | 0.32% | under 0.1% | 1:2106 (0.38 J), sand 1:1921 (0.83 J) | real | bound the pair's bounce, small to medium |
@@ -2232,7 +2249,8 @@ no extra work for it.
   - **The tilt grid.** Tilt is monotonic and mirrored on every surface. It sends the baton
     0.33 to 0.51 cm a degree across the line, and hits stay at 78 to 83%. Penetration shows
     up in 8.7% of these throws, more than in the fuzz, because every one strikes a lone kubb
-    squarely. It is the first defect again.
+    squarely. It is the first defect again. With it fixed, penetration shows up in 1.8%
+    (grass 9.6 -> 1.8%, sand 5.7 -> 2.2%, snow 10.7 -> 1.6%).
 
   - **A baton sinks into a kubb or the king** (4.7% of all throws; up to 66 mm into the
     king, 1:5977; most last 0.02 to 0.05 s).
@@ -2240,8 +2258,27 @@ no extra work for it.
       When the baton strikes, its spin jumps (to about 40 rad/s) and the closest point moves
       along it, so the baton keeps approaching at the new point.
     - Four times the solver iterations give the same depth.
-    - Fix: clip the segment against the box face for a two-point contact, as `clipFace`
-      does for boxes. Medium; not bit-identical.
+    - The fuzzer's diagnosis needed one change. In 1:66 the baton lay along a kubb's
+      upright edge, not a face (the rounded edge's normal was level), so a clip against
+      faces alone would miss it. The overlap grew 2.5 -> 18.9 mm over five steps as the
+      baton turned about its one contact.
+    - Fixed 2026-11-16: the segment is clipped to the face or edge the closest point is
+      on, with a `sphereBox` contact at each end of the clipped piece (Physics, "A baton
+      along a face or an edge"). Not bit-identical.
+    - Measured, seed 1, before -> after (realistic rates):
+
+      | check | grass (2000) | sand (1000) | snow (1000) |
+      |---|---|---|---|
+      | penetration | 3.89 -> 0.96% | 4.52 -> 1.11% | 4.34 -> 0.49% |
+      | energy | 0.62 -> 0.07% | 0.68 -> 0.31% | 0.31 -> 0.06% |
+      | rest | 1.21 -> 1.30% | 0.80 -> 1.11% | 0.98 -> 0.74% |
+      | any | 6.42 -> 3.40% | 6.80 -> 3.70% | 6.56 -> 2.34% |
+
+    - What is left is mostly a fast-spinning baton entering the king or a kubb in one
+      step (3:356, 15.5 mm): the contacts are points on the baton as it was, and the
+      spin carries its end past them. Rest rises a little on grass and sand: a kubb a
+      baton now rests on, instead of sinking into, keeps waking (wake cycles), which the
+      sleep fix below clears.
   - **A kubb gains energy in a pair bounce** (drilled kubbs into groups, more often when
     spun: up to 0.83 J in one step, sand 1:1921).
     - The bounce pass in `world.step` (section 7) gives each contact a target of `-e * v0`
@@ -2263,7 +2300,9 @@ no extra work for it.
     - Fix: count a pair contact's support as well. Small.
   - **Energy climbs while a baton lies against a kubb** (aim at 3 m: up to 26 mJ, 1:645).
     - The baton slides into the kubb and the push apart adds the energy back, mJ by mJ.
-    - It is the same overlap as the first defect, seen through the push.
+    - It is the same overlap as the first defect, seen through the push. With that fixed,
+      the climbs at 3 m are gone (grass 0.37% -> 0) and energy fails in 0.07% of grass
+      throws, from 0.62%.
   - **A baton dips into the ground** (up to 12.6 mm, 1:846; 0.55% on sand).
     - A pair contact changes the baton's spin within the step. Its end then reaches past
       the ground's speculative margin, which was set from the speed before the step. The

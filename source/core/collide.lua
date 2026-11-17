@@ -582,10 +582,15 @@ collide.tune = {
 	batonRound = 0.01,
 }
 local ROUND = collide.tune
+-- a stretch's end this close to the closest point (as a share of the
+-- segment) adds no contact of its own
+local CLIP_GAP <const> = 0.04
 
 -- Sphere (center c, radius r) belonging to capsule A against box B
 -- (pointBox written out), B's edges rounded by ROUND.batonRound (not for a
--- stake). The contact point is on the sphere, as before.
+-- stake). The contact point is on the sphere, as before. The normal in B's
+-- frame is left in SNX, SNY, SNZ (capsuleBox clips with it).
+local SNX, SNY, SNZ = 0, 0, 0
 local function sphereBox(A, B, cx, cy, cz, r, margin)
 	local Bx, By, Bz = B.x, B.y, B.z
 	local dx, dy, dz = cx - Bx, cy - By, cz - Bz
@@ -623,6 +628,7 @@ local function sphereBox(A, B, cx, cy, cz, r, margin)
 		end
 	end
 	local sep = d - r - br
+	SNX, SNY, SNZ = lnx, lny, lnz
 	if sep < margin then
 		local nx = r11 * lnx + r12 * lny + r13 * lnz
 		local ny = r21 * lnx + r22 * lny + r23 * lnz
@@ -638,7 +644,15 @@ local function sphereBox(A, B, cx, cy, cz, r, margin)
 	return false
 end
 
--- Capsule A against box B.
+-- Capsule A against box B: the closest points of the segment and the box,
+-- then the stretch of the segment that lies along the same feature of the
+-- box (its face or edge) is clipped to that feature's extent, and each end
+-- of the stretch is a contact too (Physics fuzz, 2026-11-16: with one point
+-- a baton lying along a kubb's face or edge turned about it and sank in,
+-- up to 66 mm). A feature is the box's axes the normal does not lean
+-- along: a face extends along two of them, an edge along one, a corner
+-- along none, so for a corner the stretch is the whole segment and its ends
+-- are the baton's end spheres, as before.
 function collide.capsuleBox(A, B, margin)
 	local hl, r = A.hl, A.r
 	local ax, ay, az = A.r13 * hl, A.r23 * hl, A.r33 * hl
@@ -672,18 +686,50 @@ function collide.capsuleBox(A, B, margin)
 		if dt_ < 1e-4 and dt_ > -1e-4 then t = nt break end
 		t = nt
 	end
-	local found = false
-	-- the closest pair
-	local cx, cy, cz = x1 + 2 * ax * t, y1 + 2 * ay * t, z1 + 2 * az * t
-	found = sphereBox(A, B, cx, cy, cz, r, margin)
-	-- the end spheres, when they are not the closest point already
-	if t > 0.2 then
-		if sphereBox(A, B, x1, y1, z1, r, margin) then found = true end
+	-- the closest pair; nothing nearer than the margin, no contact at all
+	if not sphereBox(A, B, x1 + 2 * ax * t, y1 + 2 * ay * t, z1 + 2 * az * t, r, margin) then
+		return false
 	end
-	if t < 0.8 then
-		if sphereBox(A, B, x2, y2, z2, r, margin) then found = true end
+	-- the stretch [lo, hi] of the segment within the feature's extent (the
+	-- box's half sides less the rounding, as sphereBox meets it)
+	local br = ROUND.batonRound
+	if A.static then br = 0 end
+	local lo, hi = 0, 1
+	if SNX == 0 then
+		local e = hx - br
+		if ux > 1e-12 or ux < -1e-12 then
+			local ta, tb = (-e - p1x) / ux, (e - p1x) / ux
+			if ta > tb then ta, tb = tb, ta end
+			if ta > lo then lo = ta end
+			if tb < hi then hi = tb end
+		end
 	end
-	return found
+	if SNY == 0 then
+		local e = hy - br
+		if uy > 1e-12 or uy < -1e-12 then
+			local ta, tb = (-e - p1y) / uy, (e - p1y) / uy
+			if ta > tb then ta, tb = tb, ta end
+			if ta > lo then lo = ta end
+			if tb < hi then hi = tb end
+		end
+	end
+	if SNZ == 0 then
+		local e = hz - br
+		if uz > 1e-12 or uz < -1e-12 then
+			local ta, tb = (-e - p1z) / uz, (e - p1z) / uz
+			if ta > tb then ta, tb = tb, ta end
+			if ta > lo then lo = ta end
+			if tb < hi then hi = tb end
+		end
+	end
+	-- each end of the stretch that is not the closest point already
+	if lo < t - CLIP_GAP then
+		sphereBox(A, B, x1 + 2 * ax * lo, y1 + 2 * ay * lo, z1 + 2 * az * lo, r, margin)
+	end
+	if hi > t + CLIP_GAP then
+		sphereBox(A, B, x1 + 2 * ax * hi, y1 + 2 * ay * hi, z1 + 2 * az * hi, r, margin)
+	end
+	return true
 end
 
 -- Capsule A against capsule B: closest points of two segments (Ericson,
