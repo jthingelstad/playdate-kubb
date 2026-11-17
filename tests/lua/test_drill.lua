@@ -56,10 +56,10 @@ test("drill: a clean in-band swing rests about on the marker on average, near, m
 				n = n + 1
 			end
 			local where = string.format("%s marker (%.1f, %.1f)", name, m[1], m[2])
-			-- (0.45 until 2026-11-16; 0.7 while drill.tune.slide, measured with no air
-			-- drag, is still to be measured again with it: a drill now lands a little
-			-- slower and runs on less, far marks resting up to 0.6 m short)
-			expect.truthy(math.abs(along / n) < 0.7, string.format("%s: rests %+.2f m along on average", where, along / n))
+			-- (0.7 for an evening of 2026-11-16, while drill.tune.slide was measured with
+			-- no air drag: far marks rested up to 0.53 m short. Measured again with it:
+			-- -0.33 to +0.13 m along, 0.42 to 0.62 m off)
+			expect.truthy(math.abs(along / n) < 0.45, string.format("%s: rests %+.2f m along on average", where, along / n))
 			expect.truthy(far / n < 0.9, string.format("%s: rests %.2f m off on average", where, far / n))
 		end
 	end
@@ -219,7 +219,11 @@ test("drill: spin holds the drill's attitude to the touch; with little spin the 
 	-- broadside to its fall, so it lands steeper and less the same, still
 	-- nose first (Jamie: "Good drillers would never let a Kubb flip in the
 	-- air"). Measured 2026-11-16: 3 taps 44 to 46 (sd about 5), none 60 to
-	-- 69 (sd 10 to 15).
+	-- 69 (sd 10 to 15). With the air's drag and the later ground changes the
+	-- unspun turn at half past 1 is small: 46 to 51 on average over 200
+	-- grounds, sd about 20, so twelve grounds cannot tell it from the release
+	-- there; it checks that it does not flatten, and the spread (below). At
+	-- loft 30 it is still 61 to 64.
 	for _, loft in ipairs { 30, 47 } do
 		local sds = {}
 		for _, taps in ipairs { 0, 3 } do
@@ -237,7 +241,8 @@ test("drill: spin holds the drill's attitude to the touch; with little spin the 
 			expect.truthy(abs(rel / n - drill.tune.noseDownDeg) < 3, "released at noseDownDeg: " .. where)
 			expect.truthy(first >= 0.9 * n, "nose first: " .. where)
 			if taps == 0 then
-				expect.truthy(m > drill.tune.noseDownDeg + 5 and m < 80, "the air turns it steeper: " .. where)
+				local steeper = loft < 40 and 5 or -3
+				expect.truthy(m > drill.tune.noseDownDeg + steeper and m < 80, "the air turns it steeper: " .. where)
 			else
 				expect.truthy(abs(m - rel / n) < 5, "the spin holds the axis: " .. where)
 				expect.truthy(sd < 7, "a spun drill lands about the same: " .. where)
@@ -286,7 +291,8 @@ test("drill: a drill into a lying kubb stops by it", function()
 	-- a clean unspun drill landing just short of a lying kubb runs into it and
 	-- mostly stops by it: the backstop the computer builds on. Not every ground:
 	-- the run on is a different one every throw (before 2026-11-16 grounds 7 and 8
-	-- of 10 went past it; since the air's drag, 2, 7 and 10)
+	-- of 10 went past it; with the air's drag and the run on measured again, only
+	-- ground 1, 0.42 m past its centre; 87 of 100 grounds stop by it)
 	local by = 0
 	for seed = 1, 10 do
 		local k = { id = "k", kind = "kubb", x = 0, y = 6.4, z = 0.035, qw = 1, qx = 0, qy = 0, qz = 0, toppled = true }
@@ -300,7 +306,7 @@ test("drill: a drill into a lying kubb stops by it", function()
 		if b.y < q.y + 0.35 then by = by + 1 end
 		expect.truthy(dist(q.x, q.y, 0, 6.4) < 0.5, "the struck kubb moves a little")
 	end
-	expect.truthy(by >= 7, string.format("stops by it, not past, on %d of 10 grounds", by))
+	expect.truthy(by >= 8, string.format("stops by it, not past, on %d of 10 grounds", by))
 end)
 
 -- ---------- the rules path ----------

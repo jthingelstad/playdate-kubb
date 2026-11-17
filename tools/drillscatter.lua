@@ -20,8 +20,15 @@
 --    far its long axis is turned from the line of the throw, and how long it
 --    takes from the first touch to rest (simulated seconds).
 --
+-- 5. The aim allowance (drill.tune.slide): the plan's clean drill aimed to
+--    land R m out with no allowance, at each of slideLofts and slideR, on
+--    each ground (3 lines x --grounds grounds a cell): the mean rest along the
+--    throw past R, printed as the table drill.tune.slide takes. It measures
+--    the rest against the aimed landing, so it takes in any miss of the
+--    flight's own aim too. Not run without --only 5.
+--
 --   lua5.4 tools/drillscatter.lua [--n 300] [--matches 40] [--seed 2]
---     [--only 1|2|3] [--grounds 24] [--surface grass] [--set name=value ...]
+--     [--only 1|2|3|4|5] [--grounds 24] [--surface grass] [--set name=value ...]
 --   (--set: a number in drill.tune, autothrow.tune as auto.name or world.tune as
 --   world.name, for the run)
 
@@ -338,11 +345,11 @@ local drill = tw.drill
 local deg, asin, atan, abs = math.deg, math.asin, math.atan, math.abs
 local MX, MY = { -1.5, 0, 1.5 }, { 4.6, 5.5, 6.5, 7.5 }
 print(fmt("drillscatter 3: the plan's clean drill, %d markers x %d grounds (cm, degrees, s)", #MX * #MY, grounds))
-print("  ground  loft | nose at release, at touch (sd) turned | run on: mean sd p10 p50 p90 max, dead<5cm | rest from mark | flat end other, yaw 0-30 30-60 60-90 | touch to rest mean max")
+print("  ground  loft | nose at release, at touch (sd) turned | run on: mean sd p10 p50 p90 max, dead<5cm | rest from mark, along | flat end other, yaw 0-30 30-60 60-90 | touch to rest mean max")
 for _, surface in ipairs { "grass", "sand", "snow" } do
 	if not surfaceOnly or surfaceOnly == surface then
 	for _, loft in ipairs { 47, 30 } do
-		local rel, tch, turned, run, rest, ttr = acc(), acc(), acc(), acc(), acc(), acc()
+		local rel, tch, turned, run, rest, ttr, along = acc(), acc(), acc(), acc(), acc(), acc(), acc()
 		local runs, dead, flat, onEnd, other, worstT = {}, 0, 0, 0, 0, 0
 		local yaw = { 0, 0, 0 }
 		for _, my in ipairs(MY) do
@@ -374,6 +381,7 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 					add(run, d); runs[#runs + 1] = d
 					if d < 0.05 then dead = dead + 1 end
 					add(rest, sqrt((b.x - mx) ^ 2 + (b.y - my) ^ 2))
+					add(along, (b.x - mx) * math.sin(sol.swivel) + (b.y - my) * math.cos(sol.swivel))
 					local tt = w.time - t1
 					add(ttr, tt)
 					if tt > worstT then worstT = tt end
@@ -392,13 +400,56 @@ for _, surface in ipairs { "grass", "sand", "snow" } do
 		local N = #runs
 		local function q(p) return runs[math.max(1, math.floor(p * N + 0.5))] end
 		local ny = yaw[1] + yaw[2] + yaw[3]
-		print(fmt("  %-6s  %4d | %5.1f %5.1f (%4.1f) %5.1f | %5.1f %5.1f %5.1f %5.1f %5.1f %5.1f, %3.0f%% | %5.1f | %3.0f%% %3.0f%% %3.0f%%, %3.0f%% %3.0f%% %3.0f%% | %4.2f %4.2f",
+		print(fmt("  %-6s  %4d | %5.1f %5.1f (%4.1f) %5.1f | %5.1f %5.1f %5.1f %5.1f %5.1f %5.1f, %3.0f%% | %5.1f %+6.1f | %3.0f%% %3.0f%% %3.0f%%, %3.0f%% %3.0f%% %3.0f%% | %4.2f %4.2f",
 			surface, loft, mean(rel), mean(tch), sd(tch), mean(turned),
 			cm(mean(run)), cm(sd(run)), cm(q(0.1)), cm(q(0.5)), cm(q(0.9)), cm(runs[N]), 100 * dead / N,
-			cm(mean(rest)), 100 * flat / N, 100 * onEnd / N, 100 * other / N,
+			cm(mean(rest)), cm(mean(along)), 100 * flat / N, 100 * onEnd / N, 100 * other / N,
 			100 * yaw[1] / math.max(1, ny), 100 * yaw[2] / math.max(1, ny), 100 * yaw[3] / math.max(1, ny),
 			mean(ttr), worstT))
 	end
+	end
+end
+end
+
+-- Part 5 ---------------------------------------------------------------
+if only == 5 then
+import "core/drill"
+local drill = tw.drill
+local t = drill.tune
+local zero = {}
+for li = 1, #t.slideLofts do
+	zero[li] = {}
+	for j = 1, #t.slideR do zero[li][j] = 0 end
+end
+t.slide = { grass = zero, sand = zero, snow = zero }
+local MX = { -1.5, 0, 1.5 }
+print(fmt("drillscatter 5: the aim allowance, %d lines x %d grounds a cell (m past the aimed landing; sd of the mean in brackets)", #MX, grounds))
+for _, surface in ipairs { "grass", "sand", "snow" } do
+	if not surfaceOnly or surfaceOnly == surface then
+	local rows, notes = {}, {}
+	for li, loft in ipairs(t.slideLofts) do
+		local row, nrow = {}, {}
+		for j, R in ipairs(t.slideR) do
+			local a = acc()
+			for _, mx in ipairs(MX) do
+				for g = 1, grounds do
+					local sol = drill.solveAt(mx, R, 0, loft, {}, nil, surface)
+					local L = drill.body(1, 1, 0, {})
+					local w = world.new { surface = surface, groundSeed = g * 6151 + 29 }
+					local b = world.launchDrill(w, "d", sol.x, 0, sol.swivel, sol.loft, sol.speed, L.noseDown, L.rollLand,
+						L.spin, L.wobble)
+					world.run(w)
+					add(a, (b.x - sol.x) * math.sin(sol.swivel) + b.y * math.cos(sol.swivel) - sol.land)
+				end
+			end
+			row[j] = fmt("%.2f", math.max(0, mean(a)))
+			nrow[j] = fmt("%+.2f (%.2f)", mean(a), sd(a) / sqrt(a.n))
+		end
+		rows[li] = "{ " .. table.concat(row, ", ") .. " }"
+		notes[li] = fmt("    -- loft %d: %s", loft, table.concat(nrow, "  "))
+	end
+	print(fmt("\t\t%s = { %s },", surface, table.concat(rows, ", ")))
+	for _, l in ipairs(notes) do print(l) end
 	end
 end
 end

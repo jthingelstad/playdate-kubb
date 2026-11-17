@@ -52,18 +52,19 @@ drill.tune = {
 	-- a clean drill rests past where it lands, by the loft (slideLofts, a row each) and
 	-- how far out it lands (slideR, a column each), in a line between them and the
 	-- nearest outside them. A faster landing runs on farther until it digs in harder (on
-	-- sand soonest). Measured with the drill as a plain body with the turf's bite
-	-- (2026-11-16: 3 lines x 20 grounds a cell, aimed with none; the release attitude
-	-- and spiral below).
+	-- sand soonest). Measured after the physics audit, with the air's drag
+	-- (2026-11-16, tools/drillscatter.lua --only 5 --grounds 60: 3 lines x 60 grounds a
+	-- cell, aimed with none, the mean rest along the throw past the aimed landing; the
+	-- release attitude and spiral below).
 	slideLofts = { 26, 37, 47, 57 },
 	slideR = { 1.5, 3, 4.5, 6, 7.5 },
 	slide = {
-		grass = { { 0.51, 1.47, 2.26, 2.11, 1.59 }, { 0.35, 0.92, 1.47, 1.39, 1.06 },
-			{ 0.26, 0.68, 0.87, 0.99, 0.69 }, { 0.18, 0.38, 0.64, 0.81, 0.61 } },
-		sand = { { 0.22, 0.74, 0.99, 0.50, 0.36 }, { 0.14, 0.44, 0.51, 0.31, 0.15 },
-			{ 0.07, 0.35, 0.29, 0.19, 0.14 }, { 0.06, 0.17, 0.20, 0.17, 0.12 } },
-		snow = { { 0.50, 1.58, 2.05, 1.90, 2.05 }, { 0.37, 0.99, 1.46, 1.42, 1.53 },
-			{ 0.23, 0.71, 0.92, 1.09, 1.12 }, { 0.17, 0.39, 0.59, 0.83, 0.87 } },
+		grass = { { 0.45, 1.39, 1.94, 1.70, 1.58 }, { 0.31, 0.89, 1.28, 1.13, 1.02 },
+			{ 0.20, 0.58, 0.88, 0.87, 0.63 }, { 0.15, 0.37, 0.58, 0.68, 0.53 } },
+		sand = { { 0.18, 0.67, 0.78, 0.38, 0.36 }, { 0.12, 0.42, 0.47, 0.26, 0.20 },
+			{ 0.07, 0.22, 0.31, 0.19, 0.11 }, { 0.05, 0.13, 0.19, 0.17, 0.09 } },
+		snow = { { 0.38, 1.31, 1.87, 1.75, 1.87 }, { 0.25, 0.79, 1.21, 1.34, 1.34 },
+			{ 0.15, 0.47, 0.83, 1.02, 1.05 }, { 0.13, 0.31, 0.55, 0.69, 0.81 } },
 	},
 	slideRefM = 6,          -- m: the landing distance slideFor reads when given none
 	-- the body at release (world.drillLaunchState, 2026-11-16: the drill is a plain
