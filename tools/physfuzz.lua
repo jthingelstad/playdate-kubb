@@ -57,7 +57,9 @@ import "core/autothrow"
 import "core/throwplan"
 import "core/outcome"
 import "core/quat"
+import "core/raising"
 local world, autothrow, plan, outcome, quat, body = tw.world, tw.autothrow, tw.plan, tw.outcome, tw.quat, tw.body
+local raising = tw.raising
 local physcheck = assert(loadfile(here .. "/physcheck.lua"))()
 local fmt, sqrt, pi = string.format, math.sqrt, math.pi
 
@@ -446,8 +448,10 @@ local function verdictOf(T, res, w)
 	table.sort(ids)
 	local v = table.concat(ids, ",")
 	if T.projectile == "kubb" and not T.aim then
+		-- in or out as the game judges it (Game:_outNow): can it be raised in
+		-- Team B's half where it lies?
 		local b = res.bodies.t1
-		local inside = b and b.y >= 4 and b.y <= 8 and b.x >= -2.5 and b.x <= 2.5
+		local inside = b and raising.canRaise((outcome.poseOf(b.x, b.y, b.z, b.qw, b.qx, b.qy, b.qz)), "B")
 		v = v .. (inside and " |in" or " |out")
 	end
 	return v == "" and "-" or v
