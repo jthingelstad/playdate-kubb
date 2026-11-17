@@ -983,12 +983,11 @@ for i = 1, n do
 			A.n = A.n + 1
 			if T.hit then A.hit = A.hit + 1 else A.misses[#A.misses + 1] = i end
 		end
-		local seen = {}
+		local seen, worst = {}, {}
 		for _, f in ipairs(res.fails) do
-			if dist then
+			if dist then -- (one sample a throw for each key: its worst)
 				local k = f.check .. " / " .. f.sub:gsub(" %a+%-%a+$", ""):gsub(" ground %a+$", " ground")
-				distV[k] = distV[k] or {}
-				table.insert(distV[k], f.value)
+				if not worst[k] or f.value > worst[k] then worst[k] = f.value end
 			end
 			if not seen[f.check] then
 				seen[f.check] = true
@@ -996,6 +995,10 @@ for i = 1, n do
 				wFailsBy[f.check] = wFailsBy[f.check] + T.cls.weight
 			end
 			addCluster(f, T, false)
+		end
+		for k, v in pairs(worst) do
+			distV[k] = distV[k] or {}
+			table.insert(distV[k], v)
 		end
 		if #res.fails > 0 then anyFailW = anyFailW + T.cls.weight end
 		for _, f in ipairs(res.infos) do
