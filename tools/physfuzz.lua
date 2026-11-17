@@ -562,6 +562,7 @@ end
 local function reproCmd(i)
 	local s = fmt("lua5.4 tools/physfuzz.lua --repro %d:%d", seed, i)
 	if surface ~= "grass" then s = s .. " --surface " .. surface end
+	for _, set in ipairs(sets) do s = s .. " --set " .. set end -- (the throw and the checks both follow them)
 	return s
 end
 
