@@ -2,8 +2,8 @@
 --
 -- From lua5.4 tools/physfuzz.lua --repro 1:5977 (grass): the fuzzer's
 -- deepest overlap, 66 mm into the king, for the same reason as
--- baton-along-kubb-edge.lua. With the clipped stretch the deepest is 6.7 mm
--- for one step. It must topple the king, cleanly.
+-- baton-along-kubb-edge.lua. With the clipped stretch the deepest is 0.2 mm.
+-- It must topple the king, cleanly.
 return {
 	name = "baton along a box sinks in (1:5977)",
 	surface = "grass",
