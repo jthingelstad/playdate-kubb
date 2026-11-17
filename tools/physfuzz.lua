@@ -304,7 +304,7 @@ local function settle(L)
 	local w = physcheck.newWorld(surface, L.pieces, { texture = false, stakes = false })
 	for i = 1, w.n do world.wake(w.bodies[i]) end
 	world.run(w)
-	if w.time >= world.tune.maxTime then return false end
+	if not world.isAtRest(w) then return false end -- (world.run stops just short of maxTime)
 	for _, p in ipairs(L.pieces) do
 		local b = w.byId[p.id]
 		p.x, p.y, p.z, p.qw, p.qx, p.qy, p.qz = b.x, b.y, b.z, b.qw, b.qx, b.qy, b.qz
