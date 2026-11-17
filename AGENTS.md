@@ -111,7 +111,7 @@ outcomes with tolerances, never bit-exact.
 The gate loads `notation-parser.js` and `kubb.js` from `tests/vendor/pk-kubb-score/`, copies
 of pk-kubb-score's `site/assets` files (Jamie approved the copy 2026-11-13, so the gate runs
 on any machine and on GitHub). Never edit the copies; `make sync-notation` refreshes them
-from a checkout at `~/Projects/pk-kubb-score` (or `$PK_KUBB_SCORE`). The checkout itself is
+from the sibling checkout `../pk-kubb-score` in the throwingwood folder (or `$PK_KUBB_SCORE`). The checkout itself is
 still read only: never write there and never run `npm install` there.
 
 Synced 2026-11-16 for optional positions on the pitch (Jamie: "Approved also for the

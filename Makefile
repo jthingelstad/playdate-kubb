@@ -7,7 +7,8 @@ GAMEDATA := $(SDK)/Disk/Data/com.thingelstad.throwingwood
 SIMDATA  := $(GAMEDATA)/selftest
 LUA      := /opt/homebrew/opt/lua@5.4/bin/lua5.4
 NODE     := /opt/homebrew/bin/node
-PKSCORE  := $(or $(PK_KUBB_SCORE),$(HOME)/Projects/pk-kubb-score)
+# pk-kubb-score: the sibling checkout, else its home in the throwingwood folder (for worktrees elsewhere).
+PKSCORE  := $(or $(PK_KUBB_SCORE),$(firstword $(wildcard $(CURDIR)/../pk-kubb-score) $(HOME)/Projects/throwingwood/pk-kubb-score))
 
 PDX      := build/ThrowingWood.pdx
 OUT      := $(CURDIR)/build/selftest
