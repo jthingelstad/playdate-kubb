@@ -62,6 +62,8 @@ world.tune = {
 	                       -- baton's end-over-end turn on the ground (all of it holds its roll
 	                       -- about the long axis; the plug, dig, holds both)
 	restitutionIterations = 4, -- bounce passes (one pass over a flat landing's corners overshoots)
+	restitutionMaxIterations = 32, -- and when the bounce reaches a row, up to this many: they stop once
+	restitutionTol = 1e-4, -- no impulse changes by this (N s); the push crosses a row of four in 10 to 30
 	pairMu = 0.4,          -- wood on wood friction, every pair of pieces (kubb on kubb, the king, a baton,
 	                       -- a stake): clean dry wood on wood 0.25 to 0.5, oak on oak sliding 0.48 along
 	                       -- the grain and 0.32 across it (Engineering ToolBox, friction coefficients).
@@ -224,6 +226,7 @@ function world.new(opts)
 		firstHit = nil,       -- its first contact with another body: same fields
 		contacts = 0,         -- contacts in the last step (for the bench)
 		awakeCount = 0,       -- awake bodies in the last step
+		bouncePasses = 0,     -- bounce passes run so far (stage 7; for the bench)
 		groundSeed = opts.groundSeed or 0,   -- the ground texture's seed (world.launch sets it
 		groundSeedFixed = opts.groundSeed ~= nil,   -- from the throw unless one is given here)
 		-- the wind (m/s, horizontal): it pushes the thrown piece until its
@@ -691,8 +694,10 @@ end
 -- One sequential-impulse pass over records 1 .. n of list (REC, or the
 -- bounce pass's BOUNCE), each held to its target r[tk] (K_BIAS, K_RELAX or
 -- K_REST): the normal impulse, then the friction, capped at mu times the
--- normal impulse accumulated so far.
+-- normal impulse accumulated so far. Returns the largest change it made to
+-- any impulse (N s), for the bounce passes' convergence test.
 local function solve(tk, list, n)
+	local dm = 0
 	for i = 1, n do
 		local r = list[i]
 		local a, kind = r[K_A], r[K_KIND]
@@ -709,6 +714,7 @@ local function solve(tk, list, n)
 			if lam > r[K_LNMAX] then r[K_LNMAX] = lam end
 			local d = lam - old
 			if d ~= 0 then
+				if d > dm then dm = d elseif -d > dm then dm = -d end
 				avz = avz + ima * d
 				awx, awy, awz = awx + d * r[K_WANX], awy + d * r[K_WANY], awz + d * r[K_WANZ]
 			end
@@ -726,6 +732,8 @@ local function solve(tk, list, n)
 			r[K_LT1], r[K_LT2] = l1, l2
 			local d1, d2 = l1 - o1, l2 - o2
 			if d1 ~= 0 or d2 ~= 0 then
+				if d1 > dm then dm = d1 elseif -d1 > dm then dm = -d1 end
+				if d2 > dm then dm = d2 elseif -d2 > dm then dm = -d2 end
 				avx, avy = avx + ima * d1, avy + ima * d2
 				awx = awx + d1 * r[K_WA1X] + d2 * r[K_WA2X]
 				awy = awy + d1 * r[K_WA1Y] + d2 * r[K_WA2Y]
@@ -745,6 +753,7 @@ local function solve(tk, list, n)
 			if lam > r[K_LNMAX] then r[K_LNMAX] = lam end
 			local d = lam - old
 			if d ~= 0 then
+				if d > dm then dm = d elseif -d > dm then dm = -d end
 				avx, avy, avz = avx + ima * d * nx, avy + ima * d * ny, avz + ima * d * nz
 				awx, awy, awz = awx + d * r[K_WANX], awy + d * r[K_WANY], awz + d * r[K_WANZ]
 			end
@@ -764,6 +773,8 @@ local function solve(tk, list, n)
 			r[K_LT1], r[K_LT2] = l1, l2
 			local d1, d2 = l1 - o1, l2 - o2
 			if d1 ~= 0 or d2 ~= 0 then
+				if d1 > dm then dm = d1 elseif -d1 > dm then dm = -d1 end
+				if d2 > dm then dm = d2 elseif -d2 > dm then dm = -d2 end
 				local px, py, pz = d1 * t1x + d2 * t2x, d1 * t1y + d2 * t2y, d1 * t1z + d2 * t2z
 				avx, avy, avz = avx + ima * px, avy + ima * py, avz + ima * pz
 				awx = awx + d1 * r[K_WA1X] + d2 * r[K_WA2X]
@@ -788,6 +799,7 @@ local function solve(tk, list, n)
 			if lam > r[K_LNMAX] then r[K_LNMAX] = lam end
 			local d = lam - old
 			if d ~= 0 then
+				if d > dm then dm = d elseif -d > dm then dm = -d end
 				avx, avy, avz = avx + ima * d * nx, avy + ima * d * ny, avz + ima * d * nz
 				awx, awy, awz = awx + d * r[K_WANX], awy + d * r[K_WANY], awz + d * r[K_WANZ]
 				bvx, bvy, bvz = bvx - imb * d * nx, bvy - imb * d * ny, bvz - imb * d * nz
@@ -812,6 +824,8 @@ local function solve(tk, list, n)
 			r[K_LT1], r[K_LT2] = l1, l2
 			local d1, d2 = l1 - o1, l2 - o2
 			if d1 ~= 0 or d2 ~= 0 then
+				if d1 > dm then dm = d1 elseif -d1 > dm then dm = -d1 end
+				if d2 > dm then dm = d2 elseif -d2 > dm then dm = -d2 end
 				local px, py, pz = d1 * t1x + d2 * t2x, d1 * t1y + d2 * t2y, d1 * t1z + d2 * t2z
 				avx, avy, avz = avx + ima * px, avy + ima * py, avz + ima * pz
 				awx = awx + d1 * r[K_WA1X] + d2 * r[K_WA2X]
@@ -826,6 +840,7 @@ local function solve(tk, list, n)
 			b.vx, b.vy, b.vz, b.wx, b.wy, b.wz = bvx, bvy, bvz, bwx, bwy, bwz
 		end
 	end
+	return dm
 end
 
 -- Rolling resistance: an angular impulse of lever * normal impulse against
@@ -1221,6 +1236,7 @@ function world.step(w)
 	-- 3. prepare: one record per contact with an awake body
 	local slop, pushRate, maxPush = t.slop, t.pushRate, t.maxPush
 	local warmF, pairMu, pairE = t.warm, t.pairMu, t.pairE
+	local warm = false
 	local m = 0
 	for i = 1, n do
 		local a, b = cA[i], cB[i]
@@ -1376,12 +1392,10 @@ function world.step(w)
 				if ef < 0 then ef = 0 end
 				r[K_E] = e * ef * a.gEf[k]
 				r[K_LN], r[K_LT1], r[K_LT2] = ln, l1, l2
-				-- warm start (n = +z, t1 = +x, t2 = +y)
+				-- (the warm start, last step's impulses, is applied once every
+				-- contact is built, below)
 				if ln > 0 or l1 ~= 0 or l2 ~= 0 then
-					a.vx, a.vy, a.vz = avx + ima * l1, avy + ima * l2, avz + ima * ln
-					a.wx = awx + ln * r[K_WANX] + l1 * r[K_WA1X] + l2 * r[K_WA2X]
-					a.wy = awy + ln * r[K_WANY] + l1 * r[K_WA1Y] + l2 * r[K_WA2Y]
-					a.wz = awz + ln * r[K_WANZ] + l1 * r[K_WA1Z] + l2 * r[K_WA2Z]
+					warm = true
 				elseif sx ~= 0 or sy ~= 0 then
 					-- a landing on a tilted patch (new, so nothing to warm start): this
 					-- step's contact takes the patch's normal, as a contact with a
@@ -1454,7 +1468,12 @@ function world.step(w)
 					r[K_KIND] = 2
 					local imb = b.im
 					local j11, j12, j13, j22, j23, j33 = b.i11, b.i12, b.i13, b.i22, b.i23, b.i33
-					local rbx, rby, rbz = px - b.x, py - b.y, pz - b.z
+					-- B's arm reaches B's own surface: P is on A, and a contact made
+					-- ahead of the touch (sep > 0) meets B sep along the normal
+					-- short of it. (Along n it moves no normal impulse's torque, only
+					-- friction's: the baton's drag down a kubb's face, levered from
+					-- the baton's side of the gap, held the kubb back from tipping.)
+					local rbx, rby, rbz = px - nx * sep - b.x, py - ny * sep - b.y, pz - nz * sep - b.z
 					kn, k1, k2 = kn + imb, k1 + imb, k2 + imb
 					jx, jy, jz = rby * nz - rbz * ny, rbz * nx - rbx * nz, rbx * ny - rby * nx
 					wx = j11 * jx + j12 * jy + j13 * jz
@@ -1487,6 +1506,29 @@ function world.step(w)
 		end
 	end
 	nRec = m
+	-- warm start the ground contacts (n = +z, t1 = +x, t2 = +y), after every
+	-- contact has taken its approach speed (v0) from the velocities the step
+	-- began with: applied as each was built, a piece's later corners read its
+	-- speed with its earlier corners' warm start in it, and after a hard
+	-- landing (last step's impulses, the bounce's among them, are large) a
+	-- corner at rest read an approach of metres a second and was given a
+	-- bounce off it (AGENTS.md, "Physics", "The bounce reaches the row")
+	if warm then
+		for i = 1, m do
+			local r = REC[i]
+			if r[K_KIND] == 1 then
+				local ln, l1, l2 = r[K_LN], r[K_LT1], r[K_LT2]
+				if ln > 0 or l1 ~= 0 or l2 ~= 0 then
+					local a = r[K_A]
+					local ima = a.im
+					a.vx, a.vy, a.vz = a.vx + ima * l1, a.vy + ima * l2, a.vz + ima * ln
+					a.wx = a.wx + ln * r[K_WANX] + l1 * r[K_WA1X] + l2 * r[K_WA2X]
+					a.wy = a.wy + ln * r[K_WANY] + l1 * r[K_WA1Y] + l2 * r[K_WA2Y]
+					a.wz = a.wz + ln * r[K_WANZ] + l1 * r[K_WA1Z] + l2 * r[K_WA2Z]
+				end
+			end
+		end
+	end
 
 	if P then local now = pc(); P.prepare = P.prepare + now - pt; pt = now end
 	-- 4. solve with the push bias
@@ -1567,8 +1609,21 @@ function world.step(w)
 	-- approach speed past the gap still to close, so a landing kept 0.6 to
 	-- 0.9 of its ground speed, and how much depended on where the step fell
 	-- (AGENTS.md, "Physics", "Friction in the bounce").
+	-- The bounce reaches the whole group of awake pieces pressed together,
+	-- not only the pieces that bounce: a baton striking the front of a row
+	-- of touching kubbs strikes the row, and with the bounce cut off at the
+	-- front kubb's own contacts the second kubb was free in these passes, so
+	-- the front two took the blow as a light pair, met the third a step later
+	-- and stopped (AGENTS.md, "Physics", "The bounce reaches the row"). When
+	-- it reaches past the pieces that bounce (a row), the passes run until
+	-- the impulses settle (restitutionTol), up to restitutionMaxIterations:
+	-- each pass carries the push one kubb further, and four left it short
+	-- of the far kubbs. Any other bounce keeps restitutionIterations: run to
+	-- the limit there, a sliding contact's friction and its push fed each
+	-- other pass after pass (a spinning baton's corner swung between all of
+	-- its bounce and none), and the fuzz's energy rises went from 5 to 24.
 	local rs = t.restitutionSpeed
-	local any, pair = false, false
+	local any, pair, row = false, false, false
 	for i = 1, m do
 		local r = REC[i]
 		if r[K_V0] < -rs and r[K_LNMAX] > 0 and r[K_E] > 0 then
@@ -1578,6 +1633,25 @@ function world.step(w)
 				pair = true
 				r[K_A].bounceStep = stamp
 				if kind == 2 then r[K_B].bounceStep = stamp end
+			end
+		end
+	end
+	if pair then
+		-- spread the mark through every pressing contact between two awake
+		-- pieces (a row of n needs n passes; usually one finds nothing new)
+		local grew = true
+		while grew do
+			grew = false
+			for i = 1, m do
+				local r = REC[i]
+				if r[K_KIND] == 2 and r[K_LNMAX] > 0 then
+					local a, b = r[K_A], r[K_B]
+					if a.bounceStep == stamp then
+						if b.bounceStep ~= stamp then b.bounceStep = stamp; grew = true; row = true end
+					elseif b.bounceStep == stamp then
+						a.bounceStep = stamp; grew = true; row = true
+					end
+				end
 			end
 		end
 	end
@@ -1598,7 +1672,15 @@ function world.step(w)
 				r[K_REST] = r[K_RELAX]
 			end
 		end
-		for _ = 1, t.restitutionIterations do solve(K_REST, BOUNCE, nb) end
+		local tol, least, most = t.restitutionTol, t.restitutionIterations, t.restitutionMaxIterations
+		if not row then most = least end
+		local passes = 0
+		while true do
+			local dm = solve(K_REST, BOUNCE, nb)
+			passes = passes + 1
+			if passes >= most or (passes >= least and dm < tol) then break end
+		end
+		w.bouncePasses = w.bouncePasses + passes
 	end
 
 	if P then local now = pc(); P.restitution = P.restitution + now - pt; pt = now end
