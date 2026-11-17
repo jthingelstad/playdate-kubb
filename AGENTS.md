@@ -430,6 +430,11 @@ are the computer at club level against itself.
 - **Latest figures**: "Tuned toward the real games", the last bullet ("Into the group",
   2026-11-16), with seeds 2, 3 and 4.
 
+- **Single throws against real video** (2026-11-16): `docs/reference/REALCLIPS.md` and
+  `realclips.json`, 22 events measured frame by frame from public video (drills, batons,
+  chains) beside the engine's figures, with intervals and a ranked list of where the
+  engine sits outside. A small set: read it as directions, not targets.
+
 ### How tight the groups are
 
 `lua5.4 tools/clusters.lua [--n 60] [--seed 2] [--drill 1] [--baton 1] [--raise
