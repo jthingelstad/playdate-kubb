@@ -2106,7 +2106,7 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
     the variant nearest ours.
   - Scales: 0.10 m for distances, 0.02 m for apex heights, 15 degrees for angles, 0.2 for
     ratios, 0.05 m for flight distance, and 20 percent for a tip threshold.
-  - 1038 of 1063 cases count. MuJoCo is not converged on:
+  - 1039 of 1063 cases count. MuJoCo is not converged on:
     - the apex and spin kept of a tumbling baton's landing (about half the cases);
     - a drill's run on and rest distance from the mark (about two thirds);
     - how far a struck kubb slides (20 of 35);
@@ -2129,7 +2129,8 @@ goes to `build/mjref/report.md`, with every number in `report.json`.
      - The same gap shows in other scenarios: struck kubbs and the king slide farther (king
        hit at 5 cm: 0.53 to 0.80 m against 0.31 to 0.42). When Tyler's end-on baton
        reaches the kubb, ours pushes it 2 to 4 times as far (0.3 m short: 0.5 to 2.3 m
-       against 0.1 to 1.1). Whether it topples agrees. The drill runs on 30 percent farther
+       against 0.1 to 1.1). Whether it topples agrees, except end first at 0.4 m short
+       (ours topples, MuJoCo's does not). The drill runs on 30 percent farther
        on grass and snow.
      - MuJoCo is the closer one here: the full impulse times mu is what Coulomb friction
        does to a rigid body on turf. The game's turf drag and grip (`texture.drag`, `grip`)

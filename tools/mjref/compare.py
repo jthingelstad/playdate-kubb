@@ -163,10 +163,13 @@ def metrics(case, tr, P):
         m["travel"] = float(np.linalg.norm(t[-1, :2] - t[0, :2]))
         ih = moved_at(t)
         if s == "endon":
-            ig = first_ground(bt)
-            if ih is None:
+            # from the engines' own contact events, not the 120 Hz samples: a
+            # ground touch and a hit within one sample would read as the hit
+            fc, fh = tr.rec.get("firstContact"), tr.rec.get("firstHit")
+            tid = case["bodies"][0]["id"]
+            if not fh or fh.get("with") != tid:
                 m["first"] = "ground"
-            elif ig is None or ih <= ig:
+            elif not fc or fc.get("with") == tid or fc["t"] >= fh["t"]:
                 m["first"] = "kubb"
             else:
                 m["first"] = "ground+kubb"
