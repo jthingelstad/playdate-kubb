@@ -1058,11 +1058,11 @@
    "measured": "full",
    "uncertainty": "impact 260.87-260.90; spots +-3 px; rests of the fallen kubbs overlap, travel only as a range",
    "note": "baton arrived near horizontal from +x side at about mid height into a cluster of 3 near-touching kubbs with a fourth about 0.3 m to its left; 3 fell (the single and 2 of the cluster), the front kubb of the cluster stayed up; fallen kubbs lie in a chain at about x -0.2 to 0.0, y 3.25 to 3.47",
-   "target": "four field kubbs: cluster of 3 near-touching plus 1 single",
-   "group_size": 4,
+   "target": "cluster of 3 near-touching field kubbs (a single field kubb about 0.3 m to its left fell too)",
+   "group_size": 3,
    "group_gap_cm": 0,
    "kubbs_hit": null,
-   "kubbs_fell": 3,
+   "kubbs_fell": 2,
    "landed": "direct",
    "struck_kubb": "toppled toward -x and slid",
    "struck_travel_m": null,
@@ -1071,7 +1071,8 @@
     0.4
    ],
    "struck_travel_unc_m": null,
-   "left_standing": 1
+   "left_standing": 1,
+   "outside_group_fell": 1
   },
   {
    "src": "https://www.youtube.com/watch?v=RTK6pMfhLZk",

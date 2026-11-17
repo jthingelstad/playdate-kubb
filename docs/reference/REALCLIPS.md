@@ -67,18 +67,19 @@ copy is not in the repository.
 | Struck field kubb travel, start to rest | median 0.52 m, mean 0.73, max 2.39; under 0.3 m 7 of 25 (28%, 14-48%) | toppled: median 0.65 m, mean 0.99, p90 2.26, max 6.2; under 0.3 m 72 of 261 (28%) | Yes; the engine's tail is longer |
 | Baton landing short on an end: plugs | 0 of 9 (0-30%): vaulted on 3, slid or tumbled into the kubb on 6 (it fell 4 times, stood 2) | 15% of end-first landings lose three quarters of their spin | Yes (n small) |
 | Tight group (gaps 5 cm or less), one baton: every kubb falls | 2 of 9 hits (22%, 6-55%) | 3 one behind the other touching 72%; 4 touching 13%, 4 at 3 cm 6% | Yes |
-| The same, groups of 4 or more | 0 of 7 (0-35%) | 4 touching 13%, 4 at 3 cm 6% | Yes |
+| The same, groups of 4 or more | 0 of 6 (0-39%) | 4 touching 13%, 4 at 3 cm 6% | Yes |
 | The same, two or more fall | 8 of 9 (89%, 56-98%) | 2 one behind at 3 cm 82%; 2 side by side at 3 cm 23% | Yes for a line |
-| Kubbs of a tight group that fall | 24 of 40 (60%, 45-74%) | not summarised | Not compared |
+| Kubbs of a tight group that fall | 23 of 39 (59%, 43-73%) | not summarised | Not compared |
 
 The nine tight-group hits (time, kubbs fell of the group): RTK6 578.5 1 of 5, 592.13 2 of
-4, 596.53 2 of 2 (the same cluster three times, so not independent), 260.88 3 of 4; hR18
-181.65 3 of 3; SbjU 755.07 2 of 6, 760.57 3 of 4 (4 of 5 with a kubb beside it), 1166.6 3
-of 4; o8l4 430.85 5 of 8. Not in these counts: three hR18 groups (4, 4 and about 7
-kubbs) cleared over several batons of one turn (`category: "baton sequence"`, turn totals,
-not single throws). Wider groups (7 to 18 cm): 2 of 4, 2 of 2, 2 of 2, 1 of 2, 3 of
-3; and RGfef 479.03, a pair 4 cm apart (1 of 2 fell) that slid into a touching pair 12 cm
-away (1 of 2 fell), 2 of 4 in all.
+4, 596.53 2 of 2 (the same cluster three times, so not independent), 260.88 2 of 3 (a
+single kubb 0.3 m away fell too); hR18 181.65 3 of 3; SbjU 755.07 2 of 6, 760.57 3 of 4
+(the baton threw a single kubb 0.4 m away into the group; 4 of 5 in all), 1166.6 3 of 4;
+o8l4 430.85 5 of 8. Not in these counts: three hR18 groups (4, 4 and about 7 kubbs)
+cleared over several batons of one turn (`category: "baton sequence"`, turn totals, not
+single throws). Wider groups (7 to 18 cm): 2 of 4, 2 of 2, 2 of 2, 1 of 2, 3 of 3; and
+RGfef 479.03, a pair 4 cm apart (1 of 2 fell) that slid into a touching pair 12 cm away (1
+of 2 fell), 2 of 4 in all.
 
 ### Pass 2 against pass 1
 
@@ -92,7 +93,7 @@ away (1 of 2 fell), 2 of 4 in all.
 - **Confirms: a struck standing kubb falls** (40 of 40 alone, 29 of 31 base kubbs).
 - **Overturns: touching groups do not all fall.** Pass 1 had 16 of 16 from highlight clips
   (two of them titled for their result). Unselected tournament play takes every kubb of a
-  tight group 2 times in 9, and a group of four or more 0 times in 7, though two or more
+  tight group 2 times in 9, and a group of four or more 0 times in 6, though two or more
   fall 8 times in 9. The engine (4 touching all fall 13%) is inside that. Pass 1's second
   ranked item is withdrawn: the selection was the finding.
 - **Overturns: struck kubbs do leave the ground** (14 of 22 against pass 1's 0 of 2), at
