@@ -68,15 +68,19 @@ test("ground: on textured grass a baton hardly ever slides on an end and stops s
 	-- added spin cut short). Before 2026-11-15 the flat ground was the comparison
 	-- (2.3 s over these 80 against 0.44 textured), but a baton that keeps the
 	-- spin it lands with (the turn and roll held apart, AGENTS.md "Physics")
-	-- hardly slides on an end on flat grass either now (0.2 s)
+	-- hardly slides on an end on flat grass either now (0.2 s). Since an
+	-- impact's friction is solved in the bounce (2026-11-16) a landing end
+	-- grips and vaults more often: 0.018 s a throw (0.006 before), still the
+	-- vault, at 0.25 to 0.4 m/s. And the flat ground slides much less too (86 m
+	-- over these 80 against 158), so the texture's share is smaller: 80 m.
 	local endT, slideT, slideF = 0, 0, 0
 	for i = 1, 80 do
 		local _, _, e1, s1 = throw(i)
 		local _, _, _, s2 = throw(i, { texture = false })
 		endT, slideT, slideF = endT + e1, slideT + s1, slideF + s2
 	end
-	expect.truthy(endT / 80 < 0.015, string.format("on an end %.2f s over 80 throws", endT))
-	expect.truthy(slideT < 0.85 * slideF, string.format("slide %.1f m against %.1f flat", slideT, slideF))
+	expect.truthy(endT / 80 < 0.025, string.format("on an end %.2f s over 80 throws", endT))
+	expect.truthy(slideT < 0.97 * slideF, string.format("slide %.1f m against %.1f flat", slideT, slideF))
 end)
 
 test("ground: sand stops a baton far sooner than grass; snow lets it run farther, then stops it", function()

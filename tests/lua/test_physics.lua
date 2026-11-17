@@ -179,6 +179,9 @@ end)
 -- With 3 cm gaps (0.10 m centers) nothing falls in this solver: the first
 -- kubb reaches the second at 11 degrees, before its own tipping point, and
 -- rebounds (see the stage 2 report).
+-- At 12 rad/s MuJoCo leaves a leaning chain, the third kubb standing (the
+-- reference engine, 2026-11-16), and so does this engine since an impact's
+-- friction is solved in the bounce; 15 rad/s fells all three in both.
 test("a three-kubb domino line falls in order", function()
 	local sp = 0.17
 	local pieces = {}
@@ -186,7 +189,7 @@ test("a three-kubb domino line falls in order", function()
 	local w = world.new{ texture = false, pieces = pieces }
 	local a = w.byId.k1
 	world.wake(a)
-	local om = 12
+	local om = 15
 	a.wx, a.vy, a.vz = -om, om * a.hz, om * a.hy
 	local past = {}
 	while not world.isAtRest(w) do
@@ -240,10 +243,12 @@ end)
 -- With one wood-on-wood friction for every pair (0.4, 2026-11-16; kubb on
 -- kubb was 0.2 before), a hard blow fells two or three of the four: the
 -- kubbs lean on each other face to face and the rub holds some of them.
+-- (2.0 N s until an impact's friction was solved in the bounce: it fells two
+-- now. MuJoCo fells two to four at 2.0 by its variant, all four at 3.0.)
 test("a hard blow on the front kubb of a touching row fells most of the row; a tap none", function()
 	for _, order in ipairs{ { 1, 2, 3, 4 }, { 4, 3, 2, 1 } } do
 		local w = tightRow(order)
-		blow(w.byId.k1, 2.0, 0.13)
+		blow(w.byId.k1, 2.5, 0.13)
 		world.run(w)
 		local r = world.result(w)
 		expect.truthy(#r.toppled >= 3, "three or more down, order " .. table.concat(order) .. ": " .. #r.toppled)
@@ -382,7 +387,9 @@ test("a baton bouncing off a standing kubb does not drive it into the ground", f
 					collide.capsuleBox(b, k, 0.005)
 					local touching = collide.C.n > 0
 					collide.C.n = 0
-					if touching and bz < 0.0005 and -vz > worst then worst = -vz end
+					-- while it stands: a toppling kubb's corner comes down
+					-- fast as it falls, which is no drive
+					if touching and k.r33 > 0.9 and bz < 0.0005 and -vz > worst then worst = -vz end
 				end
 			end
 		end
@@ -586,22 +593,34 @@ test("the bench scenario hits the group", function()
 	expect.truthy(r.maxAwake >= 4, "awake bodies " .. r.maxAwake)
 end)
 
-test("a baton landing at 8 m/s kicks on 0.5 to 2.5 m on grass, much less on sand", function()
-	-- Jamie on hardware: the baton should not die on landing on a lawn
-	local function kick(surface)
-		local w, b = batonThrow(surface, 0, 8)
+test("a baton landing at 8 m/s kicks on about half a metre on grass, less on sand", function()
+	-- Jamie on hardware: the baton should not die on landing on a lawn. Since
+	-- an impact's friction is solved in the bounce (2026-11-16) the landing
+	-- keeps about half its speed along the ground, as MuJoCo's does: this throw
+	-- kicks on 0.48 m on bare grass there (0.5 to 2.5 m was the bound before,
+	-- 2.98 m measured). Bare: no dig and no bite; then the turf.
+	local function kick(surface, bare)
+		local w = world.new{ texture = false, surface = surface }
+		if bare then w.surface = setmetatable({ dig = 0, bite = 0 }, { __index = w.surface }) end
+		local b = world.launchBaton(w, 0, 0, 0, 35, aimed(8, 35), 7, 0)
+		world.run(w)
 		return b.y - w.firstContact.y
 	end
-	local g, s = kick("grass"), kick("sand")
-	expect.truthy(g >= 0.5 and g <= 2.5, string.format("grass kick %.2f m", g))
-	expect.truthy(s < 0.5 * g, string.format("sand kick %.2f m vs grass %.2f", s, g))
+	local g, s = kick("grass", true), kick("sand", true)
+	expect.truthy(g >= 0.3 and g <= 1.0, string.format("bare grass kick %.2f m", g))
+	expect.truthy(s < 0.6 * g, string.format("bare sand kick %.2f m vs grass %.2f", s, g))
+	local tg, ts = kick("grass"), kick("sand")
+	expect.truthy(tg >= 0.1 and tg < g, string.format("grass kick %.2f m (bare %.2f)", tg, g))
+	expect.truthy(ts <= tg, string.format("sand kick %.2f m vs grass %.2f", ts, tg))
 end)
 
 test("a baton thrown at a corner stake deflects off it", function()
 	-- along the right sideline at the far corner stake (2.5, 8)
 	local function land(stakes)
 		local w = world.new{ texture = false, stakes = stakes }
-		local b = world.launchBaton(w, 2.5, 0, 0, 35, aimed(8.5, 35), 7, 0)
+		-- (8.5 m until an impact's friction was solved in the bounce: the free
+		-- baton stops at the stake's line now, so it is thrown a little longer)
+		local b = world.launchBaton(w, 2.5, 0, 0, 35, aimed(8.6, 35), 7, 0)
 		world.run(w)
 		return b, world.result(w), w
 	end
@@ -609,7 +628,7 @@ test("a baton thrown at a corner stake deflects off it", function()
 	local b, r, w = land(true)
 	expect.truthy(w.firstHit and w.firstHit.with == "stake6", "hit the corner stake first")
 	expect.eq(r.stakesTouched[1], "stake6", "result names the stake")
-	expect.truthy(b.y < free.y - 1, string.format("stopped short: %.2f vs %.2f without the stake", b.y, free.y))
+	expect.truthy(b.y < free.y - 0.5, string.format("stopped short: %.2f vs %.2f without the stake", b.y, free.y))
 	local s = w.byId.stake6
 	expect.eq(s.x, 2.5, "the stake did not move")
 	expect.eq(s.y, 8, "the stake did not move")

@@ -76,13 +76,15 @@ test("baton hits: an end touching a rounded edge is a contact when the closest p
 end)
 
 test("baton hits: a fast baton that clips a kubb's top edge tips it over", function()
-	-- loft 23 carried to 7.6 to 7.8 m: it skips off the grass and catches the
-	-- kubb's top; with square edges a fast one slid over and left it standing.
-	-- Every touch faster than 6 m/s tips it. (One throw, 7.7 m on ground 1,
-	-- until 2026-11-16: the landing bump's tilted patches decide how fast
-	-- each skip arrives. Measured: 9 of 20 fast, all down.)
+	-- loft 23 carried to 7.85 to 8.05 m: it lands just short and its tumbling
+	-- end catches the kubb high; with square edges a fast one slid over and
+	-- left it standing. Every touch faster than 6 m/s tips it. (Carried to
+	-- 7.6 to 7.8 m until an impact's friction was solved in the bounce,
+	-- 2026-11-16: the baton skipped off the grass into the kubb's top at 4 to
+	-- 8 m/s; a skip keeps about half its speed now, 2 to 4 m/s. Measured: 20
+	-- of 20 fast, all down.)
 	local fast = 0
-	for _, d in ipairs { 7.60, 7.65, 7.70, 7.75, 7.80 } do
+	for _, d in ipairs { 7.85, 7.90, 7.95, 8.00, 8.05 } do
 		for seed = 1, 4 do
 			local _, _, k, _, _, v = shot(23, d, seed)
 			if v and v > 6 then
