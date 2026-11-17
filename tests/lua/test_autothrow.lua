@@ -63,13 +63,15 @@ test("a clean drill (scale 0) is the plan's solve; it rests in the basket", func
 		expect.eq(a.drill.wobble, 0)
 		if i == 1 then
 			-- a drill runs on from where it lands a different way on every
-			-- ground, so over twelve grounds: about in the basket on average,
-			-- and in it (0.4 m) on half of them. (One ground until 2026-11-16:
-			-- the tilted patches moved that one drill just past 0.4 m.
-			-- Measured: mean 0.49 m, 7 of 12 in; 0.61 m, 7 of 12, with the
-			-- old bump.)
+			-- ground, so over forty grounds: about in the basket on average,
+			-- and in it (0.4 m) on about half of them. (One ground until
+			-- 2026-11-16: the tilted patches moved that one drill just past
+			-- 0.4 m. Twelve grounds until the run on was measured again with
+			-- the air's drag: 7 of 12 in, then 5, the same drill at 50 to 54%
+			-- over 200 grounds. Measured: mean 0.41 m, 20 of 40 in.)
+			local G = 40
 			local sum, inside = 0, 0
-			for g = 1, 12 do
+			for g = 1, G do
 				local w = world.new { surface = "grass", pieces = {}, groundSeed = 7919 * g }
 				local b = autothrow.launch(w, toss(), a)
 				world.run(w)
@@ -77,8 +79,8 @@ test("a clean drill (scale 0) is the plan's solve; it rests in the basket", func
 				sum = sum + d
 				if d < 0.4 then inside = inside + 1 end
 			end
-			local where = string.format("rests %.2f m from the basket on average, %d of 12 in it", sum / 12, inside)
-			expect.truthy(sum / 12 < 0.6 and inside >= 6, where)
+			local where = string.format("rests %.2f m from the basket on average, %d of %d in it", sum / G, inside, G)
+			expect.truthy(sum / G < 0.5 and inside >= 0.4 * G, where)
 		end
 	end
 end)

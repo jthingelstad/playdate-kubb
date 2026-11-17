@@ -593,6 +593,46 @@ play date versions, deploy as needed." The first pass changes only how the compu
   next step is the computer's aim with the new run on (into the group from farther short),
   not the physics.
 
+- **After the physics audit (2026-11-16).** The nine audit items (the foot catch, the
+  baton trip, edge contacts with one wood mu, the standing pose, the baton's tumble from
+  the release, the landing bump as a tilted normal, the pair bounce, still-air drag, the
+  load-scaled grip) and the aim allowance measured again on them ("Drilling", "The aim
+  allowance"). `make realgames`, 150 physics matches seed 2 (real / before the audit /
+  after the audit with the old allowance / now):
+
+  | | real | before audit | old allowance | now |
+  |---|---|---|---|---|
+  | turns a game | 8.9 | 21.7 | 18.6 | 18.3 (median 15.5) |
+  | a baton at field kubbs: missed | 24.7% | 25.2% | 20.4% | 20.5% |
+  | took one | 49.4% | | 70.0% | 70.1% |
+  | took two | 16.0% | 4.9% | 8.8% | 8.7% |
+  | three or more | 10.0% | 0.2% | 0.7% | 0.7% |
+  | cleared the field | 83.4% | 49% | 57.1% | 56.5% |
+  | five kubbs | 84.5% | | 69.3% | 68.9% |
+  | eight kubbs | 67.6% | | 10.7% | 7.7% |
+  | a base kubb from 8 m | 32.7% | 33.4% | 32.1% | 33.0% |
+  | the king | 83.8% | 80% | 81.4% | 80.5% |
+  | turns from an advantage line | 14.4% | | 38.6% | 39.4% |
+  | kubbs rethrown | 14.1% | 8.1% | 7.9% | 5.6% |
+  | punishment kubbs | 1.3% | 1.5% | 1.6% | 1.1% |
+
+  The re-measured allowance moves only the rethrows (a drill aimed short no longer ends
+  short of the line as often). `tools/clusters.lua` (60 matches, seed 2; old allowance ->
+  now): standing at the first baton, nearest neighbour 37.3 -> 35.5 cm, within 15 cm 22.5
+  -> 23.6%, spread 64 -> 60 cm, largest group 1.6 -> 1.7; lying as the inkast ends 15.9 ->
+  15.6 cm, touching 13.6 -> 14.6%, largest group 2.7 -> 2.8; turns 18.4 -> 17.8.
+  `tools/physmatch.lua --n 40 --seed 2`: 17.8 turns, field 80%, base 40%, king 38 of 49,
+  169 of 3108 drilled kubbs rethrown. Still off, biggest first: three or more with one
+  baton (0.7% against 10%) and two (8.7 against 16), so fields of six and up are cleared a
+  fraction as often (eight: 7.7% against 68%) and games run twice as long. The groups
+  are the cause: drilled kubbs lie 15.6 cm apart and stand 35.5 cm apart once raised
+  apart. Sweeps (clusters, 60 matches; nothing kept): `--raise together` 15.7 turns, two
+  13.2%, three or more 1.8%, standing gap 24.2 cm; with `--baton 0.5` as well 14.5 turns,
+  two 14.9%, three 2.3%; the drill's release scatter halved (`pitchSdDps` 15, `yawSdDps`
+  7.5, `noseSdDeg` 2) standing gap 30.7 cm, rethrown 1.7%, two 10.2%; `drillScale` 0.1,
+  `drillNerves` 0.5 or 0.25, `scatterJerk` 0 or `world.pairE` 0.15 change nothing that
+  matters (two 7.1 to 9.3%, three or more 0.3 to 1.0%).
+
 ### Nerves
 
 Added 2026-11-16. Before it nothing but the swing's shake put a throw left or right. So a
@@ -785,9 +825,11 @@ how far the struck kubb moves, and for those that never reach one whether they s
 short, beside or past (figures in "Into the group"). Part 3 (`--only 3`, new) throws the plan's clean drill
 onto 12 markers x 24 grounds and reports its attitude at release and at the touch, the
 run on (mean, sd, p10, p50, p90, max, dead stops), the rest's pose and yaw, and the time
-from touch to rest; the figures are in "Drilling". `--set name=value` sets a
-`drill.tune` number (`auto.name` an `autothrow.tune` one), `--surface` and `--grounds`
-narrow part 3.
+from touch to rest, and the mean rest along the throw from the mark; the figures are in
+"Drilling". Part 5 (`--only 5`, only when asked) measures the aim allowance,
+`drill.tune.slide` ("The aim allowance"), and prints it as the table takes it.
+`--set name=value` sets a `drill.tune` number (`auto.name` an `autothrow.tune` one),
+`--surface` and `--grounds` narrow parts 3 and 5.
 
 `lua5.4 tools/drillscatter.lua [--n 300] [--matches 40] [--seed 2]` (Jamie approved the
 measuring, 2026-11-16; no game changes). Part 1 throws the computer's drill at the basket
@@ -2050,9 +2092,11 @@ hit rate (records in `playdate.datastore` "drills").
   `blastCm`, 50 cm) to a marker fixed at `blastMarkerY` (6 m, as the menu map draws it:
   the setup's `markerY`, `throw` keeps it still, `s.markerFixed`), so bests compare. Since
   drills run on (2026-11-16) a clean drill at the marker no longer always scores: over 200
-  grounds on an empty pitch it rests within 50 cm 88% of the time at half past 1 (median
-  27 cm; 82% at loft 30), so a clean run scores about 5.3 of 6, against 6 before.
-  `blastCm` stays 50 (a tighter 30 cm would make a perfect swing a coin flip, 54%).
+  grounds on an empty pitch it rests within 50 cm 68% of the time at half past 1 (median
+  38 cm; 40% at loft 30, median 56 cm), so a clean run scores about 4.1 of 6, against 6
+  before the run on and 5.3 before the physics audit (the table's re-measure moved it by
+  under 2 points; the audit's ground changes did the rest). `blastCm` stays 50 (a tighter
+  30 cm would score a perfect swing 38% of the time).
   AROUND THE PITCH: five batons, each from in front of the next base kubb. An illegal
   throw (a helicopter) scores nothing.
 - DOUBLES: six batons from the baseline, each at its own group of standing field kubbs
@@ -2166,15 +2210,17 @@ the throw scene with `s.drill` on.
   speed that lands the kubb `drill.slideFor` short of the circle: its mean run on by the
   loft, the ground, the distance and the planned spin; `plan.solve` passes `q.surface` and
   `q.spin`; the allowance does not depend on the spin); the circle is where a clean drill
-  most likely ends, not where every one does (it runs on 0.4 to 1.7 m, p10 to p90 on grass
+  most likely ends, not where every one does (it runs on 0.4 to 1.6 m, p10 to p90 on grass
   at half past 1). `plan.launch` judges the swing and gives the
   body through `drill.body` (noseDown, rollLand, spin, wobble). The aim camera is
   the baton's ("The aim camera": first person behind the thrower, looking past the circle,
   and the plan view while B is held, with the drill's planned arc; it replaced
   `camera.drillAim`, the fixed high drill view, 2026-11-15); the ring, cross and dotted line are drawn over it each frame (`drawMarker`),
   and the minimap's aim line goes to the circle. Self-test `clock-drill` (a drill at half
-  past 1 with a tap of spin rests within 1 m of the circle on the Simulator, 0.28 m since
-  the bite, 0.18 before it, 2026-11-16; 0.4 m before the drill ran on).
+  past 1 with a tap of spin rests within 1 m of the circle on the Simulator: 0.16 m since
+  the run on was measured again with the air's drag, 0.28 since the bite, 0.18 before it,
+  2026-11-16; 0.4 m before the drill ran on. One drill's rest is spread over half a metre
+  either way, so the bound stays 1 m).
 - **The band launch** (`drill.launch`, `drill.solve`): the power error against the band is
   shrunk by `inBandGain` inside `bandHalf`, then scales the solved speed by `speedPerPower`
   per unit (never under `speedMinFrac`); the loft is the solved one. Smoothness under
@@ -2196,18 +2242,19 @@ the throw scene with `s.drill` on.
   time. Each throw is scattered at release with seeded normals (`pitchSdDps` 30,
   `yawSdDps` 15, `spinSd` 3 rad/s, `noseSdDeg` 4, each times 1 + `scatterJerk` x a jerky
   swing). Measured (`tools/drillscatter.lua --only 3`, 12 markers x 24 grounds, grass):
-  nose down 48 degrees at the touch (sd 19) at half past 1, 58 (sd 16) at loft 30.
+  nose down 47 degrees at the touch (sd 21) at half past 1, 56 (sd 19) at loft 30.
   `test_drill` checks the release, the touch, and that spin holds the attitude where the
   air turns an unspun one.
 - **On the ground** a drill is a plain kubb: there are no drill-only fields or branches
   left in `core/world` (`digGain`, `edgeRound`, `digBySpin`, `slipDrag`, `rollDrag`,
   `plugGain`, `bumpGain`, the drill-over rule and its settle went on 2026-11-16). It meets
   the turf like every body ("Physics", "The bite"). Grass, the plan's clean drill (run on
-  mean / p10 / p90 / max, rest from the circle, touch to rest): half past 1 1.01 / 0.41 /
-  1.74 / 3.67 m, 51 cm, 0.79 s; loft 30 1.75 / 0.90 / 2.58 / 4.67 m, 65 cm, 0.99 s. Sand
-  0.29 m at half past 1 (11% dead stops under 5 cm), 0.60 at loft 30; snow 1.10 and 1.68
+  mean / p10 / p90 / max, rest from the circle, touch to rest): half past 1 0.95 / 0.41 /
+  1.60 / 3.82 m, 43 cm, 0.78 s; loft 30 1.49 / 0.88 / 2.28 / 4.39 m, 52 cm, 0.92 s. Sand
+  0.26 m at half past 1 (12% dead stops under 5 cm), 0.51 at loft 30; snow 0.96 and 1.53
   (no bite: packed snow lets an edge skate). It ends turned every way (yaw to the throw
-  0-30 / 30-60 / 60-90: 41 / 28 / 31% on grass at half past 1).
+  0-30 / 30-60 / 60-90: 43 / 31 / 26% on grass at half past 1). Measured after the nine
+  physics audit items (2026-11-16), with the aim allowance measured again.
 - **What spin does now.** Jamie (2026-11-16): "in the real world spin does move the Kubb
   when it lands… but at most it will move it one to three rotations… not the several the
   game was doing before." Honest physics gives exactly that: spin steadies the drill in the
@@ -2221,14 +2268,25 @@ the throw scene with `s.drill` on.
   where it lands, a table by loft (26 / 37 / 47 / 57) and landing distance R (1.5 to 7.5
   m) per ground, read bilinearly (outside the table, its edge). The run on grows with the
   landing's speed, so `drill.landFor` solves R + slideFor(R) = d (six fixed-point steps,
-  never under 0.5 m) and `drill.solveAt` lands the kubb there. Grass at half past 1: 0.26
-  m from 1.5 m, 0.87 from 4.5, 0.69 from 7.5; low lofts run on most (2.26 m at loft 26
-  from 4.5 m). `test_drill` checks the mean rest along the throw against the circle over
-  30 grounds. The table was measured with no air drag: since the drag (2026-11-16) a drill
-  lands a little slower and runs on less (`tools/drillscatter.lua --only 3`, mean run on,
-  cm: grass 101 to 87 at half past 1 and 175 to 153 at the low arc, sand 29 to 27 and 60
-  to 47, snow 110 to 94 and 168 to 158), so far circles rest up to 0.6 m short until it is
-  measured again (`test_drill`'s mean bound is 0.7 m meanwhile, from 0.45).
+  never under 0.5 m) and `drill.solveAt` lands the kubb there. Grass at half past 1: 0.20
+  m from 1.5 m, 0.88 from 4.5, 0.63 from 7.5; low lofts run on most (1.94 m at loft 26
+  from 4.5 m). Measured again after the nine physics audit items (2026-11-16, with the
+  air's drag, the foot catch, the tilted landing, the pair bounce and the load-scaled
+  grip) by `tools/drillscatter.lua --only 5 --grounds 60`: the plan's clean drill aimed to
+  land R m out with no allowance, 3 lines x 60 grounds a cell, the mean rest along the
+  throw past R (so it takes in any miss of the flight's own aim); a cell's mean is good
+  to 1 to 5 cm, and another 60 grounds move a cell by 5 cm at most. Before, with the table
+  measured with no drag, far circles rested up to 0.53 m short (grass 8 to 8.5 m at loft
+  30: -0.33, snow -0.13 to -0.25 everywhere); after, the clean drill rests within 0.2 m of
+  its circle on average along the throw at every distance from 2.5 to 8.5 m, loft 30 and
+  47, every ground (120 drills a point), most within 0.1 (`tools/drillscatter.lua --only
+  3`, along: grass -4 / -19 cm to +10 / -5 at half past 1 / loft 30, sand +2 / -12 to +2
+  / 0, snow -12 / -21 to +4 / 0). `test_drill` checks the mean rest along the throw within
+  0.45 m of each of nine circles over 30 grounds (-0.33 to +0.13 m; 0.7 m for an evening
+  while the table was stale); `test_throwplan` the planned drill from a stance under 0.5 m
+  off on average over ten grounds (0.38 m; 0.73 while stale); the backstop below 8 of 10
+  grounds (9; 87 of 100); `test_autothrow` the computer's basket drill under 0.5 m from
+  it on average over 40 grounds and in it (0.4 m) on 40% of them (0.41 m, 20 of 40).
 - **Into other kubbs.** A drill that runs into a lying kubb stops by it (0.12 to 0.36 m
   centre to centre in `test_drill`'s backstop) and the struck kubb moves 0 to 20 cm; one
   that lands on top of a kubb shoves it 0.2 to 0.45 m. The drill-over rule below makes it
@@ -2241,8 +2299,9 @@ the throw scene with `s.drill` on.
 - **THE WALL** (practice drill) is hard now. Before 2026-11-16 two taps of spin rolled a
   kubb along the centre line into the stake and six built a wall of 2.8 on average; a real
   drill does not roll like a log, so that way is gone. Clean drills at the stake
-  (`drill.solve(2.42, 4.1, 0)`, 12 grounds) build 0.75 on average, best 3; `test_drills`
-  checks a mean of 0.3 or more and a best of 2 or more. The scoring is unchanged: it is a
+  (`drill.solve(2.42, 4.1, 0)`, 30 grounds) build 0.80 on average (0.72 over 60), best 3,
+  none on half the grounds; `test_drills` checks a mean of 0.4 or more and a best of 2 or
+  more over the 30. The scoring is unchanged: it is a
   practice record, and a wall is what a good driller earns.
 - **HUD.** The clock, the verdicts and the plan chip ("The throw"); at rest the kubb's
   distance from the circle (`18 CM AWAY`) in the plan chip's place.

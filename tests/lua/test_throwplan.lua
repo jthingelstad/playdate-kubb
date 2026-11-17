@@ -283,13 +283,14 @@ test("plan: a planned drill from a stance rests on the target; spin and shake re
 	expect.eq(L.noseDown, drill.tune.noseDownDeg)
 	-- (one ground until 2026-11-16, within 0.4 m: a lucky one. The run on is a
 	-- different one every throw; over ten grounds it was 0.44 m off on average
-	-- then, 0.73 since the air's drag, until drill.tune.slide is measured with it)
+	-- then, 0.73 with the air's drag before drill.tune.slide was measured again
+	-- with it (bound 0.8 meanwhile), 0.38 since)
 	local off = 0
 	for seed = 1, 10 do
 		local b = drillRest(0.5, L, seed)
 		off = off + dist(b.x, b.y, 0, 6) / 10
 	end
-	expect.truthy(off < 0.8, string.format("rests %.2f m off on average", off))
+	expect.truthy(off < 0.5, string.format("rests %.2f m off on average", off))
 	-- spin: + taps spin it clockwise from behind (as drill's CUT_A), on top of the spiral
 	local R = plan.launch(sol, cleanSwing(sol), { projectile = "kubb", spin = 2 }, {})
 	expect.near(R.spin, 2 * plan.tune.spinPerStep + drill.tune.spiral, 1e-9)
