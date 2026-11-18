@@ -260,3 +260,6 @@ classic, `telemetry/2026-11-14/bench/run8`), so it was cut. Black paint needs no
 change (the outline's colour). The `drawcalls` self-test with the USA set: 154 calls a flight frame against 134 classic, 183 an
 impact frame against 158 (2026-11-14). Self-test `sets` draws every set up close and from
 the baseline (frames 1 to 6); the autobench has USA and Wisconsin variants.
+
+The VS PLAYDATE opponent uses the System Menu throw level when its roster entry has no level.
+The tagged engine gives Club and Pro their drill spin and baton turnover.

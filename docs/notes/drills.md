@@ -85,6 +85,7 @@ file's `[Surface]` header): `match.setup` passes it on as `setup.surface` (core/
 name, `match.surfaceName`) and `throw.prepare` takes it, so the physics and the look follow
 the match. The games list's rail shows the chosen game's surface.
 
+The pitch keeps six practice batons. The seventh throw picks up the first baton again.
 Toppled kubbs stay down between throws at their rest poses (the scene's item list, the
 render items of `render/world`, carries every piece's pose). System Menu "Pitch" set to
 "reset" stands everything back up (`throw.reset`); it also happens by itself after the

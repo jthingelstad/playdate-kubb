@@ -204,12 +204,7 @@ function throw.standUp(s)
 	end
 	for i = #s.layout + 1, #items do items[i] = nil end
 	s.nitems = #s.layout
-end
-
--- Use another layout ({id, kind, x, y, yaw, base} list) and stand it up.
-function throw.setLayout(s, layout)
-	s.layout = layout
-	throw.standUp(s)
+	s.practiceBaton = 0
 end
 
 -- Use the match's pieces (core/outcome pieces: id, kind, x, y, qw..qz,
@@ -269,7 +264,7 @@ local function updateTargets(s)
 					end
 				end
 			end
-		elseif not it.toppled and not it.drilled then
+		elseif not it.toppled and not it.drilled and not it.baton then
 			-- the king stands on the centerline (y = 4), so it is a snap target
 			-- although the far-half test leaves it out (Codex on #91)
 			local king = it.king or it.kind == "king"
@@ -286,6 +281,14 @@ local function updateTargets(s)
 	end
 	for i = n + 1, #tg do tg[i] = nil end
 	for i = k + 1, #sn do sn[i] = nil end
+end
+
+-- Use another layout ({id, kind, x, y, yaw, base} list) and stand it up.
+function throw.setLayout(s, layout)
+	s.layout = layout
+	throw.standUp(s)
+	updateTargets(s)
+	s.planDirty = true
 end
 
 -- What kind of target a piece is, for the arc the plan starts on
@@ -859,6 +862,19 @@ local function fire(s, L, how)
 	local tilt = kubb and 0 or (L.tilt or 0)
 	-- the stage 1 prediction: landing point and flight time for the cameras
 	flight.launch(fl, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt)
+	-- Pick up the next of the six practice batons before building the world.
+	-- A match supplies its own projectile ID and turn debris.
+	if not kubb and s.auto then
+		s.practiceBaton = s.practiceBaton % 6 + 1
+		id = s.practiceBaton == 1 and "baton" or ("baton" .. s.practiceBaton)
+		for i = 1, s.nitems do
+			if s.items[i].id == id then
+				table.remove(s.items, i)
+				s.nitems = s.nitems - 1
+				break
+			end
+		end
+	end
 	-- the physics world: every piece where it lies now, then the thrown one
 	local pieces = {}
 	for i = 1, s.nitems do
@@ -885,7 +901,7 @@ local function fire(s, L, how)
 		end
 		s.items[s.nitems + 1] = it
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, s.projectileId)
+		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, id)
 	end
 	s.batonIndex = b.index
 	s.pb = playback.new(w, 1 / t.refreshRate)
@@ -1248,14 +1264,20 @@ function throw.update(s)
 			-- the crank may have moved during the flight: arming needs a fresh
 			-- crossing of the bottom, seen from aim mode
 			s.arm, s.armed = nil, false
-			s.pb = nil
 			burst.reset(s.burst)
 			swing.reset(s.swing)
 			if s.thisDrill then
 				keepDrilled(s)
 			elseif baseDown(s) then
 				throw.standUp(s)
+			elseif s.projectile == "baton" then
+				local id = s.pb.w.projectile.id
+				local pose = s.result.bodies[id]
+				s.nitems = s.nitems + 1
+				setItem(s, s.nitems, { id = id, kind = "baton", x = pose.x, y = pose.y, z = pose.z,
+					qw = pose.qw, qx = pose.qx, qy = pose.qy, qz = pose.qz, toppled = pose.toppled })
 			end
+			s.pb = nil
 			s.thisDrill = false
 			if s.pendingDrill ~= nil then throw.setDrill(s, s.pendingDrill) end
 			updateTargets(s)

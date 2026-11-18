@@ -15,10 +15,14 @@ st.scenarios["match-vs"] = st.matchScenario {
 	refreshRate = 0,
 	maxFrames = 30000,
 	step = function(ms, ctx, h)
+		tw.scenes.throw.level = "pro" -- the system menu setting for the unnamed opponent
 		local s, ts = ms.setup, ms.ts
 		if ms.phase == "handoff" then
 			if s and s.side == "B" then error("a hand-off card before the Playdate's turn") end
 			if h.idle() then h.pressA() end
+		end
+		if ms.cpuAim and ms.cpuAim.plan.level ~= tw.autothrow.cpuLevel("pro") then
+			error("the computer ignored the selected throw level")
 		end
 		if not shot and ms.phase == "play" and s and s.side == "B" and ts.mode == "aim" and ms.cpuWait > 0.05 then
 			ctx:capture()

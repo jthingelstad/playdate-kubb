@@ -20,6 +20,10 @@ https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository).
   grass, was 0.88), a row of touching kubbs that falls as a row, and pieces that come to
   rest.
 
+- 0.9.7 (build 8), 2026-11-18. Batons turn over less. Club and Pro aim for a half turn
+  and add spin to their drills. Slow impacts can move fallen wood. Open practice keeps
+  six batons on the pitch and picks up the oldest for the next throw.
+
 The bundle id changed on 2026-11-17 from `com.thingelstad.throwingwood` to
 `com.throwingwood.playdate`, so every id is rooted at the game's own domain (the iPhone app
 will be `com.throwingwood.app`). Saved data lives under `Data/<bundleID>`, so the old folder

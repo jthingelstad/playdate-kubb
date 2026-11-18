@@ -3,8 +3,7 @@
 -- pieces kept in a background image while the camera holds) is drawn a second time from scratch and the two must match pixel
 -- for pixel. The camera is made to hold on the impact point once the baton
 -- touches anything (frameRadius 0) and its half circle is off (swingDeg 0),
--- so the layer is used while b3 falls. At least 40 layered frames (44 on
--- the Simulator with the plan's throw, 2026-11-15; 66 with the old one).
+-- so the layer is used while b3 falls. Hold slow motion through the fall to compare at least 40 layered frames.
 -- Frames: 1 b3 falling, 2 at rest.
 import "selftest/_throw"
 
@@ -17,6 +16,7 @@ st.scenarios.layer = st.throwScenario {
 	setup = function(s)
 		R.verify = {}
 		frameRadius = T.tune.frameRadius
+		tw.playback.slow.hold = 0.6
 		T.tune.frameRadius = 0
 		T.tune.swingDeg = 0   -- one scenario a Simulator run: nothing to restore
 	end,
