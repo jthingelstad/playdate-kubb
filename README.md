@@ -22,10 +22,10 @@ What is built and how it works: `AGENTS.md` and `docs/notes/`.
 
 ## License
 
-MIT (`LICENSE`), except:
+The game is under the [MIT license](LICENSE).
 
 - The display font, Throwing Wood Display (`source/fonts/`), is a 1-bit rendering of
   Londrina Solid and is under the SIL Open Font License 1.1 (`source/fonts/OFL.txt`; the
   original font and licence are in `tools/art/`).
-- `tests/vendor/pk-kubb-score/` holds copies of files from the pk-kubb-score project, the
-  home of Planet Kubb Notation, and follows that project's terms.
+- The Planet Kubb Notation test tools are also MIT-licensed. Their
+  [vendor notes](tests/vendor/pk-kubb-score/README.md#license) include the Peggy attribution.

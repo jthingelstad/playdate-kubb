@@ -7,9 +7,8 @@ stands, the listing assets and the accessibility disclosure).
 
 ## Repo and pull requests
 
-- GitHub: `jthingelstad/playdate-kubb`, private for now. Jamie plans to make it public, so
-  manage it as if it already were: no account ids, email addresses, device serial numbers,
-  home-directory paths or personal details in files, commit messages or pull requests.
+- GitHub: `jthingelstad/playdate-kubb` is public. Keep account ids, email addresses, device serial numbers,
+  home-directory paths and personal details out of files, commit messages and pull requests.
 - `main` takes changes only through a pull request with a green `validate` check on a
   branch that is up to date with `main` (ruleset "main: pull requests on a green
   validate"). Merges are rebase merges; auto-merge is on; branches are deleted on merge.
