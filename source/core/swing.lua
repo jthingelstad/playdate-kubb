@@ -188,9 +188,19 @@ local function release(s, how)
 	return "release"
 end
 
+-- At a measured stop (or a finger lift) release at the farthest forward
+-- angle. Only a forward swing past the bottom can leave the hand.
+function swing.stop(s)
+	if s.phase == "swinging" and s.far > 0 then return release(s, "stopped") end
+	swing.reset(s)
+	return "letdown"
+end
+
 -- Feed one frame. Returns nil, "letdown" or "release" (then s.result holds
 -- the measurements).
-function swing.update(s, delta, dt)
+-- A touch contact explicitly releases on lift; while held it can slow down
+-- during the upswing. Crossing the sky angle still releases immediately.
+function swing.update(s, delta, dt, held)
 	local t = swing.tune
 	if dt <= 0 then return nil end
 	local phase = s.phase
@@ -209,6 +219,7 @@ function swing.update(s, delta, dt)
 		s.pending = p
 		if p >= t.startBackDeg then
 			s.phase = "winding"
+			if s.onArm then s.onArm(0, -p) end
 			s.arm = -p
 			s.back = (p < t.backswingMaxDeg) and p or t.backswingMaxDeg
 			s.far, s.n = -p, 0
@@ -223,6 +234,7 @@ function swing.update(s, delta, dt)
 			-- and this frame is the flick's first: on to swinging below
 		else
 			local a = s.arm + fwd
+			if s.onArm then s.onArm(s.arm, a) end
 			s.arm = a
 			if -a > s.back then
 				s.back = (-a < t.backswingMaxDeg) and -a or t.backswingMaxDeg
@@ -243,15 +255,12 @@ function swing.update(s, delta, dt)
 		s.n = n
 	end
 	local a = s.arm + fwd
+	if s.onArm then s.onArm(s.arm, a) end
 	s.arm = a
 	if a > s.far then s.far = a end
 	if s.far >= t.skyDeg then return release(s, "sky") end
-	if windowSpeed(s.speeds, n) < t.releaseStopDps then
-		if s.far <= 0 then
-			swing.reset(s)
-			return "letdown"
-		end
-		return release(s, "stopped")
+	if not held and windowSpeed(s.speeds, n) < t.releaseStopDps then
+		return swing.stop(s)
 	end
 	return nil
 end
