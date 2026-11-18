@@ -466,7 +466,7 @@ function scene.update(s)
 		ts.input:advance()
 		if not s.cpuAim then
 			-- choose now and show it: its stance and aim stay on screen while it thinks
-			s.cpuAim = autothrow.choose(s.setup, s.cpuRng, scene.tune.cpuScatter)
+			s.cpuAim = autothrow.choose(s.setup, s.cpuRng, scene.tune.cpuScatter, throw.levelFor(ts))
 			ts.watching = true
 			throw.showAim(ts, s.cpuAim)
 		end

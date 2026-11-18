@@ -1,10 +1,10 @@
 {
   "source": "jthingelstad/kubb-engine core/",
-  "tag": "v0.4.1",
-  "version": "0.4.1",
-  "commit": "fcbfb9e9c53c253c718a723cd482ec54d02012bb",
+  "tag": "v0.5.1",
+  "version": "0.5.1",
+  "commit": "973441959354c796486dc5e5cc3cd3e9697e02c8",
   "files": {
-    "core/autothrow.lua": "080d77c98534f34b23c02ddc827f4a3f71d3ef741e2a27f917a67043e9437d70",
+    "core/autothrow.lua": "0f94773f8f1f40484edf4cba16ecc21e33c7f4353e3e0f63faadc56e46663ac3",
     "core/bench.lua": "763ad4227dbc59ac8279b42165afbd2945ed951b5ad00e8934f239f534194e7f",
     "core/body.lua": "7984503fa805f27b9acc4cdfe998f730178a6c7fa5edf2f28950d274819c3b31",
     "core/burstpick.lua": "2c3f468a44b041a4161f2f7db7f49efbba2d16c2585ec7ac5b2610af22a4ce10",
@@ -36,11 +36,11 @@
     "core/rules.lua": "fbb5b9c54e656c6769f5b637773e9f6657d8e7f36743b8e4f688f1a1d3ac9984",
     "core/save.lua": "3a4b81f16cd5759914cdff5897e6bb5c4c74c8bd4f57ab18dfd02970b6beccd4",
     "core/swing.lua": "c55fd9282c913a1f12cfb463e887e64372846ac32ff5d704b54b4a65510c5b4a",
-    "core/throwplan.lua": "217386d441b1f8a8f375c9bedd2e632b3f31bc01dfe8468e1b9f11841e493425",
+    "core/throwplan.lua": "9e7449b8468b54b912927dcf7bd201f5dbe8306bb9dbc65b6e5767b88655a738",
     "core/trace.lua": "995f0776b5ad2db42f316607196cfb234ae09ac42225fa62a2a54b2b61509799",
     "core/tw.lua": "d3bb3a81977440239e9024e243aa3b3dce2ba418b19d87075b8268b73aeff167",
     "core/vec.lua": "16ed8c29ccd68dcc7cff60892b5b2e767aaf01635e7fad30e593f09247326393",
     "core/wind.lua": "5be8fbc824ab65f875570249012fe334c5327b93f5036d37e2679e8bef93a876",
-    "core/world.lua": "3de6e64dab191039a14234bdcf6c73390d9ad6db8319e5eb2059b5e68d8ec7ff"
+    "core/world.lua": "97671b8847a3462549b3326470c478a7de78b1edf6628fee361cb769daba1204"
   }
 }

@@ -3,8 +3,7 @@
 -- swing is the plan's, so the power, release and steadiness verdicts are
 -- ON ON STEADY; the nerves' seeded draw (from the swing and the plan, so the
 -- same every run) still moves the throw off the line, and the fourth cell
--- says which way (PULLED RIGHT: about half a degree, and 3% short; with the
--- baton's turn drawn too it clips b3 and takes it).
+-- shows which way the throw went.
 -- Frames: 1 aiming, 2 at rest, 3 aiming again (the four verdicts).
 import "selftest/_throw"
 
@@ -12,6 +11,7 @@ local st = tw.selftest
 
 st.scenarios["nerves"] = st.throwScenario {
 	nerves = true,
+	setup = function(s) tw.scenes.throw.aimAt(s, 2, 8) end,
 	script = function(s) return st.planned(s) end,
 	shots = {
 		function(s, f) return f == 3 end,
@@ -23,7 +23,7 @@ st.scenarios["nerves"] = st.throwScenario {
 		local l = s.last
 		if not l.sideDeg or l.sideDeg == 0 then return "no nerves on the throw: " .. tostring(l.sideDeg) end
 		-- the draw is seeded from the swing and the plan: the same every run
-		if s.vSide ~= 1 then return "want PULLED RIGHT, got sideV " .. tostring(s.vSide) end
+		if s.vSide ~= -1 then return "want PULLED LEFT, got sideV " .. tostring(s.vSide) end
 		if s.vPower ~= 0 or s.vRelease ~= 0 or not s.vSteady then
 			return string.format("verdicts %s %s %s", tostring(s.vPower), tostring(s.vRelease), tostring(s.vSteady))
 		end

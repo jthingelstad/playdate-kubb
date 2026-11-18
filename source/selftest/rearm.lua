@@ -22,5 +22,8 @@ st.scenarios.rearm = st.throwScenario {
 	check = function(s)
 		if s.swing.phase ~= "idle" then return "a wind-up started without crossing the bottom: " .. s.swing.phase end
 		if s.armed then return "armed without a fresh crossing" end
+		local baton = st.item(s, "baton")
+		local rest = s.result.bodies.baton
+		if not baton or baton.x ~= rest.x or baton.y ~= rest.y then return "resting baton missing from pitch" end
 	end,
 }
