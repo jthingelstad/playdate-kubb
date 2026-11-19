@@ -11,6 +11,8 @@
 --             drilled kubb stops: how far from the target circle it rests
 --   flag      right edge 316, 199, h 15, after a release: the result
 --   slow      right edge 316, 182, h 15, in flight while the slow motion plays
+--   hint      right edge 396, 140, h 15, aiming: the crank can be flipped (the nudge;
+--             the one part inside the clear area, and only while it is needed)
 --   verdicts  73 222 158 15, after a throw: power, release, steadiness, and
 --             the nerves' sideways verdict (a fourth cell, wider plate)
 --   minimap   frame 4 162 49 76, always
@@ -62,6 +64,9 @@ hud.tune = {
 	-- inverted flag over the result flag, so a deliberate slow-down reads
 	-- apart from the physics falling behind (which shows nothing)
 	slow = { x = 240, y = 182, w = 76, h = 15, text = "SLOW MOTION" },
+	-- the nudge (hud.hint, scenes/throw): the crank can be flipped. A flag over
+	-- the prompt flag, its right edge at the screen's, widening to the left
+	hint = { right = 398, y = 140, h = 15 },
 	-- throwing from the advantage line (Jamie, 2026-11-14: "a big deal"): an
 	-- inverted flag centred under the rail, with how far up the line is
 	advantage = { y = 18, h = 15 },
@@ -457,6 +462,28 @@ function hud.slow()
 	end
 	if plateBegin(P, t.text) then
 		flagIn(0, 0, P.w - sh, t.h, t.text, true)
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
+end
+
+-- The nudge's hint (hud.tune.hint): one line over the prompt flag, by the
+-- clock. One cached image, redrawn only when the text changes.
+local hintPlate
+function hud.hint(text)
+	local t = hud.tune.hint
+	local sh = hud.tune.shadow
+	local P = hintPlate
+	if not P or P.k1 ~= text or not hud.tune.cache then
+		local w = hud.labelFont():getTextWidth(text) + 10
+		if not P or P.w ~= w + sh then
+			P = newPlate(0, t.y, w + sh, t.h + sh)
+			hintPlate = P
+		end
+		P.x = t.right - sh - w
+	end
+	if plateBegin(P, text) then
+		flagIn(0, 0, P.w - sh, t.h, text, false)
 		plateEnd(P)
 	end
 	P.img:draw(P.x, P.y)

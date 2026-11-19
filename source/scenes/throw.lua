@@ -39,6 +39,7 @@ import "core/burstpick"
 import "recorder"
 import "framelog"
 import "device/frametel"
+import "device/crank"
 import "core/drill"
 import "core/throwplan"
 import "core/howto"
@@ -50,6 +51,7 @@ local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
 local phys, playback, frametel, drill, plan = tw.world, tw.playback, tw.frametel, tw.drill, tw.plan
 local render, hud, burst = tw.render.world, tw.render.hud, tw.render.burst
 local burstpick = tw.burstpick
+local crank = tw.crank
 local sound = tw.sound
 local max, min, rad, abs, sqrt, floor = math.max, math.min, math.rad, math.abs, math.sqrt, math.floor
 
@@ -72,6 +74,19 @@ throw.tune = {
 	overDeg = 150,        -- backswing degrees past which the clock shows overpowered (11 o'clock)
 	cpuSwingTime = 0.6,   -- s the Playdate's arm takes on the clock before its throw leaves
 	cpuBackShare = 0.6,   -- the share of that spent going back
+	-- The crank flipped (throw.flipCrank, the scene's System Menu item "flip
+	-- crank"; device/crank): CRANK FLIPPED in the prompt flag for this long
+	-- once the player is aiming again, so the choice is seen to have taken.
+	flipNoteS = 1.5,
+	-- The nudge (device/crank, Jamie 2026-11-19: a player found the crank
+	-- backward): a forward turn is the idle crank going from within
+	-- nudgeBottomDeg of 6 o'clock to nudgeTurnDeg or more forward; after
+	-- nudgeTurns of them with no throw, a hint over the prompt says the crank
+	-- can be flipped and where. A wind-up hides it; a throw clears the count.
+	-- Guesses, not measured on players.
+	nudgeTurns = 3,
+	nudgeTurnDeg = 60,    -- 8 o'clock's mirror: 4 o'clock, well past the bottom's jitter
+	nudgeBottomDeg = 20,  -- within this of 6 o'clock the crank is "at the bottom" (howto's own)
 	restHold = 1.0,       -- s the landed baton stays on screen before the next baton
 	lineY = 0,            -- the throwing line: Team A's baseline
 	surface = "grass",    -- the practice pitch (tw.world.surfaces)
@@ -556,6 +571,10 @@ function throw.new(provider)
 		howtoObs = {},           -- what it sees each frame (reused)
 		howtoThrows = 0,         -- s.throws it has seen come back to aiming
 		howtoB = nil, howtoPad = false, -- B's time down, and whether the d-pad moved meanwhile
+		nudge = crank.nudgeNew(), -- forward turns with no throw (device/crank)
+		-- the nudge's words, naming the scene's System Menu item (throw.setMenuName)
+		nudgeText = "CRANK BACKWARD? MENU: FLIP CRANK",
+		flipNote = 0,            -- s CRANK FLIPPED still shows (throw.flipCrank)
 	}
 	throw.standUp(s)
 	updateTargets(s)
@@ -586,7 +605,10 @@ function throw.prepare(s, setup)
 	s.auto = false
 	updateTargets(s)
 	-- another team's turn: the last throw's dots and verdicts are not this team's
-	if s.stanceSide ~= setup.side then clearLast(s) end
+	if s.stanceSide ~= setup.side then
+		clearLast(s)
+		crank.nudgeClear(s.nudge)   -- the nudge counts one team's turns at a time
+	end
 	-- Stay put (Jamie, 2026-11-14: "in a real Kubb game you stand in one spot
 	-- and throw until you want to move"): a team's batons after its first of
 	-- a turn keep the stance the player walked to with A, held to where this
@@ -786,6 +808,8 @@ end
 -- flick (core/swing), with the trace recorder fed alongside (not in the
 -- cooldown after a release: the crank swinging back is not part of the swing).
 swingInput = function(s, sw, delta, arm, prevArm, dt)
+	-- the nudge counts the idle crank's forward turns (device/crank)
+	if sw.phase == "idle" and not s.watching then crank.nudgeArm(s.nudge, arm, throw.tune) end
 	-- the wind-up starts when the crank crosses the bottom of the turn going
 	-- back; until then the crank does nothing
 	if sw.phase == "idle" then
@@ -808,8 +832,12 @@ swingInput = function(s, sw, delta, arm, prevArm, dt)
 	if ph == "winding" or ph == "swinging" or (ph == "idle" and delta ~= 0) then rec.add(dt, delta) end
 	local ev = swing.update(sw, delta, dt)
 	if ev then s.armed = false end
-	-- a new wind-up: the last throw's dots and verdicts go
-	if sw.phase == "winding" and (s.lastBack or s.showVerdicts) then clearLast(s) end
+	-- a new wind-up: the last throw's dots and verdicts go, and the nudge hides
+	if sw.phase == "winding" then
+		if s.lastBack or s.showVerdicts then clearLast(s) end
+		crank.nudgeWound(s.nudge, throw.tune)
+	end
+	if ev == "release" then crank.nudgeClear(s.nudge) end
 	if ev == "letdown" then
 		rec.write("letdown", nil)
 	end
@@ -1232,6 +1260,7 @@ function throw.update(s)
 	s.drawEnd = nil
 	local t = throw.tune
 	if s.mode == "aim" then
+		if s.flipNote > 0 then s.flipNote = s.flipNote - dt end
 		local ev = aimInput(s, dt)
 		-- the plan view while B is held, first person when it is let go: a
 		-- smooth move both ways (camera.tune.shoulder.time, eased in aimCamera)
@@ -1354,6 +1383,31 @@ function throw.howtoFrame(s, p, dt)
 	o.release, o.tilt, o.spin = s.release, s.tilt, s.spin
 	o.pressA, o.tapB = p:pressed("a"), tapB
 	if tw.howto.update(s.howto, o) == "close" then throw.stopHowTo(s) end
+end
+
+-- The crank flipped (the scene's System Menu item "flip crank", main.lua):
+-- the device's crank direction turns over (device/crank sets
+-- swing.tune.forwardSign), throw.crankSaved(flipped) keeps it (main.lua: the
+-- datastore "crank", never during a self-test run), and CRANK FLIPPED shows
+-- in the prompt flag. A wind-up in progress is dropped, never thrown: the
+-- swing goes back to idle unarmed and the arm is read afresh, so the crank
+-- must cross the bottom going back (the new back) before anything starts.
+-- A throw in the air plays on; it was thrown the old way.
+function throw.flipCrank(s)
+	crank.apply(not crank.flipped)
+	if throw.crankSaved then throw.crankSaved(crank.flipped) end
+	if not s then return end
+	swing.reset(s.swing)
+	s.arm, s.armed = nil, false
+	tw.recorder.clear()
+	crank.nudgeClear(s.nudge)
+	s.flipNote = throw.tune.flipNoteS
+end
+
+-- The scene's System Menu item ("PITCH", "DRILL", "MATCH"), for the nudge's
+-- words. Made once, not per frame.
+function throw.setMenuName(s, name)
+	s.nudgeText = name and ("CRANK BACKWARD? MENU, " .. name .. ": FLIP CRANK") or "CRANK BACKWARD? MENU: FLIP CRANK"
 end
 
 -- The practice pitch's surface (System Menu "Pitch"): the next throw is on
@@ -1657,6 +1711,8 @@ local function dialState(s, aiming)
 	elseif aiming and not s.watching then
 		st.phase, st.arm, st.crank, st.back = sw.phase, sw.arm, s.arm or 0, sw.back
 		st.prompt = promptFor(s, sw, sol)
+		-- just flipped (throw.flipCrank): say so while the crank is still idle
+		if s.flipNote > 0 and sw.phase == "idle" then st.prompt = "CRANK FLIPPED" end
 	elseif aiming then
 		-- the Playdate thinking: the hand at rest
 		st.phase, st.arm, st.crank, st.back = "idle", 0, 0, 0
@@ -1718,6 +1774,7 @@ function throw.drawFrame(s)
 	hud.clock(st)
 	s.promptText = st.prompt    -- (self-tests read it)
 	local sw = s.swing
+	s.hintText = nil
 	if aiming and s.watching then
 		hud.prompt("WATCH", true)
 		s.promptText = "WATCH"
@@ -1733,6 +1790,11 @@ function throw.drawFrame(s)
 			if pv == 0 and s.restText then hud.cutFlag(s.restText) end
 		end
 		if s.showReadout and s.readout and idle then hud.readout(s.readout) end
+		-- the nudge (device/crank): turning forward again and again, never back
+		if sw.phase == "idle" and s.mode == "aim" and crank.nudgeShown(s.nudge, throw.tune) then
+			s.hintText = s.nudgeText    -- (self-tests read it)
+			hud.hint(s.nudgeText)
+		end
 		if s.input:docked() then hud.crankPrompt() end
 	elseif s.last then
 		-- after the release: the result flag; at rest the verdicts and a

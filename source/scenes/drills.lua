@@ -253,6 +253,7 @@ local function startRun(s, d)
 	s.drill, s.run = d, drills.newRun(d)
 	s.ts = s.ts or throw.new(s.input)
 	s.ts.sceneName = "practice"
+	throw.setMenuName(s.ts, "DRILL")   -- the nudge names the System Menu item (main.lua)
 	s.ts.drillRun = d.id   -- each throw's trace line names the drill
 	s.ts.level = s.player and s.player.level or nil   -- nil: the System Menu's
 	s.ts.showReadout = s.showReadout or false
