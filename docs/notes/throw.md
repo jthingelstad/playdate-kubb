@@ -107,7 +107,10 @@ this throw: "HOW TO THROW" below).
   list scroll with the raw crank and do not flip. The dial is the arm: back stays up the
   left whichever way the crank turns (HOW TO THROW teaches it that way). A flipped device's
   traces replay as thrown through `trace.replay`'s recorded sign (`test_crank.lua`); with
-  `--current-sign` they would replay the other way round.
+  `--current-sign` they would replay the other way round. The recorder keeps the sign a
+  swing's first sample came in with (`recorder.sign`), and a flip drops its samples only
+  while aiming: a throw in the air when the crank is flipped is still written at rest, with
+  the sign it was thrown with (`crank-flip-flight`).
 - **The nudge** (`throw.tune.nudgeTurns` 3, `nudgeTurnDeg` 60, `nudgeBottomDeg` 20;
   `crank.nudge*`): while the swing is idle (not the Playdate's turn, not with A or B
   held) the scene counts forward turns of the crank, from within 20 degrees of 6 o'clock

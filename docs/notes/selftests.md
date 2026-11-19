@@ -101,7 +101,8 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   `throw.flipCrank`, what "crank" calls: CRANK FLIPPED, today's swing winds and is let
   down without a throw, the plan's swing turned the flipped way takes a base kubb down),
   `crank-flip-mid` (flipped in the middle of a wind-up: back to idle, no throw; the flick
-  after it only winds), `crank-nudge` (three forward turns from 6 show the hint with the
+  after it only winds), `crank-flip-flight` (flipped with the throw in the air: the recorder
+  keeps the swing's samples and the sign it was thrown with), `crank-nudge` (three forward turns from 6 show the hint with the
   practice pitch's words, the wind-up hides it, the throw clears the count; the match's
   wording fits on screen), `gauge` (the prompts: WIND BACK, FLICK!, EASE
   OFF, none in the flick), `gauge-ghost`, `rearm`, `windup`, `flight` (the trace line read
