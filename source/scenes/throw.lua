@@ -573,7 +573,7 @@ function throw.new(provider)
 		howtoB = nil, howtoPad = false, -- B's time down, and whether the d-pad moved meanwhile
 		nudge = crank.nudgeNew(), -- forward turns with no throw (device/crank)
 		-- the nudge's words, naming the scene's System Menu item (throw.setMenuName)
-		nudgeText = "CRANK BACKWARD? MENU: FLIP CRANK",
+		nudgeText = "CRANK BACKWARD? MENU: CRANK FLIPS IT",
 		flipNote = 0,            -- s CRANK FLIPPED still shows (throw.flipCrank)
 	}
 	throw.standUp(s)
@@ -1385,7 +1385,7 @@ function throw.howtoFrame(s, p, dt)
 	if tw.howto.update(s.howto, o) == "close" then throw.stopHowTo(s) end
 end
 
--- The crank flipped (the scene's System Menu item "flip crank", main.lua):
+-- The crank flipped (the scene's System Menu item "crank", main.lua):
 -- the device's crank direction turns over (device/crank sets
 -- swing.tune.forwardSign), throw.crankSaved(flipped) keeps it (main.lua: the
 -- datastore "crank", never during a self-test run), and CRANK FLIPPED shows
@@ -1407,7 +1407,7 @@ end
 -- The scene's System Menu item ("PITCH", "DRILL", "MATCH"), for the nudge's
 -- words. Made once, not per frame.
 function throw.setMenuName(s, name)
-	s.nudgeText = name and ("CRANK BACKWARD? MENU, " .. name .. ": FLIP CRANK") or "CRANK BACKWARD? MENU: FLIP CRANK"
+	s.nudgeText = name and ("CRANK BACKWARD? MENU, " .. name .. ": CRANK FLIPS IT") or "CRANK BACKWARD? MENU: CRANK FLIPS IT"
 end
 
 -- The practice pitch's surface (System Menu "Pitch"): the next throw is on

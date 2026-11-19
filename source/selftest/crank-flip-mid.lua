@@ -1,5 +1,5 @@
 -- Scenario "crank-flip-mid": the crank flipped in the middle of a wind-up
--- (throw.flipCrank, the System Menu's "flip crank"). The wind-up is dropped,
+-- (throw.flipCrank, the System Menu's "crank"). The wind-up is dropped,
 -- not thrown: the swing goes back to idle unarmed, and the flick that follows
 -- (today's forward, the flipped crank's back) only starts a new wind-up.
 -- Frames: 1 wound to 10 o'clock, flipped on this frame, 2 just after (idle,

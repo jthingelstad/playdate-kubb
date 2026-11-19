@@ -131,7 +131,7 @@ hardware 2026-11-13).
 turning the crank opposite of the direction I thought made sense. He says even though he
 knows it now it is still backward to him. That feels like a left - right hand pref for
 playdate crank."). A device setting flips it: the scene's own System Menu item on every
-scene with a throw ("Pitch", "Drill", "Match") has the choice "flip crank". It turns
+scene with a throw ("Pitch", "Drill", "Match") has the choice "crank". It turns
 `forwardSign` over for the whole device (`source/device/crank.lua`; the core is never
 edited, the game sets the tune value at launch and on a flip), is kept in the datastore
 `crank` (`{ flipped = true }`, today's direction by default) and says CRANK FLIPPED in the
@@ -141,7 +141,7 @@ and games list scroll with the raw crank and do not. The dial is the arm, not th
 stays up the left and forward up the right whichever way the crank turns. One setting per
 device, not per player (yet). HOW TO THROW's first step and a nudge say it exists: a player
 who turns the crank forward from 6 three times (60 degrees or more each, `throw.tune.nudge*`)
-with no throw sees CRANK BACKWARD? MENU, PITCH: FLIP CRANK over the prompt until a wind-up
+with no throw sees CRANK BACKWARD? MENU, PITCH: CRANK FLIPS IT over the prompt until a wind-up
 starts.
 
 | Clock | Backswing (power) | Clock | Forward swing (release) |
@@ -268,7 +268,7 @@ The walkthrough, on the practice pitch with the real crank and real throws (buil
 mean), 3 how far back is how far (a throw with the power ON), 4 where you stop is the arc
 (the release ON), 5 the d-pad aims (it stays where you leave it: aim into a wind), 6 hold A
 to walk, 7 hold B to plan (arc, tilt, spin), 8 that is the throw. Step 1 also says where
-the crank's direction is flipped ("CRANK FEELS BACKWARD? MENU, PITCH: FLIP CRANK.", the
+the crank's direction is flipped ("CRANK FEELS BACKWARD? MENU, PITCH: CRANK FLIPS IT.", the
 Playdate's own line: the walkthrough's words are the engine's). Each step goes on once
 the player has done it and A is pressed; a tap of B skips one. It follows HOW TO PLAY,
 six cards with the rules of Kubb in plain words (the pitch, batons, throwing kubbs back
