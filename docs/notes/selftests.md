@@ -98,7 +98,7 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   before drills ran on, 2026-11-16),
   `clock-letdown` (a flick stopped at 8 o'clock and a slow let-down throw nothing; CRANK
   DOWN while the crank is parked behind 6), `crank-flip` (the crank flipped with
-  `throw.flipCrank`, what "flip crank" calls: CRANK FLIPPED, today's swing winds and is let
+  `throw.flipCrank`, what "crank" calls: CRANK FLIPPED, today's swing winds and is let
   down without a throw, the plan's swing turned the flipped way takes a base kubb down),
   `crank-flip-mid` (flipped in the middle of a wind-up: back to idle, no throw; the flick
   after it only winds), `crank-nudge` (three forward turns from 6 show the hint with the

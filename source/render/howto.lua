@@ -33,7 +33,7 @@ rhowto.tune = {
 -- The crank's direction can be flipped (device/crank; Jamie, 2026-11-19): the
 -- Playdate's own line under the first step's two (core/howto is the engine's
 -- and has no crank menu), while that step is to be done.
-rhowto.flipLine = "CRANK FEELS BACKWARD? MENU, PITCH: FLIP CRANK."
+rhowto.flipLine = "CRANK FEELS BACKWARD? MENU, PITCH: CRANK FLIPS IT."
 
 local img, imgH, imgRev = nil, nil, nil
 

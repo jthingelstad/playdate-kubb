@@ -112,7 +112,7 @@ this throw: "HOW TO THROW" below).
   `crank.nudge*`): while the swing is idle (not the Playdate's turn, not with A or B
   held) the scene counts forward turns of the crank, from within 20 degrees of 6 o'clock
   to 60 or more forward, each starting at the bottom again. After three with no throw
-  `hud.hint` shows `s.nudgeText` (`CRANK BACKWARD? MENU, PITCH: FLIP CRANK`, the item's
+  `hud.hint` shows `s.nudgeText` (`CRANK BACKWARD? MENU, PITCH: CRANK FLIPS IT`, the item's
   name from `throw.setMenuName`: PITCH, DRILL, MATCH) over the prompt flag, right edge at
   the screen's (y 140); `s.hintText` keeps it for self-tests. A wind-up hides it and drops
   the count to one short (one more forward turn shows it again: a player turning the wrong
@@ -171,7 +171,7 @@ and real throws at the far base kubbs (recorded like any practice throw). Pure p
   where it was when the step began); 6 hold A to walk (`walkMove` m); 7 hold B to plan (the
   arc moved and a tilt or spin set); 8 that is the throw. Step 1's "do" lines have a third,
   the Playdate's own (`render.howto.flipLine`, drawn by the panel, not in the engine's
-  `howto.STEPS`): `CRANK FEELS BACKWARD? MENU, PITCH: FLIP CRANK.` (2026-11-19, "Crank
+  `howto.STEPS`): `CRANK FEELS BACKWARD? MENU, PITCH: CRANK FLIPS IT.` (2026-11-19, "Crank
   direction" above). Each step says what to do; once it
   is done it says what it meant (after a throw, that throw's verdicts first: `THAT ONE: ON
   HIGH STEADY`) and A goes on. A quick tap of B (let go within `throw.tune.howtoTap`, 0.3

@@ -44,11 +44,11 @@ st.scenarios["crank-nudge"] = st.throwScenario {
 		-- the third forward turn (frames 4 to 33, 69 to 98, 134 to 163) reaches 60 at about frame 154
 		if not seen.at or seen.at < 140 then return "the hint showed at frame " .. tostring(seen.at) end
 		if seen.n ~= 3 then return "the hint showed after " .. tostring(seen.n) .. " turns" end
-		if seen.text ~= "CRANK BACKWARD? MENU, PITCH: FLIP CRANK" then return "the hint said " .. tostring(seen.text) end
+		if seen.text ~= "CRANK BACKWARD? MENU, PITCH: CRANK FLIPS IT" then return "the hint said " .. tostring(seen.text) end
 		if seen.windHint then return "the hint stayed during the wind-up" end
 		if s.hintText or s.nudge.n ~= 0 then return "after the throw: hint " .. tostring(s.hintText) .. ", count " .. s.nudge.n end
 		-- the longest wording (a match's) fits beside the clock, over the prompt
-		local w = tw.render.hud.labelFont():getTextWidth("CRANK BACKWARD? MENU, MATCH: FLIP CRANK") + 10
+		local w = tw.render.hud.labelFont():getTextWidth("CRANK BACKWARD? MENU, MATCH: CRANK FLIPS IT") + 10
 		local h = tw.render.hud.tune.hint
 		if h.right - 2 - w < 4 then return "the hint is " .. w .. " px: off the screen" end
 		if h.y + h.h + 2 > tw.render.hud.tune.prompt.y then return "the hint overlaps the prompt" end

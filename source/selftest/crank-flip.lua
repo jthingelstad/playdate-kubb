@@ -1,5 +1,5 @@
 -- Scenario "crank-flip": the crank flipped (throw.flipCrank, what the System
--- Menu's "flip crank" calls; device/crank). Today's swing (wound up the left,
+-- Menu's "crank" calls; device/crank). Today's swing (wound up the left,
 -- flicked up the right) throws nothing on a flipped crank: its wind-up turns
 -- the arm forward from the bottom (nothing starts) and its flick turns it back
 -- through the bottom (a wind-up), and bringing it forward slowly lets that

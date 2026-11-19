@@ -16,7 +16,7 @@
 --              Data folder (replay with kubb-engine tools/replay_traces). On by
 --              default while the throw is being tuned; self-tests leave it off.
 --   "Pitch"    practice only: play (nothing) / how to (HOW TO THROW over the
---              pitch, core/howto; chosen while it runs, it ends it) / flip crank
+--              pitch, core/howto; chosen while it runs, it ends it) / crank
 --              (see below) / reset (stand every piece back
 --              up and clear the drilled kubbs) / readout (the debug line after
 --              each throw, on or off: back, stop, flick, shake) / drill (drill
@@ -24,13 +24,14 @@
 --              (back to throwing batons) / grass, sand, snow (the surface) / bench (the physics benchmark of core/bench plus the
 --              scene's draw time; shows the figures and appends a line to
 --              bench.txt) / title (back to the title)
---   "Match"    match only: play (nothing) / flip crank / sheet (the score sheet so far,
+--   "Match"    match only: play (nothing) / crank / sheet (the score sheet so far,
 --              once nothing is in the air; B back) / resign (the team on turn gives
 --              up, once nothing is in the air) / title (leave: the match is
 --              dropped and no game file is written)
---   "Drill"    drills only: play (nothing) / flip crank / menu (leave the run
+--   "Drill"    drills only: play (nothing) / crank / menu (leave the run
 --              part way, unrecorded, for the drills menu) / title
---   "flip crank" (every scene with a throw): the crank's direction turns over
+--   "crank" (every scene with a throw; one short word, the System Menu's row
+--              is narrow and "flip crank" was never seen to fit): the crank's direction turns over
 --              for the device (device/crank, throw.flipCrank; Jamie, 2026-11-19:
 --              a player found it backward). Kept in the datastore "crank"
 --              ({ flipped = true }), as today's direction by default.
@@ -182,7 +183,7 @@ else
 		return tw.plan.tune.defaultLevel
 	end
 	throw.level = readLevel()
-	-- The crank's direction (the scenes' "flip crank"): kept in the datastore
+	-- The crank's direction (the scenes' "crank"): kept in the datastore
 	-- "crank", today's direction unless it was flipped; applied to
 	-- swing.tune.forwardSign now and whenever it is flipped (throw.flipCrank).
 	-- Only here, never in a self-test run (that branch is above), so no
@@ -211,7 +212,7 @@ else
 		end)
 		local item
 		if kind == "practice" then
-			local pitchItems = { "play", "how to", "flip crank", "reset", "drill", "batons", "grass", "sand", "snow", "title" }
+			local pitchItems = { "play", "how to", "crank", "reset", "drill", "batons", "grass", "sand", "snow", "title" }
 			if tw.debug then
 				table.insert(pitchItems, 4, "readout")
 				table.insert(pitchItems, #pitchItems, "bench")
@@ -219,7 +220,7 @@ else
 			item = menu:addOptionsMenuItem("Pitch", pitchItems, "play", function(v)
 				if v == "how to" then
 					if current.howto then throw.stopHowTo(current) else throw.showHowTo(current) end
-				elseif v == "flip crank" then
+				elseif v == "crank" then
 					throw.flipCrank(current)
 				elseif v == "readout" then
 					-- debug only: the line under the rail after each throw
@@ -243,8 +244,8 @@ else
 			menu:addMenuItem("Games", function() pending = "games" end)
 		elseif kind == "drills" then
 			-- leave a run part way, unrecorded: for the drills menu or the title
-			item = menu:addOptionsMenuItem("Drill", { "play", "flip crank", "menu", "title" }, "play", function(v)
-				if v == "flip crank" then
+			item = menu:addOptionsMenuItem("Drill", { "play", "crank", "menu", "title" }, "play", function(v)
+				if v == "crank" then
 					throw.flipCrank(current.ts)
 				elseif v == "menu" then
 					drillsScene.quit(current)
@@ -254,8 +255,8 @@ else
 				item:setValue("play")
 			end)
 		elseif kind == "match" then
-			item = menu:addOptionsMenuItem("Match", { "play", "flip crank", "sheet", "resign", "title" }, "play", function(v)
-				if v == "flip crank" then
+			item = menu:addOptionsMenuItem("Match", { "play", "crank", "sheet", "resign", "title" }, "play", function(v)
+				if v == "crank" then
 					throw.flipCrank(current.ts)
 				elseif v == "sheet" then
 					match.showSheet(current)
