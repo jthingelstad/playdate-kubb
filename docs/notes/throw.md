@@ -85,6 +85,39 @@ this throw: "HOW TO THROW" below).
   SHORT/ON/LONG was the power band's, now the verdicts' first cell; its ruler and its 234 px
   plate overlapped the verdicts), and its distance moved to that flag. `hud.planChip` shows
   TILT or SPIN while it is not zero.
+- **Crank direction** (Jamie, 2026-11-19: "a playdate user was super confused because he
+  was turning the crank opposite of the direction I thought made sense. He says even though
+  he knows it now it is still backward to him. That feels like a left - right hand pref for
+  playdate crank."). `source/device/crank.lua` (`tw.crank`, `test_crank.lua`) keeps the
+  device's choice: `crank.apply(flipped)` sets `swing.tune.forwardSign` to the core's own
+  sign (`crank.defaultSign`, read at load) or its opposite; the vendored core is never
+  edited. `main.lua` reads the datastore `crank` at launch (`crank.valid`: only `{ flipped =
+  true }` is flipped; anything else, a damaged file included, is today's direction) and
+  sets `throw.crankSaved` to write it back, never in a self-test run (that branch never
+  reads it either, so no scenario depends on a device's choice). The choice is "flip
+  crank" in the scene's own System Menu item on every scene with a throw: Pitch (after
+  "how to"), Drill and Match (after "play"); it acts when the menu closes and the item reads
+  "play" again. `throw.flipCrank(s)` flips it, drops a wind-up in progress (the swing to
+  idle unarmed, the arm read afresh, the recorder cleared: nothing is thrown by the
+  change), clears the nudge and shows CRANK FLIPPED in the prompt flag for `flipNoteS` (1.5
+  s) of aiming while the crank is idle. A throw in the air plays on. Every consumer reads
+  `forwardSign` at use: `swing.armAngle` and the swing, the arming at the bottom
+  (`swingInput`), the settle scene's tip, the recorder's trace line (its `sign`), and
+  `input.swingSteps` and the self-tests' `windup`/`flick`. The score sheet and the games
+  list scroll with the raw crank and do not flip. The dial is the arm: back stays up the
+  left whichever way the crank turns (HOW TO THROW teaches it that way). A flipped device's
+  traces replay as thrown through `trace.replay`'s recorded sign (`test_crank.lua`); with
+  `--current-sign` they would replay the other way round.
+- **The nudge** (`throw.tune.nudgeTurns` 3, `nudgeTurnDeg` 60, `nudgeBottomDeg` 20;
+  `crank.nudge*`): while the swing is idle (not the Playdate's turn, not with A or B
+  held) the scene counts forward turns of the crank, from within 20 degrees of 6 o'clock
+  to 60 or more forward, each starting at the bottom again. After three with no throw
+  `hud.hint` shows `s.nudgeText` (`CRANK BACKWARD? MENU, PITCH: FLIP CRANK`, the item's
+  name from `throw.setMenuName`: PITCH, DRILL, MATCH) over the prompt flag, right edge at
+  the screen's (y 140); `s.hintText` keeps it for self-tests. A wind-up hides it and drops
+  the count to one short (one more forward turn shows it again: a player turning the wrong
+  way also winds by accident, flicking backward through 6); a throw, a flip and another
+  team's turn clear it. Numbers are guesses, not measured on players.
 - **Readout** (the practice pitch's "Pitch: readout", debug only): `hud.readoutText(s.last)`,
   `back <peak>/<target centre> stop <stop>/<target centre> flick <deg/s> shake <0..1>`, then
   HELICOPTER, and the distance and kubbs down, or a drill's rest distance.
@@ -136,7 +169,10 @@ and real throws at the far base kubbs (recorded like any practice throw). Pure p
   far back is how far (a throw with the power ON, or `tries` throws); 4 where you stop is
   the arc (the release ON, or `tries`); 5 the d-pad moves the circle (`circleMove` m from
   where it was when the step began); 6 hold A to walk (`walkMove` m); 7 hold B to plan (the
-  arc moved and a tilt or spin set); 8 that is the throw. Each step says what to do; once it
+  arc moved and a tilt or spin set); 8 that is the throw. Step 1's "do" lines have a third,
+  the Playdate's own (`render.howto.flipLine`, drawn by the panel, not in the engine's
+  `howto.STEPS`): `CRANK FEELS BACKWARD? MENU, PITCH: FLIP CRANK.` (2026-11-19, "Crank
+  direction" above). Each step says what to do; once it
   is done it says what it meant (after a throw, that throw's verdicts first: `THAT ONE: ON
   HIGH STEADY`) and A goes on. A quick tap of B (let go within `throw.tune.howtoTap`, 0.3
   s, no d-pad while it was down) skips a step; the last step ends on A or a tap.
@@ -288,7 +324,8 @@ Every number that is a guess lives in one table per module, with a comment:
   (`shoulder`: crane, fit box, lens range, swing and refit times; "The aim camera"),
   impact camera, follow margins and mid-flight zoom; `tw.camera.minimap` for the minimap.
 - `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
-  to flip if forward feels backwards on hardware), the dead zone (`startBackDeg`), the
+  to flip if forward feels backwards on hardware; a player flips it per device with "flip
+  crank", "Crank direction" above), the dead zone (`startBackDeg`), the
   backswing cap, the flick's start and stop speeds (`swingStartDps`, `releaseStopDps`,
   `speedWindow`), the sky ball (`skyDeg`), the cooldown, the flick's power
   (`fullFlickDps`, `minFlickFrac`), the pull and the shake (`roughFull`).
