@@ -30,11 +30,17 @@ rhowto.tune = {
 	cache = true,  -- false: draw it from scratch every frame (same pixels)
 }
 
+-- The crank's direction can be flipped (device/crank; Jamie, 2026-11-19): the
+-- Playdate's own line under the first step's two (core/howto is the engine's
+-- and has no crank menu), while that step is to be done.
+rhowto.flipLine = "CRANK FEELS BACKWARD? MENU, PITCH: FLIP CRANK."
+
 local img, imgH, imgRev = nil, nil, nil
 
 local function render(h)
 	local t = rhowto.tune
 	local title, a, b, c, foot = howto.lines(h)
+	if not c and h.phase == "do" and howto.STEPS[h.step].id == "clock" then c = rhowto.flipLine end
 	local big, label = ui.display(16), ui.label()
 	gfx.setColor(gfx.kColorBlack)
 	gfx.fillRect(0, 0, 400, t.h + t.shadow)
@@ -112,6 +118,7 @@ function rhowto.widest()
 	for _, st in ipairs(howto.STEPS) do
 		if st.held and label:getTextWidth(st.held) > w then w = label:getTextWidth(st.held) end
 	end
+	if label:getTextWidth(rhowto.flipLine) > w then w = label:getTextWidth(rhowto.flipLine) end
 	local v = label:getTextWidth("THAT ONE: SHORT  HIGH  STEADY")
 	if v > w then w = v end
 	return w
