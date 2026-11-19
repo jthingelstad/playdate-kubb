@@ -124,6 +124,7 @@ import "selftest/howto-play"
 import "selftest/nerves"
 import "selftest/crank-flip"
 import "selftest/crank-flip-mid"
+import "selftest/crank-flip-flight"
 import "selftest/crank-nudge"
 
 local function launchArgs()

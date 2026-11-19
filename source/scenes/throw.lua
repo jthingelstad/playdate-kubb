@@ -1392,14 +1392,16 @@ end
 -- in the prompt flag. A wind-up in progress is dropped, never thrown: the
 -- swing goes back to idle unarmed and the arm is read afresh, so the crank
 -- must cross the bottom going back (the new back) before anything starts.
--- A throw in the air plays on; it was thrown the old way.
+-- A throw in the air plays on; it was thrown the old way, and its trace is
+-- kept and written when it lands with the sign it was thrown with (the
+-- recorder's own): only an unfinished wind-up's samples are dropped.
 function throw.flipCrank(s)
 	crank.apply(not crank.flipped)
 	if throw.crankSaved then throw.crankSaved(crank.flipped) end
 	if not s then return end
 	swing.reset(s.swing)
 	s.arm, s.armed = nil, false
-	tw.recorder.clear()
+	if s.mode == "aim" then tw.recorder.clear() end
 	crank.nudgeClear(s.nudge)
 	s.flipNote = throw.tune.flipNoteS
 end

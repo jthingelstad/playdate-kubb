@@ -13,6 +13,7 @@ local recorder = {
 	maxFrames = 3000,   -- about a minute at 50 fps; a longer wind-up is cut short
 	samples = {},       -- flat {dt, delta, ...} of the swing being recorded
 	n = 0,
+	sign = nil,         -- swing.tune.forwardSign when the swing's first sample came in
 	written = 0,
 }
 
@@ -22,6 +23,9 @@ end
 
 function recorder.add(dt, delta)
 	if recorder.n >= recorder.maxFrames then return end
+	-- the crank's direction this swing is made with: the line is written when
+	-- the throw lands, and the crank may have been flipped by then (device/crank)
+	if recorder.n == 0 then recorder.sign = tw.swing.tune.forwardSign end
 	local n = recorder.n + 1
 	recorder.samples[2 * n - 1] = dt
 	recorder.samples[2 * n] = delta
@@ -36,7 +40,7 @@ end
 -- Write the current swing as one line. result may be nil (a let-down).
 function recorder.write(event, result)
 	if not recorder.on or recorder.n == 0 then return end
-	local line = tw.trace.encode(recorder.samples, recorder.n, event, result, tw.swing.tune.forwardSign, now())
+	local line = tw.trace.encode(recorder.samples, recorder.n, event, result, recorder.sign or tw.swing.tune.forwardSign, now())
 	tw.logcap.check(recorder.path)
 	local f = playdate.file.open(recorder.path, playdate.file.kFileAppend)
 	if f then
