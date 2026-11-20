@@ -68,6 +68,8 @@ throw.tune = {
 	                      -- through it at plan.aimZFor's height)
 	howtoTap = 0.3,       -- s: B let go within this, with no d-pad while it was down, is
 	                      -- HOW TO THROW's tap (skip a step)
+	halfRateM = 2.0,      -- m: a circle the d-pad moves nearer the stance than this is planned every
+	                      -- other frame (aimInput; flight.tune.nearM, where the plan grows costly)
 	keepNear = 1.0,       -- m: a circle moved by hand stays put for the next throw while a live
 	                      -- target stands this near it (else it goes onto the nearest target)
 	                      -- snaps onto it (the circle's radius, DESIGN 4)
@@ -170,7 +172,11 @@ throw.tune = {
 -- walked it; until then plan.stance behind the target), the plan s.release
 -- (s.arcSet once B has moved it; until then plan.arcFor the target's kind),
 -- s.tilt (baton, degrees) and s.spin (kubb, taps). s.sol is plan.solve's
--- solution for them, solved again only when one changes (s.planDirty).
+-- solution for them, solved again only when one changes (s.planDirty). While
+-- the d-pad moves the circle within halfRateM of the stance it is solved at most
+-- every other frame (s.planSkipped; docs/notes/throw.md "The aim at a short
+-- throw"): the arc may lag the circle by a frame, and a throw, a let-go circle
+-- and every other change solve it at once.
 
 -- The throw level everything in this scene uses: the scene's own (a named
 -- player's, later) or the System Menu's "Level" (main.lua sets throw.level).
@@ -413,7 +419,7 @@ local function replan(s)
 	end
 	local sol = plan.solve(q, s.sol)
 	s.swivel, s.loftDeg = sol.swivel, sol.loft
-	s.planLevel, s.planDirty = q.level, false
+	s.planLevel, s.planDirty, s.planSkipped = q.level, false, false
 end
 throw.replan = replan
 
@@ -559,6 +565,7 @@ function throw.new(provider)
 		release = plan.arcFor("base"), arcSet = false, -- the planned release (clock degrees)
 		tilt = 0, spin = 0,      -- B + left/right: a baton's tilt (degrees), a kubb's spin (taps)
 		sol = {}, planQ = {}, stanceOut = {}, planDirty = true, planLevel = nil,
+		planSkipped = false,     -- the moving circle's last frame went without a solve (aimInput)
 		launchOut = {}, launchOpts = {}, -- plan.launch's (reused)
 		dial = {},               -- hud.clock's state (reused)
 		traceOut = {},           -- the trace line's result (reused)
@@ -794,7 +801,17 @@ local function aimInput(s, dt)
 		if s.markerMoving then settleMarker(s, false) end
 	end
 	s.markerMoving = moving
-	if s.planDirty or s.planLevel ~= throw.levelFor(s) then replan(s) end
+	if s.planDirty or s.planLevel ~= throw.levelFor(s) then
+		-- a short throw's plan costs most of a frame on the device (plan.solve at
+		-- 1 m, about 23 ms): while only the moving circle changed it, solve every
+		-- other frame; the circle let go, or anything else, solves it now
+		local skip = false
+		if moving and not s.planSkipped and s.planLevel == throw.levelFor(s) then
+			local ddx, ddy, r = s.markerX - s.playerX, s.markerY - s.playerY, t.halfRateM
+			skip = ddx * ddx + ddy * ddy < r * r
+		end
+		if skip then s.planSkipped = true else replan(s) end
+	end
 	-- while A or B is held the crank does not throw
 	if holdA or holdB then
 		if sw.phase ~= "idle" then swing.reset(sw) end

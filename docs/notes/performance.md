@@ -44,7 +44,8 @@ so `traces.jsonl` and `frames.jsonl` are untouched). It appends to `perf.txt`: a
 PLAYDATE match and a resume (under its own key `perfbench-match`, deleted after),
 `plan.solve` at 1, 1.5, 3 and 8 m and a drill, the computer's `autothrow.choose` per level
 on a baseline, toss and field setup from a real match, the aim view with the circle moving
-(the plan solved every frame) at a kubb 1 m and 6 m away, and four throws through the throw
+(the plan solved every frame) at a kubb 1 m and 6 m away, the same through the scene's own
+update with a scripted d-pad (the plan every other frame, then every frame), and four throws through the throw
 scene as in a match (into a close cluster of six field kubbs from 5 m and from 1 m, an 8 m
 baton at a base kubb, a drilled kubb settling): release to rest, the live flight's frames
 and their real frame time (mean, sd, max; the calm tail's frames counted apart, they are
@@ -62,9 +63,21 @@ collection 1338 and 1351 KB. The one regression: `plan.solve` at 1.0 m 2.28 to 2
 1 m away updates in 30.1 ms, not 3.6 (draw 13 ms; about 23 frames a second while the
 circle moves at a kubb about 0.4 to 1.4 m away). The cost is the core's: `plan.solve`'s
 aim-height bisection calls `speedForCarry` (itself iterative) 20 times, and
-`flight.handAt` bisects 30 times. A fix for kubb-engine (measured on the desktop, not yet
-made): bisect the aim height on the carry at `nearSpeed` directly (the same answer), and
-14 `handAt` steps (8 micrometres): `plan.solve` at 1 m 2.5 times faster.
+`flight.handAt` bisects 30 times. Neither can be cut without changing the hand or the aim
+by a few bits, which a patch release may not (fewer `handAt` steps move the hand by 8
+micrometres; a regula falsi shortcut held on doubles but not on the Playdate's 32-bit
+floats; kubb-engine's docs/notes/throw.md). Engine 0.8.2 drops only the carries whose
+answers it already has (the same bits): on the device `plan.solve` at 1 m 25.8 to 22.6 ms,
+everything else the same within the spread (a candidate built from the engine's branch,
+2026-11-20).
+
+The rest is the scene's (`throw.tune.halfRateM`, docs/notes/throw.md "The aim at a short
+throw"): while the d-pad moves the circle within 2 m of the stance, the plan is solved every
+other frame. The check's "aim d-pad" row drives the scene's own update with a scripted
+d-pad at both rates. On the device at a kubb 1 m away, update per frame (draw about 28 ms
+either way): 0.8.1 solving every frame 24.6 ms (max 37.0), every other 14.1; 0.8.2 every
+frame 20.8 (max 31.4), every other 12.4 (max 31.2), about what the aim at 6 m costs (8 ms).
+A frame that solves is still about 31 ms of update; at 6 m the plan solves every frame.
 
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
