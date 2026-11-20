@@ -79,6 +79,13 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   turn 3 (frames: the raise view, the view turned and zoomed out by the d-pad, the
   placement view, a spot refused by the king); the check reads the engine after A places
   it, and that the d-pad turned and zoomed without changing the end.
+- `auto-raise`: B REST OF GAME, six a side (match.md "Auto raise"): B's raise at turn 3
+  after the pass card (frames: the raise view with REST OF GAME, the automatic view with
+  BY HAND), its first kubb at once and the second after the wait, the `-raise` file
+  written; A's raise at turn 4 resumed from the datastore raises by itself with no pass
+  card (frame 3), then BY HAND deletes the file, brings the pass card and the rest are
+  raised with A; then VS PLAYDATE, A's raise with no card, all by itself. Each part must
+  leave the same pitch and score sheet as `g:raise(nil)` on a copy.
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
   right-hand end); all the way up must stand it on that end's footprint.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a

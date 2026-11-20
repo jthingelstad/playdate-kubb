@@ -15,6 +15,16 @@
 -- allow will not tip, and says why. The highlight starts on the engine's own
 -- choice (its raise policy).
 --
+-- B, REST OF GAME (the web's and the iPhone's REST OF GAME, Jamie's Settings
+-- sheet 2026-11-20: auto raise is a game setting on every platform): this
+-- kubb is raised at once on the engine's own end, and every raise after it,
+-- this turn and every later one, for both teams, until the match ends. Each
+-- of those shows its kubb for autoWait seconds, then raises it with the same
+-- call A makes on the engine's end (g:raise(choice)); B there, BY HAND, gives
+-- the raising back, starting with the kubb on screen. The choice lives in
+-- the table `auto` the match scene hands in ({ on, changed }), which saves it
+-- with the match (scenes/match, "Auto raise" in docs/notes/match.md).
+--
 -- Punish: the defender's half seen from above (5 x 4 m at 40 px a metre), the
 -- grey keep-out circles (a baton length from each stake and from the king),
 -- the kubbs standing in it, and a cursor kubb. The d-pad moves it (faster the
@@ -59,6 +69,7 @@ settle.tune = {
 	zoomMin = 0.5,        -- the nearest, as a fraction of the starting distance
 	zoomMax = 2.4,        -- the farthest
 	crankPerRaise = 270,  -- degrees of crank from lying to standing
+	autoWait = 0.7,       -- s an automatic raise shows its kubb lying first (the web's wait)
 	punishScale = 40,     -- px per metre in the placement view
 	punishLeft = 100,     -- screen x of the half's left sideline
 	punishTop = 30,       -- screen y of the middle line (the half's far edge)
@@ -173,6 +184,8 @@ local function begin(s)
 		s.pose, s.dec = n.pose, n.decision
 		s.ctx = g:context(n.side, n.kubb)
 		s.choice = raising.choose(s.dec, s.ctx, g.raisePolicy) or 1
+		s.engineChoice = s.choice   -- what an automatic raise stands it on
+		s.wait = settle.tune.autoWait
 		s.blocked = nil
 		set3D(s)
 		if not s.raiseTotal then
@@ -197,9 +210,12 @@ local function begin(s)
 end
 
 -- game: the core/rules game; name(side) the team's name for the rail;
--- provider an input provider.
-function settle.new(game, name, provider)
-	local s = { g = game, name = name, input = provider, done = false, raised = 0, placed = 0 }
+-- provider an input provider; auto the match's automatic raising
+-- ({ on = true } raises for the rest of the game; settle sets changed when B
+-- turns it on or off), or nil for a table of this view's own.
+function settle.new(game, name, provider, auto)
+	local s = { g = game, name = name, input = provider, done = false, raised = 0, placed = 0,
+		auto = auto or { on = false } }
 	begin(s)
 	return s
 end
@@ -350,9 +366,28 @@ local function raiseView(s)
 	local done = s.raised
 	rail(s.name(side), "RAISE " .. (done + 1) .. " OF " .. max(s.raiseTotal, done + 1), nil)
 	local x = 6
+	if s.auto.on then
+		x = x + buttonPlaque("B", "BY HAND", x, 212) + 8
+		ui.text(f, settle.fit(f, settle.autoText, 394 - x), 394, 216, false, "right")
+		return
+	end
 	x = x + hint("plus", "LOOK", x, 212) + 8
 	x = x + buttonPlaque("A", "RAISE", x, 212) + 8
-	ui.text(f, (#s.dec.choices > 1) and "OR CRANK EITHER END UP" or "OR CRANK IT UP", 394, 216, false, "right")
+	x = x + buttonPlaque("B", "REST OF GAME", x, 212) + 8
+	ui.text(f, settle.fit(f, (#s.dec.choices > 1) and settle.crankText or settle.crankText1, 394 - x), 394, 216,
+		false, "right")
+end
+
+-- the line beside the plaques, longest first: the first that fits in w px
+settle.crankText = { "OR CRANK EITHER END UP", "OR CRANK AN END UP", "OR CRANK" }
+settle.crankText1 = { "OR CRANK IT UP", "OR CRANK" }
+settle.autoText = { "RAISING AUTOMATICALLY FOR THE REST OF THE GAME", "RAISING FOR THE REST OF THE GAME",
+	"AUTOMATIC FOR THE REST OF THE GAME", "AUTOMATIC" }
+function settle.fit(f, texts, w)
+	for _, t in ipairs(texts) do
+		if f:getTextWidth(t) <= w then return t end
+	end
+	return texts[#texts]
 end
 
 -- ---------- punishment ----------
@@ -457,6 +492,31 @@ function settle.update(s)
 	local p = s.input
 	p:advance()
 	if s.done then return end
+	if s.mode == "raise" and s.auto.on then
+		-- raising for the rest of the game: B gives it back, else the kubb is
+		-- raised on the engine's end once it has been seen
+		if p:pressed("b") then
+			s.auto.on, s.auto.changed = false, true
+			s.img = nil
+			return
+		end
+		s.wait = s.wait - p:dt()
+		if s.wait <= 0 then
+			s.g:raise(s.engineChoice)
+			s.raised = s.raised + 1
+			begin(s)
+		end
+		return
+	end
+	if s.mode == "raise" and p:pressed("b") then
+		-- REST OF GAME: this kubb now, on the engine's end (whatever the crank
+		-- had tipped toward), and every raise after it
+		s.auto.on, s.auto.changed = true, true
+		s.g:raise(s.engineChoice)
+		s.raised = s.raised + 1
+		begin(s)
+		return
+	end
 	if s.mode == "raise" then
 		-- the d-pad looks (Jamie, 2026-11-14): left/right turn the view round
 		-- the kubb, up/down zoom in and out; the end is the crank's choice

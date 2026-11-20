@@ -565,7 +565,8 @@ use it; the earlier ones use six from the start. *Recommendation:* 2-4-6 by defa
 down, and picks the end only when both footprints are clear and in bounds. A kubb that lands
 on top of another is lowered straight down beside it. There are no towers in the U.S. rules.
 *Recommendation:* follow the rules; when a human defends they pick ends in the raising view,
-with a setting to raise automatically; no tower stacking; write the provisional `N` count
+with a setting to raise automatically (built: the match option RAISING, and REST OF GAME in
+the raise view, docs/notes/match.md "Auto raise"); no tower stacking; write the provisional `N` count
 when a kubb comes to rest on another.
 
 **Q3. Base kubbs knocked early.** Rule II.B.4a: the base kubb is stood back up and stays a

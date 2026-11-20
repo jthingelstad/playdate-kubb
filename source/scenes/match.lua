@@ -22,7 +22,11 @@
 --            defender, A to start) the defender raises the kubbs thrown in and places punishment
 --            kubbs by hand (scenes/settle), between the attacker's kubb
 --            tosses and its batons; scripted matches (seed, instant,
---            autoSettle) leave it to the engine
+--            autoSettle) leave it to the engine. B, REST OF GAME, in the
+--            raise view hands every raise after it to the game, both teams',
+--            for the rest of the match (s.autoRaise, saved beside the match:
+--            "Auto raise" in docs/notes/match.md); no pass card then while
+--            there are only raises to make
 --   over     the winner card: who won and how, turns, minutes, the winner's
 --            baton hit rate, whether the game file was written to games/ in
 --            the Data folder (DESIGN 7). A: a new match (rematch), B: the
@@ -126,12 +130,50 @@ function scene.saveKey()
 end
 
 -- opts.saveKey (the device soak) saves a scripted match too, under that key.
-local function persist(s)
+local function saveKeyOf(s)
 	local key = s.opts.saveKey
-	if not key and (s.opts.seed or s.opts.instant) or s.opts.noSave then return end
-	key = key or scene.saveKey()
+	if not key and (s.opts.seed or s.opts.instant) or s.opts.noSave then return nil end
+	return key or scene.saveKey()
+end
+
+-- Raising for the rest of the game (scenes/settle's REST OF GAME) is kept
+-- beside the match, in the datastore file "<save key>-raise" (core/save keeps
+-- only the options it knows): { start = the match's start, raise = "auto" },
+-- written when it is turned on, deleted when it is turned off or the match
+-- ends. A match resumes raising for itself only when the file names its
+-- start, so a file left from another match is ignored.
+function scene.raiseKey(key) return key .. "-raise" end
+local function startText(m)
+	-- (numbers read back from the datastore's JSON may be floats: 2026.0)
+	local t = m.start
+	if type(t) ~= "table" then return "?" end
+	local function n(v)
+		v = tonumber(v)
+		return v and string.format("%d", math.floor(v)) or "?"
+	end
+	return n(t.year) .. "-" .. n(t.month) .. "-" .. n(t.day) .. " " .. n(t.hour) .. ":" .. n(t.min)
+end
+local function persistRaise(s)
+	local key = saveKeyOf(s)
+	if not key then return end
+	if s.autoRaise.on and not cmatch.over(s.m) then
+		playdate.datastore.write({ start = startText(s.m), raise = "auto" }, scene.raiseKey(key))
+	else
+		playdate.datastore.delete(scene.raiseKey(key))
+	end
+end
+local function resumedRaise(s)
+	local key = saveKeyOf(s)
+	local d = key and playdate.datastore.read(scene.raiseKey(key))
+	return type(d) == "table" and d.raise == "auto" and d.start == startText(s.m)
+end
+
+local function persist(s)
+	local key = saveKeyOf(s)
+	if not key then return end
 	if cmatch.over(s.m) then
 		playdate.datastore.delete(key)
+		playdate.datastore.delete(scene.raiseKey(key))
 	else
 		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, teams = s.opts.teams, autoSettle = s.opts.autoSettle,
 			set = s.opts.set, wind = s.opts.wind },
@@ -213,6 +255,14 @@ local function passes(s, setup)
 	return not s.opts.skipHandoff and setup.side ~= s.cpu and #s.m.game.teams[setup.side].players > 1
 end
 
+-- The card that passes the Playdate to the defender, once per settle, when
+-- the defender has something to do by hand (PASS + PLAY only).
+local function settleCard(s)
+	if s.cpu or s.settleCarded or not s.settle or s.settle.done then return end
+	if s.autoRaise.on and s.settle.mode == "raise" then return end
+	s.settleCard, s.settleCarded, s.settleImg = cards.settle(s.m.game), true, nil
+end
+
 -- Set the next throw up (or end the match).
 local function nextThrow(s)
 	local m = s.m
@@ -227,12 +277,14 @@ local function nextThrow(s)
 		local n = m.game:need()
 		if (n.kind == "raise" or n.kind == "punish") and n.side ~= s.cpu then
 			s.phase = "settle"
-			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side, m.game)) end, s.input)
+			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side, m.game)) end, s.input,
+				s.autoRaise)
 			-- PASS + PLAY: the attacker hands the Playdate to the defender
 			-- first (a card, A to start); against the Playdate the player
-			-- holds it already
-			s.settleCard = (not s.cpu) and cards.settle(m.game) or nil
-			s.settleImg = nil
+			-- holds it already. Raises the game makes need no one to hold it:
+			-- the card waits for a punishment kubb, or for BY HAND
+			s.settleCard, s.settleCarded, s.settleImg = nil, false, nil
+			settleCard(s)
 			return
 		end
 	end
@@ -320,6 +372,8 @@ function scene.new(provider, opts)
 	}
 	-- raising and punishment kubbs by hand, except in scripted matches
 	s.byHand = not (s.opts.seed or s.opts.instant or s.opts.autoSettle)
+	-- REST OF GAME (scenes/settle): every raise by the game from then on
+	s.autoRaise = { on = false, changed = false }
 	s.cpu = s.opts.vs        -- the Playdate's side, or nil
 	if s.cpu then s.cpuRng = autothrow.rng(s.opts.cpuSeed or playdate.getSecondsSinceEpoch()) end
 	if s.opts.resume then
@@ -331,6 +385,8 @@ function scene.new(provider, opts)
 			teams = teams(s.opts), mode = s.cpu and "Vs Playdate" or nil }
 	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
+	-- a resumed match raising for itself goes on doing so
+	if s.opts.resume and s.byHand and resumedRaise(s) then s.autoRaise.on = true end
 	s.ts.sceneName = "match"
 	throw.setSet(s.ts, s.opts.set)
 	-- the wind (match option WIND; off or absent: still air)
@@ -448,8 +504,15 @@ function scene.update(s)
 		end
 		local before = s.settle.raised + s.settle.placed
 		settle.update(s.settle)
+		-- REST OF GAME or BY HAND: kept with the match at once
+		if s.autoRaise.changed then
+			s.autoRaise.changed = false
+			persistRaise(s)
+		end
 		-- each raise and placement is saved as it is made
 		if s.settle.raised + s.settle.placed ~= before and not s.settle.done then persist(s) end
+		-- a punishment kubb or BY HAND: now the defender holds it
+		settleCard(s)
 		if s.settle.done then
 			s.settle = nil
 			nextThrow(s)
