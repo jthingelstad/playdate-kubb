@@ -119,6 +119,7 @@ import "selftest/clock-gauge"
 import "selftest/clock-throw"
 import "selftest/clock-plan"
 import "selftest/camera-swing"
+import "selftest/plan-ticks"
 import "selftest/clock-drill"
 import "selftest/clock-letdown"
 import "selftest/drills-new"
@@ -354,11 +355,13 @@ else
 			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
 			-- a rematch keeps the resumed match's options (surface and opening
 			-- are the engine's own)
+			-- (and the computer's level, from its lineup entry: nil in a save from before 0.9)
+			local cpu = opts.vs and m.lineup and m.lineup[opts.vs] and m.lineup[opts.vs][1]
 			lastMatch = { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle, set = opts.set,
-				wind = opts.wind, surface = m.game.surface, opening = m.game.opening }
+				wind = opts.wind, surface = m.game.surface, opening = m.game.opening, computer = cpu and cpu.level }
 			kind = "match"
 			current = match.new(device, { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle,
-				set = opts.set, wind = opts.wind, resume = m })
+				set = opts.set, wind = opts.wind, autoRaise = opts.autoRaise, resume = m })
 			match.enter()
 		else
 			kind = "title"

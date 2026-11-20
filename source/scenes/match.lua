@@ -24,7 +24,7 @@
 --            tosses and its batons; scripted matches (seed, instant,
 --            autoSettle) leave it to the engine. B, REST OF GAME, in the
 --            raise view hands every raise after it to the game, both teams',
---            for the rest of the match (s.autoRaise, saved beside the match:
+--            for the rest of the match (s.autoRaise, kept in the save:
 --            "Auto raise" in docs/notes/match.md); no pass card then while
 --            there are only raises to make
 --   over     the winner card: who won and how, turns, minutes, the winner's
@@ -96,6 +96,29 @@ local function teams(opts)
 	return nil
 end
 
+-- The computer's level (match option COMPUTER, opts.computer) on each of its
+-- players, so its throws (throw.levelFor), the game file's [Throw Levels]
+-- and a resume all carry it. A copy: the teams given are left as they were.
+-- With no level given (a scripted match), and in a match saved before core
+-- 0.9, the computer throws at the System Menu's level, as it did.
+local function cpuLevel(tm, side, level)
+	if not (tm and side and level and tm[side]) then return tm end
+	local out = {}
+	for k, t in pairs(tm) do out[k] = t end
+	local ps = {}
+	for i, p in ipairs(tm[side].players) do
+		local q = {}
+		for k, v in pairs(p) do q[k] = v end
+		q.level = level
+		ps[i] = q
+	end
+	local t = {}
+	for k, v in pairs(tm[side]) do t[k] = v end
+	t.players = ps
+	out[side] = t
+	return out
+end
+
 -- The time now as notation wants it.
 local function now()
 	local t = playdate.getTime()
@@ -136,12 +159,14 @@ local function saveKeyOf(s)
 	return key or scene.saveKey()
 end
 
--- Raising for the rest of the game (scenes/settle's REST OF GAME) is kept
--- beside the match, in the datastore file "<save key>-raise" (core/save keeps
--- only the options it knows): { start = the match's start, raise = "auto" },
--- written when it is turned on, deleted when it is turned off or the match
--- ends. A match resumes raising for itself only when the file names its
--- start, so a file left from another match is ignored.
+-- Raising for the rest of the game (scenes/settle's REST OF GAME) is kept in
+-- the save itself since core 0.9 (core/save's autoRaise), written at once when
+-- it is turned on or off. Builds before it kept it beside the match, in the
+-- datastore file "<save key>-raise": { start = the match's start, raise =
+-- "auto" }. A match resumed from such a build reads that file once (only when
+-- it names the match's start, so a file left from another match is ignored);
+-- the next save carries the choice and the file is deleted after it, so the
+-- choice is never in neither place.
 function scene.raiseKey(key) return key .. "-raise" end
 local function startText(m)
 	-- (numbers read back from the datastore's JSON may be floats: 2026.0)
@@ -153,19 +178,12 @@ local function startText(m)
 	end
 	return n(t.year) .. "-" .. n(t.month) .. "-" .. n(t.day) .. " " .. n(t.hour) .. ":" .. n(t.min)
 end
-local function persistRaise(s)
-	local key = saveKeyOf(s)
-	if not key then return end
-	if s.autoRaise.on and not cmatch.over(s.m) then
-		playdate.datastore.write({ start = startText(s.m), raise = "auto" }, scene.raiseKey(key))
-	else
-		playdate.datastore.delete(scene.raiseKey(key))
-	end
-end
-local function resumedRaise(s)
+-- the old side file: true when it is there and names this match
+local function oldRaiseFile(s)
 	local key = saveKeyOf(s)
 	local d = key and playdate.datastore.read(scene.raiseKey(key))
-	return type(d) == "table" and d.raise == "auto" and d.start == startText(s.m)
+	if d == nil then return false, false end
+	return type(d) == "table" and d.raise == "auto" and d.start == startText(s.m), true
 end
 
 local function persist(s)
@@ -173,11 +191,16 @@ local function persist(s)
 	if not key then return end
 	if cmatch.over(s.m) then
 		playdate.datastore.delete(key)
-		playdate.datastore.delete(scene.raiseKey(key))
+		if s.oldRaise then playdate.datastore.delete(scene.raiseKey(key)) end
 	else
 		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, teams = s.opts.teams, autoSettle = s.opts.autoSettle,
-			set = s.opts.set, wind = s.opts.wind },
+			set = s.opts.set, wind = s.opts.wind, autoRaise = s.autoRaise.on or nil },
 			function(d) playdate.datastore.write(d, key) end)
+		-- the old build's side file, once the save carries what it said
+		if s.oldRaise then
+			s.oldRaise = false
+			playdate.datastore.delete(scene.raiseKey(key))
+		end
 	end
 end
 scene.persist = persist
@@ -292,6 +315,8 @@ local function nextThrow(s)
 	if not setup then return over(s) end
 	s.setup = setup
 	s.resolved = false
+	-- the turn, so a kubb's spin is kept for the side's next kubb in it (throw.prepare)
+	setup.turn = m.game.turn
 	throw.prepare(s.ts, setup)
 	-- the thrower's own throw level (docs/PLAYERS.md section 6); nil (a
 	-- match without saved players) is the System Menu's
@@ -382,11 +407,16 @@ function scene.new(provider, opts)
 	else
 		-- the surface and opening from the match options (scenes/options)
 		s.m = cmatch.new { start = now(), surface = s.opts.surface or "Grass", opening = s.opts.opening,
-			teams = teams(s.opts), mode = s.cpu and "Vs Playdate" or nil }
+			teams = cpuLevel(teams(s.opts), s.cpu, s.opts.computer), mode = s.cpu and "Vs Playdate" or nil }
 	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
-	-- a resumed match raising for itself goes on doing so
-	if s.opts.resume and s.byHand and resumedRaise(s) then s.autoRaise.on = true end
+	-- a resumed match raising for itself goes on doing so: the save's autoRaise
+	-- (opts.autoRaise, from core/save.unpack), or an older build's side file
+	if s.opts.resume then
+		local named, there = oldRaiseFile(s)
+		s.oldRaise = there
+		if s.byHand and (s.opts.autoRaise or named) then s.autoRaise.on = true end
+	end
 	s.ts.sceneName = "match"
 	-- the wind (match option WIND; off or absent: still air)
 	if s.opts.wind and s.opts.wind ~= "off" and (wind.levels[s.opts.wind] or 0) > 0 then
@@ -521,7 +551,7 @@ function scene.update(s)
 		-- REST OF GAME or BY HAND: kept with the match at once
 		if s.autoRaise.changed then
 			s.autoRaise.changed = false
-			persistRaise(s)
+			persist(s)
 		end
 		-- each raise and placement is saved as it is made
 		if s.settle.raised + s.settle.placed ~= before and not s.settle.done then persist(s) end
