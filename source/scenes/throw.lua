@@ -60,6 +60,7 @@ local throw = {}
 
 throw.tune = {
 	refreshRate = 50,     -- fps while aiming and throwing
+	tickHold = 0.3,       -- s: B + the d-pad held this long slides the plan a tick a frame (a tap: one tick)
 	walkSpeed = 1.2,      -- m/s along the throwing line
 	halfWidth = 2.5,      -- the line is 5 m wide (DESIGN 2)
 	backMax = 3.0,        -- m the player may step back from the throwing line
@@ -633,7 +634,16 @@ function throw.prepare(s, setup)
 	-- a drill's own stance (AROUND THE PITCH: in front of the next base kubb)
 	if setup.playerX then s.playerX, s.playerY, s.stanceSet = setup.playerX, setup.lineY, true end
 	s.stanceSide, s.stanceKind = setup.side, setup.projectile
+	-- A kubb's spin is kept for the side's next kubb in the same inkast turn
+	-- (setup.turn, the match's; as the engine's session does since 0.9); it
+	-- goes when the turn ends, the side changes or a match starts. Arc and
+	-- tilt start afresh at every throw.
+	local spin = s.spin
+	local keepSpin = setup.projectile == "kubb" and setup.turn ~= nil
+		and s.spinTurn == setup.turn and s.spinSide == setup.side
 	freshPlan(s)
+	if keepSpin then s.spin = spin end
+	s.spinTurn, s.spinSide = setup.turn, setup.side
 	-- metres the advantage line is up from the baseline, for the HUD's flag
 	-- (batons only; nil from the baseline and for a king shot)
 	local adv = s.forwardY - s.lineY
@@ -735,10 +745,27 @@ function throw.setArc(s, releaseDeg)
 	replan(s)
 	aimCamera(s)
 end
-function throw.setTilt(s, deg) s.tilt = deg end
-function throw.setSpin(s, taps) s.spin, s.planDirty = taps, true end
+function throw.setTilt(s, deg) s.tilt = plan.clampTilt(deg) end
+function throw.setSpin(s, taps) s.spin, s.planDirty = plan.clampSpin(taps), true end
 
 local swingInput, drawMarker, drawRail, drawArc
+
+-- How many ticks a plan control moves this frame (-1, 0 or 1): one the frame
+-- its direction goes down, none until it has been held throw.tune.tickHold s,
+-- then one a frame while it is held. s[key] is the time held (nil: let go).
+local function planTicks(s, key, dir, dt)
+	if dir == 0 then
+		s[key] = nil
+		return 0
+	end
+	local h = s[key]
+	if h == nil or h.dir ~= dir then
+		s[key] = { dir = dir, t = 0 }
+		return dir
+	end
+	h.t = h.t + dt
+	return h.t >= throw.tune.tickHold and dir or 0
+end
 
 local function aimInput(s, dt)
 	local t = throw.tune
@@ -751,24 +778,27 @@ local function aimInput(s, dt)
 	local dy = (p:held("up") and 1 or 0) - (p:held("down") and 1 or 0)
 	local holdA, holdB = p:held("a"), p:held("b")
 	s.planHeld = holdB
+	if not holdB then s.arcHeld, s.sideHeld = nil, nil end
 	local sw = s.swing
 	local moving = false
 	if holdB then
-		-- the plan: up/down move the release half an hour a tap, left/right
-		-- tilt a baton's spin plane or spin a kubb a step a tap
+		-- the plan: up/down move the release, left/right tilt a baton's spin
+		-- plane or spin a kubb, any value in range (core 0.9): a tap moves one
+		-- tick (plan.tune arcTickDeg, tiltTickDeg, spinTick), held past
+		-- throw.tune.tickHold it slides a tick a frame
 		local pt = plan.tune
-		local step = (p:pressed("up") and 1 or 0) - (p:pressed("down") and 1 or 0)
-		if step ~= 0 then
-			s.release = plan.clampRelease(s.release + step * pt.arcStepDeg)
+		local v = planTicks(s, "arcHeld", (p:held("up") and 1 or 0) - (p:held("down") and 1 or 0), dt)
+		if v ~= 0 then
+			s.release = plan.clampRelease(s.release + v * pt.arcTickDeg)
 			s.arcSet, s.planDirty = true, true
 		end
-		local side = (p:pressed("right") and 1 or 0) - (p:pressed("left") and 1 or 0)
+		local side = planTicks(s, "sideHeld", dx, dt)
 		if side ~= 0 then
 			if s.projectile == "kubb" then
-				s.spin = max(-pt.spinSteps, min(pt.spinSteps, s.spin + side))
+				s.spin = plan.clampSpin(s.spin + side * pt.spinTick)
 				s.planDirty = true   -- the plan chip and trace carry the spin
 			else
-				s.tilt = max(-pt.tiltMaxDeg, min(pt.tiltMaxDeg, s.tilt + side * pt.tiltStepDeg))
+				s.tilt = plan.clampTilt(s.tilt + side * pt.tiltTickDeg)
 			end
 		end
 	elseif holdA then
@@ -1454,7 +1484,9 @@ function throw.showAim(s, a)
 	local P = a.plan
 	s.cpuPlan, s.cpuSpeed = P, a.speed
 	s.cpuTarget = P ~= nil and P.tx ~= nil
-	if s.cpuTarget then s.markerX, s.markerY = P.tx, P.ty end
+	-- the circle on the plan's target; the piece the last circle was on is not
+	-- this one (autothrow.choose names it, a.on, for a label the Playdate does not show)
+	if s.cpuTarget then s.markerX, s.markerY, s.markerOn = P.tx, P.ty, nil end
 	aimCamera(s)
 end
 

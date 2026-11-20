@@ -875,7 +875,11 @@ function hud.planChip(kind, value)
 		local f = hud.labelFont()
 		local s
 		if kind == "kubb" then
-			s = string.format("SPIN %s %d", value < 0 and "L" or "R", floor(abs(value) + 0.5))
+			-- taps, any value since core 0.9 (a tick is a quarter): 1, 1.25, 1.5
+			local v = floor(abs(value) * 100 + 0.5)
+			s = string.format("SPIN %s %d", value < 0 and "L" or "R", v // 100)
+			local f2 = v % 100
+			if f2 ~= 0 then s = s .. (f2 % 10 == 0 and string.format(".%d", f2 // 10) or string.format(".%02d", f2)) end
 		else
 			local v = floor(abs(value) * 10 + 0.5)
 			s = string.format("TILT %s %d", value < 0 and "L" or "R", v // 10)
