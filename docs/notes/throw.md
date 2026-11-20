@@ -228,7 +228,7 @@ throw").
 
 ## The short throw
 
-Since Kubb Engine 0.8 (vendored 2026-11-20 at v0.8.1) a baton at a target nearer than
+Since Kubb Engine 0.8 (vendored 2026-11-20 at v0.8.1, v0.8.2 since) a baton at a target nearer than
 `flight.tune.nearM` (2 m) is planned as a firm bowl from a low hand: `plan.solve` gives
 `handZ` (lower than `handHeight`), `handFwd` (ahead of the feet) and `handTip` (the baton
 tipped toward the target) from `flight.handAt` of the planned distance, and a flatter
