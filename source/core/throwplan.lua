@@ -356,17 +356,24 @@ function plan.solve(q, out)
 			-- the hand is as low as it goes (flight.handAt) and the bowl would still
 			-- be soft: aim higher through the face until it is firm again (the
 			-- carry shortens as the drop does), never within 5 mm of the hand
+			-- (the speed and time at b are kept: the answer is b, and solving it
+			-- again would give the same bits. Once a and b are neighbouring floats
+			-- the midpoint is one of them and nothing more can move: a 32-bit float
+			-- gets there, a double does not.)
 			local a, b = z, h - 0.005
-			if carrySpeed(R, rad(loft), h - b) <= ft.nearSpeed then
+			local sb, Tb = carrySpeed(R, rad(loft), h - b)
+			if sb <= ft.nearSpeed then
 				z = b
 			else
 				for _ = 1, 20 do
 					local m = 0.5 * (a + b)
-					if carrySpeed(R, rad(loft), h - m) < ft.nearSpeed then a = m else b = m end
+					if m == a or m == b then break end
+					local sm, Tm = carrySpeed(R, rad(loft), h - m)
+					if sm < ft.nearSpeed then a = m else b, sb, Tb = m, sm, Tm end
 				end
 				z = b
 			end
-			speed, T = carrySpeed(R, rad(loft), h - z)
+			speed, T = sb, Tb
 		end
 		out.swivel, out.dist, out.loft, out.aimZ = atan(dx, dy), d, loft, z
 		out.speed = speed
