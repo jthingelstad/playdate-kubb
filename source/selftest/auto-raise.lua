@@ -1,20 +1,22 @@
 -- Scenario "auto-raise": raising for the rest of the game (scenes/settle's
--- B, REST OF GAME; scenes/match's s.autoRaise and its "-raise" file), six a
--- side in PASS + PLAY, then against the Playdate.
+-- B, REST OF GAME; scenes/match's s.autoRaise, kept in the save as core/save's
+-- autoRaise since 0.9), six a side in PASS + PLAY, then against the Playdate.
 --
 -- Part 1, B's raise at turn 3 (A tossed a1 and a2 in, lying): the pass card,
 -- A, then B, REST OF GAME: a1 is raised at once, a2 by itself after the
--- wait, and the choice is saved beside the match. Frames: 1 the raise view
+-- wait, and the choice is in the save at once. Frames: 1 the raise view
 -- with REST OF GAME, 2 the automatic view with BY HAND.
 -- Part 2, A's raise at turn 4, resumed from the datastore: the match raises
 -- by itself with no pass card and no input; after its first kubb B, BY HAND,
--- gives it back: the "-raise" file is gone, the pass card comes, and the
+-- gives it back: the save says so at once, the pass card comes, and the
 -- rest are raised by hand with A. Frame 3: the automatic view of the resumed
 -- match.
 -- Part 3, VS PLAYDATE, A's raise at turn 4: no card, B raises them all;
 -- Match: resign after it is the player's, as always.
--- Part 4, PASS + PLAY resumed into A's raise at turn 4 while the game raises:
--- no pass card, so B (the attacker) holds the Playdate, and Match: resign
+-- Part 4, PASS + PLAY resumed into A's raise at turn 4 while the game raises,
+-- as a build before 0.9 left it (the "-raise" side file, no autoRaise in the
+-- save): it raises by itself, the next save carries autoRaise and the side
+-- file is gone after it; no pass card, so B (the attacker) holds the Playdate, and Match: resign
 -- is B's (scene.holder): A wins, and the game file is gated (file=...).
 -- Frame 4: the automatic raise at the resign.
 -- The check, each part: every kubb stands where the same match raised by
@@ -96,6 +98,11 @@ local function same(m, c, what)
 end
 
 local function raiseFile() return playdate.datastore.read(scene.raiseKey(scene.saveKey())) end
+-- the save's autoRaise (core/save.unpack's options), or nil
+local function savedRaise()
+	local m, o = save.unpack(playdate.datastore.read(scene.saveKey()))
+	return m and o.autoRaise or nil
+end
 local function clean()
 	playdate.datastore.delete(scene.saveKey())
 	playdate.datastore.delete(scene.raiseKey(scene.saveKey()))
@@ -131,25 +138,27 @@ tw.selftest.scenarios["auto-raise"] = {
 			if f == 8 then
 				if not ms.autoRaise.on then error("REST OF GAME did not turn it on") end
 				if st.raised ~= 1 then error("REST OF GAME did not raise the kubb on screen at once") end
-				local d = raiseFile()
-				if not (d and d.raise == "auto" and d.start) then error("the choice was not saved beside the match") end
+				if not savedRaise() then error("the choice was not saved with the match") end
+				if raiseFile() then error("a -raise side file was written") end
 			end
 			if f == 11 then ctx:capture() end
 			if ms.phase ~= "settle" then
 				if f < 30 then error("the second kubb was raised before the wait") end
 				ctx.note = "B: " .. raiseAllByHand(ctx.hand) .. " raised, 1 at once"
 				same(ms.m, ctx.hand, "B's raise")
-				local m = save.unpack(playdate.datastore.read(scene.saveKey()))
+				local m, o = save.unpack(playdate.datastore.read(scene.saveKey()))
 				if not (m and m.game.kubbs.a1.pose.standing and m.game.kubbs.a2.pose.standing) then
 					error("the raises were not saved")
 				end
 				-- part 2: on to A's raise at turn 4 and saved, as a device left mid-match
 				toTurn4(m.game)
-				tw.save.write(m, { teams = TEAMS }, function(d) playdate.datastore.write(d, scene.saveKey()) end)
-				local r = save.unpack(playdate.datastore.read(scene.saveKey()))
+				tw.save.write(m, { teams = TEAMS, autoRaise = o.autoRaise },
+					function(d) playdate.datastore.write(d, scene.saveKey()) end)
+				local r, ro = save.unpack(playdate.datastore.read(scene.saveKey()))
 				ctx.hand = handCopy(r)
+				-- as main.lua's resume passes it on
 				ctx.ms = scene.new(tw.input.scripted { { n = 40 }, B, { n = 3 }, A, { n = 3 }, A, { n = 3 }, A, { n = 3 }, A },
-					{ teams = TEAMS, resume = r })
+					{ teams = TEAMS, autoRaise = ro.autoRaise, resume = r })
 				scene.enter()
 				if not ctx.ms.autoRaise.on then error("the resumed match forgot REST OF GAME") end
 				if ctx.ms.phase ~= "settle" or ctx.ms.settleCard then error("a pass card before the game's own raise") end
@@ -163,11 +172,11 @@ tw.selftest.scenarios["auto-raise"] = {
 			if k == 5 then ctx:capture() end
 			if k == 39 then
 				if not st or st.raised ~= 1 then error("the resumed match did not raise its first kubb by itself") end
-				if not raiseFile() then error("the -raise file went early") end
+				if not savedRaise() then error("the save lost autoRaise early") end
 			end
 			if k == 41 then
 				if ms.autoRaise.on then error("BY HAND did not turn it off") end
-				if raiseFile() then error("BY HAND left the -raise file") end
+				if savedRaise() then error("BY HAND left autoRaise in the save") end
 				if not ms.settleCard then error("no pass card after BY HAND") end
 				if st.raised ~= 1 then error("BY HAND raised a kubb") end
 			end
@@ -194,7 +203,7 @@ tw.selftest.scenarios["auto-raise"] = {
 		if ctx.part == 3 then
 			if ms.settleCard then error("VS PLAYDATE: a pass card") end
 			if ms.phase ~= "settle" then
-				if not raiseFile() then error("VS PLAYDATE: REST OF GAME not saved") end
+				if not savedRaise() then error("VS PLAYDATE: REST OF GAME not saved") end
 				local n = raiseAllByHand(ctx.hand)
 				same(ms.m, ctx.hand, "VS PLAYDATE")
 				ctx.note = ctx.note .. "; vs Playdate: " .. n .. " by itself"
@@ -215,6 +224,10 @@ tw.selftest.scenarios["auto-raise"] = {
 				scene.enter()
 				if not ctx.ms.autoRaise.on or ctx.ms.settleCard then error("resign part: not raising by itself") end
 				if scene.holder(ctx.ms) ~= "B" then error("resign part: the holder is " .. tostring(scene.holder(ctx.ms))) end
+				-- the old side file is read once: the first save (made as the scene
+				-- starts) carries its choice, then the file goes
+				if not savedRaise() then error("resign part: the save did not take the old side file's choice") end
+				if raiseFile() then error("resign part: the old side file outlived the save") end
 				ctx.part, ctx.p4 = 4, f
 			end
 			if f - ctx.p3 > 200 then error("VS PLAYDATE: A's raise not done") end
