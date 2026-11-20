@@ -869,8 +869,13 @@ end
 -- Launch a throw: L is a launch (plan.launch's fields: speed, loft, swivel,
 -- tilt, tumble, legal; a drill's noseDown, rollLand, spin, wobble)
 -- from where the player stands; how is "baton", "drill" or "lob" (the
--- Playdate's kubb tosses, end over end).
-local function fire(s, L, how)
+-- Playdate's kubb tosses, end over end). sol (optional) is the plan the
+-- throw was made on: a baton leaves its hand (plan.solve's handZ, handFwd,
+-- handTip; flight.handAt of the planned distance): under flight.tune.nearM
+-- lower, ahead of the feet and tipped toward the target, the short throw's
+-- firm bowl (engine 0.8, docs/notes/throw.md "The short throw"); without a
+-- plan, or from nearM out, from the feet at handHeight as always.
+local function fire(s, L, how, sol)
 	s.knockT = -1
 	-- the follow camera starts from the aim camera as it is (normally first
 	-- person); the next aim starts in first person
@@ -888,8 +893,10 @@ local function fire(s, L, how)
 	local id = s.projectileId or (drilling and s.drillId) or nil
 	local tumble = drilling and 0 or (L.tumble or 0)
 	local tilt = kubb and 0 or (L.tilt or 0)
+	local handZ, handFwd, handTip = nil, nil, nil
+	if not kubb and sol and sol.handZ then handZ, handFwd, handTip = sol.handZ, sol.handFwd, sol.handTip end
 	-- the stage 1 prediction: landing point and flight time for the cameras
-	flight.launch(fl, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt)
+	flight.launch(fl, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, handZ, handFwd, handTip)
 	-- Pick up the next of the six practice batons before building the world.
 	-- A match supplies its own projectile ID and turn debris.
 	if not kubb and s.auto then
@@ -929,7 +936,7 @@ local function fire(s, L, how)
 		end
 		s.items[s.nitems + 1] = it
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, id)
+		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, id, handZ, handFwd, handTip)
 	end
 	s.batonIndex = b.index
 	s.pb = playback.new(w, 1 / t.refreshRate)
@@ -973,7 +980,7 @@ local function launch(s, r)
 	if s.planDirty or s.planLevel ~= o.level then replan(s) end
 	local sol = s.sol
 	local L = plan.launch(sol, r, o, s.launchOut)
-	fire(s, L, kubb and "drill" or "baton")
+	fire(s, L, kubb and "drill" or "baton", sol)
 	s.lastBack, s.lastStop = r.back, r.releaseAngle
 	s.vPower, s.vRelease, s.vSteady, s.vSide = L.powerV, L.releaseV, L.steady, L.sideV
 	local l = s.last
@@ -1469,7 +1476,9 @@ autoFire = function(s, a)
 	end
 	L.speed, L.loft, L.swivel, L.tilt, L.tumble, L.legal = a.speed, a.loftDeg, a.swivel, a.tilt or 0, a.tumbleRate,
 		a.legal ~= false
-	fire(s, L, s.projectile == "kubb" and "lob" or "baton")
+	-- the computer's batons leave the hand of their own plan (a.plan): it
+	-- never stands nearer than nearM, so that is the feet at handHeight
+	fire(s, L, s.projectile == "kubb" and "lob" or "baton", a.plan)
 end
 
 -- Throw `a` now (only in aim mode). With a.swing, and not in instant mode,
@@ -1527,9 +1536,32 @@ local function arcLaunch(s)
 		R, z1 = sqrt(lx * lx + ly * ly), 0
 	end
 	if T <= 0 then return 0, 0, 0, 0 end
-	local vh = R / T
+	-- a baton's hand (plan.solve's handZ, handFwd): on a short throw lower and
+	-- ahead of the feet, so the arc starts there and carries the rest
 	local h, g = flight.tune.handHeight, flight.tune.g
+	if s.projectile ~= "kubb" and sol.handZ then
+		h = sol.handZ
+		if sol.flightT and sol.dist then
+			local fwd = sol.handFwd or 0
+			R = R - fwd
+			if Tdraw then
+				local f = s.aimFace - fwd
+				Tdraw = f > 0 and T * f / R or nil
+			end
+		end
+	end
+	local vh = R / T
 	return vh * math.sin(sw), vh * math.cos(sw), (z1 - h + 0.5 * g * T * T) / T, Tdraw or T
+end
+
+-- Where the planned arc starts: the hand (x, y, z), ahead of the stance and
+-- lower on a short baton (plan.solve's handZ, handFwd). No tables.
+local function arcOrigin(s)
+	local sol = s.sol
+	local h, f = flight.tune.handHeight, 0
+	if s.projectile ~= "kubb" and sol and sol.handZ then h, f = sol.handZ, sol.handFwd or 0 end
+	local sw = sol and sol.swivel or 0
+	return s.playerX + f * math.sin(sw), s.playerY + f * math.cos(sw), h
 end
 
 -- The arc shows for a baton and a drilled kubb (not the Playdate's lobbed
@@ -1549,7 +1581,8 @@ shoulderFit = function(s, c)
 	local n, across = 0, 0
 	if arcShown(s) and not s.watching then
 		local vx, vy, vz, T = arcLaunch(s)
-		local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+		local x0, y0, h = arcOrigin(s)
+		local g = flight.tune.g
 		across = t.arcFitFrom - t.arcSkip
 		for i = t.arcSkip, t.arcPoints do
 			local tt = T * i / t.arcPoints
@@ -1576,7 +1609,8 @@ end
 drawArc = function(s, c)
 	local t = throw.tune
 	local vx, vy, vz, T = arcLaunch(s)
-	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+	local x0, y0, h = arcOrigin(s)
+	local g = flight.tune.g
 	local n = t.arcPoints
 	gfx.setColor(gfx.kColorBlack)
 	gfx.setLineWidth(t.arcWidth)
@@ -1599,7 +1633,8 @@ function throw.arcBox(s)
 	aimCamera(s)
 	local c, t = s.aimCam, throw.tune
 	local vx, vy, vz, T = arcLaunch(s)
-	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+	local x0, y0, h = arcOrigin(s)
+	local g = flight.tune.g
 	local huge = math.huge
 	local ring = { huge, huge, -huge, -huge }
 	local arc = { huge, huge, -huge, -huge }
