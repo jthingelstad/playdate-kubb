@@ -68,8 +68,8 @@ by a few bits, which a patch release may not (fewer `handAt` steps move the hand
 micrometres; a regula falsi shortcut held on doubles but not on the Playdate's 32-bit
 floats; kubb-engine's docs/notes/throw.md). Engine 0.8.2 drops only the carries whose
 answers it already has (the same bits): on the device `plan.solve` at 1 m 25.8 to 22.6 ms,
-everything else the same within the spread (a candidate built from the engine's branch,
-2026-11-20).
+everything else the same within the spread (vendored 2026-11-20; measured on a build whose
+core was byte for byte the v0.8.2 tag's).
 
 The rest is the scene's (`throw.tune.halfRateM`, docs/notes/throw.md "The aim at a short
 throw"): while the d-pad moves the circle within 2 m of the stance, the plan is solved every
@@ -78,6 +78,20 @@ d-pad at both rates. On the device at a kubb 1 m away, update per frame (draw ab
 either way): 0.8.1 solving every frame 24.6 ms (max 37.0), every other 14.1; 0.8.2 every
 frame 20.8 (max 31.4), every other 12.4 (max 31.2), about what the aim at 6 m costs (8 ms).
 A frame that solves is still about 31 ms of update; at 6 m the plan solves every frame.
+
+The result of record, 0.9.8 build 9 (ms; the first column has no "aim d-pad" row):
+
+| Row | 0.8.1 | 0.8.1 + every other frame | 0.8.2 + every other frame |
+|---|---|---|---|
+| plan.solve 1 / 1.5 / 3 / 8 m / drill | 24.7 / 2.70 / 3.01 / 4.40 / 6.82 | 25.8 / 2.75 / 3.06 / 4.45 / 6.85 | 22.6 / 2.61 / 2.84 / 4.05 / 6.23 |
+| aim, replan every frame, 1 m / 6 m | 30.1 / 5.12 | 31.6 / 5.06 | 27.9 / 4.89 |
+| aim d-pad 1 m, every frame / every other | | 24.6 / 14.1 | 20.8 / 12.4 |
+| aim d-pad 6 m (solves every frame) | | 8.5 | 8.1 |
+| computer choice, club: base / toss / field | 16.5 / 22.6 / 14.1 | 16.8 / 23.8 / 14.2 | 15.3 / 22.4 / 13.3 |
+| new match / save / resume | 80 / 72 / 137 | 81 / 73 / 139 | 80 / 72 / 137 |
+| throw frame mean: cluster 5m / 1m / 8 m base / drill | 61.3 / 55.2 / 53.2 / 43.8 | 61.7 / 55.8 / 53.2 / 44.3 | 61.3 / 55.9 / 53.4 / 43.5 |
+| toppled: cluster 5m / 1m / 8 m base / drill | 2 / 1 / 1 / 0 | the same | the same |
+| memory after a full collection (KB) | 1351 | 1354 | 1354 |
 
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
