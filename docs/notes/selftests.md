@@ -86,8 +86,10 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   BY HAND), its first kubb at once and the second after the wait, the `-raise` file
   written; A's raise at turn 4 resumed from the datastore raises by itself with no pass
   card (frame 3), then BY HAND deletes the file, brings the pass card and the rest are
-  raised with A; then VS PLAYDATE, A's raise with no card, all by itself. Each part must
-  leave the same pitch and score sheet as `g:raise(nil)` on a copy.
+  raised with A; then VS PLAYDATE, A's raise with no card, all by itself, a resign after it
+  still the player's. Each part must leave the same pitch and score sheet as `g:raise(nil)`
+  on a copy. Last, PASS + PLAY resumed into A's automatic raise: Match: resign there is B's
+  (B, the attacker, holds the Playdate; frame 4), A wins, and the game file is gated.
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
   right-hand end); all the way up must stand it on that end's footprint.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
