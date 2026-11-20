@@ -8,8 +8,8 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
 The title (`scenes/title.lua`, Woodcut look below) offers "VS PLAYDATE" (a match against
 the computer), "PASS + PLAY" (the match) and "PRACTICE" (the drills menu, whose OPEN PITCH
 is the practice pitch); `main.lua` opens one
-scene at a time and rebuilds the System Menu for it (Level, Record, then the scene's
-own item). Practice is the throw scene exactly as before.
+scene at a time and rebuilds the System Menu for it (Level, then the scene's
+own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is the throw scene exactly as before.
 
 - `core/frame.lua`: the thrower's view frame. Team B's throws are made in the pitch turned
   180 degrees about its center, `(x, y) -> (-x, 8 - y)`, angles + pi, quaternions

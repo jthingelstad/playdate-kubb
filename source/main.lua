@@ -6,15 +6,17 @@
 -- play, scenes/match) or "PRACTICE" (scenes/throw: endless practice from the
 -- baseline).
 --
--- System Menu (at most three items; the third is the scene's own):
+-- System Menu (at most three items; the last is the scene's own). Crank
+-- traces are not in it: each swing's crank samples are appended to
+-- traces.jsonl in the Data folder (replay with kubb-engine
+-- tools/replay_traces) only while the "debug" file is there (Jamie's
+-- Settings sheet, 2026-11-20: "yes this is debug info, move it.");
+-- self-tests leave it off.
 --   "Level"    the throw level (beginner, club, pro: tw.plan.levels): how wide
 --              the clock's targets are and how much a miss costs (DESIGN 4
 --              "Throw levels"); kept in the datastore "level", club by default.
 --              The throw scene reads it through throw.levelFor (a named
 --              player's level can take its place later)
---   "Record"   append each swing's crank samples to traces.jsonl in the
---              Data folder (replay with kubb-engine tools/replay_traces). On by
---              default while the throw is being tuned; self-tests leave it off.
 --   "Pitch"    practice only: play (nothing) / how to (HOW TO THROW over the
 --              pitch, core/howto; chosen while it runs, it ends it) / crank
 --              (see below) / reset (stand every piece back
@@ -162,11 +164,13 @@ else
 	local pending = nil              -- a scene to open on the next frame (from a menu callback)
 	local open, savedMatch
 
-	tw.recorder.on = true
 	tw.framelog.on = true
 	-- "debug" in the Data folder shows the developer's items (the practice
-	-- pitch's "Pitch: readout" and "bench"). Read once at launch.
+	-- pitch's "Pitch: readout" and "bench") and records the crank traces
+	-- (recorder.lua). Read once at launch. Without it nothing is written to
+	-- traces.jsonl, and the traces already there are left as they are.
 	tw.debug = playdate.file.exists("debug")
+	tw.recorder.on = tw.debug
 	local menu = playdate.getSystemMenu()
 
 	-- The throw scene of the current scene (the match keeps one inside).
@@ -203,17 +207,13 @@ else
 		if not tw.selftestRun then playdate.datastore.write({ seen = 2 }, "howto") end
 	end
 
-	-- Level and Record on every scene, then the scene's own options item,
+	-- Level on every scene, then the scene's own options item,
 	-- whose choice acts when the menu closes and then reads "play" again.
 	local function sceneMenu()
 		menu:removeAllMenuItems()
 		menu:addOptionsMenuItem("Level", tw.plan.LEVELS, throw.level, function(v)
 			throw.level = v
 			playdate.datastore.write({ level = v }, "level")
-		end)
-		menu:addCheckmarkMenuItem("Record", tw.recorder.on, function(on)
-			tw.recorder.on = on
-			tw.recorder.clear()
 		end)
 		local item
 		if kind == "practice" then

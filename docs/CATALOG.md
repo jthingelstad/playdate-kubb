@@ -33,7 +33,7 @@ is asked how the rule applies (catalog-submissions@play.date).
 | A match resumes after a relaunch | done (B RESUME on the title) |
 | Data folder stays small | done: traces and frame logs are each kept to about 1 MB (`logcap`) |
 | No network, no accelerometer | done |
-| Before the Catalog build | turn Record and the frame log off by default and keep them behind the `debug` file, so a buyer's System Menu has no developer item; raise the version to 1.0.0 |
+| Before the Catalog build | turn the frame log off by default and keep it behind the `debug` file (crank traces moved there on 2026-11-20, with the System Menu's Record item gone), so a buyer's System Menu has no developer item; raise the version to 1.0.0 |
 
 ## Listing assets
 

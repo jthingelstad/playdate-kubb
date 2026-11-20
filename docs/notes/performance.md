@@ -115,8 +115,8 @@ empty file named `nolock` in the same Data folder: while it is there the game ne
 auto-locks (`main.lua` reads it once at launch). Delete it when the testing is done.
 
 An empty file named `debug` in the same Data folder shows the developer's items on the
-practice pitch's System Menu "Pitch": "readout" and "bench" (`tw.debug`, read once at
-launch). Without it a player sees only play, how to, reset, drill, batons, the surfaces and
+practice pitch's System Menu "Pitch": "readout" and "bench", and records the crank traces
+("Crank traces" below) (`tw.debug`, read once at launch). Without it a player sees only play, how to, reset, drill, batons, the surfaces and
 title (RC review, 2026-11-15: a stranger could start the bench, which cannot be stopped).
 
 ## Drawing speed
@@ -240,13 +240,17 @@ picture behind the physics. The `flight` self-test reads its line back.
 
 ## Crank traces
 
-The System Menu has "Record" (and the practice pitch's "Pitch: readout", the debug line
-after each throw). Record is
-on by default while the throw is being tuned (self-tests leave it off). With
-Record on, every swing is appended as one JSON line to `traces.jsonl` in the game's Data
-folder (Simulator: `~/Developer/PlaydateSDK/Disk/Data/com.throwingwood.playdate/`). It
-stays on in the builds for players (their recordings are how the throw gets tuned), so the
-file is capped: past `logcap.maxBytes` (1 MB, about 750 swings) it becomes
+Traces are recorded only while the `debug` file is in the game's Data folder at launch
+(above; Jamie's Settings sheet, 2026-11-20: "yes this is debug info, move it."). Until
+then the System Menu had a "Record" item, on by default; it is gone, and a player's
+System Menu has no recording switch. Self-tests leave it off. To collect traces: put an
+empty file named `debug` in the Data folder (on the device: `pdutil <port> datadisk`,
+then `Data/com.throwingwood.playdate/` on the PLAYDATE disk; Simulator:
+`~/Developer/PlaydateSDK/Disk/Data/com.throwingwood.playdate/`), relaunch the game, throw,
+and copy `traces.jsonl` (and `traces-1.jsonl`) off. Every swing is appended as one JSON
+line to `traces.jsonl`. Without the file nothing is written, and traces already on a
+device stay where they are, never deleted (a device that recorded before this keeps its
+files). The file is capped: past `logcap.maxBytes` (1 MB, about 750 swings) it becomes
 `traces-1.jsonl`, replacing an older one, and a new one starts (`source/logcap.lua`;
 checked before each line; at most about 4 MB of logs in all). Read both when collecting.
 The format is documented at the top of `source/core/trace.lua` (samples are

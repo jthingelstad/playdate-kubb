@@ -1,6 +1,6 @@
 -- Crank trace recorder: appends one JSON line per swing to traces.jsonl in
--- the game's Data folder (format in core/trace.lua). On by default; the
--- System Menu's "Record" turns it off. logcap keeps the file to about 1 MB
+-- the game's Data folder (format in core/trace.lua). Off unless the "debug"
+-- file is in the Data folder at launch (main.lua). logcap keeps the file to about 1 MB
 -- (older lines in traces-1.jsonl). kubb-engine's tools/replay_traces.lua replays it.
 import "core/tw"
 import "logcap"

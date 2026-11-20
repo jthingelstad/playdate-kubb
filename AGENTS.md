@@ -120,7 +120,7 @@ notation, physics, throwing order and tunables are kubb-engine's (its `AGENTS.md
   to a Playdate plugged in over USB: do not unplug or reboot it. Screenshots for Jamie are
   the 2x frames.
 - **On the device**: the flag files `autobench`, `perfbench`, `soak`, `nolock` and `debug`
-  go in the game's Data folder. Read `bench.txt` and `perf.txt` and delete them when done, delete `nolock` when the
+  go in the game's Data folder (`debug` also records the crank traces, `traces.jsonl`). Read `bench.txt` and `perf.txt` and delete them when done, delete `nolock` when the
   testing is done, and never touch `traces.jsonl`, `frames.jsonl` or `games/` (players'
   recordings and games).
 
