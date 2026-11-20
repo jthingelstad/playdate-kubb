@@ -223,6 +223,32 @@ wind will not show in it).
 In first person the arc is nearly edge-on (a line up the middle of the screen through the
 circle); the plan view below shows it as an arc. `arc = false` turns the arc off.
 
+On a short baton the arc starts at the plan's hand, not the feet (`arcOrigin`, "The short
+throw").
+
+## The short throw
+
+Since Kubb Engine 0.8 (vendored 2026-11-20 at v0.8.1) a baton at a target nearer than
+`flight.tune.nearM` (2 m) is planned as a firm bowl from a low hand: `plan.solve` gives
+`handZ` (lower than `handHeight`), `handFwd` (ahead of the feet) and `handTip` (the baton
+tipped toward the target) from `flight.handAt` of the planned distance, and a flatter
+release (`loftShare`). Jamie (2026-11-20): a kubb a step away is hit low and hard, usually
+into a cluster, and overpowering it misses; `plan.launch` heaves an overpowered short bowl
+up (`flight.tune.nearOverLoft`). From 2 m out the hand is the feet at `handHeight`,
+exactly as before, so every longer throw, the computer's throws (it never stands nearer
+than 2 m) and the drills are unchanged.
+
+The crank does not change: the wind-up and the stop are measured as always
+(`core/swing`) and read against the plan (`plan.launch`). What the game adds is the
+launch: `fire` passes the plan's hand to `flight.launch` and `world.launchBaton` (the
+player's throw from `launch`, the computer's from `a.plan`), and the aim arc starts
+there. Before this the game launched every baton from the feet, so a crank throw at a kubb
+a step away came down on its top and left it standing (the perfbench's "cluster 1m"
+toppled none on 0.5.1). `tests/lua/test_shortthrow.lua` feeds crank samples through
+`core/swing` and `plan.launch` at 0.5 to 1.5 m (the clean swing topples a kubb square and
+one turned 45 degrees; three power bands long misses; from 2 m the hand is the feet), and
+the self-tests `short-throw` and `short-over` throw the real scene at a kubb 1 m away.
+
 ## The aim camera
 
 Jamie (2026-11-15, after play-testing the over-the-shoulder crane): "when throwing a baton

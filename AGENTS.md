@@ -38,8 +38,12 @@ stands, the listing assets and the accessibility disclosure).
 - `make release`: a clean build zipped as `build/ThrowingWood-<version>.pdx.zip`, for
   friends to sideload (play.date/account/sideload). Raise `version` and `buildNumber` in
   `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
-  `source/device/version.lua` (`tw.version`, shown on the title). pdxinfo is the source of
-  truth; `test_version.lua` fails when the two disagree, and `make release` runs it first.
+  `source/device/version.lua` (`tw.version`). pdxinfo is the source of truth;
+  `test_version.lua` fails when the two disagree, and `make release` runs it first. The
+  title shows the game's version with the Kubb Engine's in parentheses, `0.9.8 (0.8.1)`
+  (`tw.version.text`; the engine's from `source/engine/version.lua`). The build number is
+  not in the label: it stays in pdxinfo and `tw.version.build`, and the bench logs print it
+  on its own as `build 9`.
   The zip is published on files.thingelstad.com and linked from
   https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository). Each release so
   far: `docs/notes/releases.md`.
@@ -62,13 +66,15 @@ nothing else without asking.
 ## The core is vendored
 
 - `source/core/` is the Kubb Engine's `core/` (`jthingelstad/kubb-engine`) at the release
-  tag in `engine-core.json`, byte for byte. Never edit `source/core`. Fix behaviour in
+  tag in `engine-core.json`, byte for byte, and `source/engine/version.lua` is the engine's
+  `version.lua` at the same tag (`tw.engine.version`, the version the title shows). Today:
+  v0.8.1. Never edit `source/core` or `source/engine`. Fix behaviour in
   kubb-engine, release it there as a tag, then `make vendor-sync TAG=vX.Y.Z` here (it
   reads the tag from the checkout `../kubb-engine` or `$KUBB_ENGINE` through git, never
   its working tree, and refuses files that disagree with the tag's `engine.json`). Never
   write in the kubb-engine checkout from here.
-- `make vendor-check` (in `make test` and CI) fails when `source/core` differs from
-  `engine-core.json`; with an engine checkout present it also checks `engine-core.json`
+- `make vendor-check` (in `make test` and CI) fails when `source/core` or
+  `source/engine/version.lua` differs from `engine-core.json`; with an engine checkout present it also checks `engine-core.json`
   against the tag.
 - The core's rules (pure Lua, no `playdate.*`, no tables per physics step, tolerances not
   bit-exact) and its notes, tests and tools are in kubb-engine's `AGENTS.md`.
@@ -113,8 +119,8 @@ notation, physics, throwing order and tunables are kubb-engine's (its `AGENTS.md
   after writing `DONE` is not a failure; a run with no marker is. The Simulator connects
   to a Playdate plugged in over USB: do not unplug or reboot it. Screenshots for Jamie are
   the 2x frames.
-- **On the device**: the flag files `autobench`, `soak`, `nolock` and `debug` go in the
-  game's Data folder. Read `bench.txt` and delete it when done, delete `nolock` when the
+- **On the device**: the flag files `autobench`, `perfbench`, `soak`, `nolock` and `debug`
+  go in the game's Data folder. Read `bench.txt` and `perf.txt` and delete them when done, delete `nolock` when the
   testing is done, and never touch `traces.jsonl`, `frames.jsonl` or `games/` (players'
   recordings and games).
 
@@ -132,7 +138,8 @@ only point there, and the core's tools and tests that older notes cite are the e
   throw levels. Before touching the players screens or the datastore files.
 - `docs/notes/selftests.md`: running the Simulator, film mode, the helpers and every
   scenario. Before adding or changing a self-test.
-- `docs/notes/performance.md`: Measuring on the device (autobench, soak, flag files),
+- `docs/notes/performance.md`: Measuring on the device (autobench, the performance check,
+  soak, flag files),
   Drawing speed (caches, layers, plates, the clock), Frame-time log, Crank traces. Before
   touching `render/`, the HUD, or anything on a per-frame path.
 - `docs/notes/drills.md`: Practice drills, Throw scene practice, Drilling. Before touching
