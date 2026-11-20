@@ -40,10 +40,10 @@ stands, the listing assets and the accessibility disclosure).
   `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
   `source/device/version.lua` (`tw.version`). pdxinfo is the source of truth;
   `test_version.lua` fails when the two disagree, and `make release` runs it first. The
-  title shows the game's version with the Kubb Engine's in parentheses, `0.9.8 (0.8.2)`
+  title shows the game's version with the Kubb Engine's in parentheses, `0.10.0 (0.9.0)`
   (`tw.version.text`; the engine's from `source/engine/version.lua`). The build number is
   not in the label: it stays in pdxinfo and `tw.version.build`, and the bench logs print it
-  on its own as `build 9`.
+  on its own as `build 10`.
   The zip is published on files.thingelstad.com and linked from
   https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository). Each release so
   far: `docs/notes/releases.md`.
@@ -68,7 +68,7 @@ nothing else without asking.
 - `source/core/` is the Kubb Engine's `core/` (`jthingelstad/kubb-engine`) at the release
   tag in `engine-core.json`, byte for byte, and `source/engine/version.lua` is the engine's
   `version.lua` at the same tag (`tw.engine.version`, the version the title shows). Today:
-  v0.8.2. Never edit `source/core` or `source/engine`. Fix behaviour in
+  v0.9.0. Never edit `source/core` or `source/engine`. Fix behaviour in
   kubb-engine, release it there as a tag, then `make vendor-sync TAG=vX.Y.Z` here (it
   reads the tag from the checkout `../kubb-engine` or `$KUBB_ENGINE` through git, never
   its working tree, and refuses files that disagree with the tag's `engine.json`). Never
