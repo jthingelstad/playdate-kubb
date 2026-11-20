@@ -11,7 +11,12 @@
 -- gives it back: the "-raise" file is gone, the pass card comes, and the
 -- rest are raised by hand with A. Frame 3: the automatic view of the resumed
 -- match.
--- Part 3, VS PLAYDATE, A's raise at turn 4: no card, B raises them all.
+-- Part 3, VS PLAYDATE, A's raise at turn 4: no card, B raises them all;
+-- Match: resign after it is the player's, as always.
+-- Part 4, PASS + PLAY resumed into A's raise at turn 4 while the game raises:
+-- no pass card, so B (the attacker) holds the Playdate, and Match: resign
+-- is B's (scene.holder): A wins, and the game file is gated (file=...).
+-- Frame 4: the automatic raise at the resign.
 -- The check, each part: every kubb stands where the same match raised by
 -- hand on the engine's ends (g:raise(nil) on a copy) stands it, and the
 -- score sheet is the same line for line. Self-test keys only
@@ -193,10 +198,47 @@ tw.selftest.scenarios["auto-raise"] = {
 				local n = raiseAllByHand(ctx.hand)
 				same(ms.m, ctx.hand, "VS PLAYDATE")
 				ctx.note = ctx.note .. "; vs Playdate: " .. n .. " by itself"
+				-- VS PLAYDATE: a resign while the Playdate raises is still the player's
+				scene.resign(ms)
+				if ms.resignSide ~= "A" then error("VS PLAYDATE: the resign went to " .. tostring(ms.resignSide)) end
+				ms.resignWanted = false
+				clean()
+				-- part 4: PASS + PLAY, a match resumed into A's raise at turn 4 while the
+				-- game raises (no pass card: B, the attacker, still holds the Playdate);
+				-- Match: resign then is B's, and A wins
+				local m4 = cmatch.new { start = START, teams = TEAMS }
+				toTurn3(m4.game)
+				while m4.game:need().kind == "raise" do m4.game:raise(nil) end
+				toTurn4(m4.game)
+				playdate.datastore.write({ start = "2026-11-20 21:5", raise = "auto" }, scene.raiseKey(scene.saveKey()))
+				ctx.ms = scene.new(tw.input.scripted { { n = 400 } }, { teams = TEAMS, resume = m4 })
+				scene.enter()
+				if not ctx.ms.autoRaise.on or ctx.ms.settleCard then error("resign part: not raising by itself") end
+				if scene.holder(ctx.ms) ~= "B" then error("resign part: the holder is " .. tostring(scene.holder(ctx.ms))) end
+				ctx.part, ctx.p4 = 4, f
+			end
+			if f - ctx.p3 > 200 then error("VS PLAYDATE: A's raise not done") end
+			return false
+		end
+		if ctx.part == 4 then
+			local k = f - ctx.p4
+			if k == 3 then
+				if ms.phase ~= "settle" then error("resign part: the raise ended before the resign") end
+				scene.resign(ms)
+				if ms.resignSide ~= "B" then error("resign during the game's raise went to " .. tostring(ms.resignSide)) end
+				ctx:capture()
+			end
+			if ms.settleCard then error("resign part: a pass card") end
+			if ms.phase == "over" then
+				local g = ms.m.game
+				if g.winner ~= "A" then error("B resigned, but the winner is " .. tostring(g.winner)) end
+				if not ms.file then error("no game file: " .. tostring(ms.fileError)) end
+				if raiseFile() then error("the finished match left its -raise file") end
+				ctx.note = ctx.note .. "; resign in the game's raise: B's, A won, file=" .. ms.file
 				clean()
 				return true
 			end
-			if f - ctx.p3 > 200 then error("VS PLAYDATE: A's raise not done") end
+			if k > 300 then error("resign part: not over (" .. ms.phase .. ")") end
 			return false
 		end
 	end,

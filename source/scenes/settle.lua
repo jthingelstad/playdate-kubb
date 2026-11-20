@@ -2,7 +2,9 @@
 -- boards Raising.png and Punish.png, which are sketches: the calls here are
 -- this module's). The defending team does both, between the attacker's kubb
 -- tosses and its batons; the rail names that team, so it is clear who holds
--- the Playdate.
+-- the Playdate. (While REST OF GAME raises for it in PASS + PLAY the
+-- attacker still holds it, with no pass card; the rail goes on naming the
+-- team whose kubbs are raised: scenes/match, scene.holder.)
 --
 -- Raise: a 3D close-up of the lying kubb (render/world, in the defender's
 -- view frame, from behind and above), the kubbs and king nearby, and on the

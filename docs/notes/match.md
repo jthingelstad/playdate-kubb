@@ -138,6 +138,10 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   both to the engine with no view. In PASS + PLAY the pass card waits while the game is
   raising: it comes before the first thing the defender does by hand (a punishment kubb,
   or the rest of the raises after BY HAND), so a turn with only raises never changes hands.
+  Until that card the attacker holds the Playdate, so Match: resign then is the attacker's
+  (`scene.holder`: in the settle phase the defender's only once its card has been shown;
+  a match resumed into an automatic raise has had no card either); the rail goes on naming
+  the team whose kubbs are raised.
   Against the Playdate the Playdate raises its own as before. Saved: core/save keeps only
   the options it knows, so the choice is a datastore file beside the match,
   `<save key>-raise` ("match-raise"; "selftest-match-raise" in self-tests), `{ start = the

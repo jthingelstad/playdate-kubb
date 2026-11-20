@@ -415,6 +415,19 @@ local function openSheet(s)
 		string.upper(cmatch.teamName("A", g) .. " V " .. cmatch.teamName("B", g)), right, true)
 end
 
+-- The team holding the Playdate in PASS + PLAY: the thrower's, but in the
+-- settle phase the defender's only once its pass card has been shown (the
+-- Playdate goes to the defender with it). While REST OF GAME raises with no
+-- card (scenes/settle), and in a match resumed into such a raise, the
+-- Playdate has not changed hands: the attacker's.
+function scene.holder(s)
+	if s.phase == "settle" then
+		if s.settleCarded then return s.settle.side end
+		return s.m.game.attacker
+	end
+	return s.setup and s.setup.side
+end
+
 -- System Menu "Match: resign": the team holding the Playdate resigns once
 -- nothing is in the air. If that throw was its last and the turn has passed
 -- by then, the request is dropped: a team resigns only on its own turn.
@@ -428,9 +441,11 @@ function scene.resign(s)
 			-- the player's own turn
 			s.resignSide, s.resignWait = (s.cpu == "A") and "B" or "A", true
 		else
-			-- while the defender raises it holds the Playdate: the resign is
-			-- theirs, and waits for their own turn (the rules allow no other)
-			s.resignSide = (s.phase == "settle") and s.settle.side or s.setup.side
+			-- the team holding the Playdate (scene.holder): while the defender
+			-- raises by hand it is the defender's, and waits for its own turn
+			-- (the rules allow no other); while the game raises with no pass
+			-- card the attacker still holds it, and it is the attacker's
+			s.resignSide = scene.holder(s)
 			s.resignWait = s.phase == "settle"
 		end
 	end
