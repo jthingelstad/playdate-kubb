@@ -142,14 +142,16 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   (`scene.holder`: in the settle phase the defender's only once its card has been shown;
   a match resumed into an automatic raise has had no card either); the rail goes on naming
   the team whose kubbs are raised.
-  Against the Playdate the Playdate raises its own as before. Saved: core/save keeps only
-  the options it knows, so the choice is a datastore file beside the match,
-  `<save key>-raise` ("match-raise"; "selftest-match-raise" in self-tests), `{ start = the
-  match's start, raise = "auto" }`, written when B turns it on, deleted by BY HAND and when
-  the match ends; a resumed match raises for itself only when the file names its start
-  (`scene.raiseKey`, `persistRaise`, `resumedRaise`), so a file left from an abandoned
-  match does nothing. A rematch starts by hand. When core/save keeps it (engine 0.9), it
-  moves into the save's `opts`.
+  Against the Playdate the Playdate raises its own as before. Saved: since engine 0.9 the
+  choice is in the save itself (core/save's `autoRaise`, true or absent), written at once
+  when B turns it on and when BY HAND turns it off, and passed back to the match on a
+  resume (`opts.autoRaise`). Builds before 0.10.0 kept it in a datastore file beside the
+  match, `<save key>-raise` ("match-raise"; "selftest-match-raise" in self-tests),
+  `{ start = the match's start, raise = "auto" }`. A match resumed from such a build reads
+  that file once (`oldRaiseFile`): it raises for itself when the file names its start (a
+  file left from an abandoned match does nothing), and the file is deleted right after the
+  next save, which carries the choice, so it is never in neither place. A rematch starts
+  by hand.
 - Names (`scenes/names.lua`, board `Names.png`; pure rules in `core/names.lua`, tested):
   PASS + PLAY asks for both teams' names, VS PLAYDATE for the player's, on the board's
   black panel beside the Playdate's system keyboard (`playdate.keyboard`): whose name it
@@ -167,8 +169,14 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   every match (PASS + PLAY and VS PLAYDATE). Four rows: SURFACE (grass, sand, snow),
   OPENING (2-4-6, or six from the start), RAISING (by hand, or automatic: the engine's
   policies, `autoSettle`; against the Playdate "by hand" is the player's side only, as
-  before) and WIND (off, light, strong; "Wind"); the core's SET row is not shown on
-  the Playdate ("Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
+  before), WIND (off, light, strong; "Wind") and, against the Playdate only, COMPUTER
+  (beginner, club, pro; club by default): the Playdate's throw level, a match option since
+  engine 0.9 (Jamie, 2026-11-20: "yes this should be a real per game setting"). The level
+  goes on the Playdate's player in the lineup (`cpuLevel` in `scenes/match`), so its throws
+  (`throw.levelFor`), the game file's [Throw Levels] and a resume carry it. A person's own
+  level stays theirs: their roster entry's, else the System Menu's "Level". A match saved
+  before 0.10.0 has no level on the Playdate's player and goes on at the System Menu's, as
+  it did. The core has no SET row since 0.9 ("Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
   a line under the rows says what the row is for; A starts, B goes back to the names. The
   choice is kept (`playdate.datastore` "matchopts", `matchopts.valid` on reading) and
   offered next time. `main.lua`: title -> `names` -> `options` -> `play`; a rematch keeps
@@ -216,8 +224,12 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   included; its kubbs are drilled ("The throw"). It raises
   and places punishment kubbs with the engine's policies (no settle screen); the player
   settles by hand. No hand-off card before the Playdate's turn. The System Menu resign is
-  always the player's and waits for the player's turn. Self-test `match-vs` (a whole
-  match, the player's throws seeded, its game file gated).
+  always the player's and waits for the player's turn. It throws at the match option
+  COMPUTER, on its lineup entry (see "Match options"). Its batons leave the hand of their
+  own plan (`fire` with `a.plan`'s `handZ`, `handFwd`, `handTip`), not through
+  `autothrow.launch`, so the 0.9 note about that call's hand changes nothing here. Self-test
+  `match-vs` (a whole match at COMPUTER pro with the System Menu on beginner, the player's
+  throws seeded, its game file gated and naming the computer pro).
 - Kubb toss: a drilled kubb, always from the baseline ("Drilling"); a kubb with no
   `a.drill` from the computer is lobbed (`world.launchKubb`, end over end, no tilt), drawn
   as one more box item.
@@ -270,15 +282,14 @@ had cost a tenth of the shown speed on the device. That code, the `sets` self-te
 autobench's USA and Wisconsin cases and the soak's set per match are gone; the history is
 in git before this change.
 
-The SET row comes from the vendored core (`core/matchopts.list`), which is not edited
-here: `scenes/options` leaves it out (`scene.hidden`, `scene.rows`) and its `apply` drops
-`opts.set`, so a new match has none. Saved data from a build with SET still loads and is
-never rewritten to drop it: a kept "matchopts" choice keeps its `set` number as it was
-(unshown, written back unchanged with the rest), and a match saved with `opts.set` resumes,
-plays and carries the field on in its saves without drawing it. No game file ever had a set
-in it. Self-test `set-save`. For engine 0.9: the core's `matchopts` should say which rows
-each client shows (or move SET to the web's and iPhone's own rows), so the Playdate can
-drop its filter.
+Since engine 0.9 the core's `matchopts` has no SET row (sets are the web's and the iPhone's,
+through the room's options) and `matchopts.apply` sets no `opts.set`, so `scenes/options`
+has no filter of its own. Saved data from a build with SET still loads: a kept "matchopts"
+choice keeps its other choices (`matchopts.valid` reads only the rows it has, so the set
+number is dropped the next time the choice is written), and a match saved with `opts.set`
+resumes, plays and carries the field on in its saves without drawing it (core/save writes
+what it was given). No game file ever had a set in it. Self-test `set-save`.
 
-The VS PLAYDATE opponent uses the System Menu throw level when its roster entry has no level.
+The VS PLAYDATE opponent throws at the match's COMPUTER level; a match saved before 0.10.0
+without one uses the System Menu throw level.
 The tagged engine gives Club and Pro their drill spin and baton turnover.

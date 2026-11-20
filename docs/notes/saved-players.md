@@ -75,8 +75,9 @@ the datastore part is `source/players.lua` (`tw.players`).
 - **The throw level** is the thrower's (docs/PLAYERS.md section 6): `throw.levelFor(s)`
   reads `s.level` before the System Menu's "Level". The match sets `s.ts.level` from
   `setup.thrower.level` for every throw (and again when the thrower is changed); a player
-  without one (a guest at the default, a match without saved players: nil) and the
-  Playdate's team fall back to the System Menu. Practice: left/right on the drills menu
+  without one (a guest at the default, a match without saved players: nil) falls back to
+  the System Menu. The Playdate's player has the match option COMPUTER as its level since
+  0.10.0 (engine 0.9); a VS PLAYDATE match saved before that has none and falls back too. Practice: left/right on the drills menu
   choose who is practising (NO PLAYER, then the roster; kept in datastore `practice`),
   shown on the menu's rail; a drill run and OPEN PITCH (`main.lua`,
   `drills.practiceLevel()`) throw at that player's level, and the run's record goes to

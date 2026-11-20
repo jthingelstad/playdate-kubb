@@ -70,8 +70,9 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
 - `options`: the match options driven by the d-pad (frames: the defaults, SNOW, the
   RAISING row); A must give snow, six from the start and automatic raising.
 - `set-save`: saved data from a build with the kubb set (match.md "Kubb sets"): a kept
-  options choice with SET on USA shows four rows (frame 1), keeps its set through every row
-  and gives the match none; a match saved with `set = "usa"` resumes (frame 2, its hand-off
+  options choice with SET on USA shows four rows in PASS + PLAY (frame 1), keeps its other
+  choices and gives the match no set and no computer level; VS PLAYDATE shows COMPUTER as
+  a fifth row (club by default, pro after a tap); a match saved with `set = "usa"` resumes (frame 2, its hand-off
   card), plays (frame 3), saves again with the set untouched, and its game file, written
   when the team on turn resigns, is gated.
 - `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
@@ -83,12 +84,13 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   it, and that the d-pad turned and zoomed without changing the end.
 - `auto-raise`: B REST OF GAME, six a side (match.md "Auto raise"): B's raise at turn 3
   after the pass card (frames: the raise view with REST OF GAME, the automatic view with
-  BY HAND), its first kubb at once and the second after the wait, the `-raise` file
-  written; A's raise at turn 4 resumed from the datastore raises by itself with no pass
-  card (frame 3), then BY HAND deletes the file, brings the pass card and the rest are
+  BY HAND), its first kubb at once and the second after the wait, `autoRaise` in the save
+  at once (no side file); A's raise at turn 4 resumed from the datastore raises by itself
+  with no pass card (frame 3), then BY HAND clears it in the save, brings the pass card and the rest are
   raised with A; then VS PLAYDATE, A's raise with no card, all by itself, a resign after it
   still the player's. Each part must leave the same pitch and score sheet as `g:raise(nil)`
-  on a copy. Last, PASS + PLAY resumed into A's automatic raise: Match: resign there is B's
+  on a copy. Last, PASS + PLAY resumed into A's automatic raise from an older build's
+  `-raise` side file (the first save carries it and the file is deleted): Match: resign there is B's
   (B, the attacker, holds the Playdate; frame 4), A wins, and the game file is gated.
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
   right-hand end); all the way up must stand it on that end's footprint.
@@ -123,7 +125,9 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   back with its plan), `helicopter` (a stuttered flick at Pro), `aim-center`, `aim-arc`
   (first person and the plan view for targets across the half, every release and stances
   at both ends: "The aim camera"), `camera-swing` (B held and let go, a baton's and a
-  drill's; its note counts the aim frames' graphics calls, camera still and moving), `clock-gauge` (the clock's states drawn alone, cache on and
+  drill's; its note counts the aim frames' graphics calls, camera still and moving), `plan-ticks` (B + the d-pad: a tap is one tick of arc, tilt or
+  spin, held it slides a tick a frame to the end of the range; frames: the plan view after
+  the slide, SPIN R 0.25; a kubb's spin kept for the side's next kubb in the inkast turn), `clock-gauge` (the clock's states drawn alone, cache on and
   off), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
   `howto-play` (HOW TO PLAY's six cards and the hand-off into HOW TO THROW: "HOW TO
   PLAY" below).
