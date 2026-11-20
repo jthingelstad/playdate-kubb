@@ -121,6 +121,31 @@ own item). Practice is the throw scene exactly as before.
   still parts are one image redrawn only on a change. Scripted matches (`seed`,
   `instant`, or `autoSettle` in the scene's options) leave both to the engine
   (`match.setup`). Self-tests `settle` and `settle-crank`.
+- Auto raise (Jamie's Settings sheet, 2026-11-20: "yes this should be on all platofrms."):
+  the raise view's third plaque, **B REST OF GAME** (the web's and the iPhone's REST OF
+  GAME button), raises the kubb on screen at once on the engine's own end, whatever the
+  crank had tipped toward, and hands every raise after it to the game for the rest of the
+  match: both teams' raises, this turn's and every later one's, as the web's MENU, Raising
+  does (one setting for the match on the device, not one per team). Each automatic raise
+  shows its kubb for `settle.tune.autoWait` (0.7 s, the web's wait) with **B BY HAND** and
+  RAISING FOR THE REST OF THE GAME, then makes the call A makes on the engine's end
+  (`g:raise(choice)` with the choice the view started on, `raising.choose` under
+  `g.raisePolicy`, which is what `g:raise(nil)` picks), so the pitch, the score sheet and
+  the game file are exactly a match raised by hand without the crank (self-test
+  `auto-raise` checks it against `g:raise(nil)` on a copy). B BY HAND gives the raising
+  back, starting with the kubb on screen. Punishment kubbs are still placed by hand (the
+  web's does the same); the match option RAISING: AUTOMATIC (`autoSettle`) still leaves
+  both to the engine with no view. In PASS + PLAY the pass card waits while the game is
+  raising: it comes before the first thing the defender does by hand (a punishment kubb,
+  or the rest of the raises after BY HAND), so a turn with only raises never changes hands.
+  Against the Playdate the Playdate raises its own as before. Saved: core/save keeps only
+  the options it knows, so the choice is a datastore file beside the match,
+  `<save key>-raise` ("match-raise"; "selftest-match-raise" in self-tests), `{ start = the
+  match's start, raise = "auto" }`, written when B turns it on, deleted by BY HAND and when
+  the match ends; a resumed match raises for itself only when the file names its start
+  (`scene.raiseKey`, `persistRaise`, `resumedRaise`), so a file left from an abandoned
+  match does nothing. A rematch starts by hand. When core/save keeps it (engine 0.9), it
+  moves into the save's `opts`.
 - Names (`scenes/names.lua`, board `Names.png`; pure rules in `core/names.lua`, tested):
   PASS + PLAY asks for both teams' names, VS PLAYDATE for the player's, on the board's
   black panel beside the Playdate's system keyboard (`playdate.keyboard`): whose name it
