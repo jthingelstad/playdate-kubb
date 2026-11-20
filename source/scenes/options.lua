@@ -1,14 +1,13 @@
 -- The match options (Jamie, 2026-11-14): after the names, before every match
--- (PASS + PLAY and VS PLAYDATE): the surface, the opening and who stands the
--- thrown-in kubbs up, and the wind. Rows from core/matchopts, but for its SET
--- (the kubb set): sets are a look for the web and the iPhone only (Jamie's
--- Settings sheet, 2026-11-20: "We exclude Playdate here becaue the black &
--- white display and size of display makes this irrelevnat, plus the CPU
--- cannot handle it."), so the row is not shown and the match is given no set.
+-- (PASS + PLAY and VS PLAYDATE): the surface, the opening, who stands the
+-- thrown-in kubbs up and the wind; against the Playdate also COMPUTER, its
+-- throw level (a match option since core 0.9; a person's own level stays the
+-- System Menu's). Rows from core/matchopts, which has no kubb set since 0.9
+-- (sets are a look for the web and the iPhone only). A kept choice from an
+-- older build that still holds a set loads all the same (matchopts.valid).
 -- Up/down choose a row, left/right change its value, A starts the match, B
 -- goes back to the names. The choice is kept (playdate.datastore
--- "matchopts") and offered next time; a set a kept choice holds stays in it
--- as it was, unshown.
+-- "matchopts") and offered next time.
 -- One image, redrawn only on a change.
 import "CoreLibs/graphics"
 import "core/tw"
@@ -39,14 +38,18 @@ scene.notes = {
 	opening = "2-4-6: TEAM A OPENS WITH 2, B WITH 4, THEN 6",
 	raising = "WHO STANDS UP THE KUBBS THROWN IN",
 	wind = "WIND PUSHES BATONS AND KUBBS IN THE AIR",
+	computer = "HOW WELL THE PLAYDATE THROWS",
 }
 scene.openingSix = "SIX: SIX BATONS A TURN FROM THE START"
 
--- the rows shown: core/matchopts' but the ones the Playdate leaves out
-scene.hidden = { set = true }
-scene.rows = {}
-for _, row in ipairs(matchopts.list) do
-	if not scene.hidden[row.key] then scene.rows[#scene.rows + 1] = row end
+-- the rows shown in each mode: core/matchopts' rows, COMPUTER only against
+-- the Playdate
+function scene.rowsFor(mode)
+	local rows = {}
+	for _, row in ipairs(matchopts.list) do
+		if row.key ~= "computer" or mode == "vs" then rows[#rows + 1] = row end
+	end
+	return rows
 end
 
 -- mode: "match" (PASS + PLAY) or "vs" (VS PLAYDATE). opts.scripted: nothing
@@ -54,7 +57,7 @@ end
 function scene.new(provider, mode, opts)
 	opts = opts or {}
 	local s = { input = provider, mode = mode, row = 1, img = nil, done = false, back = false,
-		scripted = opts.scripted }
+		scripted = opts.scripted, rows = scene.rowsFor(mode) }
 	local kept = (not s.scripted) and playdate.datastore.read(scene.tune.key) or nil
 	s.choice = matchopts.valid(kept)
 	return s
@@ -68,7 +71,7 @@ local function render(s)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, "MATCH OPTIONS", 6, 2, true)
 	ui.text(label, (s.mode == "vs") and "VS PLAYDATE" or "PASS + PLAY", 394, 2, true, "right")
-	for i, row in ipairs(scene.rows) do
+	for i, row in ipairs(s.rows) do
 		local y = t.top + (i - 1) * t.rowH
 		local chosen = (i == s.row)
 		if chosen then
@@ -91,7 +94,7 @@ local function render(s)
 			gfx.fillTriangle(rx + 8, cy, rx, cy - 6, rx, cy + 6)
 		end
 	end
-	local key = scene.rows[s.row].key
+	local key = s.rows[s.row].key
 	local note = scene.notes[key]
 	if key == "opening" and matchopts.value(s.choice, "opening") == "six" then note = scene.openingSix end
 	ui.text(label, note, t.labelX, t.noteY)
@@ -100,22 +103,22 @@ local function render(s)
 end
 
 -- The scenes/match options this screen makes, on top of `opts` (names, vs);
--- a hidden row's option is left out.
+-- the computer's level only against the Playdate.
 function scene.apply(s, opts)
 	matchopts.apply(opts, s.choice)
-	for key in pairs(scene.hidden) do opts[key] = nil end
+	if s.mode ~= "vs" then opts.computer = nil end
 	return opts
 end
 
 function scene.update(s)
 	local p = s.input
 	p:advance()
-	local n = #scene.rows
+	local n = #s.rows
 	if p:pressed("down") then s.row = s.row % n + 1; s.img = nil
 	elseif p:pressed("up") then s.row = (s.row - 2) % n + 1; s.img = nil end
 	local d = (p:pressed("right") and 1 or 0) - (p:pressed("left") and 1 or 0)
 	if d ~= 0 then
-		matchopts.step(s.choice, scene.rows[s.row].key, d)
+		matchopts.step(s.choice, s.rows[s.row].key, d)
 		s.img = nil
 	end
 	if p:pressed("a") then

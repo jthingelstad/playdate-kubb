@@ -1,8 +1,10 @@
 -- Scenario "set-save": saved data from before the kubb set left the Playdate
 -- (Jamie's Settings sheet, 2026-11-20; docs/notes/match.md "Kubb sets").
--- A kept match options choice with SET on USA opens on four rows (no SET),
--- every row stepped through keeps its set as it was, and the options it
--- gives carry no set (frame 1). A match saved in progress with set = "usa"
+-- A kept match options choice with SET on USA (core 0.9 has no SET row)
+-- opens on four rows in PASS + PLAY with its other choices kept (core
+-- matchopts.valid reads only its rows, so the set is dropped), every row is
+-- stepped through, and the options it gives carry no set and no computer level
+-- (frame 1); VS PLAYDATE adds COMPUTER, club unless chosen. A match saved in progress with set = "usa"
 -- reads back and resumes (frame 2, its hand-off card), draws the pitch
 -- (frame 3), saves again with the set it carried untouched, and plays to
 -- its end: the team on turn resigns and the game file is written; the
@@ -28,7 +30,8 @@ tw.selftest.scenarios["set-save"] = {
 			local kept = { surface = 2, opening = 1, raising = 1, set = 2, wind = 1 }
 			-- down through every row and back to the first, left/right on each
 			local steps = { { n = 1 } }
-			for _ = 1, #options.rows do
+			local rows = options.rowsFor("match")
+			for _ = 1, #rows do
 				steps[#steps + 1] = { press = { "right" } }
 				steps[#steps + 1] = { press = { "left" } }
 				steps[#steps + 1] = { press = { "down" } }
@@ -39,17 +42,26 @@ tw.selftest.scenarios["set-save"] = {
 			for _ = 1, #steps + 1 do options.update(s) end
 			options.draw(s)
 			ctx:capture()
-			if #options.rows ~= #matchopts.list - 1 then error(#options.rows .. " rows shown") end
-			for _, row in ipairs(options.rows) do
-				if row.key == "set" then error("the SET row is shown") end
+			if #s.rows ~= 4 then error(#s.rows .. " rows shown") end
+			for _, row in ipairs(s.rows) do
+				if row.key == "set" or row.key == "computer" then error("the " .. row.label .. " row is shown") end
 			end
 			if s.row ~= 1 then error("down through every row ended on row " .. s.row) end
-			if s.choice.set ~= 2 then error("the kept set was changed to " .. tostring(s.choice.set)) end
 			if matchopts.value(s.choice, "surface") ~= "Sand" then error("the kept surface was lost") end
 			local o = options.apply(s, {})
 			if o.set ~= nil then error("the options gave the match a set: " .. tostring(o.set)) end
 			if o.surface ~= "Sand" then error("the options lost the surface") end
-			ctx.note = "options: 4 rows, kept set 2 untouched"
+			if o.computer ~= nil then error("PASS + PLAY gave a computer level") end
+			-- VS PLAYDATE: COMPUTER is the fifth row, club unless chosen; right makes it pro
+			local v = options.new(tw.input.scripted { { n = 1 }, { press = { "up" } }, { press = { "right" } } }, "vs",
+				{ scripted = true })
+			v.choice = matchopts.valid(kept)
+			for _ = 1, 4 do options.update(v) end
+			if #v.rows ~= 5 or v.rows[5].key ~= "computer" then error("VS PLAYDATE: no COMPUTER row last") end
+			if matchopts.value(matchopts.valid(kept), "computer") ~= "club" then error("COMPUTER is not club by default") end
+			local ov = options.apply(v, { vs = "B" })
+			if ov.computer ~= "pro" then error("VS PLAYDATE: COMPUTER gave " .. tostring(ov.computer)) end
+			ctx.note = "options: 4 rows, surface kept, no set; vs: COMPUTER row 5, pro"
 
 			-- a match saved in progress with a set, as a build with SET wrote it
 			local m = cmatch.new { start = { year = 2026, month = 11, day = 20, hour = 22, min = 10 },
