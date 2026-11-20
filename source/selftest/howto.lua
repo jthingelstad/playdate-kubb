@@ -171,7 +171,7 @@ st.scenarios.howto = st.throwScenario {
 		if not seen.arcOn then return "the arc step's clean throw was not ON" end
 		if not (seen.moved and seen.moved >= tw.howto.tune.circleMove) then return "the circle moved " .. tostring(seen.moved) end
 		if not (seen.walked and seen.walked >= tw.howto.tune.walkMove) then return "walked " .. tostring(seen.walked) end
-		if seen.relNow ~= seen.rel + tw.plan.tune.arcStepDeg or seen.tilt ~= tw.plan.tune.tiltStepDeg then
+		if seen.relNow ~= seen.rel + tw.plan.tune.arcTickDeg or seen.tilt ~= tw.plan.tune.tiltTickDeg then
 			return "the plan step: release " .. tostring(seen.relNow) .. " tilt " .. tostring(seen.tilt)
 		end
 		if not seen.closed then return "A on the last step did not end it" end

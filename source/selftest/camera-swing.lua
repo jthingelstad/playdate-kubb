@@ -92,7 +92,7 @@ st.scenarios["camera-swing"] = {
 				err = planCheck(s, label)
 				ctx.planF = s.aimCam.f
 			elseif what == "refit" then
-				if s.release ~= ctx.release0 + tw.plan.tune.arcStepDeg then err = "release " .. tostring(s.release) end
+				if s.release ~= ctx.release0 + tw.plan.tune.arcTickDeg then err = "release " .. tostring(s.release) end
 				err = err or planCheck(s, label)
 			elseif what == "back" then
 				if s.camMix ~= 0 then err = "mix " .. s.camMix end
