@@ -388,7 +388,6 @@ function scene.new(provider, opts)
 	-- a resumed match raising for itself goes on doing so
 	if s.opts.resume and s.byHand and resumedRaise(s) then s.autoRaise.on = true end
 	s.ts.sceneName = "match"
-	throw.setSet(s.ts, s.opts.set)
 	-- the wind (match option WIND; off or absent: still air)
 	if s.opts.wind and s.opts.wind ~= "off" and (wind.levels[s.opts.wind] or 0) > 0 then
 		s.windLevel = s.opts.wind

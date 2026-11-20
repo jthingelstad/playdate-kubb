@@ -160,10 +160,11 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   (scripted, no keyboard: `names.type`, `ok`, `back`).
 - Match options (Jamie, 2026-11-14: "the game options for the match you are starting";
   `scenes/options.lua`, pure rows in `core/matchopts.lua`, tested): after the names, before
-  every match (PASS + PLAY and VS PLAYDATE). Five rows: SURFACE (grass, sand, snow),
+  every match (PASS + PLAY and VS PLAYDATE). Four rows: SURFACE (grass, sand, snow),
   OPENING (2-4-6, or six from the start), RAISING (by hand, or automatic: the engine's
   policies, `autoSettle`; against the Playdate "by hand" is the player's side only, as
-  before), SET (the kubb set, "Kubb sets") and WIND (off, light, strong; "Wind"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
+  before) and WIND (off, light, strong; "Wind"); the core's SET row is not shown on
+  the Playdate ("Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
   a line under the rows says what the row is for; A starts, B goes back to the names. The
   choice is kept (`playdate.datastore` "matchopts", `matchopts.valid` on reading) and
   offered next time. `main.lua`: title -> `names` -> `options` -> `play`; a rematch keeps
@@ -254,37 +255,26 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
 
 ## Kubb sets
 
-Jamie (2026-11-14): "different Kubb sets... a USA set, Sweden set, Minnesota set,
-Wisconsin set", envisioned here and chosen in the match options' SET row
-(`core/matchopts`, `opts.set`, kept by the save and a rematch). As real painted sets, only
-the kubbs' heads and the king's crown are painted; the bodies stay bare wood, so a piece
-reads the same standing, falling or lying, and a face away from the light stays black.
-`render.world.sets` (`render/world.lua`):
+Not on the Playdate since 2026-11-20 (Jamie's Settings sheet: sets are a look for the web
+and the iPhone; "We exclude Playdate here becaue the black & white display and size of
+display makes this irrelevnat, plus the CPU cannot handle it."). Every piece draws one
+way, bare wood (what was the classic set). From 2026-11-14 to 2026-11-20 the match options
+had a SET row (classic, USA, Sweden, Minnesota, Wisconsin) that painted the kubbs' heads
+and the king's crown near the camera (`render.world.sets`, `setFrom`, `setDetailFrom`);
+the USA set cost 154 draw calls a flight frame against 134 classic, and every kubb painted
+had cost a tenth of the shown speed on the device. That code, the `sets` self-test, the
+autobench's USA and Wisconsin cases and the soak's set per match are gone; the history is
+in git before this change.
 
-- **Classic**: bare wood (the default and the practice pitch, `throw.tune.set`).
-- **USA**: a black head with three white stars, two black stripes under it; the king's
-  crown black with a white star.
-- **Sweden**: a black head split by a white bar, and near, the Nordic cross's upright left
-  of centre; the crown black with a white Nordic cross.
-- **Minnesota**: a deep black head with a white wave (the lakes); the crown black with the
-  North Star.
-- **Wisconsin**: a cheese head (`world.DOTS`, 2 x 2 holes every 4 px) on a black rim; the
-  crown in cheese.
-
-A kubb's head is its local +z end: one raised the other way up wears its paint at the foot,
-as a real one would. `render.world.setSet(name)` changes the set and drops the caches only
-when it changes; the throw scene owns its set (`throw.setSet`, `s.set`) and sets it at
-every draw (render/world is shared with the settle view). Game play first (Jamie, 2026-11-14:
-"keep the Kubb set styling simple enough that it doesn't destroy game play"): a piece under
-`setFrom` (20 px tall, which is every kubb seen from the throwing line) draws exactly as
-classic; nearer, the set's bands, cheese and crown, and from `setDetailFrom` (30 px) the
-stars, crosses and waves: the impact camera's close views and the raise view. A first
-version gave every far kubb a plain black head band: on the device that cost about a tenth
-of the shown speed (the three match-case throws 13.5 s with USA against 12.0 and 12.3
-classic, `telemetry/2026-11-14/bench/run8`), so it was cut. Black paint needs no colour
-change (the outline's colour). The `drawcalls` self-test with the USA set: 154 calls a flight frame against 134 classic, 183 an
-impact frame against 158 (2026-11-14). Self-test `sets` draws every set up close and from
-the baseline (frames 1 to 6); the autobench has USA and Wisconsin variants.
+The SET row comes from the vendored core (`core/matchopts.list`), which is not edited
+here: `scenes/options` leaves it out (`scene.hidden`, `scene.rows`) and its `apply` drops
+`opts.set`, so a new match has none. Saved data from a build with SET still loads and is
+never rewritten to drop it: a kept "matchopts" choice keeps its `set` number as it was
+(unshown, written back unchanged with the rest), and a match saved with `opts.set` resumes,
+plays and carries the field on in its saves without drawing it. No game file ever had a set
+in it. Self-test `set-save`. For engine 0.9: the core's `matchopts` should say which rows
+each client shows (or move SET to the web's and iPhone's own rows), so the Playdate can
+drop its filter.
 
 The VS PLAYDATE opponent uses the System Menu throw level when its roster entry has no level.
 The tagged engine gives Club and Pro their drill spin and baton turnover.

@@ -69,9 +69,11 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   title.
 - `options`: the match options driven by the d-pad (frames: the defaults, SNOW, the
   RAISING row); A must give snow, six from the start and automatic raising.
-- `sets`: every kubb set up close (frames 1 to 5: classic, USA, Sweden, Minnesota,
-  Wisconsin) and USA from the baseline (frame 6); classic drawn again must match its first
-  frame, and every other set must differ from it.
+- `set-save`: saved data from a build with the kubb set (match.md "Kubb sets"): a kept
+  options choice with SET on USA shows four rows (frame 1), keeps its set through every row
+  and gives the match none; a match saved with `set = "usa"` resumes (frame 2, its hand-off
+  card), plays (frame 3), saves again with the set untouched, and its game file, written
+  when the team on turn resigns, is gated.
 - `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
   long second name drawn smaller); a name with no letter is refused, B goes back, and the
   names become the match's teams.
