@@ -1,9 +1,10 @@
 -- Scenario "clock-plan": A walks and B plans (DESIGN 4). From the default
 -- aim at b3: A + right walks about 1 m along the line (the clock's power
 -- target moves with the distance, the swivel turns to face b3), B + up twice
--- moves the planned release from 3 to 2 o'clock, B + right tilts the baton
--- (TILT R 5); then the pitch turns to drilling and B + right twice spins
--- the kubb (SPIN R 2), B + down once lowers its arc. The d-pad alone then
+-- moves the planned release two ticks up from 3 o'clock, B + right tilts the
+-- baton a tick (TILT R 1); then the pitch turns to drilling and B + right
+-- twice spins the kubb two ticks (SPIN R 0.5), B + down once lowers its arc a
+-- tick (plan.tune arcTickDeg, tiltTickDeg, spinTick: engine 0.9). The d-pad alone then
 -- moves the drill's circle (it never snaps), and back on batons throw.aimAt
 -- near b2 snaps onto it; then the d-pad moves the circle a little off b2 and
 -- it stays there (the let-go never snaps: Tyler's play test, 2026-11-15). No
@@ -76,11 +77,13 @@ st.scenarios["clock-plan"] = st.throwScenario {
 		if math.abs(seen.walkX - 1.0) > 0.08 then return string.format("walked to %.2f", seen.walkX) end
 		if seen.walkLo == first.powerLo then return "the power target did not move with the stance" end
 		if not (seen.walkSw < -0.05) then return string.format("swivel %.3f: not facing b3", seen.walkSw) end
-		if seen.release ~= 120 then return "release " .. tostring(seen.release) end
-		if seen.relLo ~= 120 - tw.plan.levels.club.releaseHalf then return "release target " .. tostring(seen.relLo) end
-		if seen.tilt ~= 5 then return "tilt " .. tostring(seen.tilt) end
-		if seen.spin ~= 2 then return "spin " .. tostring(seen.spin) end
-		if seen.drillRel ~= 120 then return "the drill's arc " .. tostring(seen.drillRel) end
+		local pt = tw.plan.tune
+		local rel = tw.plan.arcFor("base") + 2 * pt.arcTickDeg
+		if seen.release ~= rel then return "release " .. tostring(seen.release) end
+		if seen.relLo ~= rel - tw.plan.levels.club.releaseHalf then return "release target " .. tostring(seen.relLo) end
+		if seen.tilt ~= pt.tiltTickDeg then return "tilt " .. tostring(seen.tilt) end
+		if seen.spin ~= 2 * pt.spinTick then return "spin " .. tostring(seen.spin) end
+		if seen.drillRel ~= tw.plan.arcFor("drill") - pt.arcTickDeg then return "the drill's arc " .. tostring(seen.drillRel) end
 		if not (seen.my1 > seen.my0 + 0.3) or seen.drillOn then return "the drill's circle did not move freely" end
 		if not seen.snapped then return "no snap onto b2" end
 		if math.abs(seen.snapPX - seen.b2x) > 1e-6 then return "the stance did not follow the snapped circle" end
