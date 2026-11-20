@@ -23,6 +23,9 @@
 --   aim      30 frames of the aim view with the circle moving every frame (the
 --            plan solved again each frame) onto a kubb 1 m away and one 6 m
 --            away: frame update and draw (mean, max).
+--   aim d-pad the same two circles moved by a scripted d-pad through the scene's
+--            update (the plan every other frame under halfRateM, then every
+--            frame): update and draw (mean, max) and how many frames solved.
 --   plan     plan.solve for a baton at 1, 1.5, 3 and 8 m and a drill, in ms.
 --   computer autothrow.choose (the Playdate's throw, chosen in one frame) at
 --            each level for a baseline baton, a kubb toss and a field kubb
@@ -282,6 +285,51 @@ local function aimLines(y)
 	return lines
 end
 
+-- The aim view driven as a player drives it: the d-pad held (right and left on
+-- alternate frames, so the circle stays by the kubb) through the scene's own
+-- update, whose plan solves at most every other frame within halfRateM of the
+-- stance; then the same with that off (halfRateM 0: a solve every frame).
+local function dpadLines(y)
+	local lines = { "aim d-pad (scene update with the d-pad held; every other frame / every frame):" }
+	local t = throw.tune
+	local keep = t.halfRateM
+	for _, c in ipairs { { "kubb 1m", 4.0, 1.0, 5.0 }, { "kubb 6m", 0, 0.8, 6.0 } } do
+		local parts = {}
+		for _, r in ipairs { keep, 0 } do
+			t.halfRateM = r
+			local n = perf.tune.aimFrames
+			local steps = { { n = 1 } }   -- an idle first frame: the circle still, one plan
+			for i = 1, n do steps[i + 1] = { hold = { (i % 2 == 1) and "right" or "left" } } end
+			local s = throw.new(tw.input.scripted(steps, 1 / 50))
+			throw.enter()
+			throw.prepare(s, clusterSetup(c[2]))
+			throw.setStance(s, 1.0, c[2])
+			throw.aimAt(s, c[3], c[4])
+			throw.update(s)
+			throw.draw(s)
+			y()
+			local upS, upM, drS, drM, skipped = 0, 0, 0, 0, 0
+			for _ = 1, n do
+				local t0 = clock()
+				throw.update(s)
+				local t1 = clock()
+				throw.draw(s)
+				local t2 = clock()
+				if s.planSkipped then skipped = skipped + 1 end
+				upS, drS = upS + (t1 - t0), drS + (t2 - t1)
+				if t1 - t0 > upM then upM = t1 - t0 end
+				if t2 - t1 > drM then drM = t2 - t1 end
+				y()
+			end
+			parts[#parts + 1] = string.format("%s: update %.2f ms (max %.2f), draw %.1f ms (max %.1f), %d of %d solved",
+				r > 0 and "every other" or "every", upS * 1000 / n, upM * 1000, drS * 1000 / n, drM * 1000, n - skipped, n)
+		end
+		t.halfRateM = keep
+		lines[#lines + 1] = string.format("  %-8s %s", c[1], table.concat(parts, "; "))
+	end
+	return lines
+end
+
 local function solveLines(y)
 	local lines = { string.format("plan.solve (ms, %d each):", perf.tune.solveReps) }
 	local parts = {}
@@ -406,6 +454,8 @@ local function body()
 	out(chooseLines(y))
 	y()
 	out(aimLines(y))
+	y()
+	out(dpadLines(y))
 	y()
 	out(throwLines(y))
 	y()

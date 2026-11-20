@@ -249,6 +249,17 @@ toppled none on 0.5.1). `tests/lua/test_shortthrow.lua` feeds crank samples thro
 one turned 45 degrees; three power bands long misses; from 2 m the hand is the feet), and
 the self-tests `short-throw` and `short-over` throw the real scene at a kubb 1 m away.
 
+**The aim at a short throw.** A short baton's plan is the costly one: on the device
+`plan.solve` at 1 m took about 25 ms on engine 0.8.1 (2.3 ms on 0.5.1), most of it the
+aim height's bisection, each step a `speedForCarry`. The scene solves the plan only on a
+frame where something it reads changed (`s.planDirty`: the circle, the stance, the plan's
+release, spin or level), and while the d-pad moves the circle within
+`throw.tune.halfRateM` (2 m, `flight.tune.nearM`) of the stance it solves at most every
+other frame (`s.planSkipped`). The arc and the clock's power target may then trail the
+circle by one frame; the frame the circle is let go solves it, and `launch` solves a
+dirty plan before it throws, so a throw always uses the plan for its final aim. The
+perfbench's "aim d-pad" row drives the scene with the d-pad held and reports both rates.
+
 ## The aim camera
 
 Jamie (2026-11-15, after play-testing the over-the-shoulder crane): "when throwing a baton
