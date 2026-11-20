@@ -1,0 +1,448 @@
+-- The device performance check (docs/notes/performance.md, "The performance
+-- check"): when a file named `perfbench` is in the game's Data folder at
+-- launch, the game deletes it, runs this (about five minutes, nobody pressing
+-- anything), appends every figure to perf.txt in the Data folder and then
+-- carries on into the normal game. A developer's tool, never a player's: no
+-- menu item reaches it.
+--
+-- The same fixed scenes every run, each repeated `perf.tune.reps` times, so a
+-- build can be compared with the last one and the spread told from the
+-- change. Everything is deterministic but the device's own clock (the
+-- playback paces the shown physics by real frame time, so frame counts move
+-- a little from run to run).
+--
+--   throws   a baton into a close cluster of six field kubbs from 5 m and
+--            from a step away (1 m: the short throw), a full 8 m baton at a
+--            base kubb, and a drilled kubb thrown in among the field and
+--            settling (core/bench's match setup). Each is the plan's clean
+--            throw played through the throw scene as in a match. Per throw:
+--            release to rest (s), the flight's frames and their real frame
+--            time (mean, sd, max), the scene's update and draw per frame
+--            (mean, max), starved frames, physics steps and ms per step, and
+--            the most memory seen. Then over the repeats: median, min, max.
+--   aim      30 frames of the aim view with the circle moving every frame (the
+--            plan solved again each frame) onto a kubb 1 m away and one 6 m
+--            away: frame update and draw (mean, max).
+--   plan     plan.solve for a baton at 1, 1.5, 3 and 8 m and a drill, in ms.
+--   computer autothrow.choose (the Playdate's throw, chosen in one frame) at
+--            each level for a baseline baton, a kubb toss and a field kubb
+--            baton from a real match's setups, in ms.
+--   start    a new VS PLAYDATE match (the scene made, its first frame drawn)
+--            and a resume (a saved match read from the datastore, unpacked
+--            and its scene made), in ms. The save is the check's own key
+--            (perfbench-match), deleted after: a player's "match" is never
+--            read or written.
+--
+-- The crank recorder and the frame-time log are off while it runs and put
+-- back after, so traces.jsonl and frames.jsonl are untouched; auto-lock is
+-- off for the run.
+import "CoreLibs/graphics"
+import "core/tw"
+import "core/bench"
+import "core/match"
+import "core/save"
+import "core/autothrow"
+import "core/throwplan"
+import "core/quat"
+import "input"
+import "scenes/throw"
+import "scenes/match"
+import "render/world"
+
+local gfx <const> = playdate.graphics
+local throw, plan, autothrow, cmatch = tw.scenes.throw, tw.plan, tw.autothrow, tw.match
+-- Two clocks. The input provider (input.device) resets playdate's elapsed
+-- time at the start of every frame (its advance), so within a frame
+-- clock() is seconds since that frame began: a frame's update is clock() read
+-- just after it. Anything spanning an advance (a match made and its first
+-- frame) is timed with msNow (whole milliseconds).
+local clock = playdate.getElapsedTime
+local msNow = playdate.getCurrentTimeMilliseconds
+
+local perf = {}
+perf.flag = "perfbench"
+perf.tune = { reps = 5, aimFrames = 30, solveReps = 20, chooseReps = 10, startReps = 5 }
+
+local function out(lines)
+	local f = playdate.file.open("perf.txt", playdate.file.kFileAppend)
+	if not f then return end
+	for _, l in ipairs(lines) do f:write(l .. "\n") end
+	f:close()
+end
+
+local function kb() return collectgarbage("count") end
+
+-- median, min and max of a list of numbers
+local function spread(xs)
+	local c = {}
+	for i, x in ipairs(xs) do c[i] = x end
+	table.sort(c)
+	local n = #c
+	if n == 0 then return 0, 0, 0 end
+	local med = (n % 2 == 1) and c[(n + 1) / 2] or 0.5 * (c[n / 2] + c[n / 2 + 1])
+	return med, c[1], c[n]
+end
+local function fmtSpread(xs, f)
+	local med, lo, hi = spread(xs)
+	f = f or "%.1f"
+	return string.format(f .. " [" .. f .. "-" .. f .. "]", med, lo, hi)
+end
+
+local function standing(id, kind, x, y, yaw, role)
+	local qw, qx, qy, qz = tw.quat.fromAxisAngle(0, 0, 1, yaw or 0)
+	return { id = id, kind = kind, x = x, y = y, qw = qw, qx = qx, qy = qy, qz = qz, toppled = false, role = role }
+end
+
+-- Five base kubbs on the far baseline and the king, as in a match (view frame).
+local function basePieces()
+	local p = {}
+	for i, x in ipairs { -2, -1, 0, 1, 2 } do p[i] = standing("b" .. i, "kubb", x, 8, 0, "base") end
+	p[#p + 1] = standing("king", "king", 0, 4, 0, "king")
+	return p
+end
+
+-- A close cluster of six field kubbs at x = 1, its front kubb at y = 5.
+local CLUSTER = {
+	{ 1.00, 5.00, 0.1 }, { 1.18, 5.12, -0.2 }, { 0.83, 5.10, 0.3 },
+	{ 1.05, 5.28, 0.0 }, { 0.80, 5.32, -0.4 }, { 1.24, 5.36, 0.2 },
+}
+local function clusterSetup(forwardY)
+	local p, targets = basePieces(), {}
+	for i, c in ipairs(CLUSTER) do
+		p[#p + 1] = standing("f" .. i, "kubb", c[1], c[2], c[3], "field")
+		targets[i] = "f" .. i
+	end
+	return { kind = "baton", side = "A", projectile = "baton", batonId = "baton1", pieces = p, debris = {},
+		lineY = 0, forwardY = forwardY or 0, targets = targets, label = "perf", n = 1, of = 6 }
+end
+
+local function baseSetup()
+	local p = basePieces()
+	p[#p + 1] = standing("f1", "kubb", 0.8, 5.0, 0.2, "field")
+	p[#p + 1] = standing("f2", "kubb", -0.9, 5.6, -0.3, "field")
+	return { kind = "baton", side = "A", projectile = "baton", batonId = "baton1", pieces = p, debris = {},
+		lineY = 0, forwardY = 0, targets = { "b1", "b2", "b3", "b4", "b5" }, label = "perf", n = 1, of = 6 }
+end
+
+-- The plan's clean throw at (tx, ty) from (px, py): an action for
+-- throw.autoLaunch, with its plan (so the throw leaves the plan's hand).
+local CLEAN = { back = 0, releaseAngle = 0, flickFrac = 1, smoothness = 1, shake = 0, pull = 1, how = "stopped" }
+local function cleanBaton(s, tx, ty, px, py)
+	throw.aimAt(s, tx, ty)
+	throw.setStance(s, px, py)
+	local sol = s.sol
+	CLEAN.back, CLEAN.releaseAngle = sol.back, sol.release
+	local L = plan.launch(sol, CLEAN, { projectile = "baton", tilt = 0, spin = 0, level = throw.levelFor(s) }, {})
+	return { x = s.playerX, y = s.playerY, swivel = L.swivel, loftDeg = L.loft, speed = L.speed,
+		tumbleRate = L.tumble, tilt = L.tilt or 0, legal = L.legal, plan = sol }
+end
+
+perf.throws = {
+	{ name = "cluster 5m", setup = function() return clusterSetup(0) end,
+		action = function(s) return cleanBaton(s, 1.0, 5.0, 1.0, 0) end },
+	{ name = "cluster 1m", setup = function() return clusterSetup(4.0) end,
+		action = function(s) return cleanBaton(s, 1.0, 5.0, 1.0, 4.0) end },
+	{ name = "8m base", setup = baseSetup,
+		action = function(s) return cleanBaton(s, 0, 8, 0, 0) end },
+	{ name = "drill", setup = function() return tw.bench.matchSetup("kubb") end,
+		action = function() return { drill = { markerX = -0.5, markerY = 6.4 } } end },
+}
+
+-- One throw through the throw scene on the device's clock. Returns a table
+-- of figures.
+local function runThrow(y, case)
+	local fl, ft = tw.framelog, tw.frametel
+	local write = fl.write
+	local got = {}
+	fl.write = function(t, info) got.t, got.info = t, info end
+	local r = {}
+	local ok, err = pcall(function()
+		local s = throw.new(tw.input.device())
+		s.sceneName = "match"
+		s.nerves = false
+		throw.enter()
+		throw.prepare(s, case.setup())
+		local a = case.action(s)
+		for _ = 1, 3 do throw.draw(s); y() end
+		collectgarbage("collect")
+		local m0, mMax = kb(), kb()
+		s.input:advance()
+		throw.autoLaunch(s, a)
+		local n, wall, rest, tailN = 0, 0, false, 0
+		local nf, sum, sum2, mx = 0, 0, 0, 0
+		local upS, upM, drS, drM = 0, 0, 0, 0
+		local prevLive = false
+		while s.mode ~= "done" and n < 3000 do
+			local flying = s.mode == "flight"
+			throw.update(s)
+			local t1 = clock()   -- the update: since advance reset the clock
+			throw.draw(s)
+			local t2 = clock()
+			-- this frame's dt (raw) is the previous frame's length
+			local raw = s.input.raw or 0
+			if n > 0 and not rest then wall = wall + raw end
+			if s.mode == "rest" then rest = true end
+			if prevLive then
+				nf, sum, sum2 = nf + 1, sum + raw, sum2 + raw * raw
+				if raw > mx then mx = raw end
+			end
+			-- live flight frames: in flight and not the calm tail (where the
+			-- picture holds and frames are tailPeriod long by design)
+			local pb = s.pb
+			local tail = pb and pb.calmFrom and s.showTime >= pb.calmFrom * pb.frameDt
+			prevLive = flying and s.mode == "flight" and not tail
+			if flying and tail then tailN = tailN + 1 end
+			if prevLive then
+				upS, drS = upS + t1, drS + (t2 - t1)
+				if t1 > upM then upM = t1 end
+				if t2 - t1 > drM then drM = t2 - t1 end
+			end
+			local m = kb()
+			if m > mMax then mMax = m end
+			y()
+			n = n + 1
+		end
+		local mean = nf > 0 and sum / nf or 0
+		r.rest, r.frames = wall, nf
+		r.mean, r.sd, r.max = mean * 1000, (nf > 1 and math.sqrt(math.max(0, sum2 / nf - mean * mean)) or 0) * 1000, mx * 1000
+		r.up, r.upMax = nf > 0 and upS * 1000 / nf or 0, upM * 1000
+		r.dr, r.drMax = nf > 0 and drS * 1000 / nf or 0, drM * 1000
+		r.tail = tailN
+		r.mem, r.memMax = m0, mMax
+		local res = s.result
+		r.toppled = res and #res.toppled or -1
+		if got.t then
+			r.starved, r.steps, r.phys = got.t.starved, got.info.steps, got.info.phys * 1000
+			r.msStep = got.info.steps > 0 and r.phys / got.info.steps or 0
+		end
+	end)
+	fl.write = write
+	tw.render.world.invalidate()
+	if not ok then r.err = tostring(err) end
+	return r
+end
+
+local function throwLines(y)
+	local lines = { string.format("throws (%d each after one not counted; median [min-max]):", perf.tune.reps) }
+	for _, case in ipairs(perf.throws) do
+		local R = {}
+		-- one throw first, not counted (the first of a kind loads and warms up)
+		runThrow(y, case)
+		y()
+		for i = 1, perf.tune.reps do
+			R[i] = runThrow(y, case)
+			y()
+		end
+		if R[1].err then
+			lines[#lines + 1] = "  " .. case.name .. ": error " .. R[1].err
+		else
+			local function col(k) local c = {}; for i, r in ipairs(R) do c[i] = r[k] or 0 end; return c end
+			lines[#lines + 1] = string.format("  %-10s toppled %s; rest %s s; live flight frames %s (calm tail %s); frame ms mean %s sd %s max %s",
+				case.name, fmtSpread(col("toppled"), "%d"), fmtSpread(col("rest"), "%.2f"), fmtSpread(col("frames"), "%d"),
+				fmtSpread(col("tail"), "%d"),
+				fmtSpread(col("mean")), fmtSpread(col("sd")), fmtSpread(col("max")))
+			lines[#lines + 1] = string.format("  %-10s update ms mean %s max %s; draw ms mean %s max %s; starved %s; steps %s at %s ms; memory KB %s, max %s",
+				"", fmtSpread(col("up")), fmtSpread(col("upMax")), fmtSpread(col("dr")), fmtSpread(col("drMax")),
+				fmtSpread(col("starved"), "%d"), fmtSpread(col("steps"), "%d"), fmtSpread(col("msStep"), "%.2f"),
+				fmtSpread(col("mem"), "%.0f"), fmtSpread(col("memMax"), "%.0f"))
+		end
+	end
+	return lines
+end
+
+-- The aim view, the circle moving every frame by a hair around (tx, ty) from
+-- (px, py): the plan is solved again each frame, as while the d-pad moves it.
+local function aimLines(y)
+	local lines = { "aim with the circle moving (plan solved every frame):" }
+	for _, c in ipairs { { "kubb 1m", 4.0, 1.0, 5.0 }, { "kubb 6m", 0, 0.8, 6.0 } } do
+		local s = throw.new(tw.input.device())
+		throw.enter()
+		throw.prepare(s, clusterSetup(c[2]))
+		throw.setStance(s, 1.0, c[2])
+		local upS, upM, drS, drM = 0, 0, 0, 0
+		local n = perf.tune.aimFrames
+		for i = 1, n do
+			s.input:advance()
+			local t0 = clock()
+			-- what aimInput does when the circle moves: the marker, then a replan
+			s.markerX = c[3] + 0.002 * (i % 2)
+			s.markerY = c[4]
+			throw.replan(s)
+			local t1 = clock()
+			throw.draw(s)
+			local t2 = clock()
+			upS, drS = upS + (t1 - t0), drS + (t2 - t1)
+			if t1 - t0 > upM then upM = t1 - t0 end
+			if t2 - t1 > drM then drM = t2 - t1 end
+			y()
+		end
+		lines[#lines + 1] = string.format("  %-8s %d frames: update (replan) %.2f ms (max %.2f), draw %.1f ms (max %.1f)",
+			c[1], n, upS * 1000 / n, upM * 1000, drS * 1000 / n, drM * 1000)
+	end
+	return lines
+end
+
+local function solveLines(y)
+	local lines = { string.format("plan.solve (ms, %d each):", perf.tune.solveReps) }
+	local parts = {}
+	local out = {}
+	local kubbZ = plan.aimZFor("kubb")
+	for _, d in ipairs { 1.0, 1.5, 3.0, 8.0, "drill" } do
+		local q = { projectile = "baton", px = 0, py = 0, tx = 0, ty = d, release = plan.arcFor("field"),
+			level = plan.levels.club, surface = "grass", spin = 0, aimZ = kubbZ }
+		if d == "drill" then
+			q.projectile, q.ty, q.release, q.aimZ = "kubb", 6.0, plan.arcFor("drill"), 0
+		end
+		local t0 = clock()
+		for _ = 1, perf.tune.solveReps do plan.solve(q, out) end
+		parts[#parts + 1] = string.format("%s %.2f", d == "drill" and "drill 6m" or (d .. "m"), (clock() - t0) * 1000 / perf.tune.solveReps)
+		y()
+	end
+	lines[#lines + 1] = "  " .. table.concat(parts, ", ")
+	return lines
+end
+
+-- Setups from a real match: the first baton (from the baseline at the base
+-- kubbs), a kubb toss, and a field kubb baton once the tossed kubbs stand.
+local function matchSetups()
+	local m = cmatch.new { start = { year = 2026, month = 11, day = 20, hour = 12, min = 0 } }
+	local g = m.game
+	local MISS = {}
+	local S = {}
+	S.base = cmatch.setup(m)
+	-- turn 1 (2-4-6): two batons, the second toppling b1, which B tosses in
+	g:throwBaton(MISS); g:throwBaton({ toppled = { "b1" } })
+	S.toss = cmatch.setup(m)
+	for _ = 1, 4 do
+		if g.phase ~= "toss" then break end
+		local ok = pcall(function() g:toss({ rest = { x = 0.5, y = 2.4, standing = false, angle = 0.4 }, moved = {} }) end)
+		if not ok then break end
+	end
+	pcall(function() g:raiseAll() end)
+	S.field = cmatch.setup(m)
+	if S.field and S.field.kind ~= "baton" then S.field = nil end
+	return S
+end
+
+local function chooseLines(y)
+	local lines = { string.format("computer: autothrow.choose (ms, %d each; median [min-max]):", perf.tune.chooseReps) }
+	local ok, S = pcall(matchSetups)
+	if not ok then return { "computer: setup error " .. tostring(S) } end
+	for _, lv in ipairs { "beginner", "club", "pro" } do
+		local parts = {}
+		for _, k in ipairs { "base", "toss", "field" } do
+			local st = S[k]
+			if st then
+				local xs = {}
+				local r = autothrow.rng(1234)
+				for i = 1, perf.tune.chooseReps do
+					local t0 = clock()
+					autothrow.choose(st, r, 1, lv)
+					xs[i] = (clock() - t0) * 1000
+					y()
+				end
+				parts[#parts + 1] = string.format("%s (%s) %s", k, st.kind, fmtSpread(xs, "%.2f"))
+			end
+		end
+		lines[#lines + 1] = "  " .. lv .. ": " .. table.concat(parts, "; ")
+	end
+	return lines
+end
+
+local KEY = "perfbench-match"
+local function startLines(y)
+	local lines = { string.format("match start (ms, %d each; median [min-max]):", perf.tune.startReps) }
+	local scene = tw.scenes.match
+	local fresh, saveW, resume = {}, {}, {}
+	local ok, err = pcall(function()
+		for i = 1, perf.tune.startReps do
+			collectgarbage("collect")
+			local t0 = msNow()
+			local s = scene.new(tw.input.device(), { vs = "B", noSave = true, noFile = true, cpuSeed = 7 })
+			scene.enter()
+			scene.update(s)
+			scene.draw(s)
+			fresh[i] = msNow() - t0
+			y()
+			-- a match at turn 3 (the setups' match), saved and resumed
+			local m = cmatch.new { start = { year = 2026, month = 11, day = 20, hour = 12, min = 0 }, mode = "Vs Playdate" }
+			local g = m.game
+			g:throwBaton({}); g:throwBaton({ toppled = { "b1" } })
+			cmatch.setup(m)
+			local t1 = msNow()
+			tw.save.write(m, { vs = "B" }, function(d) playdate.datastore.write(d, KEY) end)
+			saveW[i] = msNow() - t1
+			y()
+			collectgarbage("collect")
+			local t2 = msNow()
+			local back = playdate.datastore.read(KEY)
+			local rm, opts = tw.save.unpack(back)
+			assert(rm, "unpack failed")
+			local rs = scene.new(tw.input.device(), { vs = opts.vs, resume = rm, noSave = true, noFile = true })
+			scene.enter()
+			scene.update(rs)
+			scene.draw(rs)
+			resume[i] = msNow() - t2
+			y()
+		end
+	end)
+	playdate.datastore.delete(KEY)
+	if not ok then return { "match start error: " .. tostring(err) } end
+	lines[#lines + 1] = "  new match " .. fmtSpread(fresh, "%d") .. "; save " .. fmtSpread(saveW, "%d") .. "; resume (read, unpack, scene) " .. fmtSpread(resume, "%d")
+	return lines
+end
+
+local function body()
+	local y = coroutine.yield
+	local t = playdate.getTime()
+	local v = tw.version or {}
+	out { string.format("perfbench %04d-%02d-%02d %02d:%02d; version %s; build %s; engine core %s; memory %.0f KB",
+		t.year, t.month, t.day, t.hour, t.minute, v.version or "?", tostring(v.build or "?"),
+		(tw.engineCore and tw.engineCore.version) or "?", kb()) }
+	y()
+	out(startLines(y))
+	y()
+	out(solveLines(y))
+	y()
+	out(chooseLines(y))
+	y()
+	out(aimLines(y))
+	y()
+	out(throwLines(y))
+	y()
+	collectgarbage("collect")
+	out { string.format("memory after a full collection %.0f KB", kb()), "perfbench done", "" }
+end
+
+function perf.start()
+	playdate.file.delete(perf.flag)
+	local rec = tw.recorder
+	local a = { co = coroutine.create(body), recOn = rec.on, logOn = tw.framelog.on }
+	rec.on = false
+	rec.clear()
+	tw.framelog.on = false
+	playdate.setAutoLockDisabled(true)
+	return a
+end
+
+local function finish(a)
+	local rec = tw.recorder
+	rec.clear()
+	rec.on = a.recOn
+	tw.framelog.on = a.logOn
+	playdate.setAutoLockDisabled(tw.noLock and true or false)
+	return true
+end
+
+-- One frame. Returns true when finished.
+function perf.update(a)
+	local ok, err = coroutine.resume(a.co)
+	if not ok then
+		out { "perfbench error: " .. tostring(err) }
+		return finish(a)
+	end
+	if coroutine.status(a.co) == "dead" then return finish(a) end
+	return false
+end
+
+tw.perfbench = perf

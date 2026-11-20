@@ -60,6 +60,7 @@ import "scenes/teams"
 import "scenes/howtoplay"
 import "benchscreen"
 import "autobench"
+import "perfbench"
 import "soak"
 import "selftest/runner"
 import "selftest/hello"
@@ -397,10 +398,22 @@ else
 	-- unattended once, after any autobench
 	local soakWanted = playdate.file.exists(tw.soak.flag)
 	local soakRun = nil
+	-- the device performance check (perfbench.lua): a file named "perfbench"
+	-- runs its fixed scenes once, after any autobench, before any soak
+	local perfWanted = playdate.file.exists(tw.perfbench.flag)
+	local perfRun = nil
 
 	function playdate.update()
 		if autoRun then
 			if tw.autobench.update(autoRun) then autoRun = nil end
+			return
+		end
+		if perfWanted then
+			perfWanted = false
+			perfRun = tw.perfbench.start()
+		end
+		if perfRun then
+			if tw.perfbench.update(perfRun) then perfRun = nil; open("title") end
 			return
 		end
 		if soakWanted then
