@@ -84,7 +84,10 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
   group of field kubbs), `skid`, `skid-sand` and `skid-snow` (the kick after landing on
   each surface), `king`, `low-hard` (the arc planned down to half past 5: a low throw
-  takes a field kubb 6.5 m out), `burst`, `burst-reset`, `layer`, `knocks`, `drawcalls`,
+  takes a field kubb 6.5 m out), `short-throw` and `short-over` (a field kubb 1 m ahead
+  of the stance, engine 0.8's short throw: the plan's clean crank throw leaves the plan's
+  low hand and topples it; wound three power bands long it heaves up and leaves it
+  standing; helpers in `_short.lua`), `burst`, `burst-reset`, `layer`, `knocks`, `drawcalls`,
   `autoreset`, and `bench` (the Bench screen; its note has the Simulator's figures, which
   are the Mac's, not the device's). They set the target circle (and the arc) in `setup`
   and throw the plan's clean swing (`planned`): the default aim is the circle on b3.

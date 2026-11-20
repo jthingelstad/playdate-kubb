@@ -34,6 +34,38 @@ The autobench measures a build on the Playdate with nobody pressing anything:
 4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
    touch `traces.jsonl` (crank recordings), `frames.jsonl` or `games/`.
 
+### The performance check
+
+`source/perfbench.lua` (2026-11-20) measures what a player feels, the same fixed scenes
+every run, each repeated, so two builds can be compared and the spread told from the
+change. An empty file named `perfbench` in the game's Data folder runs it at launch (the
+game deletes the flag first; several minutes; auto-lock off, recorder and frame log off,
+so `traces.jsonl` and `frames.jsonl` are untouched). It appends to `perf.txt`: a new VS
+PLAYDATE match and a resume (under its own key `perfbench-match`, deleted after),
+`plan.solve` at 1, 1.5, 3 and 8 m and a drill, the computer's `autothrow.choose` per level
+on a baseline, toss and field setup from a real match, the aim view with the circle moving
+(the plan solved every frame) at a kubb 1 m and 6 m away, and four throws through the throw
+scene as in a match (into a close cluster of six field kubbs from 5 m and from 1 m, an 8 m
+baton at a base kubb, a drilled kubb settling): release to rest, the live flight's frames
+and their real frame time (mean, sd, max; the calm tail's frames counted apart, they are
+held by design), update and draw per frame, starved frames, physics steps and ms per step,
+memory. Each throw runs once uncounted, then five times: median [min-max]. Read `perf.txt`
+and delete it when done.
+
+Engine 0.5.1 to 0.8.1 on the device (2026-11-20, game 0.9.7 build 8 then 0.9.8 build 9):
+the same within the spread everywhere but the short throw's plan. Throws: cluster 5m 61.3
+ms a frame both, 8 m base 53.3 and 53.2, drill 43.7 and 43.8; cluster 1m 50.5 to 55.2 ms
+(the baton now gets there: toppled 0 then 1, 82 live frames, not 151). Computer choice 14
+to 24 ms a throw both, new match 80 ms both, resume 138 and 137 ms, memory after a full
+collection 1338 and 1351 KB. The one regression: `plan.solve` at 1.0 m 2.28 to 24.7 ms
+(1.5 m 2.4 to 2.7, 3 m and over unchanged), so the aim view moving the circle onto a kubb
+1 m away updates in 30.1 ms, not 3.6 (draw 13 ms; about 23 frames a second while the
+circle moves at a kubb about 0.4 to 1.4 m away). The cost is the core's: `plan.solve`'s
+aim-height bisection calls `speedForCarry` (itself iterative) 20 times, and
+`flight.handAt` bisects 30 times. A fix for kubb-engine (measured on the desktop, not yet
+made): bisect the aim height on the carry at `nearSpeed` directly (the same answer), and
+14 `handAt` steps (8 micrometres): `plan.solve` at 1 m 2.5 times faster.
+
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
 autobench; each with the next kubb set of `soak.tune.sets`: classic, USA, Wisconsin), at a player's real pace through `scenes/match` (playback, slow motion, camera,

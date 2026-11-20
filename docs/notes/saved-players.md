@@ -82,8 +82,10 @@ the datastore part is `source/players.lua` (`tw.players`).
   `drills.practiceLevel()`) throw at that player's level, and the run's record goes to
   their history (`history.foldDrill`); NO PLAYER keeps the System Menu's level and the
   Playdate's own `drills` records. Levels are the throw's: beginner, club, pro.
-- **The game file** writes `[Throw Levels "kim pro, max club"]` after `[Mode]` when the
-  match had levels (`notation.render`'s `meta.levels`, from `m.lineup`); the vendored
+- **The game file** writes `[Throw Levels "k pro, m club"]` after `[Mode]` when the
+  match had levels (`notation.render`'s `meta.levels`, from `m.lineup`), each player by
+  the id `[Team X Players]` gives them (since engine 0.7.1: initials on a team of more than
+  one, no prefix for a team of one; `notation.fileIds`); the vendored
   grammar and kubb.js accept the extra header. The games list's footer adds `3 V 2
   PLAYERS` for teams of several (`gamefile.parse`'s `players`). A player's page has a
   GAMES row: their recent games, newest first, each opening its file's score sheet

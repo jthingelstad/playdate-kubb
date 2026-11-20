@@ -1,6 +1,6 @@
 -- The device performance check (docs/notes/performance.md, "The performance
 -- check"): when a file named `perfbench` is in the game's Data folder at
--- launch, the game deletes it, runs this (about five minutes, nobody pressing
+-- launch, the game deletes it, runs this (several minutes, nobody pressing
 -- anything), appends every figure to perf.txt in the Data folder and then
 -- carries on into the normal game. A developer's tool, never a player's: no
 -- menu item reaches it.
