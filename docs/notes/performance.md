@@ -95,7 +95,7 @@ The result of record, 0.9.8 build 9 (ms; the first column has no "aim d-pad" row
 
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
-autobench; each with the next kubb set of `soak.tune.sets`: classic, USA, Wisconsin), at a player's real pace through `scenes/match` (playback, slow motion, camera,
+autobench), at a player's real pace through `scenes/match` (playback, slow motion, camera,
 bursts, raising and punishment by the engine's policies), bounded at `maxTurns` (24). It
 saves the match before every throw under its own key (`soak-match`, match option `saveKey`)
 and every `saveCheck` throws reads it back and unpacks it against the live engine; it
