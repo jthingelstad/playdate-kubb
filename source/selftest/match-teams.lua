@@ -78,7 +78,10 @@ st.scenarios["match-teams"] = st.matchScenario {
 				local bad = tw.order.checkSheet(ms.m.game)
 				if #bad > 0 then error(bad[1]) end
 				local text = tw.match.file(ms.m, nil, "0.0.1")
-				if not text:find('[Throw Levels "kim pro, lee beginner"]', 1, true) then
+				-- each player by the header's id (engine 0.7.1, notation.fileIds:
+				-- initials on a team of more than one, so "k" for kim, "l" for lee)
+				local kid, lid = text:match('%[Throw Levels "(%w+) pro, (%w+) beginner"%]')
+				if not kid or kid ~= ("kim"):sub(1, #kid) or lid ~= ("lee"):sub(1, #lid) then
 					error("the game file's levels")
 				end
 				notes = notes .. string.format(" winner=%s turns=%d", ms.win.winner, ms.win.turns)
