@@ -22,8 +22,10 @@ st.scenarios["nerves"] = st.throwScenario {
 	check = function(s)
 		local l = s.last
 		if not l.sideDeg or l.sideDeg == 0 then return "no nerves on the throw: " .. tostring(l.sideDeg) end
-		-- the draw is seeded from the swing and the plan: the same every run
-		if s.vSide ~= -1 then return "want PULLED LEFT, got sideV " .. tostring(s.vSide) end
+		-- the draw is seeded from the swing and the plan: the same every run. Engine 0.9's
+		-- lower aim (aimHeightShare 0.3) changed the plan, so the draw went from pulled
+		-- left (to 0.8) to pulled right
+		if s.vSide ~= 1 then return "want PULLED RIGHT, got sideV " .. tostring(s.vSide) end
 		if s.vPower ~= 0 or s.vRelease ~= 0 or not s.vSteady then
 			return string.format("verdicts %s %s %s", tostring(s.vPower), tostring(s.vRelease), tostring(s.vSteady))
 		end
