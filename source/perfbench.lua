@@ -396,9 +396,8 @@ local function body()
 	local y = coroutine.yield
 	local t = playdate.getTime()
 	local v = tw.version or {}
-	out { string.format("perfbench %04d-%02d-%02d %02d:%02d; version %s; build %s; engine core %s; memory %.0f KB",
-		t.year, t.month, t.day, t.hour, t.minute, v.version or "?", tostring(v.build or "?"),
-		(tw.engineCore and tw.engineCore.version) or "?", kb()) }
+	out { string.format("perfbench %04d-%02d-%02d %02d:%02d; version %s; build %s; memory %.0f KB",
+		t.year, t.month, t.day, t.hour, t.minute, v.text or "?", tostring(v.build or "?"), kb()) }
 	y()
 	out(startLines(y))
 	y()

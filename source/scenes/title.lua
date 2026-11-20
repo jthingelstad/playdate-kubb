@@ -9,8 +9,8 @@
 -- picture). The menu is drawn over it once per choice into a cached image,
 -- so an idle title costs one image draw a frame.
 --
--- The game's version and build (device/version, the same as pdxinfo: "0.9.6
--- (7)") sit small in the sky's top right corner, black on white, so a player
+-- The game's version and the Kubb Engine's (device/version: "0.9.8 (0.8.1)",
+-- the game's the same as pdxinfo, the engine's from source/engine) sit small in the sky's top right corner, black on white, so a player
 -- can tell which release they have.
 import "CoreLibs/graphics"
 import "core/tw"
