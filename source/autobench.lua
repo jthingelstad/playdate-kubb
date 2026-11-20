@@ -268,8 +268,9 @@ end
 local function body()
 	local y = coroutine.yield
 	local t = playdate.getTime()
-	out { string.format("autobench %04d-%02d-%02d %02d:%02d; version %s; memory %.0f KB", t.year, t.month, t.day,
-		t.hour, t.minute, tw.version and tw.version.text or "?", kb()) }
+	out { string.format("autobench %04d-%02d-%02d %02d:%02d; version %s; build %s; memory %.0f KB", t.year,
+		t.month, t.day, t.hour, t.minute, tw.version and tw.version.text or "?",
+		tostring(tw.version and tw.version.build or "?"), kb()) }
 	if playdate.setStatsInterval then playdate.setStatsInterval(0.5) end
 	y()
 
