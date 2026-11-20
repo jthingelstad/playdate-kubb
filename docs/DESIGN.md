@@ -115,8 +115,8 @@ to throw, modelled on how a real player throws, the same for batons and drilled 
 |---|---|
 | D-pad | **Target.** Move a 0.5 m circle over the far half (a little past it: 3 m either side, 3.5 to 8.6 m out). For a baton it is where the throw goes: a clean throw comes down on its center, and with the circle on a standing kubb or the king its center goes through that piece at half the piece's height, so it meets the face instead of landing at the foot, bouncing and going over (a play test, 2026-11-16: "all of them went clean over the field kubb"); for a kubb, where it should come to rest. It starts on the nearest live target (standing field kubbs, else base kubbs, else the king), and stays wherever the d-pad leaves it: it never locks onto a kubb, so a player can aim off one to allow for the wind (Tyler's play test, 2026-11-15: the lock made 8 m too easy). A circle moved by hand stays put for the next throw. |
 | Hold A + d-pad | **Position.** Walk: left/right along the throwing line, down to step back (up to 3 m), up to come forward as far as the line allows (the advantage line in a match; king shots and kubbs from the baseline). The player always faces the target: the swivel is worked out, never set. Until A is used the player stands straight behind the target, as far forward as allowed (clamped inside the line's ends). |
-| Hold B + d-pad up/down | **Plan the arc.** Moves the release target on the gauge's forward side half an hour (15 degrees) at a time. Until B is used the arc follows the target: 3 o'clock at base kubbs, half past 3 at the king, 4 o'clock at field kubbs, half past 1 for a drilled kubb. |
-| Hold B + d-pad left/right | **Plan the tilt** (baton): a tap tilts the baton's spin plane 5 degrees left or right, up to 20 (Jamie, 2026-11-15), to steer it after the first kubb it hits in a group. **Plan the spin** (kubb): taps add spin about the long axis left or right, on top of the small spiral every drill gets from the wrist. Spin holds a drilled kubb steady in the air (a gyroscope), so it lands nose first about as it left the hand; once down it moves it only a little, either way (Jamie, 2026-11-16: "at most… one to three rotations"). Measured (2026-11-15, `tools/tiltgroups.lua`): tilt turns the baton after its first hit by only about 0.15 degrees per degree; spin is up to three taps of 22 rad/s each way. |
+| Hold B + d-pad up/down | **Plan the arc.** Moves the release target on the gauge's forward side to any point in its range (Kubb Engine 0.9; Jamie, 2026-11-20: "allow the slider to select any value in a range"): a tap moves it one tick (5 degrees), held it slides a tick a frame. Until B is used the arc follows the target: 3 o'clock at base kubbs, half past 3 at the king, 4 o'clock at field kubbs, half past 1 for a drilled kubb. |
+| Hold B + d-pad left/right | **Plan the tilt** (baton): a tap tilts the baton's spin plane one degree left or right, held it slides a degree a frame, up to 20 (Jamie, 2026-11-15), to steer it after the first kubb it hits in a group. **Plan the spin** (kubb): a tap adds a quarter of spin about the long axis left or right, held it slides, up to three; the spin is kept for the team's next kubb in the same turn and goes when the turn ends. It comes on top of the small spiral every drill gets from the wrist. Spin holds a drilled kubb steady in the air (a gyroscope), so it lands nose first about as it left the hand; once down it moves it only a little, either way (Jamie, 2026-11-16: "at most… one to three rotations"). Measured (2026-11-15, `tools/tiltgroups.lua`): tilt turns the baton after its first hit by only about 0.15 degrees per degree; spin is up to three taps of 22 rad/s each way. |
 
 Everything the plan sets shows on the gauge and the HUD while aiming.
 
@@ -202,6 +202,11 @@ How it plays (Jamie and Tyler's examples):
 
 The computer throws the same way: it plans a target and an arc and makes a swing with
 mistakes in it, and the gauge shows its arm going back and forward as it throws.
+Its level (beginner, club or pro) is a match option, COMPUTER, chosen before each match
+against it (Kubb Engine 0.9); a person's level is their own (their roster entry's, else the
+System Menu's). Since 0.9 it steps up to a kubb a step from the line (it stands as near as
+0.25 m) and throws the low, hard point-blank baton, and its batons aim lower, at the kubb's
+body.
 
 ### Kubbs (drilling)
 
@@ -242,7 +247,8 @@ swing's and the run on's (`tw.autothrow.tune.into`, `intoShort`).
 | Nerves: share long or short, 1 sd, an 8 m baton | 8% | 4% | 2.5% |
 | Nerves: the baton's turn, 1 sd, turns over the flight | 0.2 | 0.1 | 0.06 |
 
-First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.lua`).
+First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.lua`). A person's level is their roster entry's, else the System Menu's "Level"; the
+Playdate's is the match option COMPUTER.
 
 ### Practice drills
 

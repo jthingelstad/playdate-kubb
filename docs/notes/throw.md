@@ -35,21 +35,28 @@ this throw: "HOW TO THROW" below).
   along the line, back to `backMax`, up to
   the advantage line for a baton, the baseline for a kubb) and sets `s.stanceSet`; until
   then the stance is `plan.stance`, straight behind the circle as far forward as allowed.
-  B + up/down taps move the planned release `plan.tune.arcStepDeg` (15) within
-  `releaseMinDeg`..`releaseMaxDeg` and set `s.arcSet`; until then the release is
-  `plan.arcFor` the kind of target nearest the circle (base 3 o'clock, king half past 3,
-  field 4, a drill half past 1). B + left/right taps: a baton's tilt (`s.tilt`, steps of
-  `tiltStepDeg` to `tiltMaxDeg`), a kubb's spin (`s.spin`, to `spinSteps` taps). While A or
+  B + up/down move the planned release within `releaseMinDeg`..`releaseMaxDeg` and set
+  `s.arcSet`; until then the release is `plan.arcFor` the kind of target nearest the
+  circle (base 3 o'clock, king half past 3, field 4, a drill half past 1). B + left/right:
+  a baton's tilt (`s.tilt`, to `tiltMaxDeg`), a kubb's spin (`s.spin`, to `spinSteps`
+  taps, fractions too). Any value in range since engine 0.9 (`planTicks`): a tap moves one
+  tick (`plan.tune.arcTickDeg` 5, `tiltTickDeg` 1, `spinTick` 0.25), held past
+  `throw.tune.tickHold` (0.3 s) a tick a frame, clamped by `plan.clampRelease`,
+  `clampTilt` and `clampSpin`. The plan chip shows a fraction of spin (SPIN R 1.25). While A or
   B is held the crank does not throw. The swivel is always the plan's (`s.sol.swivel`).
 - **The plan.** `replan(s)` (`throw.replan`) runs `plan.solve` into `s.sol` (reused, no
   tables) only when an input changed (`s.planDirty`: the circle, the stance, the arc, the
   projectile) or the level did. A new throw's circle starts on the live target nearest the
   thrower (`retarget`; it stays on its target while that stands: practice after a throw,
-  a team's later batons); the arc, tilt and spin start afresh each match throw. Stay put: a
+  a team's later batons); the arc and tilt start afresh each match throw, and so does the
+  spin, but for a kubb's: it is kept for the side's next kubb in the same inkast turn
+  (`setup.turn`, set by `scenes/match`; as the engine's session does since 0.9) and goes
+  when the turn ends or the side changes. Stay put: a
   team's later batons of a turn keep a stance walked with A. AROUND THE PITCH gives its
   own stance (`setup.playerX`). For self-tests and callers: `throw.aimAt(s, x, y)` (the
   circle, snapping onto a standing target within `snapRadius`), `setStance`, `setArc`, `setTilt`, `setSpin`.
-- **The level.** `throw.levelFor(s)`: `s.level` (a named player's, later) or `throw.level`,
+- **The level.** `throw.levelFor(s)`: `s.level` (a named player's, or the Playdate's
+  match option COMPUTER) or `throw.level`,
   which `main.lua` sets from the System Menu's "Level" (`beginner`, `club`, `pro`; the
   datastore "level", club by default).
 - **The throw.** On a release `launch(s, r)` takes `plan.launch(s.sol, r, {projectile,
