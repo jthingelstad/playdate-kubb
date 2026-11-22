@@ -8,7 +8,8 @@
 -- as a player's: the throw scene's playback, slow motion, camera, bursts and
 -- knocks, raising and punishment kubbs by the engine's policies, and the
 -- resume save before every throw, under its own key ("soak-match") so a
--- player's saved match is never touched. Every saveCheck throws the save is
+-- player's saved match is never touched. Match soak.tune.kid is a Kid match against
+-- the Kid computer (engine 0.15). Every saveCheck throws the save is
 -- read back, unpacked and settled as match.setup settles the live one, and
 -- must match the live engine. No game file is
 -- written (games/ is left alone), and the crank recorder and frame-time log
@@ -35,6 +36,7 @@ soak.tune = {
 	saveCheck = 7,      -- read the save back every this many throws
 	slowest = 6,        -- slowest frames listed per match
 	key = "soak-match", -- its own resume key
+	kid = 3,            -- this match is a Kid match against the Kid computer (engine 0.15)
 }
 
 local match = tw.scenes.match
@@ -79,8 +81,14 @@ local function newMatch(st)
 	st.info = { update = 0, draw = 0, phys = 0, steps = 0, awake = 0, bodies = 0, mem = 0 }
 	st.checks, st.checkFails, st.lastChecked = 0, {}, 0
 	st.seed = playdate.getSecondsSinceEpoch() + st.n
-	st.ms = match.new(st.input, { seed = st.seed, skipHandoff = true, noFile = true, saveKey = soak.tune.key,
-		maxTurns = soak.tune.maxTurns })
+	local opts = { seed = st.seed, skipHandoff = true, noFile = true, saveKey = soak.tune.key,
+		maxTurns = soak.tune.maxTurns }
+	if st.n == soak.tune.kid then
+		-- VS PLAYDATE with COMPUTER: KID, as the options screen makes it
+		opts.vs, opts.computer, opts.rules, opts.cpuSeed = "B", "kid", "kid", st.seed
+	end
+	st.kid = opts.rules == "kid"
+	st.ms = match.new(st.input, opts)
 	match.enter()
 	st.last = nil
 end
@@ -103,8 +111,8 @@ local function endMatch(st, why)
 	local g = ms.m.game
 	collectgarbage("collect")
 	local lines = {
-		string.format("match %d (seed %d): %s; turn %d, throws %d, winner %s (%s)", st.n, st.seed,
-			why, g.turn, ms.throws, tostring(g.winner), tostring(g.how)),
+		string.format("match %d (seed %d%s): %s; turn %d, throws %d, winner %s (%s)", st.n, st.seed,
+			st.kid and ", Kid rules" or "", why, g.turn, ms.throws, tostring(g.winner), tostring(g.how)),
 		string.format("  frames %d, over 100 ms %d, over 200 ms %d; memory %.0f KB -> %.0f KB after collection, most %.0f KB",
 			st.frames, st.over100, st.over200, st.memStart, kb(), st.memMax),
 		string.format("  save checks %d, failed %d", st.checks, #st.checkFails),

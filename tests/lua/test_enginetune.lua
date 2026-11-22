@@ -29,3 +29,28 @@ test("enginetune: names reach the generator's 16 letters", function()
 	expect.eq(tw.names.finish("Mighty Maple"), "Mighty Maple")
 	expect.eq(tw.names.finish("Wonderful Walnut"), "Wonderful Walnut")
 end)
+
+test("enginetune: the fair spot on the coarse grid is valid and near the engine's", function()
+	import "core/raising"
+	local raising, m = tw.raising, nil
+	-- a Kid match: B's half with kubbs lying in it after A's batons and B's tosses
+	m = cmatch.new { start = { year = 2026, month = 11, day = 22, hour = 12, min = 0 }, mode = "Vs Playdate",
+		cpu = { "B" }, rules = "kid" }
+	local g = m.game
+	g:throwBaton({}); g:throwBaton({ toppled = { "b1", "b2" } })
+	local xs = { -0.5, 0.4 }
+	local i = 0
+	while g.phase == "toss" do
+		i = i + 1
+		g:toss({ rest = { x = xs[(i - 1) % 2 + 1], y = 5.0 + 0.3 * i, standing = false, angle = 0.4 }, moved = {} })
+	end
+	local n = g:need()
+	local ctx = g:context(n.side or "B", n.kubb)
+	ctx.half = ctx.half or "B"
+	local coarse = raising.fairSpot(ctx)
+	local fine = et.engineFairSpot(ctx)
+	expect.truthy(coarse and fine, "both find a spot")
+	expect.truthy(raising.punishmentCheck(coarse, ctx), "the coarse spot is valid")
+	expect.truthy(math.abs(coarse.x - fine.x) + math.abs(coarse.y - fine.y) <= 0.3, "near the engine's")
+	expect.eq(raising.tune.punishGrid, 0.1, "the grid put back")
+end)
