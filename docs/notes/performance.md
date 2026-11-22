@@ -211,11 +211,9 @@ floor cost what a default plan does.
 
 Kubb Engine 0.16.0 to 0.18.0 (2026-11-22, game 0.13.0 build 15 against 0.14.0 build 16),
 desktop Lua 5.4 on a loaded Mac, the scene's question (the person's meter, a kubb's aim
-height), each the mean of 60 to 400 solves. The device factor is the one this file
-already uses: `plan.solve` at 1 m, 22.5 ms on the device for 0.08 in desktop Lua, about
-280 times (a `par` decision, 370; `autothrow.choose`, 360 to 460). Not measured on the
-device yet: the perf check's drive section and computer rows on build 16 are the next
-device run.
+height), each the mean of 60 to 400 solves. The device factor this file used: `plan.solve`
+at 1 m, 22.5 ms on the device for 0.08 in desktop Lua, about 280 times (a `par` decision,
+370; `autothrow.choose`, 360 to 460). The device run below gives a second one.
 
 | ms a solve, desktop | 1.5 m | 2 m | 3 m | 4 m |
 |---|---|---|---|---|
@@ -226,15 +224,35 @@ device run.
 
 So 0.18's floor is cheap when its geometry repeats (the engine keeps the last floor) and
 no cheaper for a new one; from 2 to 4 m a kept drive raised to a new floor costs about five
-times 0.16's. The worst frame the scene could make by solving as the circle moves is one
-such solve: about 0.5 ms desktop, 140 to 150 ms on the device, four 30 fps frames
-(33 ms) in one, so the scene keeps its guard (no solve of a kept drive while the circle or
-the stance moves, one when it stops) and its floor cache (docs/notes/throw.md "The floor on
+times 0.16's. The scene keeps its guard (no solve of a kept drive while the circle or the
+stance moves, one when it stops) and its floor cache (docs/notes/throw.md "The floor on
 0.18"). With the guard, the frames while moving cost what they did (the half-rate skip of
-"The aim at a short throw"), and the one solve when the movement stops is about 150 ms on
-the device on 0.18 where it was about 25 to 35 ms on 0.16 from 2 to 4 m: one still frame,
-as the first B + down at a throw always was. The `drive-solves` self-test still passes
-unchanged (no solve while walking, moving the circle or cranking; one when each stops).
+"The aim at a short throw"). The `drive-solves` self-test still passes unchanged (no solve
+while walking, moving the circle or cranking; one when each stops).
+
+**On the device** (measured 2026-11-22, 0.14.0 build 16 on core 0.18.0, the performance
+check, ms; it replaces the estimates this section made from desktop Lua):
+
+| Row (device, ms) | 0.14.0 build 16 (core 0.18.0) |
+|---|---|
+| `plan.solve` 1.0 / 1.5 / 3.0 / 8.0 m (a person's default line) | 22.06 / 7.25 / 7.29 / 4.21 |
+| drive at 1.5 m: solve at the floor (0.3) / `plan.arcFloor` | 12.23 / 11.54 |
+| drive at 3 m: solve at the floor (9.3) / `plan.arcFloor` | 16.15 / 6.69 |
+| aim at 1.5 m, B held with down and up, 30 frames: update mean (max), solves | 9.28 (43.80), 8 (one floor) |
+| the Playdate pro's first baton at 8 field kubbs: slowest frame / choose frame | 124.4 / 89.8 |
+| throws, frame mean: cluster 5m / 1m / drive 1.5m / 8 m base / drill | 60.8 / 58.3 / 60.1 / 53.7 / 43.0 |
+
+Two device factors follow. `plan.solve` at 1 m is 22.06 ms for 0.08 in desktop Lua, about
+280 times, as before; at 1.5 m, where 0.18's default is a drive, 7.25 for 0.017, about 430
+times (and `plan.arcFloor` at 1.5 m 11.54 for 0.029, about 400). The floor was never the
+150 ms this section estimated from 0.16's bisection: a repeat floor and `arcFloor` cost 7
+to 16 ms, and the aim's worst frame with a floor in it was 43.8 ms. The case the guard
+holds back, a kept drive raised to a new floor (0.42 to 0.52 ms desktop), was not in the
+check: by the two factors 120 to 220 ms a solve on 0.18, still several frames, so the
+guard was right to stay. The pro's choose frame at eight field kubbs is 89.8 ms, as on
+0.13 (89), and its slowest frame 124.4 (121 on 0.13 tuned); a close pro drive's choose is
+not in the check (estimated above at about 105 ms a frame). Throws are 54 to 61 ms a frame,
+as before; the drive at 1.5 m 60.1.
 
 Why (`flight.speedForCarry` timed call by call): the floor's search tries the release
 floor (6 o'clock) first, and at 2 to 5 m that line runs straight at the aim to within
@@ -288,6 +306,49 @@ An empty file named `debug` in the same Data folder shows the developer's items 
 practice pitch's System Menu "Pitch": "readout" and "bench", and records the crank traces
 ("Crank traces" below) (`tw.debug`, read once at launch). Without it a player sees only play, how to, reset, drill, batons, the surfaces and
 title (RC review, 2026-11-15: a stranger could start the bench, which cannot be stopped).
+
+### Engine 1.0
+
+Kubb Engine 0.18.0 to 1.0.0 (2026-11-22, game 0.14.0 build 16 against 1.0.0 build 17).
+Core 1.0 checks a line's drag-free speed before any carry (kubb-engine docs/notes/throw.md
+"The floor"), so a line no speed reaches costs no 3000-step carry, and a plan under the
+knee spends no solve on the top speed. Desktop Lua 5.4 on this Mac, the scene's question
+(the person's meter, a kubb's aim height, the grass), each the best of five batches of 100
+to 200 solves, both cores measured in the same session (ms a solve):
+
+| ms a solve, desktop | 1.5 m | 2 m | 3 m | 4 m | 5 m |
+|---|---|---|---|---|---|
+| a default plan, the circle moving: 0.18 / 1.0 | 0.018 / 0.006 | 0.018 / 0.005 | 0.019 / 0.006 | 0.021 / 0.007 | 0.008 / 0.008 |
+| `plan.arcFloor`, stance and circle still: 0.18 / 1.0 | 0.028 / 0.006 | 0.016 / 0.005 | 0.016 / 0.006 | 0.017 / 0.007 | 0.018 / 0.008 |
+| a kept drive raised to a new floor, the stance walking back: 0.18 / 1.0 | 0.24 / 0.040 | 0.49 / 0.059 | 0.49 / 0.071 | 0.52 / 0.098 | 0.10 / 0.023 |
+| the same, the circle moving away: 0.18 / 1.0 | 0.24 / 0.039 | 0.49 / 0.057 | 0.49 / 0.071 | 0.52 / 0.098 | 0.10 / 0.023 |
+
+The slowest single new-floor solve on 1.0 was 0.13 to 0.15 ms (one in a hundred; on 0.18
+0.53 to 0.59). On the device, by the two factors (about 280 and about 430 times):
+
+| on the device (estimated) | at 280x | at 430x |
+|---|---|---|
+| a default plan or `plan.arcFloor` (1.5 to 5 m) | 1.5 to 2.2 ms | 2.2 to 3.4 ms |
+| a kept drive raised to a new floor, 1.5 to 4 m (mean) | 11 to 27 ms | 17 to 42 ms |
+| the same, the slowest solve | about 42 ms | about 65 ms |
+
+**Decided: the guard stays, the floor cache stays.** The guard (no solve of a kept drive
+while the circle or the stance moves, one when the movement stops, the arc greyed
+meanwhile) holds back a solve that would now cost 11 to 42 ms a frame and up to about 65,
+against the aim's 20 ms frame (50 fps) and the 33 ms of 30 fps: the worst case does not fit
+a frame with room, so solving per frame would make the aim stutter at 3 to 4 m. The floor
+cache (`s.floorKey`) now saves only a default plan's cost (2 to 3 ms) where it saved 7 to
+12; it stays because it costs nothing and keeps a held slide down to one floor. The
+`drive-solves` self-test passes unchanged. The one solve the guard makes when the movement
+stops is now one ordinary frame (11 to 42 ms) where it was 120 to 220.
+
+The check measures the new-floor case from build 17: the drive section's new row, "a kept
+drive raised to a new floor" (release 0 at 1.5 and 3 m, the stance walking back 4 mm a
+solve, then the circle moving away, mean and max). If the device's figure is under about
+10 ms at 3 m with its max under 20, the guard can go (`aimInput` in `scenes/throw.lua`),
+leaving the half-rate skip of "The aim at a short throw". By the same factors the default
+plan at 1.5 m should fall from 7.25 to about 2.5 ms, and the aim with B held down and up
+from 9.28 ms an update.
 
 ## Drawing speed
 

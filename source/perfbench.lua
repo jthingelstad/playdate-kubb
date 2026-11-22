@@ -55,7 +55,9 @@
 --            per-level rows above.
 --   drive    (engine 0.16, docs/notes/throw.md "The drive") plan.solve for a drive at
 --            the throw's floor at 1.5 and 3 m (the bisection) and plan.arcFloor at 1.5
---            and 3 m, in ms; then the aim at a kubb 1.5 m in front of an advantage
+--            and 3 m, in ms; a kept drive raised to a new floor at 1.5 and 3 m (core
+--            1.0: release 0 with the stance walking back, then the circle moving
+--            away, 4 mm a solve: mean and max); then the aim at a kubb 1.5 m in front of an advantage
 --            line through the scene's own update: 30 frames with nothing pressed, 30
 --            with B held (the frame B goes down works out the floor), 30 with B held
 --            and down tapped to the floor and back: update and draw (mean, max) and
@@ -770,6 +772,32 @@ local function driveLines(y)
 		y()
 	end
 	lines[#lines + 1] = "  " .. table.concat(parts, "; ")
+	-- (core 1.0) a kept drive raised to a new floor: release 0 (under the knee) with the
+	-- stance walking back 4 mm a solve, then the circle moving away 4 mm a solve, so no
+	-- solve repeats a geometry the engine has seen (what the scene's guard holds back while
+	-- the circle or the stance moves, docs/notes/throw.md "The drive"): mean and max a solve
+	parts = {}
+	for _, d in ipairs { 1.5, 3.0 } do
+		local res = {}
+		for _, moving in ipairs { "stance", "circle" } do
+			local q = { projectile = "baton", px = 0, py = 0, tx = 0, ty = d, release = 0, meter = plan.meter(),
+				surface = "grass", spin = 0, aimZ = kubbZ }
+			local sum, worst = 0, 0
+			for i = 1, perf.tune.solveReps do
+				if moving == "stance" then q.py = -i * 0.004 else q.ty = d + i * 0.004 end
+				local t0 = clock()
+				plan.solve(q, out)
+				local t = clock() - t0
+				sum = sum + t
+				if t > worst then worst = t end
+			end
+			res[#res + 1] = string.format("%s %.2f (max %.2f)", moving == "stance" and "walking" or "circle",
+				sum * 1000 / perf.tune.solveReps, worst * 1000)
+			y()
+		end
+		parts[#parts + 1] = string.format("%gm %s", d, table.concat(res, ", "))
+	end
+	lines[#lines + 1] = "  a kept drive raised to a new floor: " .. table.concat(parts, "; ")
 	-- the aim at a kubb 1.5 m from the advantage line 3.5 m up
 	local solve = plan.solve
 	local count = 0

@@ -191,11 +191,11 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
 - **The floor** (`throw.arcFloor`, `plan.arcFloor` for the plan's question): the lowest
   release this throw can be planned at (a backswing of at most 140, `driveBackMaxDeg`, and
   a line the hand can make): 0 at 1 m, 0.3 at 1.5 m, 5 at 2 m, 9.3 at 3 m, 12.3 at 4 m, the
-  knee (15) from about 6 m; a thrown kubb's is the knee. For a stance and circle the
-  engine has not just seen it is dear: about 0.5 ms in desktop Lua from 1.5 m out (a
-  default plan 0.02), 4.7 ms in the Simulator at 3 m on 0.16, so roughly 150 ms on the
-  device by the usual ratio (plan.solve at 1 m: 0.08 ms desktop, 22.5 device). Engine 0.18
-  made it cheap only for a repeat (below, "The floor on 0.18"). So the scene works it out only
+  knee (15) from about 6 m; a thrown kubb's is the knee. On 0.16 it was dear (a
+  bisection of carries); 0.18 made it cheap for a repeat (below, "The floor on 0.18":
+  `plan.arcFloor` 11.54 ms on the device at 1.5 m, 6.69 at 3 m), and core 1.0 for any
+  stance and circle (below, "The floor on 1.0": about a default plan's cost, 2 to 3 ms on
+  the device by estimate). The scene still works it out only
   when B + down steps ARC (`throw.arcFloor`; up never needs it), keeps it in `s.floorKey`
   with what it was worked out for (stance, circle, aim height, projectile, meter) and never
   per frame: with B held the circle and the stance cannot move, so a held slide down works
@@ -213,9 +213,9 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
   the arc afresh, so no release is kept under a floor across throws. The `drive-solves`
   self-test counts the scene's solves frame by frame through all of these. Codex on #163
   found the walk missing from the first version of this guard. The guard and
-  `s.planStale` stay on engine 0.18 ("The floor on 0.18"): they can go when a solve raised
-  to a new floor costs what a default plan does, leaving the half-rate skip of "The aim at
-  a short throw".
+  `s.planStale` stay on core 1.0 ("The floor on 1.0"): they can go when a solve raised to a
+  new floor fits an aim frame with room on the device, leaving the half-rate skip of "The
+  aim at a short throw".
 - **The floor on 0.18** (measured 2026-11-22, desktop Lua 5.4, the scene's own question:
   the person's meter, a kubb's aim height). 0.18.0's `plan.solve` finds the floor by
   Illinois steps and keeps the last one, so a plan whose release alone changed, and
@@ -234,7 +234,19 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
   out until B + down steps ARC. The one solve the guard makes when the movement stops costs
   about 150 ms on the device on 0.18 (about 25 to 35 ms on 0.16 from 2 to 4 m): one still
   frame, as B + down's first floor always was. What the engine could do is in
-  `docs/notes/performance.md` "Engine 0.18".
+  `docs/notes/performance.md` "Engine 0.18". (Measured on the device afterwards, build 16:
+  a repeat floor 7 to 16 ms, not 150; the new-floor case was not in the check.)
+- **The floor on 1.0** (measured 2026-11-22, desktop Lua 5.4, the same question; the
+  table is `docs/notes/performance.md` "Engine 1.0"). Core 1.0 tests a line's drag-free
+  speed before any carry, so the line at the hand's geometric limit costs nothing: a
+  default plan and `plan.arcFloor` 0.005 to 0.008 ms at 1.5 to 5 m (0.016 to 0.028 on
+  0.18), and a kept drive raised to a new floor 0.04 to 0.10 ms (0.24 to 0.52 on 0.18),
+  its slowest solve about 0.15. On the device, by the factors the build 16 check gives
+  (about 280 and 430 times), the new-floor solve is 11 to 42 ms and up to about 65 at
+  worst, against a 20 ms aim frame: the guard stays, and so does the floor cache, which
+  now saves a default plan's 2 to 3 ms and costs nothing. The perf check gained the
+  new-floor case ("a kept drive raised to a new floor", the stance walking and the circle
+  moving at 1.5 and 3 m), so the next device run decides whether the guard can go.
 - **B + up/down** (`throw.stepArc`, the session's `stepArc` with the Playdate's tick): `f =
   throw.arcFloor(s)`, then `max(f, plan.clampRelease(max(s.sol.release, f) + ticks *
   arcTickDeg, projectile))`. It steps from the release as planned (the default, or a kept
@@ -322,8 +334,10 @@ desktop Lua at pro, 17 for 0.048 at club: about 360 to 460 times) a close drive'
 is about 20 to 30 ms on the device at club (was about 15) and 63 to 69 ms at pro (was about
 53); the choose frame was 89 ms at pro on 0.13 with a 52 ms choose, so a pro drive's is
 near 105 ms. It is one still frame while the aim shows for `cpuThink` (0.9 s), where the
-soak's line is 100 ms. Measured on the device: not yet (`docs/notes/performance.md`,
-"Engine 0.18").
+soak's line is 100 ms. Measured on the device (build 16, core 0.18;
+`docs/notes/performance.md` "Engine 0.18"): at the check's eight field kubbs from the
+baseline (no drive) the pro's choose is 49.9 ms and its choose frame 89.8, its slowest
+frame 124.4; a close drive's choose is not in the check yet.
 
 ## HOW TO PLAY
 
