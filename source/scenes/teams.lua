@@ -237,9 +237,12 @@ end
 function scene.fitName(text, w)
 	local label = ui.label()
 	if label:getTextWidth(string.upper(text)) <= w then return text end
-	local first, rest = text:match("^(%S+) (.+)$")
-	if first == "The" then return rest end
-	if first then return first:sub(1, 1) .. ". " .. rest end
+	-- (a player's row starts with their place in the order: "2 Agreeable Ginkgo")
+	local n, name = text:match("^(%d+ )(.+)$")
+	n, name = n or "", name or text
+	local first, rest = name:match("^(%S+) (.+)$")
+	if first == "The" then return n .. rest end
+	if first then return n .. first:sub(1, 1) .. ". " .. rest end
 	return text
 end
 
