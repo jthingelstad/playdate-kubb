@@ -186,21 +186,22 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
 - **The default** needs nothing: `plan.arcFor("baton", d)` is the lowered line, so a
   player who touches nothing throws at a kubb 1.5 m away a release of 6 (under the knee),
   launch loft -4.6 at 6.5 m/s, with no end over end turn (`plan.solve`'s drive turn), at 4
-  m 13.6 (loft 4.9, 10.3 m/s), at 8 m 60 as before. The computer keeps the line before
-  (`plan.sharedArcFor`, its drive is off).
+  m 13.6 (loft 4.9, 10.3 m/s), at 8 m 60 as before. From engine 0.18 the computer at
+  club and pro throws the same line ("The computer's drive" below).
 - **The floor** (`throw.arcFloor`, `plan.arcFloor` for the plan's question): the lowest
   release this throw can be planned at (a backswing of at most 140, `driveBackMaxDeg`, and
   a line the hand can make): 0 at 1 m, 0.3 at 1.5 m, 5 at 2 m, 9.3 at 3 m, 12.3 at 4 m, the
-  knee (15) from about 6 m; a thrown kubb's is the knee. It costs a solve with a 24-step
-  bisection, and from 2 m out that is dear: about 0.5 ms in desktop Lua (a default plan
-  0.02), 4.7 ms in the Simulator at 3 m, so roughly 150 ms on the device by the usual
-  ratio (plan.solve at 1 m: 0.08 ms desktop, 22.5 device). So the scene works it out only
+  knee (15) from about 6 m; a thrown kubb's is the knee. For a stance and circle the
+  engine has not just seen it is dear: about 0.5 ms in desktop Lua from 1.5 m out (a
+  default plan 0.02), 4.7 ms in the Simulator at 3 m on 0.16, so roughly 150 ms on the
+  device by the usual ratio (plan.solve at 1 m: 0.08 ms desktop, 22.5 device). Engine 0.18
+  made it cheap only for a repeat (below, "The floor on 0.18"). So the scene works it out only
   when B + down steps ARC (`throw.arcFloor`; up never needs it), keeps it in `s.floorKey`
   with what it was worked out for (stance, circle, aim height, projectile, meter) and never
   per frame: with B held the circle and the stance cannot move, so a held slide down works
   it out once. `throw.knownFloor` reads it without solving (the ARC words).
 - **A drive kept under a new floor: one solve per settled change.** `plan.solve` raises
-  a kept release under the floor with the same bisection on every solve. The rule
+  a kept release under the floor by working the new floor out on every solve. The rule
   (`aimInput`'s guard, `throw.keptDrive`): while the circle or the stance moves (the d-pad,
   A + d-pad: the only inputs that change the plan frame after frame) a drive kept by B is
   not solved at all; the frame the movement stops solves it once. Meanwhile the clock keeps
@@ -211,9 +212,29 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
   plan. A new throw of a match (`throw.prepare`, so also the computer's turn ending) starts
   the arc afresh, so no release is kept under a floor across throws. The `drive-solves`
   self-test counts the scene's solves frame by frame through all of these. Codex on #163
-  found the walk missing from the first version of this guard. When the engine's floor is
-  cheap (its next release), the guard and `s.planStale` can go, leaving the half-rate skip
-  of "The aim at a short throw".
+  found the walk missing from the first version of this guard. The guard and
+  `s.planStale` stay on engine 0.18 ("The floor on 0.18"): they can go when a solve raised
+  to a new floor costs what a default plan does, leaving the half-rate skip of "The aim at
+  a short throw".
+- **The floor on 0.18** (measured 2026-11-22, desktop Lua 5.4, the scene's own question:
+  the person's meter, a kubb's aim height). 0.18.0's `plan.solve` finds the floor by
+  Illinois steps and keeps the last one, so a plan whose release alone changed, and
+  `plan.arcFloor` at a still stance and circle, cost what a default plan does: 0.016 to
+  0.03 ms at 1.5 to 5 m (0.06 to 0.60 on 0.16). A stance or circle it has not seen still
+  costs the old price, because the search first carries the line from the release floor
+  (6 o'clock), which at these distances runs straight at the aim within rounding, and the
+  carry of a line no speed reaches runs 3000 steps before it says so (about 0.45 ms of the
+  0.5). A kept drive raised to a new floor, frame after frame as the circle or the stance
+  moves: 0.42 to 0.52 ms a solve on 0.18 against 0.08 to 0.43 on 0.16 (1.5 to 4 m; 0.16's
+  bisection started from the kept release and was cheaper from 2 m out), against 0.02 for a
+  default plan. By the ratio above (about 280 times) that is about 120 to 150 ms on the
+  device a frame, four frames of the 30 fps budget (33 ms), so the guard stays and the
+  scene keeps its own floor cache (`s.floorKey`): without it, holding B after moving the
+  circle would work the floor out at once (the same 150 ms) where today nothing is worked
+  out until B + down steps ARC. The one solve the guard makes when the movement stops costs
+  about 150 ms on the device on 0.18 (about 25 to 35 ms on 0.16 from 2 to 4 m): one still
+  frame, as B + down's first floor always was. What the engine could do is in
+  `docs/notes/performance.md` "Engine 0.18".
 - **B + up/down** (`throw.stepArc`, the session's `stepArc` with the Playdate's tick): `f =
   throw.arcFloor(s)`, then `max(f, plan.clampRelease(max(s.sol.release, f) + ticks *
   arcTickDeg, projectile))`. It steps from the release as planned (the default, or a kept
@@ -257,6 +278,52 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
   20 ground seeds a swing): within 0.3 m of the spot 46% on 0.15's bars and 31% on 0.16's,
   landed dead 58% and 46%, median rest 40 and 51 cm; the 9 recorded drill swings alone 44%
   and 39%, dead 58% and 42%.
+
+## The computer's drive
+
+Kubb Engine 0.18 (kubb-engine's docs/VERSIONING.md 0.18.0, docs/CLIENTS.md "0.18 on top").
+Nothing to build: the Playdate plans its throws with `autothrow.choose` (`scenes/match`,
+the frame its aim is shown), and the core now does three things a player notices:
+
+- **It drives at club and pro.** Every baton but the king shot is planned on the person's
+  default line (`plan.arcFor` by the distance: a drive close in, the line before from 8 m),
+  where it threw the line before (`plan.sharedArcFor`). Beginner and Kid throw as before.
+  From an advantage line at a group 1.7 m away its baton leaves at about -3 to -5 degrees,
+  7 m/s, upright, with no end over end turn (the `cpu-drive` self-test: release 6.6, a
+  launch loft of -3.3 at 7.3 m/s, a turn of 1.2 rad/s from its nerves, its axis 0.87 up or
+  more until it touched; 1 down). In
+  headless matches on the Playdate's core at club, 92 of 585 batons were planned under the
+  knee (82 of 443 at pro), none on 0.16.
+- **Its king shot** is thrown on the line before, its swing's mistakes and nerves times
+  `autothrow.tune.kingScale` (beginner 1.4, club 1.6, pro 1.3), set in the engine's Gym.
+- **The baton's blow on a face** is a little harder (about 4% faster, 6% more turn), for
+  everyone's batons; the Playdate's physics step costs the same.
+
+What the scene had to check, and found nothing to change: the Playdate's aim shows its
+stance, its circle and its bars on the clock (`dialState` reads `s.cpuPlan`, so a release
+band under the knee sits under the notch at half past 5); its arm plays on the clock to
+the plan's release (`cpuSwing`, any release angle); the flight is the physics' own; no
+aim arc or ARC chip is drawn while the Playdate throws (`s.watching`), and `throw.isDrive`,
+`stepArc` and the floor read the person's plan only. The core's computer players in teams
+(0.17) need nothing: the Playdate's lineup entries never say `cpu`, so the kubbs do not go
+round the team (`core/order` `rotateInk`) and the TEAMS screen, the hand-off and the
+thrower change are as before.
+
+Its planning cost, `autothrow.choose` in desktop Lua (median of 200, ms; the perf check's
+eight-kubb position, then the same eight from an advantage line 1.7 to 2.8 m away):
+
+| position | 0.16 club | 0.18 club | 0.16 pro | 0.18 pro |
+|---|---|---|---|---|
+| eight field kubbs standing, from the baseline (no drive) | 0.048 | 0.048 | 0.113 | 0.116 |
+| the eight from an advantage line (0.18 drives) | 0.035 to 0.041 | 0.057 to 0.080 | 0.114 to 0.116 | 0.137 to 0.150 |
+
+By the perf check's own ratio for `autothrow.choose` (52 ms on the device for 0.113 in
+desktop Lua at pro, 17 for 0.048 at club: about 360 to 460 times) a close drive's choose
+is about 20 to 30 ms on the device at club (was about 15) and 63 to 69 ms at pro (was about
+53); the choose frame was 89 ms at pro on 0.13 with a 52 ms choose, so a pro drive's is
+near 105 ms. It is one still frame while the aim shows for `cpuThink` (0.9 s), where the
+soak's line is 100 ms. Measured on the device: not yet (`docs/notes/performance.md`,
+"Engine 0.18").
 
 ## HOW TO PLAY
 

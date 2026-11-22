@@ -473,8 +473,11 @@ end
 
 -- The lowest release this throw can be planned at (engine 0.16, plan.arcFloor: the
 -- drive's floor for the stance, the circle and the aim height; a kubb's the knee).
--- Under the knee it costs a solve with a 24-step bisection: about 0.5 ms in desktop
--- Lua from 2 m out, so roughly 150 ms on the device. It is worked out only when B +
+-- For a stance and circle the engine has not seen it still costs about 0.5 ms in
+-- desktop Lua from 1.5 m out on engine 0.18 as on 0.16, roughly 150 ms on the device
+-- (0.18 keeps the last floor, so a repeat is a default plan's cost, but its search
+-- carries a line at the hand's geometric limit first: docs/notes/throw.md "The floor
+-- on 0.18"). It is worked out only when B +
 -- down steps ARC, and kept with what it was worked out for (the stance, the circle,
 -- the aim height, the projectile, the meter) until one of them changes: never per
 -- frame, and with B held the circle and the stance cannot move, so a held slide down
@@ -970,15 +973,17 @@ local function aimInput(s, dt)
 			skip = ddx * ddx + ddy * ddy < r * r
 		end
 		-- A drive kept by B (throw.keptDrive) may sit under the floor of the throw as it
-		-- now is, and plan.solve then raises it with a 24-step bisection: about 150 ms
-		-- on the device from 2 m out. So while the circle or the stance moves (the d-pad,
+		-- now is, and plan.solve then works out the new floor: about 0.5 ms in desktop Lua
+		-- on engine 0.18 (0.08 to 0.12 on 0.16 from 2 to 4 m), roughly 150 ms on the
+		-- device. So while the circle or the stance moves (the d-pad,
 		-- A + d-pad: the only inputs that change the plan frame after frame) it is not
 		-- solved at all; the frame the movement stops solves it once. Meanwhile the
 		-- clock keeps the last good plan's targets and the arc is drawn greyed
 		-- (s.planStale). Every other change (a snap, a retarget, a new throw, a switch
-		-- of projectile, a reset, a launch) solves once when it happens. When the
-		-- engine's floor is cheap (its next release), this guard and s.planStale can
-		-- go, leaving only the half-rate skip above. docs/notes/throw.md "The drive".
+		-- of projectile, a reset, a launch) solves once when it happens. Engine 0.18's
+		-- floor is cheap only for a geometry it has just seen, never for a moving one,
+		-- so this guard and s.planStale stay until a solve raised to a new floor costs
+		-- what a default plan does. docs/notes/throw.md "The drive".
 		if (moving or walking) and s.planLevel == by and throw.keptDrive(s) then
 			skip = true
 			s.planStale = true

@@ -207,6 +207,62 @@ being one the hand can make: a closed form for the drag-free carry, then a few s
 steps, or a regula falsi from the knee), so that `plan.arcFloor` and a plan raised to the
 floor cost what a default plan does.
 
+### Engine 0.18
+
+Kubb Engine 0.16.0 to 0.18.0 (2026-11-22, game 0.13.0 build 15 against 0.14.0 build 16),
+desktop Lua 5.4 on a loaded Mac, the scene's question (the person's meter, a kubb's aim
+height), each the mean of 60 to 400 solves. The device factor is the one this file
+already uses: `plan.solve` at 1 m, 22.5 ms on the device for 0.08 in desktop Lua, about
+280 times (a `par` decision, 370; `autothrow.choose`, 360 to 460). Not measured on the
+device yet: the perf check's drive section and computer rows on build 16 are the next
+device run.
+
+| ms a solve, desktop | 1.5 m | 2 m | 3 m | 4 m |
+|---|---|---|---|---|
+| a default plan, the circle moving | 0.02 | 0.02 | 0.02 | 0.02 |
+| `plan.arcFloor`, stance and circle still: 0.16 / 0.18 | 0.064 / 0.029 | 0.54 / 0.016 | 0.55 / 0.017 | 0.56 / 0.017 |
+| a kept drive raised to a new floor, the stance walking back: 0.16 / 0.18 | 0.43 / 0.42 | 0.08 / 0.52 | 0.10 / 0.52 | 0.12 / 0.48 |
+| the same, the circle moving away: 0.16 / 0.18 | 0.43 / 0.42 | 0.08 / 0.52 | 0.10 / 0.53 | 0.12 / 0.48 |
+
+So 0.18's floor is cheap when its geometry repeats (the engine keeps the last floor) and
+no cheaper for a new one; from 2 to 4 m a kept drive raised to a new floor costs about five
+times 0.16's. The worst frame the scene could make by solving as the circle moves is one
+such solve: about 0.5 ms desktop, 140 to 150 ms on the device, four 30 fps frames
+(33 ms) in one, so the scene keeps its guard (no solve of a kept drive while the circle or
+the stance moves, one when it stops) and its floor cache (docs/notes/throw.md "The floor on
+0.18"). With the guard, the frames while moving cost what they did (the half-rate skip of
+"The aim at a short throw"), and the one solve when the movement stops is about 150 ms on
+the device on 0.18 where it was about 25 to 35 ms on 0.16 from 2 to 4 m: one still frame,
+as the first B + down at a throw always was. The `drive-solves` self-test still passes
+unchanged (no solve while walking, moving the circle or cranking; one when each stops).
+
+Why (`flight.speedForCarry` timed call by call): the floor's search tries the release
+floor (6 o'clock) first, and at 2 to 5 m that line runs straight at the aim to within
+rounding (its clearance over the aim about 4e-5 m), so the guard `R * tan(e) + hz <= 0`
+passes it and its carry runs 3000 steps to answer that no speed reaches it (0.45 ms of the
+0.5); then the search's "just over the line" start (1e-6 m of clearance) does the same.
+What the engine could do for the Playdate: before any carry, test the drag-free speed
+`sqrt(g R^2 / (2 cos^2 e (R tan e + hz)))`, a lower bound on the carry speed (drag only
+asks more): past `speedFor(driveBackMaxDeg)` the line is unfit with no carry. Tried in a
+scratch copy of the core only (never in `source/core`), in `driveFloor` and in
+`plan.solve`'s own fit test: the same floors to two decimals at 1.5 to 5 m, no carry over
+0.1 ms left, and a kept drive raised to a new floor 0.08 to 0.15 ms a solve (worst 0.3) at
+1.5 to 5 m. That is still 20 to 40 ms on the device, so a solve per frame of a moving drive
+would not fit 30 fps even then; the guard is what keeps the frames even.
+
+The computer's turn on 0.18 (it plans every club and pro baton but the king shot on the
+person's line, so close in it drives): `autothrow.choose` in desktop Lua, median of 200 at
+the perf check's eight field kubbs (no drive) 0.048 / 0.116 ms at club / pro on 0.18
+(0.048 / 0.113 on 0.16); the same eight from an advantage line 1.7 to 2.8 m away, where
+0.18 drives, 0.057 to 0.080 / 0.137 to 0.150 (0.035 to 0.041 / 0.114 to 0.116 on 0.16). By
+the choose ratio, a close pro drive's choose is about 65 ms on the device (about 53 on
+0.16) and its choose frame near 105 ms (89 on 0.13): one still frame while the aim shows
+for `cpuThink` (0.9 s), at the soak's 100 ms line. In six headless matches a side at
+each level (`physmatch` on the Playdate's core), every choose: club worst 0.12 ms desktop
+(0.10 on 0.16), pro worst 0.20 (0.16), so about 90 ms on the device at pro at worst. None
+of it is per frame. The Simulator's `cpu-drive` self-test times the scene's choose for a
+drive at 1.7 m: 0.34 ms (the Mac's, for the shape only).
+
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
 autobench; since 0.12.0 the third, `soak.tune.kid`, a Kid match against the Kid computer), at a player's real pace through `scenes/match` (playback, slow motion, camera,

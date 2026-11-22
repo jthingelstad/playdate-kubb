@@ -187,7 +187,13 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   circle or cranking, the arc greyed meanwhile; one solve, raised once, when each movement
   stops; a snap, RESET, drilling and back, the drive thrown and the circle retargeting at
   rest, at most one solve each; never two solves in a frame; a match's next throw drops the
-  kept release. Frames: walking with the arc greyed, the walk stopped), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
+  kept release. Frames: walking with the arc greyed, the walk stopped), `cpu-drive` (the
+  computer's drive, engine 0.18: VS PLAYDATE at club resumed at a turn where it throws from
+  an advantage line at a group about 1.7 m away; its baton is planned on the person's
+  default line under the knee, played out with its aim, its arm on the clock, the flight
+  and the rest; in the no-turn part of the drive its axis stays up until it touches; the
+  scene's `autothrow.choose` times in the note, the Mac's. Frames: its aim (WATCH), its arm
+  on the clock, the drive in flight, at rest; "The computer's drive" in throw.md), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
   `howto-play` (HOW TO PLAY's six cards and the hand-off into HOW TO THROW: "HOW TO
   PLAY" below).
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
