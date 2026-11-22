@@ -71,7 +71,7 @@ tw.selftest.scenarios.teams = {
 					if not s.done then return "START did not start" end
 					local t = scene.teams(s)
 					-- a row too wide for its column cuts the name, never the order number
-					local cut = scene.fitName("2 Agreeable Ginkgo", 10)
+					local cut = scene.fitName("2 Agreeable Ginkgo", scene.tune.colW - 14)
 					if cut ~= "2 A. Ginkgo" then return "cut to " .. cut end
 					if t.A.name ~= "Wobbly Towers" or t.B.name ~= "Team Lucky Larch" then return "names " .. t.A.name .. ", " .. t.B.name end
 					local ms = tw.scenes.match.new(tw.input.scripted({}), { teams = t, seed = 1, instant = true })

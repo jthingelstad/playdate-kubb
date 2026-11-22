@@ -2,9 +2,14 @@
 -- player works it. A player's name starts on "Mighty Maple"; the crank steps the first
 -- word (frame 1), down and left/right the second (frame 2), SHUFFLE rolls a new one;
 -- a team name's first word runs from "The" through the adjectives (frame 3); a name the
--- check refuses stays with the reason (frame 4); A takes it, B goes back.
--- The check: every name shown is a generated name of its kind (core/namegen), the
--- rows step as asked, the taken one is refused, and a match takes the names given.
+-- check refuses stays with the reason (frame 3); A takes it, B goes back. TYPE A NAME
+-- (the owner, 2026-11-22: typed names on the Playdate): A opens the keyboard, an
+-- all-space name is refused, a typed name with a space, mixed case and marks is cut to
+-- ten letters and loses a digit (frame 4), SHUFFLE goes back to the words, and a rename
+-- opens a typed name typed and a generated one on the generator.
+-- The check: every generated name shown is one of its kind (core/namegen), the rows
+-- step as asked, the taken one is refused, the typed rules hold, a kept typed name opens
+-- as it is, and a match takes the names given.
 import "core/tw"
 import "core/namegen"
 import "scenes/names"
@@ -67,6 +72,34 @@ tw.selftest.scenarios.names = {
 				function() inp.want = "a" end,
 				function() if not s.done then return "A did not take " .. names.text(s) end
 					if s.list.A ~= names.text(s) then return "list " .. tostring(s.list.A) end end,
+				-- TYPE A NAME (the owner, 2026-11-22): A opens the keyboard; all spaces refused,
+				-- then a name with a space, mixed case and a mark, cut to typedMax letters
+				function() s.done = false; s.row = 3; inp.want = "down" end,
+				function() if s.row ~= 4 then return "not on TYPE A NAME" end inp.want = "a" end,
+				function()
+					if not s.keyboard then return "A did not open the keyboard" end
+					if names.type(s, "   ") then return "an all-space name was taken" end
+					if s.why ~= "empty" then return "why " .. tostring(s.why) end
+					s.keyboard = "scripted"
+					if not names.type(s, "Ann-Marie O'Hara") then return "a typed name was refused" end
+					if names.text(s) ~= "Ann-Marie " and names.text(s) ~= "Ann-Marie" then return "typed " .. names.text(s) end
+					names.type(s, "Kim O'Neil1")   -- the digit goes (core/names' characters)
+					if names.text(s) ~= "Kim O'Neil" then return "typed " .. names.text(s) end
+				end,
+				"captureTyped",
+				function() inp.c = 30 end,                                  -- (on row 4 the crank does nothing)
+				function() if names.text(s) ~= "Kim O'Neil" then return "the crank changed a typed name" end
+					inp.want = "up" end,                                    -- SHUFFLE: back to words
+				function() inp.want = "right" end,
+				function() if s.typed then return "SHUFFLE did not go back to words" end
+					if not namegen.valid("player", names.text(s)) then return "back to " .. names.text(s) end end,
+				-- a rename of a typed name opens on its text, typed; a generated one on the generator
+				function()
+					local r = names.new(inp, "player", { scripted = true, kind = "player", initial = "Kim O'Neil" })
+					if not r.typed or names.text(r) ~= "Kim O'Neil" or r.row ~= 4 then return "a typed rename opened on " .. names.text(r) end
+					local g = names.new(inp, "player", { scripted = true, kind = "player", initial = "Lucky Larch" })
+					if g.typed or g.row ~= 1 then return "a generated rename opened typed" end
+				end,
 				-- a team name: "The" first, then the crank onto an adjective
 				function()
 					team = names.new(inp, "player", { scripted = true, kind = "team", initial = "The Lumberjacks",
@@ -82,9 +115,8 @@ tw.selftest.scenarios.names = {
 				"captureTeam",
 				function() inp.want = "b" end,
 				function() if team.exit ~= "back" then return "B gave " .. tostring(team.exit) end
-					-- a typed name kept from before is not offered: a generated one in its place
 					local r = names.new(inp, "player", { scripted = true, kind = "player", initial = "Montgomery" })
-					if not namegen.valid("player", names.text(r)) then return "typed name kept: " .. names.text(r) end
+					if names.text(r) ~= "Montgomery" then return "a kept typed name opened as " .. names.text(r) end
 					local ms = tw.scenes.match.new(tw.input.scripted({}), { names = { A = s.list.A, B = names.text(r) },
 						seed = 1, instant = true })
 					if ms.m.game.teams.A.name ~= s.list.A then return "match team " .. ms.m.game.teams.A.name end

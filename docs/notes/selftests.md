@@ -63,8 +63,11 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   fits (frame 2).
 - `names-fit`: every generated name (both kinds) measured in the label face, display 16
   and display 32 (the widest in its note), each fitting the rail, TEAMS (cut), PLAYERS and
-  the Names screen in the label face; frames: the rail with the widest player name, the
-  hand-off card with the widest team name and KID RULES.
+  the Names screen in the label face; then the widest typed names (ten of the widest
+  capitals, with a space and marks) fitting every place whole but TEAMS, which cuts them to
+  a full stop; frames: the rail with the widest player name, the hand-off card with the
+  widest team name and KID RULES, the hand-off card and the rail with the widest typed
+  name.
 - `soak`: the device soak for one short match (soak.lua), a Kid match against the Kid
   computer (`soak.tune.kid`), the save read back after every throw; `soak.txt` must end with `soak done`, no error and no failed save check.
 - `resume`: a match driven to turn 3, saved by the scene, read back through the
@@ -85,14 +88,17 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   when the team on turn resigns, is gated.
 - `names`: the Names screen through the input provider (frames: the crank stepping a
   player's first word, the second word stepped, a shuffled name refused as taken, a team
-  name's first word cranked from The onto an adjective); every name shown is a generated
-  name of its kind, A takes it, B goes back, a typed name given to it is not offered, and
-  a match takes the names.
+  name's first word cranked from The onto an adjective, a typed name); every generated name
+  shown is one of its kind, A takes it, B goes back; TYPE A NAME opens the keyboard, an
+  all-space name is refused, a typed name is cut to ten letters and loses a digit, SHUFFLE
+  goes back to the words, a rename opens a typed name typed and a generated one on the
+  generator; a match takes the names.
 - `players`: PLAYERS by hand (no LEVEL row since 0.12.0): three generated players made,
   a second Lucky Larch refused, a rename, a removal; then a 0.11.0 roster with typed names
   (oloF, Playdate, Greta, Montgomery) loads unchanged and is not rewritten, plays a
-  scripted match with those names on its sheet, and only a rename (a generated name)
-  changes one (frame 5: the typed names on PLAYERS).
+  scripted match with those names and typed guests (a space, mixed case, a mark) on its
+  sheet with unique ids (its game file gated), only a rename changes one (opened typed,
+  typed again), and a typed new player with a taken id is refused (frames 5 and 6).
 - `teams`: TEAMS for PASS + PLAY over five generated players, the order changed with hold
   A, Team A given a generated team name on the Names screen, START.
 - `match-teams`: three against two in pass and play, a baton handed over through the

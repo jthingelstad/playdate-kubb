@@ -18,7 +18,7 @@
 --            (scenes/sheet, from games/ in the Data folder), B back.
 --   confirm  REMOVE <NAME>?: A removes the player and their history file
 --            (game files stay), B keeps them.
---   name     scenes/names, a generated player name (a new player, then their
+--   name     scenes/names, a player name generated or typed (a new player, then their
 --            page; or a rename), refusing a name another player has.
 --
 -- Each screen is one image redrawn only on a change (s.img = nil).

@@ -10,10 +10,10 @@
 -- when there was none), so nobody's bests vanish. Those files are left as
 -- they were.
 --
--- Names are generated since 0.12.0 (kubb-engine docs/NAMES.md), but a player saved
--- with a typed name keeps it, shown as it is, until someone renames them (the owner,
--- 2026-11-21: "Saved players keep their typed names until someone renames them.");
--- nothing here changes a kept name.
+-- A name is generated or typed (the Names screen, scenes/names; docs/notes/
+-- saved-players.md "Names"), and a saved player keeps whatever name they have until
+-- someone renames them (the owner, 2026-11-21: "Saved players keep their typed names
+-- until someone renames them."): nothing here changes a kept name.
 import "core/tw"
 import "core/roster"
 import "core/history"
