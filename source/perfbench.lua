@@ -30,6 +30,23 @@
 --   computer autothrow.choose (the Playdate's throw, chosen in one frame) at
 --            each level for a baseline baton, a kubb toss and a field kubb
 --            baton from a real match's setups, in ms.
+--   decide   the computer's decisions where they cost most (engine 0.12 and
+--            0.13: raising by the attacker's batons, field.line, inkast.depth;
+--            each row is skipped on an engine that has no such call): one raise
+--            decision with eight kubbs lying in a tight group (apart, par, and
+--            cpu.raise at each level), the whole settle of those eight in one
+--            call (match.settle: the frame the scene makes it in) with the
+--            Playdate defending at each level and with a person defending (the
+--            engine's advice), and autothrow.choose at each level with eight
+--            field kubbs standing in a tight group and for a toss onto four
+--            lying; in ms.
+--   cpu turn the same through the match scene, VS PLAYDATE: the transition
+--            frame (the scene made on a resume, so the settle runs as at the
+--            end of a turn) with the Playdate raising the eight, and with the
+--            person's eight raised by RAISING: AUTOMATIC; then every frame of
+--            the Playdate's first baton at the eight field kubbs (its choose,
+--            its aim, the swing, the flight to rest): the slowest frame
+--            (update + draw), the choose frame and the flight's mean, in ms.
 --   start    a new VS PLAYDATE match (the scene made, its first frame drawn)
 --            and a resume (a saved match read from the datastore, unpacked
 --            and its scene made), in ms. The save is the check's own key
@@ -64,7 +81,7 @@ local msNow = playdate.getCurrentTimeMilliseconds
 
 local perf = {}
 perf.flag = "perfbench"
-perf.tune = { reps = 5, aimFrames = 30, solveReps = 20, chooseReps = 10, startReps = 5 }
+perf.tune = { reps = 5, aimFrames = 30, solveReps = 20, chooseReps = 10, startReps = 5, decideReps = 10, turnReps = 3 }
 
 local function out(lines)
 	local f = playdate.file.open("perf.txt", playdate.file.kFileAppend)
@@ -135,7 +152,8 @@ local function cleanBaton(s, tx, ty, px, py)
 	throw.setStance(s, px, py)
 	local sol = s.sol
 	CLEAN.back, CLEAN.releaseAngle = sol.back, sol.release
-	local L = plan.launch(sol, CLEAN, { projectile = "baton", tilt = 0, spin = 0, level = throw.levelFor(s) }, {})
+	local _, lv = throw.planBy(s)   -- a person's: the meter's (no level), engine 0.13
+	local L = plan.launch(sol, CLEAN, { projectile = "baton", tilt = 0, spin = 0, level = lv }, {})
 	return { x = s.playerX, y = s.playerY, swivel = L.swivel, loftDeg = L.loft, speed = L.speed,
 		tumbleRate = L.tumble, tilt = L.tilt or 0, legal = L.legal, plan = sol }
 end
@@ -336,8 +354,10 @@ local function solveLines(y)
 	local out = {}
 	local kubbZ = plan.aimZFor("kubb")
 	for _, d in ipairs { 1.0, 1.5, 3.0, 8.0, "drill" } do
-		local q = { projectile = "baton", px = 0, py = 0, tx = 0, ty = d, release = plan.arcFor("field"),
-			level = plan.levels.club, surface = "grass", spin = 0, aimZ = kubbZ }
+		-- a person's plan: the meter and the default arc for the distance (engine 0.13, 0.10)
+		local q = { projectile = "baton", px = 0, py = 0, tx = 0, ty = d,
+			release = plan.arcFor("baton", type(d) == "number" and d or nil),
+			meter = plan.meter(), surface = "grass", spin = 0, aimZ = kubbZ }
 		if d == "drill" then
 			q.projectile, q.ty, q.release, q.aimZ = "kubb", 6.0, plan.arcFor("drill"), 0
 		end
@@ -397,6 +417,205 @@ local function chooseLines(y)
 	return lines
 end
 
+-- ---------- the computer's decisions at their costliest (engine 0.12, 0.13) ----------
+
+local START = { year = 2026, month = 11, day = 20, hour = 12, min = 0 }
+local MISS = {}
+local function lyingAt(x, yy, a) return { rest = { x = x, y = yy, standing = false, angle = a }, moved = {} } end
+local function teamsAt(level)
+	return { A = { name = "You", players = { { name = "You" } } },
+		B = { name = "Playdate", players = { { name = "Playdate", level = level } } } }
+end
+-- the kubbs tossed in lying in a tight group: two rows of four, 0.39 m apart
+-- across and 0.45 m in depth from y0 (dir: +1 toward B's baseline, -1 toward A's)
+local function tossGrid(g, y0, dir)
+	local xs, i = { -0.45, -0.15, 0.15, 0.45 }, 0
+	while g.phase == "toss" do
+		i = i + 1
+		local row = (i - 1) // 4
+		g:toss(lyingAt(0.6 + xs[(i - 1) % 4 + 1] * 1.3, y0 + dir * row * 0.45, 1.57 + 0.05 * i))
+	end
+end
+local function standingField(g)
+	local fk = {}
+	for id, k in pairs(g.kubbs) do
+		if k.kind == "field" and k.pose.standing and k.where ~= "out" then fk[#fk + 1] = id end
+	end
+	table.sort(fk)
+	return fk
+end
+-- VS PLAYDATE (the Playdate at `level`), turn 2: B to raise eight kubbs lying in
+-- a tight group in its half. Every raise on the way is the game's own (apart), so
+-- the position is the same on every engine.
+local function stateB8(level)
+	local m = cmatch.new { start = START, mode = "Vs Playdate", teams = teamsAt(level), cpu = { "B" } }
+	local g = m.game
+	g:throwBaton({ toppled = { "b1", "b2", "b3" } }); g:throwBaton({ toppled = { "b4", "b5" } })
+	local i = 0
+	while g.phase == "toss" do i = i + 1; g:toss(lyingAt(-0.6 + 0.3 * i, 2.6, 0.2 * i)) end
+	while g:need().kind == "raise" do g:raise(nil) end
+	local fk = standingField(g)
+	g:throwBaton({ toppled = { fk[1], fk[2], fk[3] } }); g:throwBaton({ toppled = { fk[4], fk[5] } })
+	g:throwBaton({ toppled = { "a1", "a2" } }); g:throwBaton({ toppled = { "a3" } })
+	while g.phase ~= "toss" do g:throwBaton(MISS) end
+	tossGrid(g, 5.3, 1)
+	return m
+end
+-- the same match on to turn 3's end: A (the person) to raise eight lying in a
+-- tight group in its half, after which the Playdate attacks eight field kubbs
+local function stateA8(level)
+	local m = stateB8(level)
+	local g = m.game
+	while g:need().kind == "raise" do g:raise(nil) end
+	local fk = standingField(g)
+	g:throwBaton({ toppled = { fk[1], fk[2], fk[3], fk[4] } }); g:throwBaton({ toppled = { fk[5], fk[6], fk[7], fk[8] } })
+	while g.phase ~= "toss" do g:throwBaton(MISS) end
+	tossGrid(g, 2.7, -1)
+	return m
+end
+
+local LEVELS = { "beginner", "club", "pro" }
+local function decideLines(y)
+	local R = perf.tune.decideReps
+	local lines = {}
+	local function emit(l) out { l } end   -- each line as it is measured (a long section)
+	emit(string.format("computer decisions (ms, %d each; median [min-max]):", R))
+	local ok, err = pcall(function()
+		local raising, cpu = tw.raising, tw.cpu
+		-- one raise decision: B's first of the eight
+		local m = stateB8("pro")
+		local g = m.game
+		local n = g:need()
+		local ctx = g:context(n.side, n.kubb)
+		local parts = {}
+		local function timeIt(label, f)
+			local xs = {}
+			for i = 1, R do
+				local t0 = clock()
+				f()
+				xs[i] = (clock() - t0) * 1000
+				y()
+			end
+			parts[#parts + 1] = label .. " " .. fmtSpread(xs, "%.2f")
+		end
+		timeIt("apart", function() raising.choose(n.decision, ctx, "apart") end)
+		if raising.policies.par then timeIt("par", function() raising.choose(n.decision, ctx, "par") end) end
+		if cpu and cpu.raise then
+			for _, lv in ipairs(LEVELS) do timeIt("cpu " .. lv, function() cpu.raise(n.decision, ctx, lv) end) end
+		end
+		emit(string.format("  one raise, 8 lying (%d ends): %s", #n.decision.choices, table.concat(parts, "; ")))
+		-- the whole settle of the eight in one call, as the scene makes it in a frame
+		parts = {}
+		local cases = { { "Playdate beginner", "beginner", { "B" } }, { "club", "club", { "B" } }, { "pro", "pro", { "B" } },
+			{ "a person (advice)", "club", {} } }
+		for _, c in ipairs(cases) do
+			local xs = {}
+			for i = 1, R do
+				local mm = stateB8(c[2])
+				mm.cpu = c[3]
+				y()
+				collectgarbage("collect")
+				local t0 = clock()
+				cmatch.settle(mm)
+				xs[i] = (clock() - t0) * 1000
+				y()
+			end
+			parts[#parts + 1] = c[1] .. " " .. fmtSpread(xs, "%.1f")
+		end
+		emit("  settle of the 8 (match.settle): " .. table.concat(parts, "; "))
+		-- choose: eight field kubbs standing in a tight group (turn 4, B attacking)
+		local mf = stateA8("pro")
+		cmatch.settle(mf)
+		local field = cmatch.setup(mf)
+		-- a toss onto four kubbs already lying by the basket (turn 2)
+		local mt = cmatch.new { start = START, mode = "Vs Playdate" }
+		local gt = mt.game
+		gt:throwBaton({ toppled = { "b1", "b2", "b3" } }); gt:throwBaton({ toppled = { "b4", "b5" } })
+		for i = 1, 4 do gt:toss(lyingAt(1.2 + 0.08 * i, 2.0, 0.3)) end
+		local toss = cmatch.setup(mt)
+		for _, lv in ipairs(LEVELS) do
+			parts = {}
+			for _, c in ipairs { { "8 field (" .. #standingField(mf.game) .. ")", field }, { "toss onto 4", toss } } do
+				local xs = {}
+				local r = autothrow.rng(1234)
+				for i = 1, R do
+					local t0 = clock()
+					autothrow.choose(c[2], r, 1, lv)
+					xs[i] = (clock() - t0) * 1000
+					y()
+				end
+				local play = cpu and cpu.last and cpu.last.why and cpu.last.why.play
+				parts[#parts + 1] = string.format("%s %s%s", c[1], fmtSpread(xs, "%.2f"), play and (" " .. play) or "")
+			end
+			emit("  choose " .. lv .. ": " .. table.concat(parts, "; "))
+		end
+	end)
+	if not ok then emit("  error: " .. tostring(err)) end
+	return lines
+end
+
+-- The Playdate's turn through the match scene (VS PLAYDATE, noSave, noFile).
+local function turnLines(y)
+	local scene = tw.scenes.match
+	local lines = {}
+	local function emit(l) out { l } end
+	emit(string.format("computer turn through the match scene (ms, %d each; median [min-max]):", perf.tune.turnReps))
+	local ok, err = pcall(function()
+		-- the transition with the Playdate raising the eight (club apart, pro par)
+		local parts = {}
+		for _, lv in ipairs { "club", "pro" } do
+			local xs = {}
+			for i = 1, perf.tune.turnReps do
+				local m = stateB8(lv)
+				y()
+				collectgarbage("collect")
+				local t0 = msNow()
+				local s = scene.new(tw.input.device(), { vs = "B", resume = m, noSave = true, noFile = true, cpuSeed = 7 })
+				xs[i] = msNow() - t0
+				scene.enter()
+				scene.draw(s)
+				y()
+			end
+			parts[#parts + 1] = "Playdate " .. lv .. " raising 8 " .. fmtSpread(xs, "%d")
+		end
+		emit("  transition (scene made on the resume, its settle and setup): " .. table.concat(parts, "; "))
+		-- the person's eight raised by RAISING: AUTOMATIC, then the Playdate's first
+		-- baton at the eight field kubbs, frame by frame
+		local tr, worst, chooseF, flight, nflight = {}, {}, {}, {}, {}
+		for i = 1, perf.tune.turnReps do
+			local m = stateA8("pro")
+			y()
+			collectgarbage("collect")
+			local t0 = msNow()
+			local s = scene.new(tw.input.device(), { vs = "B", resume = m, noSave = true, noFile = true, cpuSeed = 7,
+				autoSettle = true })
+			tr[i] = msNow() - t0
+			scene.enter()
+			scene.draw(s)
+			y()
+			local mx, ch, fs, fn, nfr = 0, 0, 0, 0, 0
+			while nfr < 3000 do
+				local had = s.cpuAim
+				scene.update(s)
+				scene.draw(s)
+				local ms = clock() * 1000   -- update + draw: the input's advance reset the clock
+				if ms > mx then mx = ms end
+				if not had and s.cpuAim then ch = ms end
+				if s.ts.mode == "flight" then fs, fn = fs + ms, fn + 1 end
+				nfr = nfr + 1
+				y()
+				if s.cpuThrows >= 1 and s.ts.mode ~= "flight" and s.ts.mode ~= "cpuswing" and s.resolved then break end
+			end
+			worst[i], chooseF[i], flight[i], nflight[i] = mx, ch, fn > 0 and fs / fn or 0, fn
+		end
+		emit("  transition with the person's 8 raised automatically (advice) " .. fmtSpread(tr, "%d"))
+		emit(string.format("  Playdate pro's first baton at 8 field kubbs: slowest frame %s; choose frame %s; flight frames %s, mean %s",
+			fmtSpread(worst), fmtSpread(chooseF), fmtSpread(nflight, "%d"), fmtSpread(flight)))
+	end)
+	if not ok then emit("  error: " .. tostring(err)) end
+	return lines
+end
+
 local KEY = "perfbench-match"
 local function startLines(y)
 	local lines = { string.format("match start (ms, %d each; median [min-max]):", perf.tune.startReps) }
@@ -452,6 +671,10 @@ local function body()
 	out(solveLines(y))
 	y()
 	out(chooseLines(y))
+	y()
+	out(decideLines(y))
+	y()
+	out(turnLines(y))
 	y()
 	out(aimLines(y))
 	y()
