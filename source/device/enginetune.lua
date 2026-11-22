@@ -49,6 +49,29 @@ import "core/namegen"
 enginetune.nameMax = tw.namegen.max.player
 tw.names.max = enginetune.nameMax
 
+-- 4. The Kid rules' fair spot (raising.fairSpot, engine 0.15: where a kubb out twice
+-- is stood instead of a punishment kubb) is searched on a 0.2 m grid, not the
+-- engine's 0.1 m (raising.tune.punishGrid, which every other placement keeps). It
+-- scans the whole half with no early exit: measured on the device (perfbench,
+-- 2026-11-22, eight kubbs lying in the half) 125 ms a spot, made inside the settle at
+-- the end of a turn, a frame already about 340 ms. On the coarser grid the spot is
+-- still a valid one (in the half, a baton length from the king and the stakes, on no
+-- kubb) and within about 0.15 m of the engine's; the Playdate shares no match with
+-- another client, so nothing else needs the same spot.
+import "core/raising"
+enginetune.fairGrid = 0.2
+local engineFairSpot = tw.raising.fairSpot
+enginetune.engineFairSpot = engineFairSpot
+function tw.raising.fairSpot(ctx)
+	local t = tw.raising.tune
+	local g = t.punishGrid
+	t.punishGrid = enginetune.fairGrid
+	local ok, spot = pcall(engineFairSpot, ctx)
+	t.punishGrid = g
+	if not ok then error(spot, 0) end
+	return spot
+end
+
 -- Kept on (measured, no stall): field.line and inkast.depth at pro (cpu.tune.line,
 -- cpu.tune.depth). autothrow.choose with eight field kubbs standing in a tight group:
 -- 15 ms on 0.9, 50 ms at pro on 0.13.1 (17 at club); the Playdate's choose frame 55

@@ -12,7 +12,8 @@ local st, done = nil, false
 tw.selftest.scenarios.soak = {
 	step = function(ctx)
 		if not st then
-			soak.tune.matches, soak.tune.maxTurns, soak.tune.saveCheck = 1, 2, 1
+			-- one short match, the Kid one (engine 0.15), so the soak's Kid path runs here too
+			soak.tune.matches, soak.tune.maxTurns, soak.tune.saveCheck, soak.tune.kid = 1, 2, 1, 1
 			playdate.file.delete("soak.txt")
 			st = soak.start()
 			return false
