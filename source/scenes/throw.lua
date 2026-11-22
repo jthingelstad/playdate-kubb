@@ -163,14 +163,17 @@ throw.tune = {
 --   s.drill              the throw is a drilled kubb (set by throw.prepare for a
 --                        kubb throw; throw.setDrill on the practice pitch)
 --   s.level              the thrower's throw level (plan.levels), or nil for
---                        throw.level, the System Menu's (throw.levelFor)
+--                        throw.level (throw.levelFor): since engine 0.13 only the
+--                        Playdate's throws go by it; a person throws on the meter
+--                        (throw.planBy)
 --   s.drillRun           the practice drill's id during a drill run (scenes/drills),
 --                        written to the trace line
 --
 -- The aim (docs/notes/throw.md "The throw"): the target circle s.markerX, s.markerY
 -- (view frame), the stance s.playerX, s.playerY (s.stanceSet once A has
 -- walked it; until then plan.stance behind the target), the plan s.release
--- (s.arcSet once B has moved it; until then plan.arcFor the target's kind),
+-- (s.arcSet once B has moved it; until then plan.arcFor by the distance from
+-- the stance to the circle, engine 0.10),
 -- s.tilt (baton, degrees) and s.spin (kubb, taps). s.sol is plan.solve's
 -- solution for them, solved again only when one changes (s.planDirty). While
 -- the d-pad moves the circle within halfRateM of the stance it is solved at most
@@ -178,11 +181,28 @@ throw.tune = {
 -- throw"): the arc may lag the circle by a frame, and a throw, a let-go circle
 -- and every other change solve it at once.
 
--- The throw level everything in this scene uses: the scene's own (a named
--- player's, later) or the System Menu's "Level" (main.lua sets throw.level).
+-- The throw level: the scene's own (the thrower's: a named player's, or the
+-- Playdate's match option COMPUTER) or throw.level (main.lua reads the old
+-- System Menu "Level" kept in the datastore; the match before engine 0.9 with no
+-- level on the Playdate's player falls back to it).
 throw.level = plan.tune.defaultLevel
 function throw.levelFor(s)
 	return s.level or throw.level
+end
+
+-- What the scene's plan is solved on (engine 0.13, kubb-engine docs/notes/throw.md
+-- "The person's meter"): a person's throw on the one meter (plan.meter(), the same
+-- table every call), whatever level they have; the Playdate's (s.watching) on its
+-- level. Returns the meter, or nil and the level. plan.launch is then given no
+-- level for a person's throw: it reads the meter's table for the distance from the
+-- solution (sol.level).
+function throw.planBy(s)
+	if s.watching then return nil, throw.levelFor(s) end
+	return plan.meter(), nil
+end
+local function planKey(s)
+	local m, lv = throw.planBy(s)
+	return m or lv
 end
 
 -- The nerves (plan.tune "Nerves"): the player's throws go off the planned
@@ -312,8 +332,8 @@ function throw.setLayout(s, layout)
 	s.planDirty = true
 end
 
--- What kind of target a piece is, for the arc the plan starts on
--- (plan.arcFor): "king", "field" or "base".
+-- What kind of target a piece is: "king", "field" or "base" (until engine 0.10 the
+-- arc the plan starts on; now plan.arcFor goes by the distance, throw.defaultArc).
 local function kindOf(it)
 	if it.king or it.kind == "king" then return "king" end
 	if it.role == "field" then return "field" end
@@ -385,21 +405,34 @@ local function forwardLimit(s)
 	return s.forwardY
 end
 
+-- The default release (engine 0.10): a drill's, or a baton's for the distance from
+-- the stance to the circle (plan.arcFor; the session's throw.defaultArc), read again
+-- on every solve until B sets the arc, so it follows the circle and the stance.
+function throw.defaultArc(s)
+	if s.projectile == "kubb" then return plan.arcFor("drill") end
+	local dx, dy = s.markerX - s.playerX, s.markerY - s.playerY
+	return plan.arcFor("baton", sqrt(dx * dx + dy * dy))
+end
+
 -- Solve the plan for the aim as it stands: the stance straight behind the
--- target until A has walked it (plan.stance), the arc for the target's kind
--- until B has moved it (plan.arcFor); the swivel and loft follow the
--- solution (the swivel is never set by hand). No tables.
+-- target until A has walked it (plan.stance), the arc for the distance until
+-- B has moved it (throw.defaultArc), on the meter or the level (throw.planBy);
+-- the swivel and loft follow the solution (the swivel is never set by hand).
+-- The bars (sol.powerLo..Hi, releaseLo..Hi) go by the distance on the meter, so
+-- every solve may move them; the clock reads them from the plan each frame. No
+-- tables.
 local function replan(s)
 	local kubb = s.projectile == "kubb"
 	if not s.stanceSet then
 		local o = plan.stance(s.markerX, s.markerY, s.lineY, forwardLimit(s), throw.tune.halfWidth, s.stanceOut)
 		s.playerX, s.playerY = o.x, o.y
 	end
-	if not s.arcSet then s.release = plan.arcFor(kubb and "drill" or s.markerKind) end
+	if not s.arcSet then s.release = throw.defaultArc(s) end
 	local q = s.planQ
 	q.projectile = kubb and "kubb" or "baton"
 	q.px, q.py, q.tx, q.ty = s.playerX, s.playerY, s.markerX, s.markerY
-	q.release, q.level, q.surface, q.spin = s.release, throw.levelFor(s), s.surface, kubb and s.spin or 0
+	q.meter, q.level = throw.planBy(s)
+	q.release, q.surface, q.spin = s.release, s.surface, kubb and s.spin or 0
 	-- a baton's circle on a piece (a standing target within snapRadius of its
 	-- centre: the piece is in the circle) aims the baton's centre through it at
 	-- the piece's aim height (plan.aimZFor; Tyler's report, 2026-11-16), and
@@ -419,7 +452,7 @@ local function replan(s)
 	end
 	local sol = plan.solve(q, s.sol)
 	s.swivel, s.loftDeg = sol.swivel, sol.loft
-	s.planLevel, s.planDirty, s.planSkipped = q.level, false, false
+	s.planLevel, s.planDirty, s.planSkipped = q.meter or q.level, false, false
 end
 throw.replan = replan
 
@@ -561,9 +594,10 @@ function throw.new(provider)
 		markerKind = "base",     -- the kind of target nearest the circle (the arc's default)
 		markerMoving = false,    -- the d-pad moved the circle last frame
 		stanceSet = false,       -- A has walked the stance this aim
-		release = plan.arcFor("base"), arcSet = false, -- the planned release (clock degrees)
+		release = plan.arcFor("baton"), arcSet = false, -- the planned release (clock degrees)
 		tilt = 0, spin = 0,      -- B + left/right: a baton's tilt (degrees), a kubb's spin (taps)
-		sol = {}, planQ = {}, stanceOut = {}, planDirty = true, planLevel = nil,
+		sol = {}, planQ = {}, stanceOut = {}, planDirty = true,
+		planLevel = nil,         -- what s.sol was solved on: the meter or the level (throw.planBy)
 		planSkipped = false,     -- the moving circle's last frame went without a solve (aimInput)
 		launchOut = {}, launchOpts = {}, -- plan.launch's (reused)
 		dial = {},               -- hud.clock's state (reused)
@@ -829,12 +863,13 @@ local function aimInput(s, dt)
 		if s.markerMoving then settleMarker(s, false) end
 	end
 	s.markerMoving = moving
-	if s.planDirty or s.planLevel ~= throw.levelFor(s) then
+	local by = planKey(s)
+	if s.planDirty or s.planLevel ~= by then
 		-- a short throw's plan costs most of a frame on the device (plan.solve at
 		-- 1 m, about 23 ms): while only the moving circle changed it, solve every
 		-- other frame; the circle let go, or anything else, solves it now
 		local skip = false
-		if moving and not s.planSkipped and s.planLevel == throw.levelFor(s) then
+		if moving and not s.planSkipped and s.planLevel == by then
 			local ddx, ddy, r = s.markerX - s.playerX, s.markerY - s.playerY, t.halfRateM
 			skip = ddx * ddx + ddy * ddy < r * r
 		end
@@ -912,7 +947,7 @@ local function knocks(s)
 end
 
 -- Launch a throw: L is a launch (plan.launch's fields: speed, loft, swivel,
--- tilt, tumble, legal; a drill's noseDown, rollLand, spin, wobble)
+-- tilt, tumble, legal; a drill's noseDown, rollLand, spin, wobble, scatter)
 -- from where the player stands; how is "baton", "drill" or "lob" (the
 -- Playdate's kubb tosses, end over end). sol (optional) is the plan the
 -- throw was made on: a baton leaves its hand (plan.solve's handZ, handFwd,
@@ -968,8 +1003,10 @@ local function fire(s, L, how, sol)
 	local b
 	if kubb then
 		if drilling then
+			-- the hand's steadiness last (engine 0.11: plan.launch's scatter, the
+			-- meter's for a person, the level's drillScatter for the Playdate)
 			b = phys.launchDrill(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
-				L.spin, L.wobble)
+				L.spin, L.wobble, L.scatter)
 		else
 			b = phys.launchKubb(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble)
 		end
@@ -1020,9 +1057,11 @@ end
 local function launch(s, r)
 	local kubb = s.projectile == "kubb"
 	local o = s.launchOpts
-	o.projectile, o.tilt, o.spin, o.level = kubb and "kubb" or "baton", s.tilt, s.spin, throw.levelFor(s)
+	-- a person's throw: no level, so plan.launch reads the meter's from the plan
+	local _, lv = throw.planBy(s)
+	o.projectile, o.tilt, o.spin, o.level = kubb and "kubb" or "baton", s.tilt, s.spin, lv
 	o.nerves = nervesFor(s) or nil
-	if s.planDirty or s.planLevel ~= o.level then replan(s) end
+	if s.planDirty or s.planLevel ~= planKey(s) then replan(s) end
 	local sol = s.sol
 	local L = plan.launch(sol, r, o, s.launchOut)
 	fire(s, L, kubb and "drill" or "baton", sol)
@@ -1496,7 +1535,7 @@ local CLEAN = { back = 0, releaseAngle = 0, flickFrac = 1, smoothness = 1, shake
 
 -- Launch the Playdate's throw `a` as it is (its own speed, loft and swivel,
 -- mistakes included). A kubb with a.drill's launch fields (core/autothrow:
--- noseDown, rollLand, spin, wobble) is drilled with them; a.drill
+-- noseDown, rollLand, spin, wobble, scatter) is drilled with them; a.drill
 -- with only a circle (the autobench's match case: markerX, markerY) is
 -- drilled as the plan's clean drill onto it at the drill arc; a kubb with no
 -- a.drill is lobbed end over end.
@@ -1507,14 +1546,15 @@ autoFire = function(s, a)
 		s.markerX, s.markerY, s.markerOn = d.markerX, s.lineY + d.markerY, nil
 		if d.noseDown then
 			L.speed, L.loft, L.swivel, L.tilt, L.tumble, L.legal = a.speed, a.loftDeg, a.swivel, 0, 0, true
-			L.noseDown, L.rollLand, L.spin, L.wobble = d.noseDown, d.rollLand, d.spin, d.wobble
+			L.noseDown, L.rollLand, L.spin, L.wobble, L.scatter = d.noseDown, d.rollLand, d.spin, d.wobble, d.scatter
 		else
 			s.stanceSet, s.arcSet, s.tilt, s.spin = false, false, 0, 0
 			s.projectile, s.drill = "kubb", true
 			replan(s)
 			CLEAN.back, CLEAN.releaseAngle = s.sol.back, s.sol.release
 			local o = s.launchOpts
-			o.projectile, o.tilt, o.spin, o.level = "kubb", 0, 0, throw.levelFor(s)
+			local _, lv = throw.planBy(s)
+			o.projectile, o.tilt, o.spin, o.level = "kubb", 0, 0, lv
 			plan.launch(s.sol, CLEAN, o, L)
 		end
 		s.drill = true
