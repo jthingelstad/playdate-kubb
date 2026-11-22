@@ -33,10 +33,11 @@ local function samples(back, stop, peak)
 	return s
 end
 
--- the plan scenes/throw makes for a baton at a field kubb d m straight ahead
+-- the plan scenes/throw makes for a person's baton at a field kubb d m straight
+-- ahead: the default arc for the distance (engine 0.10) on the meter (0.13)
 local function solveAt(d)
 	return plan.solve({ projectile = "baton", px = 0, py = 0, tx = 0, ty = d,
-		release = plan.arcFor("field"), level = "club", surface = "grass", spin = 0,
+		release = plan.arcFor("baton", d), meter = plan.meter(), surface = "grass", spin = 0,
 		aimZ = plan.aimZFor("kubb") }, {})
 end
 
@@ -45,7 +46,7 @@ local function throwAt(d, back, stop, yaw)
 	local sol = solveAt(d)
 	local ev, r = swing.replay(samples(back, stop))
 	expect.eq(ev, "release", "the crank released a throw")
-	local L = plan.launch(sol, r, { projectile = "baton", level = "club" }, {})
+	local L = plan.launch(sol, r, { projectile = "baton" }, {})   -- no level: the plan's meter
 	local w = world.new { surface = "grass", stakes = false,
 		pieces = { { id = "k", kind = "kubb", x = 0, y = d, yaw = yaw or 0 } } }
 	world.launchBaton(w, 0, 0, L.swivel, L.loft, L.speed, L.tumble, L.tilt, "baton",
