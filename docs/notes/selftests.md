@@ -90,7 +90,7 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   a match takes the names.
 - `players`: PLAYERS by hand (no LEVEL row since 0.12.0): three generated players made,
   a second Lucky Larch refused, a rename, a removal; then a 0.11.0 roster with typed names
-  (jamiE, Playdate, Tyler, Montgomery) loads unchanged and is not rewritten, plays a
+  (oloF, Playdate, Greta, Montgomery) loads unchanged and is not rewritten, plays a
   scripted match with those names on its sheet, and only a rename (a generated name)
   changes one (frame 5: the typed names on PLAYERS).
 - `teams`: TEAMS for PASS + PLAY over five generated players, the order changed with hold

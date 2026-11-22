@@ -4,7 +4,7 @@
 -- which has no LEVEL row since engine 0.13), Mighty Maple and Agreeable Ginkgo
 -- (16 letters, the longest) made, a second Lucky Larch refused as taken, Mighty
 -- Maple renamed Jolly Juniper, then removed. Then a roster saved by 0.11.0 with
--- typed names (jamiE, Playdate, Tyler, Montgomery) loads unchanged and is not
+-- typed names (oloF, Playdate, Greta, Montgomery) loads unchanged and is not
 -- rewritten (the owner, 2026-11-21: "Saved players keep their typed names until
 -- someone renames them."), plays a scripted match with those names on its sheet, and
 -- only Montgomery's rename (a generated name) changes one.
@@ -107,15 +107,15 @@ tw.selftest.scenarios.players = {
 					-- a roster saved by 0.11.0 with typed names (the owner, 2026-11-21: "Saved players
 					-- keep their typed names until someone renames them."): loaded unchanged
 					local old = tw.roster.new()
-					tw.roster.add(old, "jamiE", "club", "2026-11-01")
+					tw.roster.add(old, "oloF", "club", "2026-11-01")
 					tw.roster.add(old, "Playdate", nil, "2026-11-01")
-					tw.roster.add(old, "Tyler", "pro", "2026-11-01")
+					tw.roster.add(old, "Greta", "pro", "2026-11-01")
 					tw.roster.add(old, "Montgomery", nil, "2026-11-01")
 					playdate.datastore.write(old, players.fileKey("players"))
 					local before = json.encode(playdate.datastore.read(players.fileKey("players")))
 					local r1 = players.load()
 					players.load()
-					if names_(r1.players) ~= "jamiE,Playdate,Tyler,Montgomery" then return "load changed names: " .. names_(r1.players) end
+					if names_(r1.players) ~= "oloF,Playdate,Greta,Montgomery" then return "load changed names: " .. names_(r1.players) end
 					if json.encode(playdate.datastore.read(players.fileKey("players"))) ~= before then return "load rewrote the roster" end
 					-- PLAYERS shows them as they are
 					s = scene.new(inp, { scripted = true })
@@ -137,9 +137,9 @@ tw.selftest.scenarios.players = {
 					end
 					if ms.phase ~= "over" then return "the match did not end" end
 					local text = tw.match.file(ms.m, nil, "0.0.1")
-					if not text:find('[Team A "jamiE"]', 1, true) then return "the sheet's Team A" end
+					if not text:find('[Team A "oloF"]', 1, true) then return "the sheet's Team A" end
 					local bp = text:match('%[Team B Players "([^"]*)"%]') or ""
-					if not (bp:find("Tyler", 1, true) and bp:find("Montgomery", 1, true)) then return "the sheet's Team B players: " .. bp end
+					if not (bp:find("Greta", 1, true) and bp:find("Montgomery", 1, true)) then return "the sheet's Team B players: " .. bp end
 					ctx.note = (ctx.note or "") .. " sheet=" .. bp:gsub(" ", "_")
 					s.img = nil
 				end,
@@ -165,7 +165,7 @@ tw.selftest.scenarios.players = {
 					if not renamed or not tw.namegen.valid("player", renamed.name) then return "the rename gave " .. tostring(renamed and renamed.name) end
 					local others = {}
 					for _, p in ipairs(r.players) do if p.key ~= s.renamedKey then others[#others + 1] = p.name end end
-					if table.concat(others, ",") ~= "jamiE,Playdate,Tyler" then
+					if table.concat(others, ",") ~= "oloF,Playdate,Greta" then
 						return "others changed: " .. table.concat(others, ",")
 					end
 					ctx.note = ctx.note .. " renamed=" .. renamed.name:gsub(" ", "_")
