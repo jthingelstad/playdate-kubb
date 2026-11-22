@@ -122,7 +122,7 @@ end
 function Game:context(half, except)
 	local others = {}
 	for _, k in ipairs(self:onPitch()) do
-		if k.id ~= except then others[#others + 1] = { id = k.id, pose = k.pose } end
+		if k.id ~= except then others[#others + 1] = { id = k.id, pose = k.pose, kind = k.kind } end
 	end
 	return { half = half, king = self.king.pose, others = others }
 end
@@ -260,12 +260,12 @@ function Game:_next()
 	end
 end
 
--- Positions for the inkast tokens (written once, as the batons begin: every
--- kubb thrown this turn is raised or placed by then). Each kubb a player
--- threw this turn that is on the pitch now, where it stands, in the order
--- of its last throw, on the token of the player who made that throw; a
--- punishment kubb on the token that counts its P (core/notation caps them
--- at the token's count). Kubbs out of play have none. A turn saved before
+-- Where the turn's kubbs thrown in stand (kept once, as the batons begin: every
+-- kubb thrown this turn is raised or placed by then), for the game file's pitch
+-- line (core/notation.positionLines). Each kubb a player threw this turn that is
+-- on the pitch now, where it stands, in the order of its last throw, with the
+-- player who made that throw; a punishment kubb with the player whose token
+-- counts its P. Kubbs out of play have none. A turn saved before
 -- positions has no inkBy on its kubbs: they go to its one inkaster, or
 -- nowhere when it had several.
 -- Written as the batons begin; core/match calls it again (it starts the list
