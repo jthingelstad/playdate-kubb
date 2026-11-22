@@ -131,6 +131,15 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   (B, the attacker, holds the Playdate; frame 4), A wins, and the game file is gated.
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
   right-hand end); all the way up must stand it on that end's footprint.
+- `seat` (core 1.0, `docs/notes/match.md` "The seat"): a new match's first throw on grass
+  and on sand (frames 1 and 3, the aim view; 2 and 4 a low look along Team A's baseline,
+  with a dotted plumb line from each kubb's foot that only this test draws), then B's
+  raise of a1 by the crank (frame 5, the last frame before it stands) and the next throw
+  (frame 6 its first frame, 7 a low look at a1). The check at each throw: every standing
+  kubb is drawn off plumb and within its surface's seat (grass 2, sand 3 degrees), and a
+  world built from the scene's items has every body at its item's orientation (to 1e-4).
+  The match scenarios' `pitchMatchesEngine` (`_match.lua`) also fails a standing kubb drawn
+  plumb where the world would seat it.
 - Physics scenarios: `hit` (b3 knocked over, stays down, reset), `miss`, `field` (a
   group of field kubbs), `skid`, `skid-sand` and `skid-snow` (the kick after landing on
   each surface), `king`, `low-hard` (the arc planned down to half past 5: a low throw

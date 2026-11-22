@@ -329,7 +329,14 @@ Pure Lua, 3D rigid bodies, fixed 1/240 s step.
   strikes the row (a row of four falls from one baton about as often as before the bounce
   took its friction: one or more 93% of hits, all four 35%; 2026-11-17). Tipping about an
   edge, rocking back upright, and falling are all the same contact solver, not a state
-  machine. A standing kubb sleeps until something touches it. A piece at rest on another
+  machine. A standing kubb sleeps until something touches it. Since Kubb Engine 1.0 a kubb
+  set down or raised stands in its **seat**, very slightly off plumb where the turf under it
+  is uneven: up to 2 degrees on grass, 3 on sand, 1.5 on snow, none on the grid, in a
+  direction of its own seeded from where it stands, the same from either side's view (the
+  owner, 2026-11-22: "yes turn on the kubbs too stable"). It rests on the edge it leans to,
+  so a soft touch tips it a little more often; once struck it is the ordinary physics', and
+  a kubb that has moved keeps the pose it came to rest in. The screen draws the seat from
+  the first frame a kubb is shown (docs/notes/match.md "The seat"). A piece at rest on another
   piece sleeps too, once what holds it up is asleep or on the ground, and pieces resting on
   each other fall asleep together (2026-11-16).
 - **Collisions:** capsule against box (closest point on the segment to the box, the box's

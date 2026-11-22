@@ -45,6 +45,8 @@ import "core/raising"
 import "core/camera"
 import "core/quat"
 import "core/swing"
+import "core/world"
+import "core/match"
 import "render/ui"
 import "render/world"
 
@@ -223,7 +225,9 @@ end
 -- match's, core/match.raisePolicy), nil for the game's own (game.raisePolicy).
 function settle.new(game, name, provider, auto, policyFor)
 	local s = { g = game, name = name, input = provider, done = false, raised = 0, placed = 0,
-		auto = auto or { on = false }, policyFor = policyFor }
+		auto = auto or { on = false }, policyFor = policyFor,
+		-- the pitch's surface (core/match.surfaceName: the seat's depth)
+		surface = tw.match.surfaceName(game) }
 	begin(s)
 	return s
 end
@@ -232,12 +236,24 @@ end
 
 local LONG <const>, SIDE <const> = pitch.kubbLong, pitch.kubbSide
 
+-- How high a box's center sits on the ground at this orientation.
+local function restZ(it, qw, qx, qy, qz)
+	local _, _, _, _, _, _, r31, r32, r33 = quat.toMatrix(qw, qx, qy, qz)
+	return math.abs(r31) * it.hx + math.abs(r32) * it.hy + math.abs(r33) * it.hz
+end
+
 -- An engine pose (world frame) on a render item, in the defender's view frame.
-local function placeItem(it, side, p)
+-- A standing kubb is drawn in its seat (core 1.0: world.seat, the lean the next
+-- throw's world gives it; the same in either side's view), so the close-up shows
+-- the neighbours as the pitch will.
+local function placeItem(it, side, p, surface)
 	local x, y = frame.point(side, p.x, p.y)
 	local a = frame.angle(side, p.angle)
 	if p.standing then
-		render.setPose(it, x, y, it.hz, quat.fromAxisAngle(0, 0, 1, a))
+		local qw, qx, qy, qz = quat.fromAxisAngle(0, 0, 1, a)
+		local seated
+		qw, qx, qy, qz, seated = tw.world.seat(surface, it.kind, x, y, qw, qx, qy, qz)
+		render.setPose(it, x, y, seated and restZ(it, qw, qx, qy, qz) or it.hz, qw, qx, qy, qz)
 	else
 		-- turned to its angle about the vertical, then laid along it (a face flat)
 		local zw, zx, zy, zz = quat.fromAxisAngle(0, 0, 1, a)
@@ -288,7 +304,7 @@ set3D = function(s)
 		local px, py = frame.point(side, p.x, p.y)
 		if (px - vx) * (px - vx) + (py - vy) * (py - vy) > near2 then return end
 		local it = render.item(id, kind)
-		placeItem(it, side, p)
+		placeItem(it, side, p, s.surface)
 		n = n + 1
 		items[n] = it
 	end
