@@ -1,8 +1,8 @@
 {
   "source": "jthingelstad/kubb-engine core/",
-  "tag": "v0.15.0",
-  "version": "0.15.0",
-  "commit": "8f7e081b6df5ececaaceeb6dbbc04e7bced52fe2",
+  "tag": "v0.15.1",
+  "version": "0.15.1",
+  "commit": "749613d217243d01ab580690e09598a03015e778",
   "files": {
     "core/autothrow.lua": "c48f997063d4c9f2997b770d9a95c544215ad654ec4931e1acbe48ba2811de32",
     "core/bench.lua": "763ad4227dbc59ac8279b42165afbd2945ed951b5ad00e8934f239f534194e7f",
@@ -22,7 +22,7 @@
     "core/howto.lua": "06dea483b7090ac9701a092ff6c07289ff285e029583ac48dddc972f5001af88",
     "core/howtoplay.lua": "55bdc5519a010fe79ac94d9ce41f4a998f69bb2741154bd253f20a2a17d39feb",
     "core/lineup.lua": "c7c96c0c228d0e584a05dfa72508f998d8492a83af3770ca5db4cab178d11a48",
-    "core/match.lua": "e2b55cea20222b833d398a37b7c708428fcf0d8a6cd1594fcc387ee8d62072da",
+    "core/match.lua": "cdbc39921bd489232d942e1429284ffd953e560dc7efc703b42701c84abfbe01",
     "core/matchopts.lua": "72234d062752f2c8885d564e7f9520de96708dfd22caffd941ac274682045825",
     "core/namegen.lua": "222565636da5f2cdd9ca51ad3f7367744d47b445acb4467888c1f00bf839b64b",
     "core/names.lua": "faec8d960119704c95bd9a72f6462bc2b62daa30e19ff9cedc657a80e452848d",
@@ -34,13 +34,13 @@
     "core/playback.lua": "78d514e82e5d5b5fa6c471881977226c8c692ba34537f0f7a4c72bb82128e2a3",
     "core/plays.lua": "321b73f1f330f1ab7662eb3e2f31800b7e037873ca5673f8324c8140edd7c290",
     "core/quat.lua": "b337eaaf99083d8aa3c6334eaad82ec6729cc6dc6128552ba2b61459a2993eee",
-    "core/raising.lua": "ec7bfdce7c9ea655ade7edbc9882c5eaec82b29a10730155538c345cb0d31f75",
+    "core/raising.lua": "0f0f88ab850c26668701d683c98f146a27856e9aa325132e2ade37c3520b206a",
     "core/read.lua": "6517074b2d84c501a7e8581f91a51100b9c9e799b27234c5a5dbd452f5c38583",
     "core/rect.lua": "9a89203a29c6c8bc6fbea6cc6b393399622c9eaf9072a4ff47f05faa650c4619",
     "core/roster.lua": "ea99aba74cfc6456d3b6875bfdd64d8b50e3a23ec515835306d5ab95e97072cd",
     "core/rules.lua": "38072fbc3dad5dec8e950f9ecc78a44597ec7736155a8634159951aeb16eab51",
     "core/save.lua": "27cb87941e929a186884b3d38c4eae6ef86adca764b3af04ca5bb9ce3b5cfff2",
-    "core/scenes.lua": "7ca473a68ed90c26130f4494106eaec34f55be8770418651367d6b2844f6b993",
+    "core/scenes.lua": "5d0659fc63a71548f7ae9638c2bcb07638af3a45fdcf820d75b2f66dec50186f",
     "core/swing.lua": "c55fd9282c913a1f12cfb463e887e64372846ac32ff5d704b54b4a65510c5b4a",
     "core/throwplan.lua": "e3c35dbb4a9d331b525dfb74ee79a63d1c22b93b1bc8b6fbade488dd2b8b94e2",
     "core/trace.lua": "677a86eeea08ff9cfae63f57a0852f7e3a140428de278db0da6c1cf63ddc1896",
@@ -48,6 +48,6 @@
     "core/vec.lua": "16ed8c29ccd68dcc7cff60892b5b2e767aaf01635e7fad30e593f09247326393",
     "core/wind.lua": "5be8fbc824ab65f875570249012fe334c5327b93f5036d37e2679e8bef93a876",
     "core/world.lua": "52ca892a78876b3ca570dabff350b425bd50c4f288ae8988a4d69f9a86798a18",
-    "version.lua": "4df2b4b8064eaf45f5cadfaea7926bedacf682af2c406a711195f49cfe93ebd8"
+    "version.lua": "148f11a54b2d5ac2a4a82106a50281291688a092d721cad61f5743ab28089ada"
   }
 }

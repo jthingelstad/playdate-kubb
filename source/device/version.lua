@@ -4,7 +4,7 @@
 -- both together for every release.
 --
 -- text is what a player sees: the game's version and, in parentheses, the
--- Kubb Engine's ("0.12.0 (0.15.0)"), read from the engine's own version.lua
+-- Kubb Engine's ("0.12.0 (0.15.1)"), read from the engine's own version.lua
 -- (source/engine/version.lua, vendored with the core at the same tag). The
 -- build number is not in the label; where detail is shown it is printed on
 -- its own as "build 12".
