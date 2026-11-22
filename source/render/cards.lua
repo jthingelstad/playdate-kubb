@@ -222,7 +222,7 @@ function rcards.settle(c)
 end
 
 -- The pass card inside a team (core/cards.pass): who takes the Playdate,
--- for which throws, at what level; A throws, B changes the thrower.
+-- for which throws; A throws, B changes the thrower.
 function rcards.pass(c)
 	local t = rcards.tune
 	local img = gfx.image.new(400, 240, gfx.kColorBlack)
@@ -232,9 +232,9 @@ function rcards.pass(c)
 	bigName(c.name, t.nameTop, t.nameRoom)
 	white()
 	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
-	local parts = { c.team }
-	if c.level then parts[2] = "level " .. c.level end
-	ui.textDots(label, parts, t.left, t.tookY, true)
+	-- (no level: a person throws on the one meter since engine 0.13, and the pass card is
+	-- never the Playdate's)
+	ui.text(label, c.team, t.left, t.tookY, true)
 	local what
 	if c.kind == "kubbs" then what = "the kubbs in"
 	elseif c.from == c.to then what = "baton " .. c.from
