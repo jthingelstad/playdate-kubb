@@ -1,5 +1,4 @@
--- device/namepick: the Names screen's state and the fallback for typed names kept
--- from older builds (kubb-engine docs/NAMES.md).
+-- device/namepick: the Names screen's state (kubb-engine docs/NAMES.md).
 import "device/namepick"
 local np, namegen = tw.namepick, tw.namegen
 
@@ -59,16 +58,3 @@ test("namepick: shuffle rolls a new name of the kind", function()
 	expect.truthy(namegen.valid("team", np.text(p)))
 end)
 
-test("namepick: fallback keeps a generated name and replaces a typed one, the same each time", function()
-	expect.eq(np.fallback("player", "Lucky Larch", 1), "Lucky Larch")
-	local a = np.fallback("player", "Kim", np.seedOf("p1"))
-	expect.truthy(namegen.valid("player", a), tostring(a))
-	expect.eq(np.fallback("player", "Kim", np.seedOf("p1")), a)
-	local t = np.fallback("team", "Snow Kubbs", np.seedOf("A"))
-	expect.truthy(namegen.valid("team", t), tostring(t))
-	-- a name the caller refuses is rolled past
-	local b = np.fallback("player", "Kim", np.seedOf("p1"), function(n) return n == a end)
-	expect.truthy(b ~= a and namegen.valid("player", b))
-	-- a player name is not a team name (Mighty Maple is no team)
-	expect.truthy(np.fallback("team", "Mighty Maple", 3) ~= "Mighty Maple")
-end)

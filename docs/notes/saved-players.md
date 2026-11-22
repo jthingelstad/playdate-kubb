@@ -30,9 +30,8 @@ the datastore part is `source/players.lua` (`tw.players`).
   in front of both. `players.load()` makes the roster the first time from the old files:
   the names typed for matches (`names`) become players (the defaults aside), and the drill
   records (`drills`) go to the first of them (`You` when there was none); the old files
-  are left as they were. `players.today()`, `players.now()` give the dates. Every load
-  gives a player whose name is not a generated one a generated name (`players.generateNames`)
-  and saves the roster: see "Generated names".
+  are left as they were. `players.today()`, `players.now()` give the dates. A load never
+  changes a kept name: see "Generated names".
 - **PLAYERS** (`scenes/players.lua`, the title's fourth item; no board, the Drills board's
   look): the roster on a black panel (+ NEW PLAYER, then the players most recently played
   first) and the chosen player's figures (games, wins, hit rate, kings, kubbs in, the last
@@ -58,10 +57,11 @@ the datastore part is `source/players.lua` (`tw.players`).
   first match needs no trip through the bench (RC review, 2026-11-15). Six a side
   (`lineup.tune.size`); a player is on one side. A team's name is the one given, else the
   player's for a team of one, else `Team <first player>`. The lineup is kept per mode
-  (datastore `teams`, saved players only) and offered again; a kept team name that is not a
-  generated team name comes back as one (`namepick.fallback`), saved at once. A name too
-  wide for a column even in the label face shows its first word as an initial (`N.
-  REDWOOD`) or without its `The` (`scenes/teams` `fitName`). `lineup.teams(L)` is
+  (datastore `teams`, saved players only) and offered again; a kept team name typed on an
+  older build stays until it is renamed. A name of two or more words too wide for a column
+  even in the label face shows its first word as an initial (`N. REDWOOD`) or without its
+  `The` (`scenes/teams` `fitName`); a single word is never cut (a typed name is at most 10
+  letters and fits). `lineup.teams(L)` is
   `core/match`'s teams: players `{ name, key, level, guest }`. Self-test `teams`.
 - **In a match** (`core/match`, `scenes/match`): `m.lineup` (`match.lineupOf`) keeps each
   engine player's key, level and guest flag beside the engine's ids; `s.thrower` is
@@ -133,15 +133,15 @@ name is two words from the engine's lists (`core/namegen`, `core/namewords`): a 
   checks each place's last fallback: the rail (146 px before the pips), TEAMS (cut, as
   above), PLAYERS and the Names screen. The hand-off, pass and settle cards drop a name too
   wide for display 32 to display 16 (`rcards` `bigName`), as the winner card did; the
-  winner card's players, when cut, show their last word's first seven letters (`REDWOOD
-  22/29`); the score sheet's rail cuts two long team names to initials, then leaves its
-  right side out.
-- **Kept names** from a build before 0.12.0 that are not generated names (typed, or
-  `You` from the first roster) are replaced at load by a generated name rolled from the
-  player's key and old name (`namepick.fallback`: the same name every load, never one
-  another player has) and the roster is saved; a kept team name likewise when TEAMS opens.
-  The history follows the key, so a renamed player keeps their games and drill bests; the
-  game files already written keep the old name. A match saved in progress keeps the names
-  it started with (they are in its score sheet and its ids). (kubb-engine docs/NAMES.md
-  10.2 had saved players keeping typed names until renamed; the maintainer chose the
-  fallback for 0.12.0 so no typed name is shown anywhere.)
+  winner card's players, when cut, show a generated name's wood's first seven letters
+  (`REDWOOD 22/29`) and a typed name's first six, as before; the score sheet's rail cuts
+  two long team names to initials, then leaves its right side out.
+- **Kept names.** The owner decided (kubb-engine docs/NAMES.md 10.2, Jamie,
+  2026-11-21): "Saved players keep their typed names until someone renames them." A
+  player saved with a typed name on a build before 0.12.0 keeps it, shown as it is on every
+  screen, in matches and on their score sheets; the load never rewrites the roster. Only
+  a rename changes it, and a rename is the Names screen, so it gives a generated name
+  (nothing is typed anywhere). A kept team name likewise stays until renamed. New players,
+  guests and team names are generated. On the Playdate a name never leaves the device, so
+  there is nothing to protect by replacing one. (Build 12 replaced kept names at load;
+  build 13 does not, and the self-test `players` checks a 0.11.0 roster loads unchanged.)

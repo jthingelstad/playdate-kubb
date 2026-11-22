@@ -1,6 +1,5 @@
 -- Generated names on the Playdate (kubb-engine docs/NAMES.md, sections 8 and 10.2):
--- the state behind the Names screen (scenes/names) and the fallback for names kept
--- from builds that took typed ones. Pure: no playdate.*; the words and the rules are
+-- the state behind the Names screen (scenes/names). Pure: no playdate.*; the words and the rules are
 -- core/namegen's, this only walks them. tests/lua/test_namepick.lua holds it.
 --
 --   namepick.new(kind, text, rand)  a picker for kind ("player" | "team") on `text`
@@ -14,11 +13,6 @@
 --   namepick.shuffle(p, rand)       a whole new name; returns it
 --   namepick.set(p, text)           take `text` if it is a name of p's kind (true), else
 --                                   leave p as it was (false)
---   namepick.fallback(kind, text, seed, taken)
---                                   `text` when it is a name of that kind, else a name
---                                   rolled from `seed` (the same seed, the same name)
---                                   that taken(name) does not refuse
---   namepick.seedOf(s)              a number from a string, for fallback's seed
 --
 -- A team's first word runs through "The", every adjective, then every wood, so the
 -- crank reaches all three of namegen's team shapes from one row; a player's first word
@@ -28,7 +22,6 @@
 import "core/tw"
 import "core/namegen"
 import "core/namewords"
-import "core/throwplan"
 
 local namegen, words = tw.namegen, tw.namewords
 
@@ -110,28 +103,6 @@ function namepick.step(p, i, d)
 	local s, next = namegen.step(p.kind, parts, slot, d)
 	if s then p.parts, p.name = next, s end
 	return p.name
-end
-
--- (small numbers only: the Playdate's Lua integers are 32 bits and its floats single)
-function namepick.seedOf(s)
-	local h = 7
-	for k = 1, #s do h = (h * 131 + s:byte(k)) % 1000003 end
-	return h
-end
-
-function namepick.fallback(kind, text, seed, taken)
-	if type(text) == "string" and namegen.valid(kind, text) then return text end
-	local r = tw.plan.rng(seed or 1)
-	local function rand(n)
-		local k = math.floor(r.next() * n) + 1
-		return (k > n) and n or k
-	end
-	local name
-	for _ = 1, 50 do
-		name = namegen.roll(kind, rand)
-		if name and not (taken and taken(name)) then return name end
-	end
-	return name
 end
 
 tw.namepick = namepick

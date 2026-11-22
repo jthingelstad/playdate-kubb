@@ -13,6 +13,7 @@
 import "CoreLibs/graphics"
 import "core/tw"
 import "render/ui"
+import "core/namegen"
 
 local gfx <const> = playdate.graphics
 local ui = tw.render.ui
@@ -319,13 +320,17 @@ function rcards.winner(c, how, saved)
 	if c.players then
 		-- each player's hits over batons, as many to a line as fit between the
 		-- margins; when that takes more lines than there is room for above the
-		-- buttons, the names are cut to their last word's first seven letters (a
-		-- generated name's wood: "REDWOOD", "GINKGO"; before 0.12.0 the first six letters)
+		-- buttons, a generated name is cut to its wood's first seven letters ("REDWOOD",
+		-- "GINKGO") and a name typed on an older build to its first six, as before 0.12.0
 		local room = math.max(1, (t.buttonY - 4 - y) // t.statsStep)
+		local function short(name)
+			if tw.namegen.valid("player", name) then return string.sub(name:match("(%S+)$"), 1, 7) end
+			return string.sub(name, 1, 6)
+		end
 		local function pack(cut)
 			local lines, parts, w = {}, {}, 0
 			for _, p in ipairs(c.players) do
-				local nm = cut and string.sub(p.name:match("(%S+)$") or p.name, 1, 7) or p.name
+				local nm = cut and short(p.name) or p.name
 				local s = nm .. " " .. p.hits .. "/" .. p.thrown
 				local sw = label:getTextWidth(string.upper(s))
 				local add = (#parts > 0) and (sw + 10) or sw
