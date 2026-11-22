@@ -185,7 +185,11 @@ local function begin(s)
 		s.mode, s.side, s.kubb = "raise", n.side, n.kubb
 		s.pose, s.dec = n.pose, n.decision
 		s.ctx = g:context(n.side, n.kubb)
-		s.choice = raising.choose(s.dec, s.ctx, g.raisePolicy) or 1
+		-- the end offered first, and what REST OF GAME raises on: the defender's
+		-- policy (engine 0.12: core/match.raisePolicy, a person's the engine's
+		-- advice), else the game's own
+		local policy = s.policyFor and s.policyFor(n.side)
+		s.choice = raising.choose(s.dec, s.ctx, policy or g.raisePolicy) or 1
 		s.engineChoice = s.choice   -- what an automatic raise stands it on
 		s.wait = settle.tune.autoWait
 		s.blocked = nil
@@ -214,10 +218,12 @@ end
 -- game: the core/rules game; name(side) the team's name for the rail;
 -- provider an input provider; auto the match's automatic raising
 -- ({ on = true } raises for the rest of the game; settle sets changed when B
--- turns it on or off), or nil for a table of this view's own.
-function settle.new(game, name, provider, auto)
+-- turns it on or off), or nil for a table of this view's own; policyFor(side)
+-- (optional) the raising policy for that side's kubbs (scenes/match: the
+-- match's, core/match.raisePolicy), nil for the game's own (game.raisePolicy).
+function settle.new(game, name, provider, auto, policyFor)
 	local s = { g = game, name = name, input = provider, done = false, raised = 0, placed = 0,
-		auto = auto or { on = false } }
+		auto = auto or { on = false }, policyFor = policyFor }
 	begin(s)
 	return s
 end

@@ -20,7 +20,9 @@
 -- is B's (scene.holder): A wins, and the game file is gated (file=...).
 -- Frame 4: the automatic raise at the resign.
 -- The check, each part: every kubb stands where the same match raised by
--- hand on the engine's ends (g:raise(nil) on a copy) stands it, and the
+-- hand on the engine's ends stands it (a copy raised with the match's policy
+-- for the side, core/match.raisePolicy: since engine 0.12 a person's ends are
+-- the engine's advice, cpu.advice, not the game's `apart`), and the
 -- score sheet is the same line for line. Self-test keys only
 -- (selftest-match, selftest-match-raise), deleted afterwards.
 import "core/tw"
@@ -65,13 +67,19 @@ local function toTurn4(g)
 end
 
 -- a copy of match m through the save (the datastore's own JSON round trip
--- is the resume's; this is the same tables), raised by hand on the engine's ends
-local function handCopy(m)
-	return (save.unpack(save.pack(m, {})))
+-- is the resume's; this is the same tables), raised by hand on the engine's ends:
+-- the policy for each side as the scene's match has it (cpu: the computer's
+-- sides, {} in PASS + PLAY, as scenes/match sets m.cpu)
+local function handCopy(m, cpu)
+	local c = save.unpack(save.pack(m, {}))
+	c.cpu = cpu or {}
+	return c
 end
 local function raiseAllByHand(c)
 	local n = 0
-	while c.game:need().kind == "raise" do c.game:raise(nil); n = n + 1 end
+	while c.game:need().kind == "raise" do
+		c.game:raise(nil, cmatch.raisePolicy(c, c.game:need().side)); n = n + 1
+	end
 	-- (as the match scene does next: the throw set up, the pitch settled)
 	cmatch.setup(c)
 	return n
@@ -190,7 +198,7 @@ tw.selftest.scenarios["auto-raise"] = {
 				toTurn3(m.game)
 				while m.game:need().kind == "raise" do m.game:raise(nil) end
 				toTurn4(m.game)
-				ctx.hand = handCopy(m)
+				ctx.hand = handCopy(m, { "B" })
 				ctx.ms = scene.new(tw.input.scripted { { n = 2 }, B },
 					{ teams = TEAMS, vs = "B", resume = m, cpuSeed = 1 })
 				scene.enter()
