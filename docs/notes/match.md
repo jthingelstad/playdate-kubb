@@ -8,8 +8,8 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
 The title (`scenes/title.lua`, Woodcut look below) offers "VS PLAYDATE" (a match against
 the computer), "PASS + PLAY" (the match) and "PRACTICE" (the drills menu, whose OPEN PITCH
 is the practice pitch); `main.lua` opens one
-scene at a time and rebuilds the System Menu for it (Level, then the scene's
-own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is the throw scene exactly as before.
+scene at a time and rebuilds the System Menu for it (the scene's own item; until engine
+0.13 a "Level" item came first; crank traces moved behind the `debug` file on 2026-11-20). Practice is the throw scene exactly as before.
 
 - `core/frame.lua`: the thrower's view frame. Team B's throws are made in the pitch turned
   180 degrees about its center, `(x, y) -> (-x, 8 - y)`, angles + pi, quaternions
@@ -130,9 +130,11 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   shows its kubb for `settle.tune.autoWait` (0.7 s, the web's wait) with **B BY HAND** and
   RAISING FOR THE REST OF THE GAME, then makes the call A makes on the engine's end
   (`g:raise(choice)` with the choice the view started on, `raising.choose` under
-  `g.raisePolicy`, which is what `g:raise(nil)` picks), so the pitch, the score sheet and
-  the game file are exactly a match raised by hand without the crank (self-test
-  `auto-raise` checks it against `g:raise(nil)` on a copy). B BY HAND gives the raising
+  the defender's policy: `settle.new`'s `policyFor`, which `scenes/match` gives as
+  `cmatch.raisePolicy(m, side)`, else `g.raisePolicy`), so the pitch, the score sheet and
+  the game file are exactly a match raised by hand without the crank on the engine's ends
+  (self-test `auto-raise` checks it against a copy raised with `cmatch.raisePolicy`).
+  The end the raise view offers first is that same choice. B BY HAND gives the raising
   back, starting with the kubb on screen. Punishment kubbs are still placed by hand (the
   web's does the same); the match option RAISING: AUTOMATIC (`autoSettle`) still leaves
   both to the engine with no view. In PASS + PLAY the pass card waits while the game is
@@ -142,7 +144,14 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   (`scene.holder`: in the settle phase the defender's only once its card has been shown;
   a match resumed into an automatic raise has had no card either); the rail goes on naming
   the team whose kubbs are raised.
-  Against the Playdate the Playdate raises its own as before. Saved: since engine 0.9 the
+  Against the Playdate the Playdate raises its own as before. **Raising by side** (Kubb
+  Engine 0.12, `core/match.raisePolicy`): the engine raises the Playdate's kubbs by its
+  level (pro `par`, club `apart`, beginner `first`) and a person's by its advice
+  (`cpu.advice`, `par`: the end that leaves the fewest kubbs one behind another on a
+  baton's path), and the raise view offers that end first. `scenes/match` says which
+  sides the computer plays outright, `cpu = { "B" }` against the Playdate and `cpu = {}`
+  in PASS + PLAY, to `match.new` and again on a resume (`m.cpu`, not saved); without it
+  PASS + PLAY would raise a person's kubbs `apart`. Saved: since engine 0.9 the
   choice is in the save itself (core/save's `autoRaise`, true or absent), written at once
   when B turns it on and when BY HAND turns it off, and passed back to the match on a
   resume (`opts.autoRaise`). Builds before 0.10.0 kept it in a datastore file beside the
@@ -173,10 +182,12 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   (beginner, club, pro; club by default): the Playdate's throw level, a match option since
   engine 0.9 (Jamie, 2026-11-20: "yes this should be a real per game setting"). The level
   goes on the Playdate's player in the lineup (`cpuLevel` in `scenes/match`), so its throws
-  (`throw.levelFor`), the game file's [Throw Levels] and a resume carry it. A person's own
-  level stays theirs: their roster entry's, else the System Menu's "Level". A match saved
-  before 0.10.0 has no level on the Playdate's player and goes on at the System Menu's, as
-  it did. The core has no SET row since 0.9 ("Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
+  (`throw.levelFor`), its raising (engine 0.12), the game file's [Throw Levels] and a
+  resume carry it. A person's level no longer changes their throw (engine 0.13: every
+  person throws on the one meter, docs/notes/throw.md "The person's meter"); it is still
+  their roster entry's and the game file still names it. A match saved before 0.10.0 has
+  no level on the Playdate's player and goes on at the level the old System Menu "Level"
+  kept in the datastore (the item is gone since 0.13), as it did. The core has no SET row since 0.9 ("Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
   a line under the rows says what the row is for; A starts, B goes back to the names. The
   choice is kept (`playdate.datastore` "matchopts", `matchopts.valid` on reading) and
   offered next time. `main.lua`: title -> `names` -> `options` -> `play`; a rematch keeps
@@ -203,6 +214,16 @@ own item; crank traces moved behind the `debug` file on 2026-11-20). Practice is
   same place says `NEW? PRACTICE > HOW TO PLAY` (`title.new`'s hint) (a save that does not read back is ignored,
   never a crash at launch); `main.lua` opens `resume` from it (the match
   scene's `opts.resume`, its names and VS kept for a rematch). Self-test `resume`.
+  A new engine does not refuse a saved match: the save holds the engine's state, not its
+  throws, and the Playdate keeps no replay or hashes to check, so a match saved on an
+  older engine resumes and plays on under the new one (only a save `version` other than
+  2 is refused, `save.unpack`). Engine 0.9 to 0.13 (2026-11-21) changed nothing in
+  `core/save` or `core/matchopts`: matches saved by 0.10.0 on 0.9 (VS PLAYDATE at pro,
+  PASS + PLAY with RAISING: AUTOMATIC and with REST OF GAME on) and a save left by a build
+  before 0.9 (with `set`, no computer level) resumed on 0.13 headless, played
+  to a winner with physics and wrote game files the notation gate passes; a kept
+  "matchopts" with `set` still validates. A resume sets the computer's sides again
+  (`m.cpu`) before its first settle.
 - Games list (`scenes/games.lua`, board `Games.png`; `core/gamefile.lua` pure and tested
   over every fixture): the title's System Menu "Games" opens it. Every finished game in
   `games/`, newest first (file names start with the date): the date, the teams with a
@@ -291,5 +312,5 @@ resumes, plays and carries the field on in its saves without drawing it (core/sa
 what it was given). No game file ever had a set in it. Self-test `set-save`.
 
 The VS PLAYDATE opponent throws at the match's COMPUTER level; a match saved before 0.10.0
-without one uses the System Menu throw level.
+without one uses the throw level the old System Menu "Level" kept (datastore "level").
 The tagged engine gives Club and Pro their drill spin and baton turnover.

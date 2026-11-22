@@ -90,7 +90,8 @@ Toppled kubbs stay down between throws at their rest poses (the scene's item lis
 render items of `render/world`, carries every piece's pose). System Menu "Pitch" set to
 "reset" stands everything back up (`throw.reset`); it also happens by itself after the
 throw that leaves every far base kubb down. The System Menu holds three custom items at
-most (Level, Pitch, and until 2026-11-20 Record, now behind the `debug` file), so Pitch is an options item that acts when the menu closes
+most (Pitch; until 2026-11-20 Record, now behind the `debug` file, and until
+engine 0.13 Level, a person's throw level, which no longer changes their throw), so Pitch is an options item that acts when the menu closes
 and then reads "play" again; its "how to" starts HOW TO THROW over the pitch (or ends it
 while it runs), its "title" goes back to the title screen, its "readout"
 turns the debug line under the rail on or off (debug only, 2026-11-15: it was the first

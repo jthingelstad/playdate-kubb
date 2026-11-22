@@ -88,8 +88,10 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   at once (no side file); A's raise at turn 4 resumed from the datastore raises by itself
   with no pass card (frame 3), then BY HAND clears it in the save, brings the pass card and the rest are
   raised with A; then VS PLAYDATE, A's raise with no card, all by itself, a resign after it
-  still the player's. Each part must leave the same pitch and score sheet as `g:raise(nil)`
-  on a copy. Last, PASS + PLAY resumed into A's automatic raise from an older build's
+  still the player's. Each part must leave the same pitch and score sheet as a copy raised
+  with the match's policy for the side (`cmatch.raisePolicy`, the copy's `m.cpu` set as the
+  scene sets it: since engine 0.12 a person's ends are the engine's advice, not
+  `g:raise(nil)`'s `apart`). Last, PASS + PLAY resumed into A's automatic raise from an older build's
   `-raise` side file (the first save carries it and the file is deleted): Match: resign there is B's
   (B, the attacker, holds the Playdate; frame 4), A wins, and the game file is gated.
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
@@ -105,9 +107,12 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   are the Mac's, not the device's). They set the target circle (and the arc) in `setup`
   and throw the plan's clean swing (`planned`): the default aim is the circle on b3.
 - The throw ("The throw" below): `clock-throw` (point and throw, no A or B: the default
-  target, stance and arc, wound into the power target and stopped at 3 o'clock; a base
+  target, stance and arc, wound into the power target and stopped on the release target,
+  the default arc for 8 m, 4 o'clock since engine 0.10 (3 o'clock before); a base
   kubb goes down, ON ON STEADY, the verdicts and dots on the next aim), `clock-plan` (A
-  walks and the targets move, B moves the arc and tilts, a drill's spin and arc, the
+  walks and the targets move, B moves the arc two ticks from the default arc for the
+  distance and the release target is the person's meter's for that distance (engine 0.10
+  and 0.13; until 0.13 it was 3 o'clock and club's half width), B tilts, a drill's spin and arc, the
   drill's circle moves freely, `aimAt` snaps a baton's onto b2, and the d-pad moves it off
   b2 without snapping back), `clock-drill` (a drill at half
   past 1 with a tap of spin rests within 1 m of the circle and stays on the pitch; 0.4 m
@@ -120,11 +125,18 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   after it only winds), `crank-flip-flight` (flipped with the throw in the air: the recorder
   keeps the swing's samples and the sign it was thrown with), `crank-nudge` (three forward turns from 6 show the hint with the
   practice pitch's words, the wind-up hides it, the throw clears the count; the match's
-  wording fits on screen), `gauge` (the prompts: WIND BACK, FLICK!, EASE
+  wording fits on screen), `gauge` (the prompts: WIND BACK, FLICK! anywhere inside the
+  power target, which on the meter is 2 degrees either side at 8 m, EASE
   OFF, none in the flick), `gauge-ghost`, `rearm`, `windup`, `flight` (the trace line read
-  back with its plan), `helicopter` (a stuttered flick at Pro), `aim-center`, `aim-arc`
+  back with its plan, at the default arc for 8 m), `helicopter` (a stuttered flick wound 40
+  past the power target: on the meter the shake costs less than Pro's did, so a stutter
+  alone at 8 m no longer throws a helicopter, engine 0.13), `nerves` (the clean swing with
+  the nerves on: a little off the line, STRAIGHT, as the meter promises; PULLED RIGHT
+  until 0.13), `aim-center`, `aim-arc`
   (first person and the plan view for targets across the half, every release and stances
-  at both ends: "The aim camera"), `camera-swing` (B held and let go, a baton's and a
+  at both ends: "The aim camera"; a drill's arc may rise above the fit box into the gap
+  under the rail, counted in its note: one, the half-past-12 drill to the far corner from
+  the far end of the line, 22 px against the box's 24, since engine 0.10's drill), `camera-swing` (B held and let go, a baton's and a
   drill's; its note counts the aim frames' graphics calls, camera still and moving), `plan-ticks` (B + the d-pad: a tap is one tick of arc, tilt or
   spin, held it slides a tick a frame to the end of the range; frames: the plan view after
   the slide, SPIN R 0.25; a kubb's spin kept for the side's next kubb in the inkast turn), `clock-gauge` (the clock's states drawn alone, cache on and

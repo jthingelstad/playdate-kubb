@@ -40,10 +40,10 @@ stands, the listing assets and the accessibility disclosure).
   `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
   `source/device/version.lua` (`tw.version`). pdxinfo is the source of truth;
   `test_version.lua` fails when the two disagree, and `make release` runs it first. The
-  title shows the game's version with the Kubb Engine's in parentheses, `0.10.0 (0.9.0)`
+  title shows the game's version with the Kubb Engine's in parentheses, `0.11.0 (0.13.1)`
   (`tw.version.text`; the engine's from `source/engine/version.lua`). The build number is
   not in the label: it stays in pdxinfo and `tw.version.build`, and the bench logs print it
-  on its own as `build 10`.
+  on its own as `build 11`.
   The zip is published on files.thingelstad.com and linked from
   https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository). Each release so
   far: `docs/notes/releases.md`.
@@ -68,7 +68,7 @@ nothing else without asking.
 - `source/core/` is the Kubb Engine's `core/` (`jthingelstad/kubb-engine`) at the release
   tag in `engine-core.json`, byte for byte, and `source/engine/version.lua` is the engine's
   `version.lua` at the same tag (`tw.engine.version`, the version the title shows). Today:
-  v0.9.0. Never edit `source/core` or `source/engine`. Fix behaviour in
+  v0.13.1. Never edit `source/core` or `source/engine`. Fix behaviour in
   kubb-engine, release it there as a tag, then `make vendor-sync TAG=vX.Y.Z` here (it
   reads the tag from the checkout `../kubb-engine` or `$KUBB_ENGINE` through git, never
   its working tree, and refuses files that disagree with the tag's `engine.json`). Never
@@ -88,12 +88,18 @@ nothing else without asking.
 - Lua: add `tests/lua/test_<thing>.lua` for a `source/device` module. Use `test(name,
   fn)`, `expect.eq`, `expect.near`, `expect.truthy`. The runner picks up every
   `test_*.lua`.
-- Notation gate: every game file the game writes must pass the pk-kubb-score grammar with
-  zero warnings and `kubb.js` must find the same winner as `[Win]` (`make selftest` runs it
-  over the self-tests' matches). `tests/vendor/pk-kubb-score/` holds copies of
-  pk-kubb-score's `site/assets` parser and scorer (Jamie approved the copy 2026-11-13).
-  Never edit them; `make sync-notation` refreshes them from `../pk-kubb-score` (or
-  `$PK_KUBB_SCORE`), which is read only: never write there or run `npm install` there.
+- Notation gate: every game file the game writes is Planet Kubb Notation 2 in its
+  canonical form (engine 0.13.1) and must pass the pk-kubb-score grammar's canonical form,
+  be unchanged by its canonical writer, give zero `kubb.js` warnings and the same winner
+  as `[Win]` (`make selftest` runs it over the self-tests' matches). The gate, its
+  rejects and `tests/fixtures/games` and `bad` are kubb-engine's at the vendored tag;
+  `tests/fixtures/legacy` holds files in the older notation (the `(@ ...)` comments),
+  which `core/gamefile` must still read (`test_gamefiles.lua`). `tests/vendor/pk-kubb-score/`
+  holds copies of a tagged pk-kubb-score release's parser, canonical writer and scorer
+  (`SOURCE` names the tag and commit; Jamie approved the copy 2026-11-13). Never edit
+  them; `make sync-notation` refreshes them from `../pk-kubb-score` (or `$PK_KUBB_SCORE`)
+  at its latest tag (or `PKTAG=`) through git, which is read only: never write there or
+  run `npm install` there.
 
 ## Rules to know before editing
 

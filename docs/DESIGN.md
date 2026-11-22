@@ -105,9 +105,13 @@ to throw, modelled on how a real player throws, the same for batons and drilled 
   kubb, the player stands behind it, the arc is chosen for them; they only crank. A (moving
   yourself) is the first level of control, B (the plan) the most advanced. Neither is
   needed.
-- **Throw level** (Beginner, Club, Pro) sets how wide the gauge's targets are and how much
-  a miss costs. It belongs to the player who throws (named players are planned in
-  `docs/PLAYERS.md`); until players exist it is one setting in the System Menu.
+- **The meter.** Every person throws on one meter (Kubb Engine 0.13; the owner,
+  2026-11-21: "player level really should only mean for the computer opponent. It doesn't
+  mean anything for the human player."): the gauge's targets go by the throw's distance,
+  wide for a short throw and narrow for a long one, and a miss always reads SHORT, LONG,
+  LOW, HIGH, SHAKY or PULLED. A **throw level** (Beginner, Club, Pro) is the computer's
+  only: how wide its targets are and how much a miss costs it. Until 0.13 it was the
+  thrower's, a person's included (their roster entry's, else a System Menu setting).
 
 ### The three steps before the throw (in any order)
 
@@ -203,8 +207,8 @@ How it plays (Jamie and Tyler's examples):
 The computer throws the same way: it plans a target and an arc and makes a swing with
 mistakes in it, and the gauge shows its arm going back and forward as it throws.
 Its level (beginner, club or pro) is a match option, COMPUTER, chosen before each match
-against it (Kubb Engine 0.9); a person's level is their own (their roster entry's, else the
-System Menu's). Since 0.9 it steps up to a kubb a step from the line (it stands as near as
+against it (Kubb Engine 0.9); a person's level no longer changes their throw (0.13: the
+meter). Since 0.9 it steps up to a kubb a step from the line (it stands as near as
 0.25 m) and throws the low, hard point-blank baton, and its batons aim lower, at the kubb's
 body.
 
@@ -247,8 +251,11 @@ swing's and the run on's (`tw.autothrow.tune.into`, `intoShort`).
 | Nerves: share long or short, 1 sd, an 8 m baton | 8% | 4% | 2.5% |
 | Nerves: the baton's turn, 1 sd, turns over the flight | 0.2 | 0.1 | 0.06 |
 
-First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.lua`). A person's level is their roster entry's, else the System Menu's "Level"; the
-Playdate's is the match option COMPUTER.
+First guesses, to be fitted from play (`tw.plan.levels`, `source/core/throwplan.lua`). Since
+Kubb Engine 0.13 they are the computer's only (the Playdate's is the match option COMPUTER);
+a person throws on the meter (`plan.meters.standard`: power 2 and release 7.5 degrees
+either side at 8 m, 3.8 and 14.2 at 6 m, 5.6 and 21 at 4 m; a release past its bar pulls
+the baton 0.15 degrees a degree, late left, early right).
 
 ### Practice drills
 
@@ -380,7 +387,12 @@ Rules V4.0 unless a question below changes it.
 ## 7. Notation and game files
 
 One file per finished game in `games/` inside the game's Data folder, named
-`YYYY-MM-DD-HHMM-<team-a>-v-<team-b>.txt`, in the README format of pk-kubb-score:
+`YYYY-MM-DD-HHMM-<team-a>-v-<team-b>.txt`, in the README format of pk-kubb-score. Since
+Kubb Engine 0.13.1 it is Planet Kubb Notation 2 in its canonical form (`[Notation "2"]`
+first, `Base kubbs`, `Batons` and `Opening` headers, and positions as lines of their own,
+`@a`/`@b` and `*a`/`*b`, where older files had `(@ ...)` comments); the games list and the
+score sheets leave position lines out (`gamefile.isPosition`), and older files still read.
+The example below is the older form:
 
 ```
 [Event "Throwing Wood"]
