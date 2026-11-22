@@ -16,9 +16,10 @@
 --
 -- Who is practising (docs/PLAYERS.md section 6): left/right on the menu go
 -- through NO PLAYER and the saved players; the choice is kept (datastore
--- "practice"). With a player, every throw (OPEN PITCH too, main.lua) is at
--- their throw level and their records are their own (core/history); with
--- none, the System Menu's "Level" and the Playdate's own records ("drills").
+-- "practice"). With a player, every throw (OPEN PITCH too, main.lua) is
+-- theirs: their records are their own (core/history); with none, the
+-- Playdate's own records ("drills"). Since engine 0.13 a person's throw level
+-- no longer changes the throw (scenes/throw, throw.planBy: the meter).
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/drills"
