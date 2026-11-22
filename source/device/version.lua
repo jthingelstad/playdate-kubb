@@ -4,15 +4,15 @@
 -- both together for every release.
 --
 -- text is what a player sees: the game's version and, in parentheses, the
--- Kubb Engine's ("0.14.0 (0.18.0)"), read from the engine's own version.lua
+-- Kubb Engine's ("1.0.0 (1.0.0)"), read from the engine's own version.lua
 -- (source/engine/version.lua, vendored with the core at the same tag). The
 -- build number is not in the label; where detail is shown it is printed on
--- its own as "build 16".
+-- its own as "build 17".
 import "core/tw"
 import "engine/version"
 
-local VERSION <const> = "0.14.0"
-local BUILD <const> = 16
+local VERSION <const> = "1.0.0"
+local BUILD <const> = 17
 
 local engine = tw.engine and tw.engine.version or "?"
 tw.version = { version = VERSION, build = BUILD, engine = engine, text = VERSION .. " (" .. engine .. ")" }
