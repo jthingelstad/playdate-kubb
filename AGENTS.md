@@ -40,10 +40,10 @@ stands, the listing assets and the accessibility disclosure).
   `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
   `source/device/version.lua` (`tw.version`). pdxinfo is the source of truth;
   `test_version.lua` fails when the two disagree, and `make release` runs it first. The
-  title shows the game's version with the Kubb Engine's in parentheses, `0.11.0 (0.13.1)`
+  title shows the game's version with the Kubb Engine's in parentheses, `0.12.0 (0.15.0)`
   (`tw.version.text`; the engine's from `source/engine/version.lua`). The build number is
   not in the label: it stays in pdxinfo and `tw.version.build`, and the bench logs print it
-  on its own as `build 11`.
+  on its own as `build 12`.
   The zip is published on files.thingelstad.com and linked from
   https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository). Each release so
   far: `docs/notes/releases.md`.
@@ -68,7 +68,7 @@ nothing else without asking.
 - `source/core/` is the Kubb Engine's `core/` (`jthingelstad/kubb-engine`) at the release
   tag in `engine-core.json`, byte for byte, and `source/engine/version.lua` is the engine's
   `version.lua` at the same tag (`tw.engine.version`, the version the title shows). Today:
-  v0.13.1. Never edit `source/core` or `source/engine`. Fix behaviour in
+  v0.15.0. Never edit `source/core` or `source/engine`. Fix behaviour in
   kubb-engine, release it there as a tag, then `make vendor-sync TAG=vX.Y.Z` here (it
   reads the tag from the checkout `../kubb-engine` or `$KUBB_ENGINE` through git, never
   its working tree, and refuses files that disagree with the tag's `engine.json`). Never
@@ -79,9 +79,16 @@ nothing else without asking.
 - The core's rules (pure Lua, no `playdate.*`, no tables per physics step, tolerances not
   bit-exact) and its notes, tests and tools are in kubb-engine's `AGENTS.md`.
 - Playdate-only pure modules live in `source/device/` (`version`, `frametel`,
-  `microbench`), tested on the desktop like the core and kept free of `playdate.*`.
+  `microbench`, `namepick`, `enginetune`), tested on the desktop like the core and kept
+  free of `playdate.*`.
   Drawing, input and files live in `main.lua`, `input.lua`, `recorder.lua`, `scenes/`,
   `render/` and `selftest/`. In per-frame paths avoid making tables or closures.
+- Since engine 0.14 `core/scenes` stores itself as `tw.scenes`, the table the game's
+  screens register under; `main.lua` imports it before any screen so both share one
+  table (no name is shared). Import it first in any new entry point.
+- The engine's tune values the Playdate sets differently (plays that stall a frame on
+  the device, names up to 16 letters) are in `source/device/enginetune.lua`, each with
+  its measurement, never in `source/core`.
 
 ## Tests
 
@@ -89,7 +96,8 @@ nothing else without asking.
   fn)`, `expect.eq`, `expect.near`, `expect.truthy`. The runner picks up every
   `test_*.lua`.
 - Notation gate: every game file the game writes is Planet Kubb Notation 2 in its
-  canonical form (engine 0.13.1) and must pass the pk-kubb-score grammar's canonical form,
+  canonical form (since engine 0.13.1; a Kid match's file says `[Base kubbs "3"]` and its
+  rules in words, engine 0.15) and must pass the pk-kubb-score grammar's canonical form,
   be unchanged by its canonical writer, give zero `kubb.js` warnings and the same winner
   as `[Win]` (`make selftest` runs it over the self-tests' matches). The gate, its
   rejects and `tests/fixtures/games` and `bad` are kubb-engine's at the vendored tag;

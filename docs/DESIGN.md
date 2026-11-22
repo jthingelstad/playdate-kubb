@@ -109,9 +109,11 @@ to throw, modelled on how a real player throws, the same for batons and drilled 
   2026-11-21: "player level really should only mean for the computer opponent. It doesn't
   mean anything for the human player."): the gauge's targets go by the throw's distance,
   wide for a short throw and narrow for a long one, and a miss always reads SHORT, LONG,
-  LOW, HIGH, SHAKY or PULLED. A **throw level** (Beginner, Club, Pro) is the computer's
-  only: how wide its targets are and how much a miss costs it. Until 0.13 it was the
-  thrower's, a person's included (their roster entry's, else a System Menu setting).
+  LOW, HIGH, SHAKY or PULLED. A **throw level** (Kid, Beginner, Club, Pro) is the
+  computer's only: how wide its targets are and how much a miss costs it. Until 0.13 it
+  was the thrower's, a person's included (their roster entry's, else a System Menu
+  setting); since the game's 0.12.0 no screen shows a person's level. In a Kid match a
+  person throws on the wider Kid meter ("Kid matches" below).
 
 ### The three steps before the throw (in any order)
 
@@ -206,8 +208,8 @@ How it plays (Jamie and Tyler's examples):
 
 The computer throws the same way: it plans a target and an arc and makes a swing with
 mistakes in it, and the gauge shows its arm going back and forward as it throws.
-Its level (beginner, club or pro) is a match option, COMPUTER, chosen before each match
-against it (Kubb Engine 0.9); a person's level no longer changes their throw (0.13: the
+Its level (kid, beginner, club or pro) is a match option, COMPUTER, chosen before each
+match against it (Kubb Engine 0.9; Kid first since 0.15, which makes a Kid match); a person's level no longer changes their throw (0.13: the
 meter). Since 0.9 it steps up to a kubb a step from the line (it stands as near as
 0.25 m) and throws the low, hard point-blank baton, and its batons aim lower, at the kubb's
 body.
@@ -256,6 +258,22 @@ Kubb Engine 0.13 they are the computer's only (the Playdate's is the match optio
 a person throws on the meter (`plan.meters.standard`: power 2 and release 7.5 degrees
 either side at 8 m, 3.8 and 14.2 at 6 m, 5.6 and 21 at 4 m; a release past its bar pulls
 the baton 0.15 degrees a degree, late left, early right).
+
+### Kid matches
+
+Kubb Engine 0.15 (kubb-engine docs/notes/kid-mode.md; the owner, 2026-11-21: "kid level is
+for kids to have fun with kubb"). One switch: KID on the COMPUTER row (first, before
+BEGINNER) makes the match a Kid match, for both sides: three base kubbs a side, every kubb
+and every baton at a kubb thrown from the Kid line 2 m in front of the thrower's baseline
+(or the advantage line when nearer the middle; the king from the baseline), a king knocked
+down early stood back up, no punishment kubbs (a kubb out twice is stood at a fair spot)
+and helicopters that count. A person throws on the Kid meter (bars about five times the
+standard's at 6 m); the Kid computer is gentle and a child beats it about three games in
+four. The Playdate draws the Kid line thin and solid on the pitch and the minimap, says
+KID LINE 2.0 M and, on the hand-off card, KID RULES, and its result flags never say a
+child lost or was punished when they were not (KING STOOD BACK UP, OUT TWICE: STOOD UP
+FAIR). PASS + PLAY keeps the standard rules (it has no COMPUTER row).
+docs/notes/match.md "A Kid match".
 
 ### Practice drills
 
@@ -599,8 +617,10 @@ at the nearest kubb (about 20% from 8 m). Club groups kubbs near a center stake 
 doubles (about 40%). Championship drills tight groups with cuts, throws deep when it has more
 kubbs than it can clear, raises to break up lines, and hits about 60% from 8 m.
 
-**Q5. Names, ids and saved games.** *Recommendation:* one player per side in version 1, named
-with the Playdate keyboard; the id is the lowercased name with anything but letters removed
+**Q5. Names, ids and saved games.** (Since the game's 0.12.0 names are generated, not
+typed: two words from the Kubb Engine's lists, chosen with the crank on the Names screen;
+kubb-engine docs/NAMES.md, docs/notes/saved-players.md "Generated names".)
+*Recommendation:* one player per side in version 1, named with the Playdate keyboard; the id is the lowercased name with anything but letters removed
 (`j` style ids if two names collide). The computer is team "Playdate" with the level as its
 player. On the device, a Games list opens a scoresheet view of any saved game with hit % and
 efficiency. Files are read off the device in Data Disk mode, and in the Simulator from

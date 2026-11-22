@@ -146,9 +146,46 @@ lying, kept between the raises of one settle, or a cap on the pairs it weighs) o
 per decision, and a `match.settle` that can stop after one raise so a client can spread a
 settle over frames behind an animation.
 
+### Engine 0.15 on the device
+
+Kubb Engine 0.13.1 to 0.15.0 (2026-11-22, game 0.11.0 build 11 against 0.12.0 build 12,
+the same device, one run each of the performance check; 0.12.0's check has a **kid match**
+section and Kid in the per-level rows, which 0.11.0 skips). Nothing a player feels moved:
+every row common to both is the same within its spread. The one new cost is the Kid rules'
+fair spot (`raising.fairSpot`, where a kubb out twice is stood instead of a punishment
+kubb): it scans the whole half on the engine's 0.1 m grid with no early exit, 125 ms a spot
+with eight kubbs lying in the half, made inside the settle at the end of a turn (a frame
+already about 340 ms). `device/enginetune` searches it on a 0.2 m grid (4.: still a valid
+spot, within about 0.15 m of the engine's; `test_enginetune`): 42.5 ms.
+
+| Row (device, ms; median) | 0.11.0 (engine 0.13.1) | 0.12.0 (engine 0.15.0, tuned) |
+|---|---|---|
+| plan.solve 1 / 1.5 / 3 / 8 m / drill | 22.46 / 2.99 / 2.89 / 4.46 / 5.70 | 22.47 / 2.82 / 2.71 / 4.16 / 5.74 |
+| one raise, 8 lying: apart / par / cpu pro | 0.89 / 31.75 / 1.26 | 0.91 / 33.81 / 1.31 |
+| settle of the 8: Playdate beginner / club / pro / a person's (advice) | 289 / 298 / 298 / 486 | 292 / 299 / 299 / 490 (kid 290) |
+| choose, 8 field kubbs: beginner / club / pro | 17.3 / 17.1 / 52.1 | 17.2 / 17.2 / 52.8 (kid 17.5) |
+| transition frame: Playdate club / pro raising 8; a person's 8 automatic | 358 / 320; 338 | 358 / 358; 337 |
+| the Playdate pro's first baton at 8 field kubbs: slowest / choose / flight mean | 108 / 86 / 56.6 | 117 / 86 / 56.4 |
+| aim, replan every frame, 1 m / 6 m | 27.4 / 5.44 | 28.1 / 5.34 |
+| aim d-pad 1 m every other / every frame; 6 m | 16.5 / 29.4; 8.4 | 17.0 / 30.2; 8.4 |
+| new match / save / resume | 80 / 75 / 133 | 81 / 98 / 132 |
+| throw frame mean: cluster 5m / 1m / 8 m base / drill | 62.4 / 58.3 / 53.1 / 43.2 | 62.4 / 58.3 / 53.4 / 43.4 |
+| memory at launch / after a full collection (KB) | 1619 / 1450 | 1680 / 1500 |
+| Kid: plan.solve on the Kid meter 2 / 3 / 6 m / drill | - | 2.43 / 2.75 / 3.35 / 6.31 |
+| Kid: the Kid computer's choose, base / toss / field | - | 15.1 / 14.2 / 14.1 |
+| Kid: fair spot, 8 lying in the half (engine grid / 0.2 m) | - | 125.3 / 42.5 |
+
+`par` still costs 33 ms a decision, so enginetune's 1. and 2. stay. Save's 98 ms is one run
+(73 to 105; the untuned 0.12.0 run had 75). The soak on 0.12.0 (match 3 a Kid match against
+the Kid computer, `soak.tune.kid`): 3 matches, no error, 42 save checks, none failed, 59426
+frames, 258 over 200 ms in 41 minutes; the slowest frame 393 ms (a flight ending, as on
+earlier builds). An earlier, untuned run's first match had one 987 ms frame where a turn
+ended (rest to aim: a settle); the tuned run's three matches had none over 393, and no
+standard match's settle path changed between the engines.
+
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
-autobench), at a player's real pace through `scenes/match` (playback, slow motion, camera,
+autobench; since 0.12.0 the third, `soak.tune.kid`, a Kid match against the Kid computer), at a player's real pace through `scenes/match` (playback, slow motion, camera,
 bursts, raising and punishment by the engine's policies), bounded at `maxTurns` (24). It
 saves the match before every throw under its own key (`soak-match`, match option `saveKey`)
 and every `saveCheck` throws reads it back and unpacks it against the live engine; it

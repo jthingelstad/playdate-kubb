@@ -268,6 +268,24 @@ scene at a time and rebuilds the System Menu for it (the scene's own item; until
   once a throw, `s.advText`). The line is drawn on the pitch (2 px, dashed 2 on 2 off; the
   centerline is 6 on 4 off) and on the minimap. Self-test `match-whole` checks the start
   and the flag.
+- **A Kid match** (Kubb Engine 0.15; kubb-engine docs/notes/kid-mode.md): the options' COMPUTER
+  row offers KID first (`core/matchopts`), which sets `opts.rules = "kid"`; `scenes/options`
+  drops it in PASS + PLAY (no COMPUTER row there), `scenes/match` passes it to `match.new`
+  as `rules`, and the game keeps it (`g.rules`), so a resume and a rematch play Kid too.
+  The engine does the rules: three base kubbs a side (x = -1, 0, 1), every kubb and every
+  baton at a kubb thrown from the Kid line 2 m in front of the thrower's baseline (or the
+  advantage line when that is nearer the middle; the king from the baseline), an early
+  king stood back up, no punishment kubbs (a kubb out twice is stood at the fair spot) and
+  helicopters that count. The scene takes `setup.kid` and `setup.kidY`: the stance starts
+  on the line for kubbs too (`forwardLimit`), the flag says `KID LINE  2.0 M`
+  (`hud.kidLineText`), the line is drawn thin and solid on the pitch (`render.world.kidY`,
+  1 px, in the frame and layer keys) and as a solid row on the minimap, a person's throw is
+  on the Kid meter (docs/notes/throw.md "The Kid meter"), and the hand-off card says KID
+  RULES. The result flag's words are the Kid rulings' (`hud.short`): KING STOOD BACK UP
+  (a kubb thrown in, or a baton that took nothing else), `2 DOWN: KING BACK UP`, OUT TWICE:
+  STOOD UP FAIR; never GAME OVER or PUNISHMENT in a Kid match. Self-tests `match-kid` (a
+  whole Kid match against the Kid computer, its game file gated), `kid-aim` and
+  `options-kid`.
 - Camera: the aim camera frames the setup's `targets` (standing field kubbs, else base
   kubbs, else the king) and looks `camera.tune.aim.lookBeyond` past the nearest of them
   (`camera.lookDistFor`, never nearer than `lookMin`); base kubbs on the far baseline give

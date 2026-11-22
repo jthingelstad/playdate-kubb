@@ -58,10 +58,15 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   (frame 2), and A must leave with `practice`; frame 3 a new player's title (the HOW TO
   THROW line), frame 4 a resume line with long team names cut to `RESUME TURN 12`.
 - `cards-fit`: the winner card with a team name too wide for display 32 beside the burst
-  (drawn in display 16, its first stats line without the name) and six ten-letter
-  players packed by width (frame 1), and one that fits (frame 2).
-- `soak`: the device soak for one short match (soak.lua), the save read back after every
-  throw; `soak.txt` must end with `soak done`, no error and no failed save check.
+  (drawn in display 16, its first stats line without the name) and six of the longest
+  generated player names packed by width and cut to their woods (frame 1), and one that
+  fits (frame 2).
+- `names-fit`: every generated name (both kinds) measured in the label face, display 16
+  and display 32 (the widest in its note), each fitting the rail, TEAMS (cut), PLAYERS and
+  the Names screen in the label face; frames: the rail with the widest player name, the
+  hand-off card with the widest team name and KID RULES.
+- `soak`: the device soak for one short match (soak.lua), a Kid match against the Kid
+  computer (`soak.tune.kid`), the save read back after every throw; `soak.txt` must end with `soak done`, no error and no failed save check.
 - `resume`: a match driven to turn 3, saved by the scene, read back through the
   datastore and resumed (frames: the title's B RESUME line, the resumed hand-off card).
 - `games`: the games list over three game files the test writes (frames: the list, the
@@ -69,15 +74,38 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   title.
 - `options`: the match options driven by the d-pad (frames: the defaults, SNOW, the
   RAISING row); A must give snow, six from the start and automatic raising.
+- `options-kid`: VS PLAYDATE's COMPUTER stepped left from CLUB to BEGINNER then KID
+  (frame: KID with its line); A must give a Kid match (`computer` and `rules` kid, scene
+  `bw`).
 - `set-save`: saved data from a build with the kubb set (match.md "Kubb sets"): a kept
   options choice with SET on USA shows four rows in PASS + PLAY (frame 1), keeps its other
   choices and gives the match no set and no computer level; VS PLAYDATE shows COMPUTER as
   a fifth row (club by default, pro after a tap); a match saved with `set = "usa"` resumes (frame 2, its hand-off
   card), plays (frame 3), saves again with the set untouched, and its game file, written
   when the team on turn resigns, is gated.
-- `names`: the names screen for PASS + PLAY without the keyboard (frames: ASH as typed, a
-  long second name drawn smaller); a name with no letter is refused, B goes back, and the
-  names become the match's teams.
+- `names`: the Names screen through the input provider (frames: the crank stepping a
+  player's first word, the second word stepped, a shuffled name refused as taken, a team
+  name's first word cranked from The onto an adjective); every name shown is a generated
+  name of its kind, A takes it, B goes back, a typed name given to it is not offered, and
+  a match takes the names.
+- `players`: PLAYERS by hand (no LEVEL row since 0.12.0): three generated players made,
+  a second Lucky Larch refused, a rename, a removal; then an older build's roster with typed
+  names loaded twice, which must come back with the same generated names, the generated
+  one untouched and the keys kept.
+- `teams`: TEAMS for PASS + PLAY over five generated players, the order changed with hold
+  A, Team A given a generated team name on the Names screen, START.
+- `match-teams`: three against two in pass and play, a baton handed over through the
+  change list; a person's throw on the meter (no level) and no `[Throw Levels]` in the game
+  file (engine 0.13.2).
+- `match-kid`: a whole Kid match against the Kid computer from the options' KID (frames:
+  the hand-off card with KID RULES, the player's baton and kubb from the Kid line, the
+  score sheet, the winner card): three base kubbs a side, every kubb and baton at a kubb
+  from the Kid line and the king from the baseline, a person's throw on the Kid meter, the
+  computer at kid, the Kid rulings' flag words, and the game file's `[Base kubbs "3"]`, Kid
+  `[Rules]` and `[Throw Levels]` naming the computer only; the file is gated.
+- `kid-aim`: the player's first baton of a Kid match by hand (frames: first person, the
+  plan view): the stance on the Kid line, the flag, three base kubbs a side, the Kid meter's
+  bars wider than the standard's at the same throw.
 - `settle`: raising a kubb and placing a punishment kubb by hand, on an engine driven to
   turn 3 (frames: the raise view, the view turned and zoomed out by the d-pad, the
   placement view, a spot refused by the king); the check reads the engine after A places
