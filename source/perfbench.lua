@@ -47,6 +47,11 @@
 --            the Playdate's first baton at the eight field kubbs (its choose,
 --            its aim, the swing, the flight to rest): the slowest frame
 --            (update + draw), the choose frame and the flight's mean, in ms.
+--   kid      (engine 0.15) a person's plan.solve on the Kid meter from the Kid line
+--            at 2, 3 and 6 m and a drill, the Kid computer's autothrow.choose in a
+--            Kid match's own setups, and raising.fairSpot (where a kubb out twice
+--            is stood) with eight kubbs lying in the half; Kid also joins the
+--            per-level rows above.
 --   start    a new VS PLAYDATE match (the scene made, its first frame drawn)
 --            and a resume (a saved match read from the datastore, unpacked
 --            and its scene made), in ms. The save is the check's own key
@@ -64,6 +69,7 @@ import "core/save"
 import "core/autothrow"
 import "core/throwplan"
 import "core/quat"
+import "core/raising"
 import "input"
 import "scenes/throw"
 import "scenes/match"
@@ -396,7 +402,7 @@ local function chooseLines(y)
 	local lines = { string.format("computer: autothrow.choose (ms, %d each; median [min-max]):", perf.tune.chooseReps) }
 	local ok, S = pcall(matchSetups)
 	if not ok then return { "computer: setup error " .. tostring(S) } end
-	for _, lv in ipairs { "beginner", "club", "pro" } do
+	for _, lv in ipairs(tw.plan.levels.kid and { "kid", "beginner", "club", "pro" } or { "beginner", "club", "pro" }) do
 		local parts = {}
 		for _, k in ipairs { "base", "toss", "field" } do
 			local st = S[k]
@@ -474,7 +480,8 @@ local function stateA8(level)
 	return m
 end
 
-local LEVELS = { "beginner", "club", "pro" }
+-- (Kid since engine 0.15: its rows are new, the others compare with older builds)
+local LEVELS = tw.plan.levels.kid and { "kid", "beginner", "club", "pro" } or { "beginner", "club", "pro" }
 local function decideLines(y)
 	local R = perf.tune.decideReps
 	local lines = {}
@@ -508,6 +515,7 @@ local function decideLines(y)
 		parts = {}
 		local cases = { { "Playdate beginner", "beginner", { "B" } }, { "club", "club", { "B" } }, { "pro", "pro", { "B" } },
 			{ "a person (advice)", "club", {} } }
+		if tw.plan.levels.kid then table.insert(cases, 1, { "Playdate kid", "kid", { "B" } }) end
 		for _, c in ipairs(cases) do
 			local xs = {}
 			for i = 1, R do
@@ -616,6 +624,73 @@ local function turnLines(y)
 	return lines
 end
 
+-- ---------- a Kid match (engine 0.15) ----------
+-- A person's plan on the Kid meter from the Kid line, the Kid computer's choose in a
+-- Kid match's own setups, and the fair spot a kubb out twice is stood at (a scan of the
+-- half, made in the still frame where a round of kubbs thrown in is judged).
+local function kidLines(y)
+	if not tw.plan.levels.kid then return { "kid match: not in this engine" } end
+	local R = perf.tune.decideReps
+	local lines = {}
+	local function emit(l) out { l } end
+	emit(string.format("kid match (ms; plan.solve %d each, the rest %d each, median [min-max]):", perf.tune.solveReps, R))
+	local ok, err = pcall(function()
+		local parts, o = {}, {}
+		local kubbZ = plan.aimZFor("kubb")
+		for _, d in ipairs { 2.0, 3.0, 6.0, "drill" } do
+			local q = { projectile = "baton", px = 0, py = 2, tx = 0, ty = 2 + (type(d) == "number" and d or 0),
+				release = plan.arcFor("baton", type(d) == "number" and d or nil),
+				meter = plan.meter("kid"), surface = "grass", spin = 0, aimZ = kubbZ }
+			if d == "drill" then q.projectile, q.ty, q.release, q.aimZ = "kubb", 6.0, plan.arcFor("drill"), 0 end
+			local t0 = clock()
+			for _ = 1, perf.tune.solveReps do plan.solve(q, o) end
+			parts[#parts + 1] = string.format("%s %.2f", d == "drill" and "drill 4m" or (d .. "m"), (clock() - t0) * 1000 / perf.tune.solveReps)
+			y()
+		end
+		emit("  plan.solve on the Kid meter from the Kid line: " .. table.concat(parts, ", "))
+		-- the Kid computer's choose: its first baton, a toss, a field baton in a Kid match
+		local m = cmatch.new { start = START, mode = "Vs Playdate", teams = teamsAt("kid"), cpu = { "B" }, rules = "kid" }
+		local g = m.game
+		local S = { base = cmatch.setup(m) }
+		g:throwBaton(MISS); g:throwBaton({ toppled = { "b1" } })
+		S.toss = cmatch.setup(m)
+		while g.phase == "toss" do g:toss(lyingAt(0.4, 5.2, 0.3)) end
+		pcall(function() g:raiseAll() end)
+		S.field = cmatch.setup(m)
+		parts = {}
+		for _, k in ipairs { "base", "toss", "field" } do
+			local st = S[k]
+			if st then
+				local xs, r = {}, autothrow.rng(1234)
+				for i = 1, R do
+					local t0 = clock()
+					autothrow.choose(st, r, 1, "kid")
+					xs[i] = (clock() - t0) * 1000
+					y()
+				end
+				parts[#parts + 1] = string.format("%s (%s) %s", k, st.kind, fmtSpread(xs, "%.2f"))
+			end
+		end
+		emit("  choose kid in a Kid match: " .. table.concat(parts, "; "))
+		-- the fair spot with eight kubbs lying in the half (the raise need's context)
+		local mb = stateB8("kid")
+		local gb = mb.game
+		local n = gb:need()
+		local ctx = gb:context(n.side, n.kubb)
+		ctx.half = ctx.half or n.side
+		local xs = {}
+		for i = 1, R do
+			local t0 = clock()
+			tw.raising.fairSpot(ctx)
+			xs[i] = (clock() - t0) * 1000
+			y()
+		end
+		emit("  raising.fairSpot, 8 lying in the half: " .. fmtSpread(xs, "%.1f"))
+	end)
+	if not ok then emit("  error: " .. tostring(err)) end
+	return lines
+end
+
 local KEY = "perfbench-match"
 local function startLines(y)
 	local lines = { string.format("match start (ms, %d each; median [min-max]):", perf.tune.startReps) }
@@ -675,6 +750,8 @@ local function body()
 	out(decideLines(y))
 	y()
 	out(turnLines(y))
+	y()
+	out(kidLines(y))
 	y()
 	out(aimLines(y))
 	y()
