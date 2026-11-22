@@ -182,7 +182,12 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   the knee to ARC again, the floor at 8 m the knee and a drilled kubb's too, the ARC words
   at each; the side view's arc falling from the hand to the kubb's face; the default drive
   thrown on the plan's clean swing: no end over end turn, the kubb down. Frames: ARC at 1.5
-  m, the side view at the floor, ARC at 4 m, ARC at 8 m, a drive in flight, at rest), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
+  m, the side view at the floor, ARC at 4 m, ARC at 8 m, a drive in flight, at rest), `drive-solves`
+  (a drive lowered to its floor at 1.5 m and kept: no solve while walking back, moving the
+  circle or cranking, the arc greyed meanwhile; one solve, raised once, when each movement
+  stops; a snap, RESET, drilling and back, the drive thrown and the circle retargeting at
+  rest, at most one solve each; never two solves in a frame; a match's next throw drops the
+  kept release. Frames: walking with the arc greyed, the walk stopped), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
   `howto-play` (HOW TO PLAY's six cards and the hand-off into HOW TO THROW: "HOW TO
   PLAY" below).
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`
