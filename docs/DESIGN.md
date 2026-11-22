@@ -215,7 +215,9 @@ Its level (kid, beginner, club or pro) is a match option, COMPUTER, chosen befor
 match against it (Kubb Engine 0.9; Kid first since 0.15, which makes a Kid match); a person's level no longer changes their throw (0.13: the
 meter). Since 0.9 it steps up to a kubb a step from the line (it stands as near as
 0.25 m) and throws the low, hard point-blank baton, and its batons aim lower, at the kubb's
-body.
+body. Since Kubb Engine 0.18 the computer at club and pro throws every baton but the king
+shot on a person's default arc, so close in it drives (low, hard, no flip), and its king
+shot is steadier or shakier by level.
 
 ### Kubbs (drilling)
 
