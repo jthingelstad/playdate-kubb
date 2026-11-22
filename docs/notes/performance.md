@@ -350,6 +350,29 @@ leaving the half-rate skip of "The aim at a short throw". By the same factors th
 plan at 1.5 m should fall from 7.25 to about 2.5 ms, and the aim with B held down and up
 from 9.28 ms an update.
 
+**Measured on the device** (2026-11-22, 1.0.0 build 17, the performance check; build 16 on
+core 0.18 beside it, ms):
+
+| | 0.18 (build 16) | 1.0 (build 17) |
+|---|---|---|
+| `plan.solve` 1.0 / 1.5 / 3.0 / 8.0 m | 22.06 / 7.25 / 7.29 / 4.21 | 22.27 / 3.21 / 2.87 / 4.28 |
+| solve at the floor, 1.5 m / 3 m | 12.23 / 16.15 | 4.37 / 6.92 |
+| `plan.arcFloor`, 1.5 m / 3 m | 11.54 / 6.69 | 3.53 / 3.15 |
+| a kept drive raised to a new floor, 1.5 m (walking and the circle moving alike) | not in the check | 34.27 (max 61.9) |
+| the same, 3 m | not in the check | 77.1 (max 88.4) |
+| aim at 1.5 m, B held down and up: update | 9.28 (max 43.80) | 7.84 (max 35.34) |
+| Playdate pro's first baton at 8 field kubbs: slowest frame / choose frame | 124.4 / 89.8 | 108.7 / 88.1 |
+| a throw's frame: cluster 5 m / drive 1.5 m / 8 m base | 60.8 / 60.1 / 53.7 | 62.0 / 58.2 / 53.6 |
+
+The repeat cases came in at or under the estimates (a default plan at 1.5 m 3.21 ms, the
+floor 3 to 7). The new-floor case did not: 34 ms at 1.5 m and 77 ms at 3 m, two to three
+times the estimate at the higher factor (the device runs it at about 850 to 1100 times
+desktop Lua, not 280 to 430: this solve is carry steps, which the device runs slower than
+the rest of a plan). **The guard stays, and it was the right call**: per frame that solve
+would be two to four dropped frames at 3 m. What the player gets from 1.0 is the one solve
+when a walk or the circle stops, 34 to 77 ms where 0.18's was estimated at 120 to 220. A
+cheaper carry is the engine's to find.
+
 ## Drawing speed
 
 On the device a graphics call costs 20 to 50 us (a small `fillPolygon` 41 us,
