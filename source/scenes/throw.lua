@@ -488,11 +488,10 @@ end
 
 -- The lowest release this throw can be planned at (engine 0.16, plan.arcFloor: the
 -- drive's floor for the stance, the circle and the aim height; a kubb's the knee).
--- For a stance and circle the engine has not seen it still costs about 0.5 ms in
--- desktop Lua from 1.5 m out on engine 0.18 as on 0.16, roughly 150 ms on the device
--- (0.18 keeps the last floor, so a repeat is a default plan's cost, but its search
--- carries a line at the hand's geometric limit first: docs/notes/throw.md "The floor
--- on 0.18"). It is worked out only when B +
+-- On core 1.0 it costs what a default plan does (0.006 ms in desktop Lua at 1.5 to 5 m,
+-- about 2 to 3 ms on the device; 11.5 ms measured on 0.18 at 1.5 m), so this cache now
+-- saves little; it stays because it is free and keeps a held slide down to one solve
+-- (docs/notes/throw.md "The floor"). It is worked out only when B +
 -- down steps ARC, and kept with what it was worked out for (the stance, the circle,
 -- the aim height, the projectile, the meter) until one of them changes: never per
 -- frame, and with B held the circle and the stance cannot move, so a held slide down
@@ -988,17 +987,19 @@ local function aimInput(s, dt)
 			skip = ddx * ddx + ddy * ddy < r * r
 		end
 		-- A drive kept by B (throw.keptDrive) may sit under the floor of the throw as it
-		-- now is, and plan.solve then works out the new floor: about 0.5 ms in desktop Lua
-		-- on engine 0.18 (0.08 to 0.12 on 0.16 from 2 to 4 m), roughly 150 ms on the
-		-- device. So while the circle or the stance moves (the d-pad,
+		-- now is, and plan.solve then works out the new floor: on core 1.0 0.04 to 0.10 ms
+		-- in desktop Lua from 1.5 to 4 m (worst about 0.15; 0.5 on 0.18), about 11 to 42 ms
+		-- on the device (worst 40 to 65) by the two device factors, against a 20 ms aim
+		-- frame. So while the circle or the stance moves (the d-pad,
 		-- A + d-pad: the only inputs that change the plan frame after frame) it is not
 		-- solved at all; the frame the movement stops solves it once. Meanwhile the
 		-- clock keeps the last good plan's targets and the arc is drawn greyed
 		-- (s.planStale). Every other change (a snap, a retarget, a new throw, a switch
-		-- of projectile, a reset, a launch) solves once when it happens. Engine 0.18's
-		-- floor is cheap only for a geometry it has just seen, never for a moving one,
-		-- so this guard and s.planStale stay until a solve raised to a new floor costs
-		-- what a default plan does. docs/notes/throw.md "The drive".
+		-- of projectile, a reset, a launch) solves once when it happens. Core 1.0 made a
+		-- new floor ten times cheaper but still several default plans' worth (the perf
+		-- check's "a kept drive raised to a new floor" row measures it on the device), so
+		-- this guard and s.planStale stay until that solve fits an aim frame with room.
+		-- docs/notes/performance.md "Engine 1.0", docs/notes/throw.md "The drive".
 		if (moving or walking) and s.planLevel == by and throw.keptDrive(s) then
 			skip = true
 			s.planStale = true
