@@ -117,6 +117,15 @@ release:
 # Refresh the vendored notation parser and scorer (the gate over the game files
 # the self-tests write) from a pk-kubb-score checkout, then show what changed.
 # Review, run `make test`, commit.
+# The files as they are at pk-kubb-score's release tag PKTAG (default: the
+# checkout's latest), read through git, never its working tree (as kubb-engine's).
+PKTAG ?= $(shell git -C "$(PKSCORE)" describe --tags --abbrev=0 2>/dev/null)
+PKVENDOR := tests/vendor/pk-kubb-score
 sync-notation:
-	cp "$(PKSCORE)/site/assets/notation-parser.js" "$(PKSCORE)/site/assets/kubb.js" tests/vendor/pk-kubb-score/
-	git --no-pager diff --stat -- tests/vendor/pk-kubb-score
+	@test -n "$(PKTAG)" || { echo "sync-notation: no release tag in $(PKSCORE) (set PKTAG)"; exit 1; }
+	git -C "$(PKSCORE)" show "$(PKTAG):site/assets/notation-parser.js" > $(PKVENDOR)/notation-parser.js
+	git -C "$(PKSCORE)" show "$(PKTAG):site/assets/canonical.js" > $(PKVENDOR)/canonical.js
+	git -C "$(PKSCORE)" show "$(PKTAG):site/assets/kubb.js" > $(PKVENDOR)/kubb.js
+	echo "$(PKTAG)" > $(PKVENDOR)/SOURCE
+	git -C "$(PKSCORE)" rev-parse "$(PKTAG)^{commit}" >> $(PKVENDOR)/SOURCE
+	git --no-pager diff --stat -- $(PKVENDOR)

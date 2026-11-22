@@ -1,9 +1,14 @@
+[Notation "2"]
 [Event "Throwing Wood"]
 [Location "Playdate"]
 [Start "2026-11-25 14:11"]
 [End "2026-11-25 14:48"]
 [Duration "37m"]
 [Surface "Grass"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+[Base kubbs "5"]
+[Batons "6"]
+[Opening "2-4-6"]
 [Team A "Twin Pines"]
 [Team A Players "Dana (dana), Dana (dana_b)"]
 [Team B "Wood Chucks"]
@@ -12,7 +17,6 @@
 [Win "Team B"]
 [Scored by "Throwing Wood 0.0.1"]
 [Mode "Pass and Play"]
-[Rules "U.S. Championship 4.0, 2-4-6"]
 
 1. lee:- lee:B
 2. dana:I dana:- dana_b:F dana:- dana_b:-
@@ -20,13 +24,13 @@
 4. dana:I dana:F dana_b:- dana:- dana_b:- dana:- dana_b:B
 5. lee:2I lee:F lee:- lee:F lee:B lee:B lee:-
 6. dana_b:2IR dana:2IR dana:- dana_b:- dana:- dana_b:F dana:F dana_b:-
-7. lee:2I 3A lee:F lee:F lee:Z lee:- lee:B lee:-
+7. lee:2I A lee:F lee:F lee:Z lee:- lee:B lee:-
 8. dana:2I dana_b:I dana:- dana_b:- dana:F dana_b:F dana:- dana_b:F
-9. lee:3I 2A lee:- lee:- lee:- lee:- lee:F lee:-
-10. dana:I 3A dana:F dana_b:F dana:- dana_b:- dana:F dana_b:B # b1 toppled a base kubb early; raised (II.B.4a)
+9. lee:3I A lee:- lee:- lee:- lee:- lee:F lee:-
+10. dana:I A dana:F dana_b:F dana:- dana_b:- dana:F dana_b:B # b1 toppled a base kubb early; raised (II.B.4a)
 11. lee:4I lee:- lee:F lee:- lee:F lee:F lee:F
-12. dana_b:3I dana:IR 2A dana:F dana_b:- dana:- dana_b:F dana:F dana_b:F
+12. dana_b:3I dana:IR A dana:F dana_b:- dana:- dana_b:F dana:F dana_b:F
 13. lee:4IN lee:F lee:2F lee:- lee:- lee:- lee:F
-14. dana_b:2I dana:2I 2A dana:F dana_b:F dana:F dana_b:F dana:B dana_b:-
+14. dana_b:2I dana:2I A dana:F dana_b:F dana:F dana_b:F dana:B dana_b:-
 15. lee:5I lee:F lee:F lee:- lee:- lee:- lee:F
-16. dana:3I 3A dana:G X X X X X X # resigned during the inkast
+16. dana:3I A dana:G X X X X X X # resigned during the inkast

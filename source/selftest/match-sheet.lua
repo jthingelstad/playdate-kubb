@@ -4,7 +4,9 @@
 -- and must open while Team B aims, with the game file so far (its turn
 -- lines through turn 3, the current turn last), scrolled to its last line.
 -- The crank scrolls it back up, the match waits under it (no throw), and B
--- goes back to the same throw, after which the match carries on. Frames: 1
+-- goes back to the same throw, after which the match carries on. The sheet's
+-- lines have none of the file's position lines (Notation 2's `@`/`*`, engine
+-- 0.13.1: sheet.split leaves them out, as a blank line each). Frames: 1
 -- the sheet at its end, 2 scrolled to the top.
 import "selftest/_match"
 
@@ -30,6 +32,14 @@ st.scenarios["match-sheet"] = st.matchScenario {
 			if not sh then
 				if ctx.frame > at.frame + 3 then error("the sheet did not open") end
 				return false
+			end
+			-- Notation 2's position lines (engine 0.13.1) stay in the file, not on screen
+			for _, line in ipairs(sh.lines) do
+				if tw.gamefile.isPosition(line) then error("a position line on the sheet: " .. line) end
+			end
+			local probe = sheet.split('[Notation "2"]\n1. 2 / 1\n@a 2.50,1.20 3.10,0.80\n*b 2.50,1.20 -\n2. 0\n')
+			if #probe ~= 3 or probe[2] ~= "1. 2 / 1" or probe[3] ~= "2. 0" then
+				error("sheet.split kept a position line: " .. table.concat(probe, " | "))
 			end
 			local text = table.concat(sh.lines, "\n")
 			if not text:find('%[Team A "Ash"%]') or not text:find('%[Team B "Birch"%]') then

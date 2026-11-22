@@ -1,0 +1,22 @@
+[Event "Throwing Wood"]
+[Location "Playdate"]
+[Start "2026-11-21 08:55"]
+[End "2026-11-21 09:12"]
+[Duration "17m"]
+[Surface "Grass"]
+[Team A "Team A"]
+[Team A Players "Alex (alex), Kim (kim), Max (max), Nell (nell), Otto (otto), Pia (pia)"]
+[Team B "Team B"]
+[Team B Players "Sam (sam), Lee (lee)"]
+[First "Team B"]
+[Win "Team A"]
+[Scored by "Throwing Wood 0.0.1"]
+[Mode "Pass and Play"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+
+1. sam:- lee:Z
+2. alex:- kim:Z max:B (@ 0.50,8.00) nell:Z # b1 pushed a kubb out without toppling; put back (II.B.7)
+3. sam:I (@ 0.62,3.32) sam:F (@ 0.62,3.32) sam:Z sam:B (@ 0.50,0.00) lee:- lee:B (@ 1.50,0.00) lee:- # b4 pushed a kubb out without toppling; put back (II.B.7)
+4. otto:3I (@ 4.40,4.90 4.40,4.75 4.41,4.31) otto:F (@ 4.41,4.31) pia:- alex:2F (@ 4.40,4.90 4.40,4.75) kim:B (@ 1.50,8.00) max:B (@ 2.50,8.00) nell:B (@ 3.50,8.00)
+5. sam:6I (@ 0.55,2.97 0.85,2.44 0.58,3.52 0.60,1.95 0.59,3.35 0.52,2.59) sam:2F (@ 0.58,3.52 0.59,3.35) sam:F (@ 0.55,2.97) sam:F (@ 0.52,2.59) lee:F (@ 0.85,2.44) lee:F (@ 0.60,1.95) lee:B (@ 2.50,0.00)
+6. otto:7I (@ 0.60,4.91 0.60,4.52 0.60,4.23 0.58,5.12 0.61,5.34 0.67,4.21 0.50,7.68) otto:3F (@ 0.60,4.52 0.60,4.23 0.67,4.21) pia:2F (@ 0.60,4.91 0.58,5.12) alex:F (@ 0.61,5.35) kim:F (@ 0.50,7.68) max:B (@ 4.50,8.00) nell:K

@@ -1,9 +1,14 @@
+[Notation "2"]
 [Event "Throwing Wood"]
 [Location "Playdate"]
 [Start "2026-11-21 20:15"]
 [End "2026-11-21 20:24"]
 [Duration "9m"]
 [Surface "Grass"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+[Base kubbs "5"]
+[Batons "6"]
+[Opening "2-4-6"]
 [Team A "Jamie"]
 [Team A Players "Jamie (j)"]
 [Team B "Playdate"]
@@ -12,9 +17,8 @@
 [Win "Team B"]
 [Scored by "Throwing Wood 0.0.1"]
 [Mode "Versus Computer"]
-[Rules "U.S. Championship 4.0, 2-4-6"]
 
 1. b:B b:B
 2. j:2I j:F j:- j:- j:-
-3. b:I 1A b:F b:B b:B b:- b:- b:-
+3. b:I A b:F b:B b:B b:- b:- b:-
 4. j:3I j:2F j:- j:- j:- j:- G # Jamie resigned from the menu

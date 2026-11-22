@@ -1,9 +1,14 @@
+[Notation "2"]
 [Event "Throwing Wood"]
 [Location "Playdate"]
 [Start "2026-11-21 08:55"]
 [End "2026-11-21 09:12"]
 [Duration "17m"]
 [Surface "Grass"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+[Base kubbs "5"]
+[Batons "6"]
+[Opening "2-4-6"]
 [Team A "Team A"]
 [Team A Players "Alex (alex), Kim (kim), Max (max), Nell (nell), Otto (otto), Pia (pia)"]
 [Team B "Team B"]
@@ -12,11 +17,19 @@
 [Win "Team A"]
 [Scored by "Throwing Wood 0.0.1"]
 [Mode "Pass and Play"]
-[Rules "U.S. Championship 4.0, 2-4-6"]
 
 1. sam:- lee:Z
-2. alex:- kim:Z max:B (@ 0.50,8.00) nell:Z # b1 pushed a kubb out without toppling; put back (II.B.7)
-3. sam:I (@ 0.62,3.32) sam:F (@ 0.62,3.32) sam:Z sam:B (@ 0.50,0.00) lee:- lee:B (@ 1.50,0.00) lee:- # b4 pushed a kubb out without toppling; put back (II.B.7)
-4. otto:3I (@ 4.40,4.90 4.40,4.75 4.41,4.31) otto:F (@ 4.41,4.31) pia:- alex:2F (@ 4.40,4.90 4.40,4.75) kim:B (@ 1.50,8.00) max:B (@ 2.50,8.00) nell:B (@ 3.50,8.00)
-5. sam:6I (@ 0.55,2.97 0.85,2.44 0.58,3.52 0.60,1.95 0.59,3.35 0.52,2.59) sam:2F (@ 0.58,3.52 0.59,3.35) sam:F (@ 0.55,2.97) sam:F (@ 0.52,2.59) lee:F (@ 0.85,2.44) lee:F (@ 0.60,1.95) lee:B (@ 2.50,0.00)
-6. otto:7I (@ 0.60,4.91 0.60,4.52 0.60,4.23 0.58,5.12 0.61,5.34 0.67,4.21 0.50,7.68) otto:3F (@ 0.60,4.52 0.60,4.23 0.67,4.21) pia:2F (@ 0.60,4.91 0.58,5.12) alex:F (@ 0.61,5.35) kim:F (@ 0.50,7.68) max:B (@ 4.50,8.00) nell:K
+2. alex:- kim:Z max:B nell:Z # b1 pushed a kubb out without toppling; put back (II.B.7)
+*b - - 0.50,4.00 -
+3. sam:I sam:F sam:Z sam:B lee:- lee:B lee:- # b4 pushed a kubb out without toppling; put back (II.B.7)
+@a 0.62,0.68
+*a 0.62,0.68 - 0.50,4.00 - 1.50,4.00 -
+4. otto:3I otto:F pia:- alex:2F kim:B max:B nell:B
+@b 4.40,0.75 4.40,0.90 4.41,0.31
+*b 4.41,0.31 - 4.40,0.75+4.40,0.90 1.50,4.00 2.50,4.00 3.50,4.00
+5. sam:6I sam:2F sam:F sam:F lee:F lee:F lee:B
+@a 0.52,1.41 0.55,1.03 0.58,0.48 0.59,0.65 0.60,2.05 0.85,1.56
+*a 0.58,0.48+0.59,0.65 0.55,1.03 0.52,1.41 0.85,1.56 0.60,2.05 2.50,4.00
+6. otto:7I otto:3F pia:2F alex:F kim:F max:B nell:K
+@b 0.50,3.68 0.58,1.12 0.60,0.23 0.60,0.52 0.60,0.91 0.61,1.34 0.67,0.21
+*b 0.60,0.23+0.60,0.52+0.67,0.21 0.58,1.12+0.60,0.91 - 0.50,3.68 4.50,4.00 -
