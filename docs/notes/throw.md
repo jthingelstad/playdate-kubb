@@ -27,7 +27,7 @@ this throw: "HOW TO THROW" below).
   snapping (Tyler's play test, 2026-11-15: the circle locking onto the kubb made 8 m too
   easy and left no way to aim off it for the wind). A circle moved with the d-pad
   (`s.markerSet`) stays put for the team's next throw while a live target stands within
-  `keepNear` (1 m) of it, its default arc read again from the nearest target (`retarget`;
+  `keepNear` (1 m) of it, its default arc read again for its distance (`retarget`;
   Codex on #98); one never moved starts
   each throw on a live target (`s.markerOn`, kept while that target stands).
   `throw.aimAt` (self-tests, callers aiming at a piece) still snaps onto a standing target
@@ -36,8 +36,11 @@ this throw: "HOW TO THROW" below).
   the advantage line for a baton, the baseline for a kubb) and sets `s.stanceSet`; until
   then the stance is `plan.stance`, straight behind the circle as far forward as allowed.
   B + up/down move the planned release within `releaseMinDeg`..`releaseMaxDeg` and set
-  `s.arcSet`; until then the release is `plan.arcFor` the kind of target nearest the
-  circle (base 3 o'clock, king half past 3, field 4, a drill half past 1). B + left/right:
+  `s.arcSet`; until then the release is `throw.defaultArc(s)`: a drill's half past 1, a
+  baton's by the distance from the stance to the circle (`plan.arcFor("baton", d)`, engine
+  0.10: half past 5 at 2 m and under, 4 o'clock at 8 m, a line between; until 0.10 it went
+  by the target's kind, base 3 o'clock, king half past 3, field 4), read again on every
+  solve, so it follows the circle and the stance until B sets the arc. B + left/right:
   a baton's tilt (`s.tilt`, to `tiltMaxDeg`), a kubb's spin (`s.spin`, to `spinSteps`
   taps, fractions too). Any value in range since engine 0.9 (`planTicks`): a tap moves one
   tick (`plan.tune.arcTickDeg` 5, `tiltTickDeg` 1, `spinTick` 0.25), held past
@@ -46,7 +49,8 @@ this throw: "HOW TO THROW" below).
   B is held the crank does not throw. The swivel is always the plan's (`s.sol.swivel`).
 - **The plan.** `replan(s)` (`throw.replan`) runs `plan.solve` into `s.sol` (reused, no
   tables) only when an input changed (`s.planDirty`: the circle, the stance, the arc, the
-  projectile) or the level did. A new throw's circle starts on the live target nearest the
+  projectile) or what it is solved on did (`s.planLevel`: the meter or the level,
+  `throw.planBy`). A new throw's circle starts on the live target nearest the
   thrower (`retarget`; it stays on its target while that stands: practice after a throw,
   a team's later batons); the arc and tilt start afresh each match throw, and so does the
   spin, but for a kubb's: it is kept for the side's next kubb in the same inkast turn
@@ -55,18 +59,33 @@ this throw: "HOW TO THROW" below).
   team's later batons of a turn keep a stance walked with A. AROUND THE PITCH gives its
   own stance (`setup.playerX`). For self-tests and callers: `throw.aimAt(s, x, y)` (the
   circle, snapping onto a standing target within `snapRadius`), `setStance`, `setArc`, `setTilt`, `setSpin`.
+- **The person's meter** (Kubb Engine 0.13; kubb-engine's docs/notes/throw.md "The
+  person's meter"). `throw.planBy(s)`: a person's throw is planned on the one meter,
+  `q.meter = plan.meter()`, whatever level they have; `plan.solve` keeps the meter's table
+  for the throw's distance as `s.sol.level`, and `launch` gives `plan.launch` no level, so
+  it reads that table. The bars go by the distance (5.6 and 21 degrees either side at 4 m,
+  3.8 and 14.2 at 6 m, 2 and 7.5 at 8 m; a kubb's 1.35 times): every solve may move them,
+  and the clock reads `powerLo..powerHi` and `releaseLo..releaseHi` from the plan each
+  frame (its face is keyed on them), so they are redrawn whenever the circle or the
+  stance moves. A release past its bar pulls a person's baton off the line
+  (`plan.releasePull`): HIGH with PULLED LEFT, LOW with PULLED RIGHT, in the verdicts'
+  side cell (`hud.verdicts`' fourth cell, `L.sideV`). The Playdate's throws (`s.watching`)
+  keep their level: its own plan comes from `core/autothrow`.
 - **The level.** `throw.levelFor(s)`: `s.level` (a named player's, or the Playdate's
-  match option COMPUTER) or `throw.level`,
-  which `main.lua` sets from the System Menu's "Level" (`beginner`, `club`, `pro`; the
-  datastore "level", club by default).
+  match option COMPUTER) or `throw.level`, which `main.lua` reads from the datastore
+  "level" that the System Menu's "Level" kept until 0.13 (club by default; the item is
+  gone: a person's level no longer changes their throw). It is the Playdate's throw level,
+  the trace line's `level` and what the game file's [Throw Levels] name.
 - **The throw.** On a release `launch(s, r)` takes `plan.launch(s.sol, r, {projectile,
-  tilt, spin, level})` and `fire` launches `world.launchBaton` or `world.launchDrill` with
+  tilt, spin})` (no level: the meter's) and `fire` launches `world.launchBaton` or
+  `world.launchDrill` (with `L.scatter` last, the hand's steadiness, engine 0.11) with
   its outputs (and the flight prediction the cameras use with the same speed, loft and
   swivel). The swing's let-downs (stopped at or before 6) throw nothing. The recorder adds
   no samples in the swing's cooldown.
 - **The Playdate's throws** (`throw.autoLaunch(s, a)`, `s.scripted`): `core/autothrow`'s
   launch as it is, mistakes included (`a.speed`, `a.loftDeg`, `a.swivel`, `a.tumbleRate`,
-  `a.tilt`, `a.legal`; a kubb drilled with `a.drill`'s `world.launchDrill` fields, lobbed
+  `a.tilt`, `a.legal`; a kubb drilled with `a.drill`'s `world.launchDrill` fields, its
+  `scatter` (the level's `drillScatter`, engine 0.11) included, lobbed
   when there is no `a.drill`; `a.drill` with only a circle, the autobench's case, is the
   plan's clean drill onto it). With `a.swing` and not instant the scene goes to mode
   `cpuswing` first: the Playdate's arm on the clock, back to `a.swing.back` over

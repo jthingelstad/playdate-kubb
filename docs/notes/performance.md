@@ -93,6 +93,59 @@ The result of record, 0.9.8 build 9 (ms; the first column has no "aim d-pad" row
 | toppled: cluster 5m / 1m / 8 m base / drill | 2 / 1 / 1 / 0 | the same | the same |
 | memory after a full collection (KB) | 1351 | 1354 | 1354 |
 
+### Engine 0.13 on the device
+
+Kubb Engine 0.9.0 to 0.13.1 (2026-11-21, game 0.10.0 build 10 against 0.11.0 build 11).
+The core thinks harder: the pro computer plays `field.line` and `inkast.depth`, and raising
+goes by side (0.12: pro `par`, and a person's kubbs by the engine's advice, `par`, a plan
+over the kubbs still lying). The check gained two sections for it: **computer decisions**
+(one raise decision with eight kubbs lying in a tight group, the whole settle of those
+eight in one call, and `autothrow.choose` with eight field kubbs standing in a tight group
+and for a toss onto four lying) and **computer turn** (the same through the match scene:
+the transition frame where the settle runs, and every frame of the Playdate pro's first
+baton at the eight). The 0.9 column is main's build with the same `perfbench.lua` (its
+rows that call 0.13's names skip themselves). The frame budget: 20 ms while aiming (50
+fps), 40 ms a flight frame (`throw.tune.framePeriod`), and the soak counts frames over 100
+and 200 ms.
+
+| Row (device, ms; median) | 0.9.0 | 0.13.1 | 0.13.1 + `device/enginetune` |
+|---|---|---|---|
+| one raise, 8 lying: apart / par / cpu.raise pro | 0.91 / - / - | 0.85 / 33.6 / 33.2 | 0.93 / 32.6 / 1.34 (apart) |
+| settle of the 8: Playdate beginner / club / pro / a person's (advice) | 292 / 293 / 292 / 294 | 290 / 297 / 490 / 482 | 292 / 300 / 298 / 487 (the scene names apart for it: next row) |
+| choose, 8 field kubbs standing: beginner / club / pro | 15.1 / 15.4 / 15.0 | 17.2 / 17.3 / 50.2 | 17.1 / 17.4 / 52.2 |
+| choose, a toss onto 4 lying: beginner / club / pro | 28.0 / 27.9 / 28.1 | 15.8 / 17.8 / 16.9 | 15.9 / 17.8 / 16.9 |
+| choose, the old setups (base / toss / field), pro | 15.0 / 21.7 / 12.6 | 16.5 / 16.3 / 16.6 | 16.9 / 16.6 / 17.1 |
+| transition frame: Playdate club / pro raising 8; a person's 8 by RAISING: AUTOMATIC | 315 / 356; 333 | 358 / 550; 535 | 359 / 360; 338 |
+| the Playdate pro's first baton at 8 field kubbs: slowest frame / choose frame / flight frame mean | 139 / 55 / 56.6 | 170 / 89 / 54.7 | 121 / 89 / 56.0 |
+| plan.solve 1 / 1.5 / 3 / 8 m / drill (0.13: a person's, on the meter at the default arc) | 21.8 / 2.59 / 2.48 / 3.98 / 6.11 | 22.2 / 2.90 / 2.77 / 4.24 / 5.62 | 22.5 / 2.88 / 2.75 / 4.21 / 5.67 |
+| aim, replan every frame, 1 m / 6 m | 27.8 / 4.59 | 28.8 / 5.20 | 29.3 / 5.21 |
+| aim d-pad 1 m every other / every frame; 6 m | 16.7 / 30.1; 7.8 | 17.0 / 30.3; 8.5 | 17.8 / 31.6; 8.8 |
+| new match / save / resume | 79 / 73 / 135 | 79 / 76 / 132 | 80 / 74 / 133 |
+| throw frame mean: cluster 5m / 1m / 8 m base / drill | 61.8 / 55.1 / 52.7 / 43.8 | 62.4 / 58.3 / 53.2 / 43.1 | 62.4 / 58.2 / 53.5 / 43.5 |
+| memory at launch / after a full collection (KB) | 1336 / 1393 | 1617 / 1449 | 1619 / 1450 |
+
+The throws are not the same throws on the two engines (a baton's default arc goes by the
+distance since 0.10, so the plan's clean throw at the cluster from 5 m is lower: it took 2
+kubbs, not 1, and played 201 live frames, not 143); their frame time is the same within
+the spread. What stalls is the settle: a `par` decision costs 33 ms on the device (about
+370 times desktop Lua's 0.06 ms, as `plan.solve` does), and `match.setup` makes every
+raise in one call at the end of a turn, with the screen still: eight kubbs went from 292
+to 490 ms, and the transition frame from 356 to 550 ms, a half-second freeze. The scene
+has no way to spread it, and spreading a still screen over frames would not hide it, so
+two plays are switched off on the device, in one place, `source/device/enginetune.lua`
+(each with this measurement): the Playdate at pro raises `apart` (`tw.cpu.raising.pro`;
+0.12's Gym has `par` and `apart` level at pro against its attacker), and a person's kubbs
+raised by RAISING: AUTOMATIC go up `apart` (`scenes/match` names it in core/match's
+`raising` for a person's sides when the engine raises them). The advice stays where the
+scene spreads it, one kubb a view: the end the raise view offers first and REST OF GAME
+(33 ms once a kubb). `field.line` and `inkast.depth` stay on: the pro's choose with eight
+field kubbs standing is 50 ms (15 on 0.9), the choose frame 89 ms once while its aim
+shows still for `cpuThink`, under the soak's 100 ms. What the engine could offer for the
+Playdate: a `par` that costs what `apart` does (an incremental plan over the kubbs still
+lying, kept between the raises of one settle, or a cap on the pairs it weighs) or a budget
+per decision, and a `match.settle` that can stop after one raise so a client can spread a
+settle over frames behind an animation.
+
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
 autobench), at a player's real pace through `scenes/match` (playback, slow motion, camera,

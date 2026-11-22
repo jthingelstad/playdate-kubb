@@ -72,16 +72,21 @@ the datastore part is `source/players.lua` (`tw.players`).
   one baton handed over, `order.checkSheet` on the sheet).
 - **The save** is version 2 (`m.order`, `m.lineup`, `opts.teams`); a version 1 save is
   deleted at launch and never resumed (Jamie, 2026-11-15, decision 9).
-- **The throw level** is the thrower's (docs/PLAYERS.md section 6): `throw.levelFor(s)`
-  reads `s.level` before the System Menu's "Level". The match sets `s.ts.level` from
+- **The throw level** is the thrower's (docs/PLAYERS.md section 6), but since Kubb Engine
+  0.13 it changes only the computer's throw: a person throws on the engine's one meter
+  whatever level they have (docs/notes/throw.md "The person's meter"). It is still kept,
+  shown and logged (PLAYERS' LEVEL row, the history's level changes, the game file's
+  [Throw Levels]), so nothing saved breaks; whether PLAYERS keeps the row is open. The
+  System Menu's "Level" is gone (its datastore "level" is still read as the fallback).
+  `throw.levelFor(s)` reads `s.level` before that fallback. The match sets `s.ts.level` from
   `setup.thrower.level` for every throw (and again when the thrower is changed); a player
   without one (a guest at the default, a match without saved players: nil) falls back to
-  the System Menu. The Playdate's player has the match option COMPUTER as its level since
+  the old System Menu's kept level. The Playdate's player has the match option COMPUTER as its level since
   0.10.0 (engine 0.9); a VS PLAYDATE match saved before that has none and falls back too. Practice: left/right on the drills menu
   choose who is practising (NO PLAYER, then the roster; kept in datastore `practice`),
   shown on the menu's rail; a drill run and OPEN PITCH (`main.lua`,
   `drills.practiceLevel()`) throw at that player's level, and the run's record goes to
-  their history (`history.foldDrill`); NO PLAYER keeps the System Menu's level and the
+  their history (`history.foldDrill`); NO PLAYER keeps the old System Menu's level and the
   Playdate's own `drills` records. Levels are the throw's: beginner, club, pro.
 - **The game file** writes `[Throw Levels "k pro, m club"]` after `[Mode]` when the
   match had levels (`notation.render`'s `meta.levels`, from `m.lineup`), each player by
