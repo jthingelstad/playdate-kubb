@@ -449,7 +449,9 @@ function notation.positionLines(t, left)
 	local out = {}
 	local c = turnCounts(t)
 	local pitch
-	if t.inkastAt and c.I > 0 and c.P == 0 and (left or 0) - c.Q == 0 then
+	-- (t.placed: a Kid game's kubbs out twice the engine stood at the fair spot, core/rules
+	-- Game:_placeFair; such a kubb does not stand where it was thrown, so no line either)
+	if t.inkastAt and c.I > 0 and c.P == 0 and (t.placed or 0) == 0 and (left or 0) - c.Q == 0 then
 		local all = {}
 		for _, pid in ipairs(t.inkastOrder) do
 			for _, p in ipairs(t.inkastAt[pid] or {}) do all[#all + 1] = p end
@@ -509,7 +511,8 @@ local function teamLabel(side) return "Team " .. side end
 -- rules game (tw.rules); meta is { start, finish (time tables), version, mode,
 -- event, location, levels }. levels: { "kim pro", "sam club", ... } (player id
 -- and throw level), written as [Throw Levels "..."], each id as the header names
--- it (notation.fileIds: "k pro, s club"). The headers the notation defines come
+-- it (notation.fileIds: "k pro, s club"); none (nil or empty), no header. Since
+-- 0.13.2 the match gives the computer's players only (match.fileLevels). The headers the notation defines come
 -- in its order; the engine's own ([Mode], [Throw Levels]) after them, by code
 -- point. Each turn line is followed by its position lines.
 function notation.render(game, meta)
@@ -525,8 +528,17 @@ function notation.render(game, meta)
 	if meta.start and meta.finish then h("Duration", notation.minutesBetween(meta.start, meta.finish) .. "m") end
 	h("Surface", game.surface)
 	local six = game.opening == "six"
-	h("Rules", six and "U.S. Championship 4.0, six from the start" or "U.S. Championship 4.0, 2-4-6")
-	h("Base kubbs", "5")
+	if game.rules == "kid" then
+		-- the Kid rules (core/rules rules.kid, 0.15.0): the notation has a header for the
+		-- base kubbs and none for the rest, so the Rules header says it in words
+		h("Rules", "Kid rules, " .. (six and "six from the start" or "2-4-6")
+			.. ": three base kubbs; kubbs and batons from 2 m in front of the baseline;"
+			.. " an early king stood back up; no punishment kubbs; helicopters count")
+		h("Base kubbs", tostring(#tw.rules.baseXFor("kid")))
+	else
+		h("Rules", six and "U.S. Championship 4.0, six from the start" or "U.S. Championship 4.0, 2-4-6")
+		h("Base kubbs", "5")
+	end
 	h("Batons", "6")
 	h("Opening", six and "6" or "2-4-6")
 	for _, side in ipairs { "A", "B" } do
@@ -542,7 +554,8 @@ function notation.render(game, meta)
 	if game.winner then h("Win", teamLabel(game.winner)) end
 	h("Scored by", notation.scorer .. " " .. (meta.version or "0.0.0"))
 	if meta.mode then h("Mode", meta.mode) end
-	-- each player's throw level (docs/PLAYERS.md decision 7): "kim pro, sam club"
+	-- the throw levels given (docs/PLAYERS.md decision 7; the computer's players
+	-- since 0.13.2, match.fileLevels): "kim pro, sam club"
 	if meta.levels and #meta.levels > 0 then
 		local ls = {}
 		for i, l in ipairs(meta.levels) do
