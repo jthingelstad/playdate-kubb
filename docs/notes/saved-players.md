@@ -10,10 +10,11 @@ docs/PLAYERS.md (the agreed plan; built). Pure: `core/roster.lua`
 the datastore part is `source/players.lua` (`tw.players`).
 
 - **A player** (`core/roster`): `{ key, name, id, level, made, last, totals }`. `key` is
-  `p<n>`, never reused (`r.nextKey`); `name` keeps `core/names` rules; `id` is
+  `p<n>`, never reused (`r.nextKey`); `name` is a generated player name since game 0.12.0
+  ("Generated names" below; `core/names` still cleans it, at 16 letters on the device); `id` is
   `notation.baseId(name)` and unique on the roster (`roster.canName`: `empty`, `taken`,
   `full`), so a player has the same id in every game file; `level` is one of
-  `tw.plan.LEVELS` (the throw's); `totals` are counters (`roster.TOTALS`: games, wins,
+  `tw.plan.LEVELS`, kept but no longer shown or changed (see "The throw level"); `totals` are counters (`roster.TOTALS`: games, wins,
   resigned, batons, hits, field, base, kings, kingMisses, illegal, I, R, P, Q). At most
   `roster.tune.max` (40). `roster.valid(d)` cleans what the datastore gives back (never an
   error at launch); `roster.sorted` is most recently played first.
@@ -29,15 +30,18 @@ the datastore part is `source/players.lua` (`tw.players`).
   in front of both. `players.load()` makes the roster the first time from the old files:
   the names typed for matches (`names`) become players (the defaults aside), and the drill
   records (`drills`) go to the first of them (`You` when there was none); the old files
-  are left as they were. `players.today()`, `players.now()` give the dates.
+  are left as they were. `players.today()`, `players.now()` give the dates. Every load
+  gives a player whose name is not a generated one a generated name (`players.generateNames`)
+  and saves the roster: see "Generated names".
 - **PLAYERS** (`scenes/players.lua`, the title's fourth item; no board, the Drills board's
   look): the roster on a black panel (+ NEW PLAYER, then the players most recently played
-  first, each with their level) and the chosen player's figures (games, wins, hit rate,
-  kings, kubbs in, the last ten games as bars of hits over batons with a dot for a win). A
-  opens a player: NAME (A: the keyboard), LEVEL (left/right, saved at once and logged in
-  the history), GAMES (their recent games), REMOVE (a confirm card: the history goes, game
-  files stay), with their drill bests. A new player is typed (scenes/names in mode `"player"`, which refuses a
-  taken name and shows why) and lands on their LEVEL row. Self-test `players`.
+  first) and the chosen player's figures (games, wins, hit rate, kings, kubbs in, the last
+  ten games as bars of hits over batons with a dot for a win). A opens a player: NAME (A:
+  the Names screen, a new generated name), GAMES (their recent games), REMOVE (a confirm
+  card: the history goes, game files stay), with their drill bests. A new player gets a
+  name on the Names screen (`scenes/names`, which refuses a taken name and shows why) and
+  lands on their page. The LEVEL row went in game 0.12.0 (engine 0.13: a level names only
+  the computer). Self-test `players`.
 - **The title** has four items in two rows of two (four do not fit across at 16 px):
   VS PLAYDATE, PASS + PLAY / PRACTICE, PLAYERS; left/right go in reading order, up/down
   change row.
@@ -47,13 +51,17 @@ the datastore part is `source/players.lua` (`tw.players`).
   the saved players on no team), Team B (the Playdate against VS PLAYDATE). Left/right on
   a player send them toward that side (bench to a team, a team to the bench), anywhere else
   change column; hold A + up/down moves a team's player up or down the order (the order
-  is the rotation of "Throwing order"); A on a team's name types it; + PLAYER makes a saved
+  is the rotation of "Throwing order"); A on a team's name opens the Names screen for a
+  generated team name; + PLAYER makes a saved
   player, + GUEST one for this match only (not saved, no key); either goes straight onto an
   empty team (`lineup.seatNew`: Team A, else Team B when it is not the Playdate's), so a
   first match needs no trip through the bench (RC review, 2026-11-15). Six a side
-  (`lineup.tune.size`); a player is on one side. A team's name is the one typed, else the
+  (`lineup.tune.size`); a player is on one side. A team's name is the one given, else the
   player's for a team of one, else `Team <first player>`. The lineup is kept per mode
-  (datastore `teams`, saved players only) and offered again. `lineup.teams(L)` is
+  (datastore `teams`, saved players only) and offered again; a kept team name that is not a
+  generated team name comes back as one (`namepick.fallback`), saved at once. A name too
+  wide for a column even in the label face shows its first word as an initial (`N.
+  REDWOOD`) or without its `The` (`scenes/teams` `fitName`). `lineup.teams(L)` is
   `core/match`'s teams: players `{ name, key, level, guest }`. Self-test `teams`.
 - **In a match** (`core/match`, `scenes/match`): `m.lineup` (`match.lineupOf`) keeps each
   engine player's key, level and guest flag beside the engine's ids; `s.thrower` is
@@ -61,11 +69,13 @@ the datastore part is `source/players.lua` (`tw.players`).
   Playdate), the team on the throw line, the kubbs' inkaster when someone else, and the
   turn's batons by player (`KIM 2 · MAX 2 · ALEX 1 · DANA 1`). Before a throw by another
   player of the same team the **pass card** (`cards.pass`, `rcards.pass`) says who takes
-  the Playdate, for which batons (`BATONS 3 AND 4`) or the kubbs, at what level. On either
+  the Playdate, for which batons (`BATONS 3 AND 4`) or the kubbs. On either
   card B opens the **change list** (`match.candidates`, `rcards.change`): the team's
   players, those the rules refuse with why (`TWO BATONS ALREADY`, `NEEDS ANOTHER
   THROWER`); A hands the throw over (`match.changeThrower`), saved at once. The rail reads
-  `TEAM: PLAYER` for a team of several. The winner card gives each of the winning team's
+  `TEAM: PLAYER` for a team of several, or the player alone when both do not fit before the
+  pips (and for a team of one whose team name does not fit; the pips' KUBBS / BATONS word
+  goes first, `hud.railRoom`). The winner card gives each of the winning team's
   players' hits over batons, three to a line. A finished match is folded into its saved
   players' histories (`core/history.foldGame`, not for scripted matches). No pass card for
   the Playdate's team or with `skipHandoff`. Self-test `match-teams` (three against two,
@@ -74,9 +84,11 @@ the datastore part is `source/players.lua` (`tw.players`).
   deleted at launch and never resumed (Jamie, 2026-11-15, decision 9).
 - **The throw level** is the thrower's (docs/PLAYERS.md section 6), but since Kubb Engine
   0.13 it changes only the computer's throw: a person throws on the engine's one meter
-  whatever level they have (docs/notes/throw.md "The person's meter"). It is still kept,
-  shown and logged (PLAYERS' LEVEL row, the history's level changes, the game file's
-  [Throw Levels]), so nothing saved breaks; whether PLAYERS keeps the row is open. The
+  whatever level they have (docs/notes/throw.md "The person's meter"), the Kid meter in a
+  Kid match. Since game 0.12.0 a person's level is not shown anywhere (PLAYERS' LEVEL row,
+  the level beside each name on PLAYERS and TEAMS and the practice rail went); the roster
+  and the history still keep what they had, so nothing saved breaks, and the game file's
+  [Throw Levels] names the computer only (engine 0.13.2). The
   System Menu's "Level" is gone (its datastore "level" is still read as the fallback).
   `throw.levelFor(s)` reads `s.level` before that fallback. The match sets `s.ts.level` from
   `setup.thrower.level` for every throw (and again when the thrower is changed); a player
@@ -84,15 +96,52 @@ the datastore part is `source/players.lua` (`tw.players`).
   the old System Menu's kept level. The Playdate's player has the match option COMPUTER as its level since
   0.10.0 (engine 0.9); a VS PLAYDATE match saved before that has none and falls back too. Practice: left/right on the drills menu
   choose who is practising (NO PLAYER, then the roster; kept in datastore `practice`),
-  shown on the menu's rail; a drill run and OPEN PITCH (`main.lua`,
-  `drills.practiceLevel()`) throw at that player's level, and the run's record goes to
-  their history (`history.foldDrill`); NO PLAYER keeps the old System Menu's level and the
-  Playdate's own `drills` records. Levels are the throw's: beginner, club, pro.
-- **The game file** writes `[Throw Levels "k pro, m club"]` after `[Mode]` when the
-  match had levels (`notation.render`'s `meta.levels`, from `m.lineup`), each player by
-  the id `[Team X Players]` gives them (since engine 0.7.1: initials on a team of more than
-  one, no prefix for a team of one; `notation.fileIds`); the vendored
+  shown on the menu's rail; a drill run and OPEN PITCH throw on the meter, and the run's
+  record goes to their history (`history.foldDrill`); NO PLAYER keeps the Playdate's own
+  `drills` records. Levels are the computer's: kid (0.15), beginner, club, pro.
+- **The game file** writes `[Throw Levels "playdate club"]` after `[Mode]` when the
+  computer plays (engine 0.13.2, `match.fileLevels`: the computer's players only; none in
+  pass and play), each player by the id `[Team X Players]` gives them (since engine 0.7.1:
+  initials on a team of more than one, no prefix for a team of one; `notation.fileIds`); the vendored
   grammar and kubb.js accept the extra header. The games list's footer adds `3 V 2
   PLAYERS` for teams of several (`gamefile.parse`'s `players`). A player's page has a
   GAMES row: their recent games, newest first, each opening its file's score sheet
   (`scenes/sheet`, the file read from `games/`).
+
+## Generated names
+
+Since game 0.12.0 (Kubb Engine 0.15; kubb-engine docs/NAMES.md, the owner's decision of
+2026-11-21 that the Playdate switches too) no name is typed. Every player, guest and team
+name is two words from the engine's lists (`core/namegen`, `core/namewords`): a player
+`<adjective> <wood>` ("Mighty Maple"), a team `<adjective> <noun>`, `The <noun>` or `<wood>
+<noun>`, at most 16 letters.
+
+- **The Names screen** (`scenes/names`, state in `source/device/namepick.lua`, pure and
+  tested on the desktop, `test_namepick.lua`): the black panel says whose name it is, the
+  name (display 32, else 16: the widest generated name is 189 px there), its game file id
+  and what comes next; on the right three rows, FIRST WORD, SECOND WORD and SHUFFLE. Up/down
+  choose a row; the crank (a word every 24 degrees, the raw direction, as the score sheet
+  scrolls) or left/right step that word to the next that makes a name, or on SHUFFLE roll a
+  new one. A team's first word runs through The, every adjective and every wood, so one row
+  reaches all three team shapes. A takes the name (a refused one stays, with THAT NAME IS
+  TAKEN), B goes back. It opens on the name being changed, or a rolled one. Self-tests
+  `names`, `players`, `teams`.
+- **16 letters.** `core/names` cuts a name at `names.max` (10) wherever the roster, the
+  lineup and the load clean one; `device/enginetune` sets it to `namegen.max` (16) at launch.
+  Self-test `names-fit` measures every generated name in the game's faces (widest: player
+  140 px, team 148 px in the label face; 189 in display 16; about 380 in display 32) and
+  checks each place's last fallback: the rail (146 px before the pips), TEAMS (cut, as
+  above), PLAYERS and the Names screen. The hand-off, pass and settle cards drop a name too
+  wide for display 32 to display 16 (`rcards` `bigName`), as the winner card did; the
+  winner card's players, when cut, show their last word's first seven letters (`REDWOOD
+  22/29`); the score sheet's rail cuts two long team names to initials, then leaves its
+  right side out.
+- **Kept names** from a build before 0.12.0 that are not generated names (typed, or
+  `You` from the first roster) are replaced at load by a generated name rolled from the
+  player's key and old name (`namepick.fallback`: the same name every load, never one
+  another player has) and the roster is saved; a kept team name likewise when TEAMS opens.
+  The history follows the key, so a renamed player keeps their games and drill bests; the
+  game files already written keep the old name. A match saved in progress keeps the names
+  it started with (they are in its score sheet and its ids). (kubb-engine docs/NAMES.md
+  10.2 had saved players keeping typed names until renamed; the maintainer chose the
+  fallback for 0.12.0 so no typed name is shown anywhere.)

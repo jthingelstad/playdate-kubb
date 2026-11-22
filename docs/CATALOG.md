@@ -56,7 +56,10 @@ A draft of the facts for the listing (the words to be the developer's own):
 - **Held buttons**: A and B are held to walk and to plan; never needed during the throw.
 - **Timing and precision**: no time limit and no quick reactions; turns wait for the
   player. Where the crank stops sets the arc, so a throw takes a steady hand on the
-  crank; the level (beginner, club, pro) widens or narrows what counts as on.
+  crank; what counts as on is wide for a short throw and narrow for a long one, and a
+  match against the KID computer plays the Kid rules on a much wider meter (bars about
+  five times as wide at 6 m), with throws from 2 m nearer and nothing called a foul.
+- **Text entry**: none; names are chosen from word lists with the crank or the d-pad.
 - **Audio**: knocks and the king's chord are feedback only; the game plays fully muted.
 - **Flashing**: a king knocked over inverts the whole screen for 2/30 s; off with
   Settings > Accessibility > Reduce Flashing.

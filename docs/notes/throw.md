@@ -71,6 +71,19 @@ this throw: "HOW TO THROW" below).
   (`plan.releasePull`): HIGH with PULLED LEFT, LOW with PULLED RIGHT, in the verdicts'
   side cell (`hud.verdicts`' fourth cell, `L.sideV`). The Playdate's throws (`s.watching`)
   keep their level: its own plan comes from `core/autothrow`.
+- **The Kid meter** (Kubb Engine 0.15; kubb-engine's docs/notes/throw.md "The Kid meter",
+  docs/notes/kid-mode.md). In a Kid match (`s.kid`, from the setup) `throw.planBy` plans a
+  person's throw on `plan.meter("kid")`: bars about five times the standard's at 6 m
+  (17.6 and 48 degrees either side; 27.5 and 75 at 3 m and under), an error inside them
+  counting a fifth as much, a gentler pull and shake past them, and a soft flick's
+  shortfall counted at 0.3 (`flickIn`). The clock draws the wider bars from the plan as it
+  draws any. Replayed on the desktop, the 23 swings recorded on the device with a plan
+  (`telemetry/2026-11-15/traces.jsonl`, the first day of the clock throw: two people
+  learning it at about 8 m) land inside both bars 14 times on the Kid meter against 4 on the
+  standard, and within 0.3 m of the aim (length and side of the clean launch) 11 times
+  against 6; the mean length error halves (1.17 against 2.28 m) and the side error is a
+  third (0.11 against 0.34 m). A helicopter counts in a Kid match: the flag at release says
+  HELICOPTER: IT COUNTS.
 - **The level.** `throw.levelFor(s)`: `s.level` (a named player's, or the Playdate's
   match option COMPUTER) or `throw.level`, which `main.lua` reads from the datastore
   "level" that the System Menu's "Level" kept until 0.13 (club by default; the item is
