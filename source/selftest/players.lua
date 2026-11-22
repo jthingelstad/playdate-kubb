@@ -6,10 +6,14 @@
 -- Maple renamed Jolly Juniper, then removed. Then a roster saved by 0.11.0 with
 -- typed names (oloF, Playdate, Greta, Montgomery) loads unchanged and is not
 -- rewritten (the owner, 2026-11-21: "Saved players keep their typed names until
--- someone renames them."), plays a scripted match with those names on its sheet, and
--- only Montgomery's rename (a generated name) changes one.
+-- someone renames them."), plays a scripted match with those names and typed guests
+-- (a space, mixed case, a mark) on its sheet with unique ids (its game file gated),
+-- only Montgomery's rename changes one (opened typed; typed again: Monty Ray), and a
+-- typed new player "greta" is refused as taken before Greta Two is made (the owner,
+-- 2026-11-22: typed names on the Playdate).
 -- Frames: 1 the Names step with Lucky Larch refused, 2 the list (Lucky Larch
--- chosen), 3 their page, 4 the remove card, 5 the list of typed names. The check:
+-- chosen), 3 their page, 4 the remove card, 5 the list of typed names, 6 a typed
+-- name refused as taken. The check:
 -- the roster saved and read back has Lucky Larch and Agreeable Ginkgo and no Jolly
 -- Juniper, the scene went to the title on B, and the typed names as above.
 import "core/tw"
@@ -129,6 +133,11 @@ tw.selftest.scenarios.players = {
 					tw.lineup.add(L, "A", tw.lineup.entry(r.players[1]))
 					tw.lineup.add(L, "B", tw.lineup.entry(r.players[3]))
 					tw.lineup.add(L, "B", tw.lineup.entry(r.players[4]))
+					-- and typed guests (the owner, 2026-11-22): a space, mixed case, a mark, and a
+					-- second name on "g" and "m", so the sheet's ids must still come out unique
+					tw.lineup.add(L, "B", tw.lineup.guest("Mary Ann"))
+					tw.lineup.add(L, "A", tw.lineup.guest("McKay"))
+					tw.lineup.add(L, "A", tw.lineup.guest("Gus O'Dell"))
 					local ms = tw.scenes.match.new(tw.input.scripted({}), { teams = tw.lineup.teams(L), seed = 3, instant = true,
 						skipHandoff = true, maxTurns = 4 })
 					for _ = 1, 4000 do
@@ -137,13 +146,24 @@ tw.selftest.scenarios.players = {
 					end
 					if ms.phase ~= "over" then return "the match did not end" end
 					local text = tw.match.file(ms.m, nil, "0.0.1")
-					if not text:find('[Team A "oloF"]', 1, true) then return "the sheet's Team A" end
+					if not text:find('[Team A "Team oloF"]', 1, true) then return "the sheet's Team A" end
 					local bp = text:match('%[Team B Players "([^"]*)"%]') or ""
-					if not (bp:find("Greta", 1, true) and bp:find("Montgomery", 1, true)) then return "the sheet's Team B players: " .. bp end
-					ctx.note = (ctx.note or "") .. " sheet=" .. bp:gsub(" ", "_")
+					local ap = text:match('%[Team A Players "([^"]*)"%]') or ""
+					if not (bp:find("Greta", 1, true) and bp:find("Montgomery", 1, true) and bp:find("Mary Ann", 1, true)) then
+						return "the sheet's Team B players: " .. bp
+					end
+					if not (ap:find("McKay", 1, true) and ap:find("Gus O'Dell", 1, true)) then return "the sheet's Team A players: " .. ap end
+					local ids = {}
+					for id in (ap .. ", " .. bp):gmatch("%(([^)]*)%)") do
+						if ids[id] then return "two players with the id " .. id end
+						ids[id] = true
+					end
+					if not ms.file then return "no game file" end
+					ctx.note = (ctx.note or "") .. " sheet=" .. (ap .. " v " .. bp):gsub(" ", "_") .. " file=" .. ms.file
 					s.img = nil
 				end,
-				-- only a rename changes one: Montgomery's NAME row gives a generated name
+				-- only a rename changes one: Montgomery's NAME row opens on the typed name (typed,
+				-- on TYPE A NAME) and the keyboard's OK takes a new typed one
 				function()
 					for i, p in ipairs(s.list) do if p.name == "Montgomery" then s.choice = i + 1 end end
 					s.img = nil; inp.want = "a"
@@ -155,20 +175,42 @@ tw.selftest.scenarios.players = {
 				end,
 				function()
 					if s.mode ~= "name" then return "no Names screen" end
-					if names.text(s.sub) == s.player.name then return "the rename offered the typed name" end
+					if names.text(s.sub) ~= s.player.name or not s.sub.typed then return "the rename opened on " .. names.text(s.sub) end
+					names.type(s.sub, "Monty Ray")
 					names.ok(s.sub)
 				end,
 				function()
 					local r = tw.roster.valid(playdate.datastore.read(players.fileKey("players")))
 					local renamed
 					for _, p in ipairs(r.players) do if p.key == s.renamedKey then renamed = p end end
-					if not renamed or not tw.namegen.valid("player", renamed.name) then return "the rename gave " .. tostring(renamed and renamed.name) end
+					if not renamed or renamed.name ~= "Monty Ray" then return "the rename gave " .. tostring(renamed and renamed.name) end
 					local others = {}
 					for _, p in ipairs(r.players) do if p.key ~= s.renamedKey then others[#others + 1] = p.name end end
 					if table.concat(others, ",") ~= "oloF,Playdate,Greta" then
 						return "others changed: " .. table.concat(others, ",")
 					end
 					ctx.note = ctx.note .. " renamed=" .. renamed.name:gsub(" ", "_")
+					inp.want = "b"                                          -- back to the list
+				end,
+				function()
+					if s.mode ~= "list" then return "B did not go back to the list" end
+					s.choice, s.img = 1, nil
+					inp.want = "a"                                          -- + NEW PLAYER, typed
+				end,
+				function()
+					if s.mode ~= "name" then return "no Names screen for a new player" end
+					names.type(s.sub, "greta")                              -- Greta's id: taken
+					if names.ok(s.sub) then return "a second greta was taken" end
+					if s.sub.why ~= "taken" then return "why " .. tostring(s.sub.why) end
+				end,
+				"capture6",
+				function()
+					names.type(s.sub, "Greta Two")
+					if not names.ok(s.sub) then return "Greta Two refused" end
+				end,
+				function()
+					local r = tw.roster.valid(playdate.datastore.read(players.fileKey("players")))
+					if names_(r.players) ~= "oloF,Playdate,Greta,Monty Ray,Greta Two" then return "roster " .. names_(r.players) end
 				end,
 			}
 		end

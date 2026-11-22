@@ -15,7 +15,7 @@
 --                    player); + PLAYER: the Names screen (a new saved player,
 --                    onto the bench); + GUEST: the Names screen (this match
 --                    only, not saved); a team's name: the Names screen, a
---                    generated team name (scenes/names)
+--                    team name generated or typed (scenes/names)
 --   B                back to the title
 -- The lineup is kept (datastore "teams", per mode; guests are not) and
 -- offered again; a kept team name typed on an older build stays as it is until it is
@@ -32,11 +32,13 @@ import "core/notation"
 import "render/ui"
 import "scenes/names"
 import "players"
+import "core/namegen"
 
 local gfx <const> = playdate.graphics
 local roster, lineup, ui = tw.roster, tw.lineup, tw.render.ui
 local names, players = tw.scenes.names, tw.players
 local floor = math.floor
+local np = { valid = function(n) return tw.namegen.valid("player", n) or tw.namegen.valid("team", n) end }
 local BLACK <const>, WHITE <const> = gfx.kColorBlack, gfx.kColorWhite
 
 tw.scenes = tw.scenes or {}
@@ -221,8 +223,9 @@ end
 
 -- A name for a column `w` px wide: as it is, or with its first word cut to its
 -- initial ("N. REDWOOD"), or without its "The", when even the label face is too wide (generated names run
--- to 16 letters; the widest is about 140 px in the label face, the column 133). A single
--- word (a name typed on an older build) is never cut.
+-- to 16 letters; the widest is about 140 px in the label face, the column 133). A typed
+-- name (up to 10 letters, the Names screen's typedMax) fits unless it is all the widest
+-- letters, and then loses its last letters to a full stop.
 function scene.fitName(text, w)
 	local label = ui.label()
 	if label:getTextWidth(string.upper(text)) <= w then return text end
@@ -230,9 +233,15 @@ function scene.fitName(text, w)
 	local n, name = text:match("^(%d+ )(.+)$")
 	n, name = n or "", name or text
 	local first, rest = name:match("^(%S+) (.+)$")
-	if first == "The" then return n .. rest end
-	if first then return n .. first:sub(1, 1) .. ". " .. rest end
-	return text
+	local out = text
+	if first == "The" then out = n .. rest
+	elseif first and np.valid(name) then out = n .. first:sub(1, 1) .. ". " .. rest end
+	-- still too wide (only a typed name of the widest letters, "WWWWWWWWWW", is): its last
+	-- letters give way to a full stop, so it is cut, never run into the next column
+	while label:getTextWidth(string.upper(out)) > w and #out > #n + 2 do
+		out = out:gsub("%.$", ""):sub(1, -2) .. "."
+	end
+	return out
 end
 
 local function render(s)

@@ -3,7 +3,8 @@
 -- docs/NAMES.md 8.3: "each client measures its widest name in its own font"). The
 -- widest of each kind in the label face, display 16 and display 32 go in the note.
 -- Frames: 1 the rail of a match throw with the widest player name, 2 the hand-off card
--- with the widest team name.
+-- with the widest team name, 3 the hand-off card with the widest typed name (the
+-- owner, 2026-11-22: typed names on the Playdate), 4 its rail.
 -- The check: in the label face (every place's last fallback) each name fits the
 -- rail's room before the pips, the TEAMS column, the PLAYERS list and the Names
 -- screen's panel.
@@ -19,6 +20,7 @@ import "core/match"
 import "core/cards"
 
 local namegen, ui, hud = tw.namegen, tw.render.ui, tw.render.hud
+local gfx <const> = playdate.graphics
 
 local widest = {}
 
@@ -70,6 +72,35 @@ tw.selftest.scenarios["names-fit"] = {
 					end
 				end
 			end
+			-- typed names (the owner, 2026-11-22): the widest the Names screen allows,
+			-- typedMax letters of the widest capitals, with a space and the marks it takes
+			local tm = tw.scenes.names.tune.typedMax
+			local label, d16 = ui.label(), ui.display(16)
+			local typedRooms = {
+				rail = rooms.rail, railKubbs = rooms.railKubbs, players = rooms.players,
+				names = rooms.names, winner = tw.render.cards.tune.winNameRoom, cards = tw.render.cards.tune.nameRoom,
+			}
+			local widestTyped, ww = nil, 0
+			for _, base in ipairs { string.rep("W", tm), string.rep("M", tm), "WWWW WWWWW", "W'WWW-WWWW" } do
+				local t = tw.scenes.names.clean(base)
+				if #t ~= tm then error("typed " .. base .. " cleaned to " .. t) end
+				local w = label:getTextWidth(string.upper(t))
+				if w > ww then widestTyped, ww = t, w end
+				for place, room in pairs(typedRooms) do
+					if w > room then error(string.format("typed %q is %d px in the label face; %s has %d", t, w, place, room)) end
+				end
+				local cut = tw.scenes.teams.fitName("2 " .. t, rooms.teams)
+				local cw = label:getTextWidth(string.upper(cut))
+				if cw > rooms.teams then error(string.format("TEAMS: typed %q is %d px, %d room", cut, cw, rooms.teams)) end
+				widest.typedCut = widest.typedCut or {}
+				if cut ~= "2 " .. t then widest.typedCut[#widest.typedCut + 1] = cut end
+			end
+			widest.typed = widestTyped
+			notes[#notes + 1] = string.format("typed:label=%d(%s),d16=%d", ww, widestTyped:gsub(" ", "_"),
+				d16:getTextWidth(string.upper(widestTyped)))
+			if widest.typedCut and #widest.typedCut > 0 then
+				notes[#notes + 1] = "teamsCut=" .. table.concat(widest.typedCut, "|"):gsub(" ", "_")
+			end
 			ctx.note = table.concat(notes, " ") .. string.format(" rail=%d teams=%d", rooms.rail, rooms.teams)
 			hud.rail(string.upper(widest.player.label.name), "baton", 3, 6, "FIELD 2", "BASE 3")
 			ctx:capture()
@@ -83,6 +114,20 @@ tw.selftest.scenarios["names-fit"] = {
 			local c = tw.cards.handoff(m, setup)
 			c.kid = true
 			tw.render.cards.handoff(c):draw(0, 0)
+			ctx:capture()
+		elseif ctx.frame == 3 then
+			-- the widest typed name as a team of one: the hand-off card, then its rail
+			local t = widest.typed
+			local m = tw.match.new { start = { year = 2026, month = 11, day = 22, hour = 12, min = 0 },
+				teams = { A = { name = t, players = { { name = t } } },
+					B = { name = "Playdate", players = { { name = "Playdate" } } } },
+				mode = "Vs Playdate", cpu = { "B" } }
+			local c = tw.cards.handoff(m, tw.match.setup(m))
+			tw.render.cards.handoff(c):draw(0, 0)
+			ctx:capture()
+		elseif ctx.frame == 4 then
+			gfx.clear(gfx.kColorWhite)
+			hud.rail(string.upper(widest.typed), "baton", 3, 6, "FIELD 2", "BASE 3")
 			ctx:capture()
 			return true
 		end

@@ -11,7 +11,7 @@ the datastore part is `source/players.lua` (`tw.players`).
 
 - **A player** (`core/roster`): `{ key, name, id, level, made, last, totals }`. `key` is
   `p<n>`, never reused (`r.nextKey`); `name` is a generated player name since game 0.12.0
-  ("Generated names" below; `core/names` still cleans it, at 16 letters on the device); `id` is
+  ("Names" below; `core/names` still cleans it, at 16 letters on the device); `id` is
   `notation.baseId(name)` and unique on the roster (`roster.canName`: `empty`, `taken`,
   `full`), so a player has the same id in every game file; `level` is one of
   `tw.plan.LEVELS`, kept but no longer shown or changed (see "The throw level"); `totals` are counters (`roster.TOTALS`: games, wins,
@@ -31,12 +31,12 @@ the datastore part is `source/players.lua` (`tw.players`).
   the names typed for matches (`names`) become players (the defaults aside), and the drill
   records (`drills`) go to the first of them (`You` when there was none); the old files
   are left as they were. `players.today()`, `players.now()` give the dates. A load never
-  changes a kept name: see "Generated names".
+  changes a kept name: see "Names".
 - **PLAYERS** (`scenes/players.lua`, the title's fourth item; no board, the Drills board's
   look): the roster on a black panel (+ NEW PLAYER, then the players most recently played
   first) and the chosen player's figures (games, wins, hit rate, kings, kubbs in, the last
   ten games as bars of hits over batons with a dot for a win). A opens a player: NAME (A:
-  the Names screen, a new generated name), GAMES (their recent games), REMOVE (a confirm
+  the Names screen: a generated or a typed name), GAMES (their recent games), REMOVE (a confirm
   card: the history goes, game files stay), with their drill bests. A new player gets a
   name on the Names screen (`scenes/names`, which refuses a taken name and shows why) and
   lands on their page. The LEVEL row went in game 0.12.0 (engine 0.13: a level names only
@@ -51,17 +51,18 @@ the datastore part is `source/players.lua` (`tw.players`).
   a player send them toward that side (bench to a team, a team to the bench), anywhere else
   change column; hold A + up/down moves a team's player up or down the order (the order
   is the rotation of "Throwing order"); A on a team's name opens the Names screen for a
-  generated team name; + PLAYER makes a saved
+  team name, generated or typed; + PLAYER makes a saved
   player, + GUEST one for this match only (not saved, no key); either goes straight onto an
   empty team (`lineup.seatNew`: Team A, else Team B when it is not the Playdate's), so a
   first match needs no trip through the bench (RC review, 2026-11-15). Six a side
   (`lineup.tune.size`); a player is on one side. A team's name is the one given, else the
   player's for a team of one, else `Team <first player>`. The lineup is kept per mode
   (datastore `teams`, saved players only) and offered again; a kept team name typed on an
-  older build stays until it is renamed. A name of two or more words too wide for a column
-  even in the label face shows its first word as an initial (`N. REDWOOD`) or without its
-  `The` (`scenes/teams` `fitName`); a single word is never cut (a typed name is at most 10
-  letters and fits). `lineup.teams(L)` is
+  older build stays until it is renamed. A generated name too wide for a column even in
+  the label face shows its first word as an initial (`N. REDWOOD`) or without its `The`
+  (`scenes/teams` `fitName`); a typed name fits unless it is ten of the widest letters
+  (`2 WWWWWWWWWW` is 120 px, the column 119), and then loses its last letters to a full
+  stop (`2 WWWWWWWWW.`). `lineup.teams(L)` is
   `core/match`'s teams: players `{ name, key, level, guest }`. Self-test `teams`.
 - **In a match** (`core/match`, `scenes/match`): `m.lineup` (`match.lineupOf`) keeps each
   engine player's key, level and guest flag beside the engine's ids; `s.thrower` is
@@ -108,40 +109,71 @@ the datastore part is `source/players.lua` (`tw.players`).
   GAMES row: their recent games, newest first, each opening its file's score sheet
   (`scenes/sheet`, the file read from `games/`).
 
-## Generated names
+## Names
 
-Since game 0.12.0 (Kubb Engine 0.15; kubb-engine docs/NAMES.md, the owner's decision of
-2026-11-21 that the Playdate switches too) no name is typed. Every player, guest and team
-name is two words from the engine's lists (`core/namegen`, `core/namewords`): a player
-`<adjective> <wood>` ("Mighty Maple"), a team `<adjective> <noun>`, `The <noun>` or `<wood>
-<noun>`, at most 16 letters.
+Since game 0.12.1 a name on the Playdate is generated or typed, whichever the player
+likes. The owner, 2026-11-22: "On the Playdate we should allow players to both use the generated names as well as enter their own. On the web we have to worry about people putting profanity in that others see. In the playdate nobody else can see it so we can allow profiles to have user entered names." This replaces, for the Playdate only, his
+2026-11-21 decision that the Playdate switch to generated names too ("for one game
+everywhere"; game 0.12.0 had no text entry). The web and the iPhone stay generated-only.
+
+Typed names are allowed here because nothing a player names on the Playdate leaves it:
+the game has no network play, no online pitch, no reels, no scoreboards and no network
+calls at all. A name is kept in the Data folder (the roster, the lineup, the match save)
+and written into the game files in `games/`, which only the owner of the device reads,
+over USB in Data Disk mode. On the web and the iPhone a name reaches other people (a pitch,
+a replay, a reel), which is why they take generated names only (kubb-engine docs/NAMES.md).
+
+Generated (game 0.12.0, Kubb Engine 0.15; kubb-engine docs/NAMES.md): two words from the
+engine's lists (`core/namegen`, `core/namewords`): a player `<adjective> <wood>`
+("Mighty Maple"), a team `<adjective> <noun>`, `The <noun>` or `<wood> <noun>`, at most 16
+letters.
+
+Typed (the keyboard the game had before 0.12.0, Playdate's system keyboard): `core/names`'
+rules, which the roster and the lineup apply anyway: letters (either case, kept as
+typed), spaces, hyphens and apostrophes; no digits or other marks (dropped as typed);
+spaces tidied; at least one letter (an empty or all-space name is refused: A NAME NEEDS A
+LETTER). At most 10 letters (`scenes/names` `tune.typedMax`): the limit the game had before
+0.12.0, which every screen fits even in the widest letters (`names-fit`), while 16-letter
+names are only the generator's, whose widest is measured word by word. Two players with
+one game file id are refused as before (`roster.canName`: "Kim" and "kim" are one id: THAT
+NAME IS TAKEN); within a match the engine keeps the sheet's ids unique (`notation.fileIds`:
+initials, then more letters, `gr`, `gu`).
 
 - **The Names screen** (`scenes/names`, state in `source/device/namepick.lua`, pure and
   tested on the desktop, `test_namepick.lua`): the black panel says whose name it is, the
   name (display 32, else 16: the widest generated name is 189 px there), its game file id
-  and what comes next; on the right three rows, FIRST WORD, SECOND WORD and SHUFFLE. Up/down
-  choose a row; the crank (a word every 24 degrees, the raw direction, as the score sheet
-  scrolls) or left/right step that word to the next that makes a name, or on SHUFFLE roll a
-  new one. A team's first word runs through The, every adjective and every wood, so one row
-  reaches all three team shapes. A takes the name (a refused one stays, with THAT NAME IS
-  TAKEN), B goes back. It opens on the name being changed, or a rolled one. Self-tests
-  `names`, `players`, `teams`.
+  and what comes next; on the right four rows, FIRST WORD, SECOND WORD, SHUFFLE and TYPE A
+  NAME. Up/down choose a row; the crank (a word every 24 degrees, the raw direction, as the
+  score sheet scrolls) or left/right step that word to the next that makes a name, or on
+  SHUFFLE roll a new one. A team's first word runs through The, every adjective and every
+  wood, so one row reaches all three team shapes. A takes the name (a refused one stays,
+  with THAT NAME IS TAKEN), B goes back. On TYPE A NAME, A opens the keyboard (on the typed
+  name so far, else empty); its OK takes the typed name, as before 0.12.0, and its cancel
+  goes back. While a typed name is shown, the word rows are set aside (small type), SHUFFLE
+  reads BACK TO WORDS, and the crank or left/right on a word or on SHUFFLE go back to the
+  generated name. The screen opens on the name being changed: a generated name on the
+  generator, a typed one (now or from an older build) typed, on TYPE A NAME, so a rename of
+  a typed name edits its text; a new name opens on a rolled one. Self-tests `names`,
+  `players`, `teams`.
 - **16 letters.** `core/names` cuts a name at `names.max` (10) wherever the roster, the
   lineup and the load clean one; `device/enginetune` sets it to `namegen.max` (16) at launch.
   Self-test `names-fit` measures every generated name in the game's faces (widest: player
   140 px, team 148 px in the label face; 189 in display 16; about 380 in display 32) and
   checks each place's last fallback: the rail (146 px before the pips), TEAMS (cut, as
-  above), PLAYERS and the Names screen. The hand-off, pass and settle cards drop a name too
+  above), PLAYERS and the Names screen. The widest typed name, ten of the widest capitals
+  (`MMMMMMMMMM`, 119 px in the label face, 129 in display 16; also `WWWWWWWWWW`, `WWWW
+  WWWWW`, `W'WWW-WWWW`), fits the rail, PLAYERS, the Names screen, the cards and the winner
+  card whole; TEAMS cuts it as above. The hand-off, pass and settle cards drop a name too
   wide for display 32 to display 16 (`rcards` `bigName`), as the winner card did; the
   winner card's players, when cut, show a generated name's wood's first seven letters
   (`REDWOOD 22/29`) and a typed name's first six, as before; the score sheet's rail cuts
   two long team names to initials, then leaves its right side out.
-- **Kept names.** The owner decided (kubb-engine docs/NAMES.md 10.2, Jamie,
-  2026-11-21): "Saved players keep their typed names until someone renames them." A
-  player saved with a typed name on a build before 0.12.0 keeps it, shown as it is on every
-  screen, in matches and on their score sheets; the load never rewrites the roster. Only
-  a rename changes it, and a rename is the Names screen, so it gives a generated name
-  (nothing is typed anywhere). A kept team name likewise stays until renamed. New players,
-  guests and team names are generated. On the Playdate a name never leaves the device, so
-  there is nothing to protect by replacing one. (Build 12 replaced kept names at load;
-  build 13 does not, and the self-test `players` checks a 0.11.0 roster loads unchanged.)
+- **Kept names.** Saved players keep whatever name they have (kubb-engine docs/NAMES.md
+  10.2, Jamie, 2026-11-21: "Saved players keep their typed names until someone renames
+  them."), shown as it is on every screen, in matches and on their score sheets; the load
+  never rewrites the roster or the lineup. A rename is the Names screen, generated or
+  typed. (Build 12 replaced kept names at load; builds 13 and later do not, and the
+  self-test `players` checks a 0.11.0 roster loads unchanged.)
+- **The game file** has a typed name as typed, as before 0.12.0: `[Team A Players "oloF
+  (o), McKay (mc), Gus O'Dell (gu)"]` passes the notation gate (self-test `players` writes
+  such a file).

@@ -40,10 +40,10 @@ stands, the listing assets and the accessibility disclosure).
   `source/pdxinfo` for each one (a Playdate keeps the higher build), and the same pair in
   `source/device/version.lua` (`tw.version`). pdxinfo is the source of truth;
   `test_version.lua` fails when the two disagree, and `make release` runs it first. The
-  title shows the game's version with the Kubb Engine's in parentheses, `0.12.0 (0.15.1)`
+  title shows the game's version with the Kubb Engine's in parentheses, `0.12.1 (0.15.1)`
   (`tw.version.text`; the engine's from `source/engine/version.lua`). The build number is
   not in the label: it stays in pdxinfo and `tw.version.build`, and the bench logs print it
-  on its own as `build 13`.
+  on its own as `build 14`.
   The zip is published on files.thingelstad.com and linked from
   https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository). Each release so
   far: `docs/notes/releases.md`.
