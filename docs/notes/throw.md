@@ -199,12 +199,21 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
   with what it was worked out for (stance, circle, aim height, projectile, meter) and never
   per frame: with B held the circle and the stance cannot move, so a held slide down works
   it out once. `throw.knownFloor` reads it without solving (the ARC words).
-- **A drive kept under a new floor.** `plan.solve` raises a kept release under the floor
-  with the same bisection on every solve. While the d-pad moves the circle and the last
-  solve raised the kept drive, the scene waits (`aimInput`'s skip) and solves the frame the
-  circle is let go, once; so moving the circle away from a drive at its floor never costs
-  that bisection per frame. The engine could make it cheap ("What the engine could offer"
-  in performance.md).
+- **A drive kept under a new floor: one solve per settled change.** `plan.solve` raises
+  a kept release under the floor with the same bisection on every solve. The rule
+  (`aimInput`'s guard, `throw.keptDrive`): while the circle or the stance moves (the d-pad,
+  A + d-pad: the only inputs that change the plan frame after frame) a drive kept by B is
+  not solved at all; the frame the movement stops solves it once. Meanwhile the clock keeps
+  the last good plan's targets and the arc is drawn greyed (`s.planStale`), so it never
+  passes for the throw from where the player now stands. Every other change solves once
+  when it happens: a snap (`throw.aimAt`), the circle retargeting at rest after a kubb
+  falls, a switch of projectile, RESET, a launch with a dirty plan. The crank changes no
+  plan. A new throw of a match (`throw.prepare`, so also the computer's turn ending) starts
+  the arc afresh, so no release is kept under a floor across throws. The `drive-solves`
+  self-test counts the scene's solves frame by frame through all of these. Codex on #163
+  found the walk missing from the first version of this guard. When the engine's floor is
+  cheap (its next release), the guard and `s.planStale` can go, leaving the half-rate skip
+  of "The aim at a short throw".
 - **B + up/down** (`throw.stepArc`, the session's `stepArc` with the Playdate's tick): `f =
   throw.arcFloor(s)`, then `max(f, plan.clampRelease(max(s.sol.release, f) + ticks *
   arcTickDeg, projectile))`. It steps from the release as planned (the default, or a kept

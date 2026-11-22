@@ -459,9 +459,17 @@ local function replan(s)
 	end
 	local sol = plan.solve(q, s.sol)
 	s.swivel, s.loftDeg = sol.swivel, sol.loft
-	s.planLevel, s.planDirty, s.planSkipped = q.meter or q.level, false, false
+	s.planLevel, s.planDirty, s.planSkipped, s.planStale = q.meter or q.level, false, false, false
+	throw.solves = (throw.solves or 0) + 1   -- (self-tests count the scene's solves)
 end
 throw.replan = replan
+
+-- A release B has set under the knee (a drive), which the floor can raise
+-- (aimInput's guard: such a plan is never solved per frame while the circle or the
+-- stance moves).
+function throw.keptDrive(s)
+	return s.arcSet and s.projectile ~= "kubb" and s.release < plan.tune.driveKneeDeg
+end
 
 -- The lowest release this throw can be planned at (engine 0.16, plan.arcFloor: the
 -- drive's floor for the stance, the circle and the aim height; a kubb's the knee).
@@ -903,7 +911,7 @@ local function aimInput(s, dt)
 	s.planHeld = holdB
 	if not holdB then s.arcHeld, s.sideHeld = nil, nil end
 	local sw = s.swing
-	local moving = false
+	local moving, walking = false, false
 	if holdB then
 		-- the plan: up/down move the release, left/right tilt a baton's spin
 		-- plane or spin a kubb, any value in range (core 0.9): a tap moves one
@@ -933,7 +941,7 @@ local function aimInput(s, dt)
 		if dy ~= 0 then
 			s.playerY = max(s.lineY - t.backMax, min(forwardLimit(s), s.playerY + dy * t.walkSpeed * dt))
 		end
-		if dx ~= 0 or dy ~= 0 then s.stanceSet, s.planDirty = true, true end
+		if dx ~= 0 or dy ~= 0 then s.stanceSet, s.planDirty, walking = true, true, true end
 	elseif (dx ~= 0 or dy ~= 0) and not s.markerFixed then
 		-- the d-pad alone: the target circle, across and along, faster the
 		-- longer it is held (not a drill's fixed marker)
@@ -961,13 +969,19 @@ local function aimInput(s, dt)
 			local ddx, ddy, r = s.markerX - s.playerX, s.markerY - s.playerY, t.halfRateM
 			skip = ddx * ddx + ddy * ddy < r * r
 		end
-		-- a drive kept by B under the throw's floor (engine 0.16): plan.solve raises it
-		-- with a bisection, about 150 ms on the device from 2 m out, so while the circle
-		-- moves it waits, and the frame the circle is let go solves it (docs/notes/throw.md
-		-- "The drive")
-		if moving and s.planLevel == by and s.arcSet and s.projectile ~= "kubb"
-			and s.release < plan.tune.driveKneeDeg and s.sol.release and s.sol.release > s.release + 1e-6 then
+		-- A drive kept by B (throw.keptDrive) may sit under the floor of the throw as it
+		-- now is, and plan.solve then raises it with a 24-step bisection: about 150 ms
+		-- on the device from 2 m out. So while the circle or the stance moves (the d-pad,
+		-- A + d-pad: the only inputs that change the plan frame after frame) it is not
+		-- solved at all; the frame the movement stops solves it once. Meanwhile the
+		-- clock keeps the last good plan's targets and the arc is drawn greyed
+		-- (s.planStale). Every other change (a snap, a retarget, a new throw, a switch
+		-- of projectile, a reset, a launch) solves once when it happens. When the
+		-- engine's floor is cheap (its next release), this guard and s.planStale can
+		-- go, leaving only the half-rate skip above. docs/notes/throw.md "The drive".
+		if (moving or walking) and s.planLevel == by and throw.keptDrive(s) then
 			skip = true
+			s.planStale = true
 		end
 		if skip then s.planSkipped = true else replan(s) end
 	end
@@ -1801,6 +1815,9 @@ drawArc = function(s, c)
 	local g = flight.tune.g
 	local n = t.arcPoints
 	gfx.setColor(gfx.kColorBlack)
+	-- a plan waiting for the movement to stop (s.planStale, a kept drive): the last
+	-- good plan's arc, greyed, so it does not pass for the throw from here
+	if s.planStale then gfx.setDitherPattern(0.5, gfx.image.kDitherTypeBayer2x2) end
 	gfx.setLineWidth(t.arcWidth)
 	local px, py = nil, nil
 	for i = t.arcSkip, n do
@@ -1810,6 +1827,7 @@ drawArc = function(s, c)
 		px, py = sx, sy
 	end
 	gfx.setLineWidth(1)
+	gfx.setColor(gfx.kColorBlack)
 end
 
 -- (self-tests) the aim camera for this frame, then where the target circle
