@@ -1,9 +1,14 @@
+[Notation "2"]
 [Event "Throwing Wood"]
 [Location "Playdate"]
 [Start "2026-12-03 01:01"]
 [End "2026-12-03 01:12"]
 [Duration "11m"]
 [Surface "Grass"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+[Base kubbs "5"]
+[Batons "6"]
+[Opening "2-4-6"]
 [Team A "Snow Kubbs"]
 [Team A Players "Alex (alex), Kim (kim), Max (max)"]
 [Team B "Baton Rouge"]
@@ -12,8 +17,7 @@
 [Win "Team A"]
 [Scored by "Throwing Wood 0.0.1"]
 [Mode "Pass and Play"]
-[Rules "U.S. Championship 4.0, 2-4-6"]
 
 1. alex:B kim:B
 2. sam:2I sam:- sam:- sam:- sam:-
-3. 1A alex:B kim:B max:- alex:B kim:= max:K
+3. A alex:B kim:B max:- alex:B kim:= max:K

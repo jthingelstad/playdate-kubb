@@ -1,3 +1,4 @@
+[Notation "2"]
 [Event "Throwing Wood"]
 [Team A "Jamie"]
 [Team A Players "Jamie (j)"]

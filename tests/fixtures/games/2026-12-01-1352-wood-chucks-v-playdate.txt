@@ -1,9 +1,14 @@
+[Notation "2"]
 [Event "Throwing Wood"]
 [Location "Playdate"]
 [Start "2026-12-01 13:52"]
 [End "2026-12-01 14:01"]
 [Duration "9m"]
 [Surface "Sand"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+[Base kubbs "5"]
+[Batons "6"]
+[Opening "2-4-6"]
 [Team A "Wood Chucks"]
 [Team A Players "Lee (lee)"]
 [Team B "Playdate"]
@@ -12,7 +17,6 @@
 [Win "Team B"]
 [Scored by "Throwing Wood 0.0.1"]
 [Mode "Pass and Play"]
-[Rules "U.S. Championship 4.0, 2-4-6"]
 
 1. club:B club:-
 2. lee:IE X X X X # king toppled by a thrown kubb

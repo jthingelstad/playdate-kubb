@@ -1,9 +1,14 @@
+[Notation "2"]
 [Event "Throwing Wood"]
 [Location "Playdate"]
 [Start "2026-11-24 07:58"]
 [End "2026-11-24 08:09"]
 [Duration "11m"]
 [Surface "Grass"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+[Base kubbs "5"]
+[Batons "6"]
+[Opening "2-4-6"]
 [Team A "Backyard"]
 [Team A Players "Backyard (backyard)"]
 [Team B "Jamie"]
@@ -12,8 +17,7 @@
 [Win "Team A"]
 [Scored by "Throwing Wood 0.0.1"]
 [Mode "Pass and Play"]
-[Rules "U.S. Championship 4.0, 2-4-6"]
 
 1. backyard:B backyard:B
 2. jamie:2I jamie:- jamie:- jamie:- jamie:F
-3. backyard:IRP 2A backyard:F backyard:B backyard:B backyard:B backyard:K X
+3. backyard:IRP A backyard:F backyard:B backyard:B backyard:B backyard:K X

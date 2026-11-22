@@ -33,9 +33,14 @@ function sheet.new(provider, lines, title, right, atEnd)
 end
 
 -- The game file's text as lines (a trailing newline makes no empty last line).
+-- Position lines (Planet Kubb Notation 2's `@a`, `*b` and the rest, engine 0.13.1)
+-- are left out, as the games list's gamefile.parse leaves them: the file keeps
+-- them, and on screen one would be a blank line (gamefile.shown).
 function sheet.split(text)
 	local out = {}
-	for line in (text .. "\n"):gmatch("(.-)\n") do out[#out + 1] = line end
+	for line in (text .. "\n"):gmatch("(.-)\n") do
+		if not tw.gamefile.isPosition(line) then out[#out + 1] = line end
+	end
 	if out[#out] == "" then out[#out] = nil end
 	return out
 end

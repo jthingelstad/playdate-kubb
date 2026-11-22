@@ -1,0 +1,30 @@
+[Event "Throwing Wood"]
+[Location "Playdate"]
+[Start "2026-11-29 23:01"]
+[End "2026-11-29 23:34"]
+[Duration "33m"]
+[Surface "Sand"]
+[Team A "Jamie"]
+[Team A Players "Jamie (jamie)"]
+[Team B "Backyard"]
+[Team B Players "Backyard (backyard)"]
+[First "Team A"]
+[Win "Team B"]
+[Scored by "Throwing Wood 0.0.1"]
+[Mode "Pass and Play"]
+[Rules "U.S. Championship 4.0, 2-4-6"]
+
+1. jamie:- jamie:B
+2. backyard:I backyard:- backyard:- backyard:- backyard:F
+3. jamie:I jamie:- jamie:F jamie:- jamie:- jamie:- jamie:-
+4. backyard:I backyard:- backyard:- backyard:FB backyard:- backyard:- backyard:-
+5. jamie:2I jamie:F jamie:F jamie:Z jamie:- jamie:- jamie:-
+6. backyard:2I backyard:F backyard:F backyard:- backyard:B backyard:- backyard:-
+7. jamie:3I jamie:F jamie:- jamie:F jamie:F jamie:B jamie:Z
+8. backyard:4I backyard:F backyard:F backyard:- backyard:F backyard:F backyard:-
+9. jamie:4I jamie:- jamie:- jamie:Z jamie:- jamie:- jamie:-
+10. 3A backyard:B backyard:B backyard:B backyard:= backyard:= backyard:=
+11. jamie:3I jamie:- jamie:F jamie:F jamie:F jamie:F jamie:-
+12. backyard:4I 3A backyard:F backyard:- backyard:- backyard:F backyard:Z backyard:F # b5 hit a field kubb in the thrower's own half; all put back (II.B.11)
+13. jamie:3I 2A jamie:- jamie:- jamie:- jamie:- jamie:F jamie:F
+14. backyard:2I 3A backyard:- backyard:- backyard:F backyard:F backyard:F backyard:K
