@@ -34,6 +34,10 @@ rhowto.tune = {
 -- Playdate's own line under the first step's two (core/howto is the engine's
 -- and has no crank menu), while that step is to be done.
 rhowto.flipLine = "CRANK FEELS BACKWARD? MENU, PITCH: CRANK FLIPS IT."
+-- The drive (engine 0.16): the Playdate's own third line under the plan step's two
+-- once it is done (core/howto is the engine's), naming the part of ARC under the
+-- knee as the web does.
+rhowto.driveLine = "UNDER HALF PAST 5 IS THE DRIVE: LOW AND HARD."
 
 local img, imgH, imgRev = nil, nil, nil
 
@@ -41,6 +45,7 @@ local function render(h)
 	local t = rhowto.tune
 	local title, a, b, c, foot = howto.lines(h)
 	if not c and h.phase == "do" and howto.STEPS[h.step].id == "clock" then c = rhowto.flipLine end
+	if not c and h.phase == "after" and howto.STEPS[h.step].id == "plan" then c = rhowto.driveLine end
 	local big, label = ui.display(16), ui.label()
 	gfx.setColor(gfx.kColorBlack)
 	gfx.fillRect(0, 0, 400, t.h + t.shadow)
@@ -119,6 +124,7 @@ function rhowto.widest()
 		if st.held and label:getTextWidth(st.held) > w then w = label:getTextWidth(st.held) end
 	end
 	if label:getTextWidth(rhowto.flipLine) > w then w = label:getTextWidth(rhowto.flipLine) end
+	if label:getTextWidth(rhowto.driveLine) > w then w = label:getTextWidth(rhowto.driveLine) end
 	local v = label:getTextWidth("THAT ONE: SHORT  HIGH  STEADY")
 	if v > w then w = v end
 	return w

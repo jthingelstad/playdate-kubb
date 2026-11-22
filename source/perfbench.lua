@@ -11,8 +11,9 @@
 -- playback paces the shown physics by real frame time, so frame counts move
 -- a little from run to run).
 --
---   throws   a baton into a close cluster of six field kubbs from 5 m and
---            from a step away (1 m: the short throw), a full 8 m baton at a
+--   throws   a baton into a close cluster of six field kubbs from 5 m, from a
+--            step away (1 m: the short throw) and from 1.5 m (engine 0.16: the
+--            default there is the drive), a full 8 m baton at a
 --            base kubb, and a drilled kubb thrown in among the field and
 --            settling (core/bench's match setup). Each is the plan's clean
 --            throw played through the throw scene as in a match. Per throw:
@@ -52,6 +53,13 @@
 --            Kid match's own setups, and raising.fairSpot (where a kubb out twice
 --            is stood) with eight kubbs lying in the half; Kid also joins the
 --            per-level rows above.
+--   drive    (engine 0.16, docs/notes/throw.md "The drive") plan.solve for a drive at
+--            the throw's floor at 1.5 and 3 m (the bisection) and plan.arcFloor at 1.5
+--            and 3 m, in ms; then the aim at a kubb 1.5 m in front of an advantage
+--            line through the scene's own update: 30 frames with nothing pressed, 30
+--            with B held (the frame B goes down works out the floor), 30 with B held
+--            and down tapped to the floor and back: update and draw (mean, max) and
+--            how many plan.solve calls each part made (nothing pressed: none).
 --   start    a new VS PLAYDATE match (the scene made, its first frame drawn)
 --            and a resume (a saved match read from the datastore, unpacked
 --            and its scene made), in ms. The save is the check's own key
@@ -169,6 +177,9 @@ perf.throws = {
 		action = function(s) return cleanBaton(s, 1.0, 5.0, 1.0, 0) end },
 	{ name = "cluster 1m", setup = function() return clusterSetup(4.0) end,
 		action = function(s) return cleanBaton(s, 1.0, 5.0, 1.0, 4.0) end },
+	-- (engine 0.16) the default at a cluster 1.5 m from an advantage line: the drive
+	{ name = "drive 1.5m", setup = function() return clusterSetup(3.5) end,
+		action = function(s) return cleanBaton(s, 1.0, 5.0, 1.0, 3.5) end },
 	{ name = "8m base", setup = baseSetup,
 		action = function(s) return cleanBaton(s, 0, 8, 0, 0) end },
 	{ name = "drill", setup = function() return tw.bench.matchSetup("kubb") end,
@@ -734,6 +745,79 @@ local function startLines(y)
 	return lines
 end
 
+-- The drive (engine 0.16): what a plan under the knee costs. A drive's plan.solve at
+-- the floor bisects (24 carries) and plan.arcFloor is one more solve; the scene
+-- works the floor out only when ARC is stepped or B goes down (throw.arcFloor) and
+-- solves only on a frame where something it reads changed, so with nothing
+-- pressed an aim frame at a close kubb solves nothing.
+local function driveLines(y)
+	local lines = { string.format("drive (ms, %d each; the aim parts through the scene's update):", perf.tune.solveReps) }
+	local parts = {}
+	local out = {}
+	local kubbZ = plan.aimZFor("kubb")
+	for _, d in ipairs { 1.5, 3.0 } do
+		local q = { projectile = "baton", px = 0, py = 0, tx = 0, ty = d, release = 0, meter = plan.meter(),
+			surface = "grass", spin = 0, aimZ = kubbZ }
+		local t0 = clock()
+		for _ = 1, perf.tune.solveReps do plan.solve(q, out) end
+		local tSolve = (clock() - t0) * 1000 / perf.tune.solveReps
+		y()
+		t0 = clock()
+		local f
+		for _ = 1, perf.tune.solveReps do f = plan.arcFloor(q) end
+		local tFloor = (clock() - t0) * 1000 / perf.tune.solveReps
+		parts[#parts + 1] = string.format("%gm solve at the floor (%.1f) %.2f, arcFloor %.2f", d, f, tSolve, tFloor)
+		y()
+	end
+	lines[#lines + 1] = "  " .. table.concat(parts, "; ")
+	-- the aim at a kubb 1.5 m from the advantage line 3.5 m up
+	local solve = plan.solve
+	local count = 0
+	plan.solve = function(q, o) count = count + 1; return solve(q, o) end
+	local ok, err = pcall(function()
+		local B = { "b" }
+		local n = perf.tune.aimFrames
+		local steps = { { n = 1 }, { n = n }, { n = n, hold = B } }
+		local tapPart = {}
+		for i = 1, n do
+			-- down five times (to the floor and past it), then up twice
+			local key = (i % 3 == 1) and ((i <= 15) and "down" or (i <= 21 and "up" or nil)) or nil
+			tapPart[i] = key and { hold = B, press = { key } } or { hold = B }
+		end
+		for i = 1, n do steps[#steps + 1] = tapPart[i] end
+		local s = throw.new(tw.input.scripted(steps, 1 / 50))
+		throw.enter()
+		throw.prepare(s, clusterSetup(3.5))
+		throw.setStance(s, 1.0, 3.5)
+		throw.aimAt(s, 1.0, 5.0)
+		throw.update(s)
+		throw.draw(s)
+		y()
+		for _, label in ipairs { "nothing pressed", "B held", "B held, down and up" } do
+			count = 0
+			local floors = throw.floorSolves or 0
+			local upS, upM, drS, drM = 0, 0, 0, 0
+			for _ = 1, n do
+				local t0 = clock()
+				throw.update(s)
+				local t1 = clock()
+				throw.draw(s)
+				local t2 = clock()
+				upS, drS = upS + (t1 - t0), drS + (t2 - t1)
+				if t1 - t0 > upM then upM = t1 - t0 end
+				if t2 - t1 > drM then drM = t2 - t1 end
+				y()
+			end
+			lines[#lines + 1] = string.format("  aim 1.5m %-20s %d frames: update %.2f ms (max %.2f), draw %.1f ms (max %.1f), plan.solve calls %d (floor %d), release %.1f",
+				label, n, upS * 1000 / n, upM * 1000, drS * 1000 / n, drM * 1000, count, (throw.floorSolves or 0) - floors,
+				s.sol.release)
+		end
+	end)
+	plan.solve = solve
+	if not ok then lines[#lines + 1] = "  drive aim error: " .. tostring(err) end
+	return lines
+end
+
 local function body()
 	local y = coroutine.yield
 	local t = playdate.getTime()
@@ -756,6 +840,8 @@ local function body()
 	out(aimLines(y))
 	y()
 	out(dpadLines(y))
+	y()
+	out(driveLines(y))
 	y()
 	out(throwLines(y))
 	y()

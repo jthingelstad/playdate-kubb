@@ -175,7 +175,14 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   drill's; its note counts the aim frames' graphics calls, camera still and moving), `plan-ticks` (B + the d-pad: a tap is one tick of arc, tilt or
   spin, held it slides a tick a frame to the end of the range; frames: the plan view after
   the slide, SPIN R 0.25; a kubb's spin kept for the side's next kubb in the inkast turn), `clock-gauge` (the clock's states drawn alone, cache on and
-  off), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
+  off; since engine 0.16 also a drive's targets with the knee's notch, DRIVE -5° and
+  DRIVE -15° and a single-digit ARC 5° with their words), `drive` (engine 0.16, "The drive"
+  in throw.md: the default at a kubb 1.5 m from an advantage line, 4 m and 8 m away; B +
+  down to the throw's floor and no lower, a tap up from it moving the throw at once, up past
+  the knee to ARC again, the floor at 8 m the knee and a drilled kubb's too, the ARC words
+  at each; the side view's arc falling from the hand to the kubb's face; the default drive
+  thrown on the plan's clean swing: no end over end turn, the kubb down. Frames: ARC at 1.5
+  m, the side view at the floor, ARC at 4 m, ARC at 8 m, a drive in flight, at rest), `howto` (HOW TO THROW: every step done, 17 frames; "HOW TO THROW" below),
   `howto-play` (HOW TO PLAY's six cards and the hand-off into HOW TO THROW: "HOW TO
   PLAY" below).
 - Match scenarios use `tw.selftest.matchScenario{ opts, step, maxFrames, refreshRate }`

@@ -463,6 +463,82 @@ local function replan(s)
 end
 throw.replan = replan
 
+-- The lowest release this throw can be planned at (engine 0.16, plan.arcFloor: the
+-- drive's floor for the stance, the circle and the aim height; a kubb's the knee).
+-- Under the knee it costs a solve with a 24-step bisection: about 0.5 ms in desktop
+-- Lua from 2 m out, so roughly 150 ms on the device. It is worked out only when B +
+-- down steps ARC, and kept with what it was worked out for (the stance, the circle,
+-- the aim height, the projectile, the meter) until one of them changes: never per
+-- frame, and with B held the circle and the stance cannot move, so a held slide down
+-- works it out once. docs/notes/throw.md "The drive".
+local function floorKnown(s)
+	local q, k = s.planQ, s.floorKey
+	return k.ok and k.px == q.px and k.py == q.py and k.tx == q.tx and k.ty == q.ty and k.aimZ == q.aimZ
+		and k.projectile == q.projectile and k.meter == (q.meter or q.level)
+end
+function throw.arcFloor(s)
+	if s.planDirty then replan(s) end
+	local q, k = s.planQ, s.floorKey
+	if not floorKnown(s) then
+		k.px, k.py, k.tx, k.ty, k.aimZ, k.projectile, k.meter = q.px, q.py, q.tx, q.ty, q.aimZ, q.projectile,
+			q.meter or q.level
+		k.floor, k.ok = plan.arcFloor(q), true
+		throw.floorSolves = (throw.floorSolves or 0) + 1   -- (self-tests and the perf check count them)
+	end
+	return k.floor
+end
+-- The floor if it is already known for the plan as it stands, else nil (no solve).
+function throw.knownFloor(s)
+	if s.projectile == "kubb" then return plan.tune.driveKneeDeg end
+	if not s.planDirty and floorKnown(s) then return s.floorKey.floor end
+	return nil
+end
+
+-- B + up/down (engine 0.16, kubb-engine docs/CLIENTS.md "0.16 on top"): the release a
+-- tick at a time from the release as it is planned (s.sol.release: the default, or the
+-- kept release raised to the floor), never under the throw's floor, so a press at the
+-- floor and back moves the throw at once (the session's stepArc). Up never needs the
+-- floor (the planned release is on or over it already); down works it out.
+function throw.stepArc(s, ticks)
+	if s.planDirty then replan(s) end
+	local from = s.sol.release or s.release
+	local f = (ticks < 0) and throw.arcFloor(s) or nil
+	if f and from < f then from = f end
+	local r = plan.clampRelease(from + ticks * plan.tune.arcTickDeg, s.projectile)
+	if f and r < f then r = f end
+	s.release = r
+	s.arcSet, s.planDirty = true, true
+end
+
+-- What ARC does, on the control while B is held (engine 0.16; the game's woodcut
+-- voice, one line in the hint over the prompt): from the knee up a lower arc is a
+-- flatter, harder throw; under it the drive; at the throw's floor, that it goes no
+-- lower from here. A drilled kubb has no drive (its floor is the knee). Constant
+-- strings: nothing is made per frame.
+throw.ARC_WORDS = {
+	lower = "DOWN: LOWER AND HARDER",
+	drive = "DRIVE: LOW, HARD, NO FLIP",
+	floor = "NO LOWER FROM HERE",
+	kubb = "DOWN: LOWER, IT RUNS ON",
+	kubbFloor = "A KUBB GOES NO LOWER",
+}
+function throw.arcWords(s, drive)
+	local W = throw.ARC_WORDS
+	local rel = s.sol.release or s.release
+	-- on the floor: a known floor reached, or a kept release the plan raised to it
+	local f = throw.knownFloor(s)
+	local atFloor = (f and rel <= f + 0.01) or (s.arcSet and rel > s.release + 0.01)
+	if s.projectile == "kubb" then return atFloor and W.kubbFloor or W.kubb end
+	if atFloor then return W.floor end
+	return drive and W.drive or W.lower
+end
+
+-- The plan as it stands is a drive: a baton planned under the knee (half past 5,
+-- plan.tune.driveKneeDeg), thrown flat or down and hard, with no end over end turn.
+function throw.isDrive(s)
+	return s.projectile ~= "kubb" and (s.sol.release or s.release) < plan.tune.driveKneeDeg
+end
+
 -- The circle has been let go at (markerX, markerY): the arc's kind is the
 -- nearest target's, and (snap) it snaps onto a standing target within
 -- snapRadius (plan.snap over s.snaps). Nothing in play snaps any more (Tyler's
@@ -604,6 +680,7 @@ function throw.new(provider)
 		release = plan.arcFor("baton"), arcSet = false, -- the planned release (clock degrees)
 		tilt = 0, spin = 0,      -- B + left/right: a baton's tilt (degrees), a kubb's spin (taps)
 		sol = {}, planQ = {}, stanceOut = {}, planDirty = true,
+		floorKey = {},           -- throw.arcFloor's kept floor and what it was worked out for
 		planLevel = nil,         -- what s.sol was solved on: the meter or the level (throw.planBy)
 		planSkipped = false,     -- the moving circle's last frame went without a solve (aimInput)
 		launchOut = {}, launchOpts = {}, -- plan.launch's (reused)
@@ -786,7 +863,8 @@ function throw.setStance(s, x, y)
 	aimCamera(s)
 end
 function throw.setArc(s, releaseDeg)
-	s.release, s.arcSet = plan.clampRelease(releaseDeg), true
+	-- under the floor the plan is solved at the floor (plan.solve, engine 0.16)
+	s.release, s.arcSet = plan.clampRelease(releaseDeg, s.projectile), true
 	replan(s)
 	aimCamera(s)
 end
@@ -833,10 +911,9 @@ local function aimInput(s, dt)
 		-- throw.tune.tickHold it slides a tick a frame
 		local pt = plan.tune
 		local v = planTicks(s, "arcHeld", (p:held("up") and 1 or 0) - (p:held("down") and 1 or 0), dt)
-		if v ~= 0 then
-			s.release = plan.clampRelease(s.release + v * pt.arcTickDeg)
-			s.arcSet, s.planDirty = true, true
-		end
+		-- from engine 0.16 down to the throw's floor (the drive): stepped from the
+		-- release as planned (throw.stepArc)
+		if v ~= 0 then throw.stepArc(s, v) end
 		local side = planTicks(s, "sideHeld", dx, dt)
 		if side ~= 0 then
 			if s.projectile == "kubb" then
@@ -883,6 +960,14 @@ local function aimInput(s, dt)
 		if moving and not s.planSkipped and s.planLevel == by then
 			local ddx, ddy, r = s.markerX - s.playerX, s.markerY - s.playerY, t.halfRateM
 			skip = ddx * ddx + ddy * ddy < r * r
+		end
+		-- a drive kept by B under the throw's floor (engine 0.16): plan.solve raises it
+		-- with a bisection, about 150 ms on the device from 2 m out, so while the circle
+		-- moves it waits, and the frame the circle is let go solves it (docs/notes/throw.md
+		-- "The drive")
+		if moving and s.planLevel == by and s.arcSet and s.projectile ~= "kubb"
+			and s.release < plan.tune.driveKneeDeg and s.sol.release and s.sol.release > s.release + 1e-6 then
+			skip = true
 		end
 		if skip then s.planSkipped = true else replan(s) end
 	end
@@ -1663,6 +1748,10 @@ local function arcOrigin(s)
 	return s.playerX + f * math.sin(sw), s.playerY + f * math.cos(sw), h
 end
 
+-- (self-tests) the planned arc's start and launch: a drive's leaves the hand going
+-- down (engine 0.16)
+throw.arcLaunch, throw.arcOrigin = arcLaunch, arcOrigin
+
 -- The arc shows for a baton and a drilled kubb (not the Playdate's lobbed
 -- kubb tosses, which have no plan).
 local function arcShown(s)
@@ -1920,8 +2009,16 @@ function throw.drawFrame(s)
 			if pv == 0 and s.restText then hud.cutFlag(s.restText) end
 		end
 		if s.showReadout and s.readout and idle then hud.readout(s.readout) end
+		s.arcWords = nil
+		if s.planHeld and s.mode == "aim" then
+			-- ARC with B held (engine 0.16): the planned launch angle, DRIVE under
+			-- the knee, and in the hint what a lower arc does
+			local drive = throw.isDrive(s)
+			hud.arcChip(s.sol.loft or 0, drive)
+			s.arcWords = throw.arcWords(s, drive)    -- (self-tests read it)
+			hud.hint(s.arcWords)
 		-- the nudge (device/crank): turning forward again and again, never back
-		if sw.phase == "idle" and s.mode == "aim" and crank.nudgeShown(s.nudge, throw.tune) then
+		elseif sw.phase == "idle" and s.mode == "aim" and crank.nudgeShown(s.nudge, throw.tune) then
 			s.hintText = s.nudgeText    -- (self-tests read it)
 			hud.hint(s.nudgeText)
 		end

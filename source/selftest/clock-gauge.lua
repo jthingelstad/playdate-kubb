@@ -9,6 +9,11 @@
 --   5 a drill: a high release target (120..150), SPIN R 2 planned
 --   6 after a throw: the last peak and stop as hollow dots, SHORT / ON /
 --     SHAKY, TILT R 2.5 planned
+--   7 a drive at 1.5 m with B held (engine 0.16): the release target across 6
+--     o'clock and the knee's notch, the power target at 88..101, DRIVE -5° and the
+--     ARC words over the prompt
+--   8 the drive at its floor (DRIVE -15°, power 134..147 beside the hatch)
+--   9 a single-digit ARC 5° (4 m, from the knee up)
 -- Every state is also drawn with hud.tune.cache off and must give the same
 -- pixels as the cached layer's copy. The note gives the graphics calls of
 -- hud.clock alone (launched with this scenario, selftest/_drawcount counts
@@ -42,6 +47,12 @@ local STATES = {
 		prompt = "WIND BACK" }, plan = { "kubb", 2 } },
 	{ st = with { phase = "idle", crank = 96, lastBack = 104, lastStop = 96, prompt = "WIND BACK" },
 		verdicts = { -1, 0, false }, plan = { "baton", 2.5 } },
+	{ st = with { phase = "idle", crank = 0, powerLo = 88, powerHi = 101, releaseLo = -18, releaseHi = 30,
+		prompt = "WIND BACK" }, arc = { -4.6, true }, hint = "DRIVE: LOW, HARD, NO FLIP" },
+	{ st = with { phase = "idle", crank = 0, powerLo = 134, powerHi = 147, releaseLo = -24, releaseHi = 24,
+		prompt = "WIND BACK" }, arc = { -14.6, true }, hint = "NO LOWER FROM HERE" },
+	{ st = with { phase = "idle", crank = 0, powerLo = 125, powerHi = 136, releaseLo = -7, releaseHi = 35,
+		prompt = "WIND BACK" }, arc = { 4.9, false }, hint = "DOWN: LOWER AND HARDER" },
 }
 
 -- the HUD's region (everything this scenario draws is below y 150)
@@ -60,6 +71,8 @@ local function drawState(S)
 	hud.clock(S.st)
 	if S.plan then hud.planChip(S.plan[1], S.plan[2]) end
 	if S.verdicts then hud.verdicts(S.verdicts[1], S.verdicts[2], S.verdicts[3]) end
+	if S.hint then hud.hint(S.hint) end
+	if S.arc then hud.arcChip(S.arc[1], S.arc[2]) end
 end
 
 st.scenarios["clock-gauge"] = {
