@@ -3,7 +3,10 @@
 -- swing is the plan's, so the power, release and steadiness verdicts are
 -- ON ON STEADY; the nerves' seeded draw (from the swing and the plan, so the
 -- same every run) still moves the throw off the line, and the fourth cell
--- shows which way the throw went.
+-- shows which way the throw went: since engine 0.13 STRAIGHT, as the person's
+-- meter promises (its nerves are small, nervesDeg 0.12: a steady swing inside
+-- both bars never comes back PULLED; kubb-engine docs/notes/throw.md "The
+-- person's meter").
 -- Frames: 1 aiming, 2 at rest, 3 aiming again (the four verdicts).
 import "selftest/_throw"
 
@@ -24,8 +27,8 @@ st.scenarios["nerves"] = st.throwScenario {
 		if not l.sideDeg or l.sideDeg == 0 then return "no nerves on the throw: " .. tostring(l.sideDeg) end
 		-- the draw is seeded from the swing and the plan: the same every run. Engine 0.9's
 		-- lower aim (aimHeightShare 0.3) changed the plan, so the draw went from pulled
-		-- left (to 0.8) to pulled right
-		if s.vSide ~= 1 then return "want PULLED RIGHT, got sideV " .. tostring(s.vSide) end
+		-- left (to 0.8) to pulled right; engine 0.13's meter keeps it within STRAIGHT
+		if s.vSide ~= 0 then return "want STRAIGHT, got sideV " .. tostring(s.vSide) end
 		if s.vPower ~= 0 or s.vRelease ~= 0 or not s.vSteady then
 			return string.format("verdicts %s %s %s", tostring(s.vPower), tostring(s.vRelease), tostring(s.vSteady))
 		end

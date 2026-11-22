@@ -1,7 +1,10 @@
 -- Scenario "clock-plan": A walks and B plans (DESIGN 4). From the default
 -- aim at b3: A + right walks about 1 m along the line (the clock's power
 -- target moves with the distance, the swivel turns to face b3), B + up twice
--- moves the planned release two ticks up from 3 o'clock, B + right tilts the
+-- moves the planned release two ticks up from the default arc for the distance
+-- (engine 0.10: plan.arcFor by the stance's distance to the circle, about 4
+-- o'clock at 8 m), and the release target is the person's meter's for that
+-- distance (engine 0.13, not a level's), B + right tilts the
 -- baton a tick (TILT R 1); then the pitch turns to drilling and B + right
 -- twice spins the kubb two ticks (SPIN R 0.5), B + down once lowers its arc a
 -- tick (plan.tune arcTickDeg, tiltTickDeg, spinTick: engine 0.9). The d-pad alone then
@@ -41,11 +44,16 @@ st.scenarios["clock-plan"] = st.throwScenario {
 	shots = {
 		function(s, f) return f == 2 end,
 		function(s, f)
-			if f == 47 then seen.walkX, seen.walkLo, seen.walkSw = s.playerX, s.sol.powerLo, s.swivel; return true end
+			if f == 47 then
+				seen.walkX, seen.walkLo, seen.walkSw = s.playerX, s.sol.powerLo, s.swivel
+				local dx, dy = s.markerX - s.playerX, s.markerY - s.playerY
+				seen.arc0, seen.arcWant = s.release, tw.plan.arcFor("baton", math.sqrt(dx * dx + dy * dy))
+				return true
+			end
 		end,
 		function(s, f)
 			if f == 63 then
-				seen.release, seen.tilt, seen.relLo = s.release, s.tilt, s.sol.releaseLo
+				seen.release, seen.tilt, seen.relLo, seen.dist = s.release, s.tilt, s.sol.releaseLo, s.sol.dist
 				throw.setDrill(s, true)
 				return true
 			end
@@ -78,9 +86,12 @@ st.scenarios["clock-plan"] = st.throwScenario {
 		if seen.walkLo == first.powerLo then return "the power target did not move with the stance" end
 		if not (seen.walkSw < -0.05) then return string.format("swivel %.3f: not facing b3", seen.walkSw) end
 		local pt = tw.plan.tune
-		local rel = tw.plan.arcFor("base") + 2 * pt.arcTickDeg
+		if seen.arc0 ~= seen.arcWant then return "default arc " .. tostring(seen.arc0) .. ", for the distance " .. tostring(seen.arcWant) end
+		local rel = seen.arc0 + 2 * pt.arcTickDeg
 		if seen.release ~= rel then return "release " .. tostring(seen.release) end
-		if seen.relLo ~= rel - tw.plan.levels.club.releaseHalf then return "release target " .. tostring(seen.relLo) end
+		local half = tw.plan.meterLevel(tw.plan.meter(), seen.dist, "baton").releaseHalf
+		if math.abs(seen.relLo - (rel - half)) > 1e-9 then return "release target " .. tostring(seen.relLo) end
+		if half == tw.plan.levels.club.releaseHalf then return "the release target is club's, not the meter's" end
 		if seen.tilt ~= pt.tiltTickDeg then return "tilt " .. tostring(seen.tilt) end
 		if seen.spin ~= 2 * pt.spinTick then return "spin " .. tostring(seen.spin) end
 		if seen.drillRel ~= tw.plan.arcFor("drill") - pt.arcTickDeg then return "the drill's arc " .. tostring(seen.drillRel) end
