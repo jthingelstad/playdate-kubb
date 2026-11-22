@@ -183,6 +183,30 @@ earlier builds). An earlier, untuned run's first match had one 987 ms frame wher
 ended (rest to aim: a settle); the tuned run's three matches had none over 393, and no
 standard match's settle path changed between the engines.
 
+### Engine 0.16: the drive
+
+Kubb Engine 0.15.1 to 0.16.0 (2026-11-22, game 0.12.1 build 14 against 0.13.0 build 15).
+The check gained a **drive** section (a drive's `plan.solve` at the floor and
+`plan.arcFloor` at 1.5 and 3 m, then the aim at a kubb 1.5 m from an advantage line
+through the scene's update: nothing pressed, B held, B held with down tapped to the floor
+and back, with the `plan.solve` calls each part made) and a **drive 1.5m** throw (the
+default at a cluster 1.5 m from an advantage line). In the Simulator (the Mac, not the
+device; for the shape only): nothing pressed makes no solve; B held makes none (the floor is
+not worked out until B + down); down to the floor and back makes one floor solve and one
+plan solve a step. The floor at 1.5 m costs 0.60 ms there and at 3 m 4.8 ms (the bisection:
+every step a `speedForCarry`), against 0.17 for a default plan; in desktop Lua 0.06 and
+0.52 ms against 0.02. By the ratio of `plan.solve` at 1 m (22.5 ms on the device, 0.08 in
+desktop Lua) the floor from 2 m out is about 150 ms on the device: once when B + down first
+steps ARC at a throw (a still frame with the camera out), and the scene never pays it per
+frame (docs/notes/throw.md "The drive": the floor is kept, and a kept drive raised to a new
+floor waits while the circle moves).
+
+What the engine could offer for the Playdate: a floor that does not cost 24 carries (the
+floor is where the planned speed reaches `speedFor(driveBackMaxDeg)` or the line stops
+being one the hand can make: a closed form for the drag-free carry, then a few secant
+steps, or a regula falsi from the knee), so that `plan.arcFloor` and a plan raised to the
+floor cost what a default plan does.
+
 The soak (`source/soak.lua`) is QA, not a benchmark: an empty file named `soak` in the same
 Data folder runs `soak.tune.matches` (3) whole scripted matches once at launch (after any
 autobench; since 0.12.0 the third, `soak.tune.kid`, a Kid match against the Kid computer), at a player's real pace through `scenes/match` (playback, slow motion, camera,

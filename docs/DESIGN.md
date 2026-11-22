@@ -121,7 +121,7 @@ to throw, modelled on how a real player throws, the same for batons and drilled 
 |---|---|
 | D-pad | **Target.** Move a 0.5 m circle over the far half (a little past it: 3 m either side, 3.5 to 8.6 m out). For a baton it is where the throw goes: a clean throw comes down on its center, and with the circle on a standing kubb or the king its center goes through that piece at half the piece's height, so it meets the face instead of landing at the foot, bouncing and going over (a play test, 2026-11-16: "all of them went clean over the field kubb"); for a kubb, where it should come to rest. It starts on the nearest live target (standing field kubbs, else base kubbs, else the king), and stays wherever the d-pad leaves it: it never locks onto a kubb, so a player can aim off one to allow for the wind (Tyler's play test, 2026-11-15: the lock made 8 m too easy). A circle moved by hand stays put for the next throw. |
 | Hold A + d-pad | **Position.** Walk: left/right along the throwing line, down to step back (up to 3 m), up to come forward as far as the line allows (the advantage line in a match; king shots and kubbs from the baseline). The player always faces the target: the swivel is worked out, never set. Until A is used the player stands straight behind the target, as far forward as allowed (clamped inside the line's ends). |
-| Hold B + d-pad up/down | **Plan the arc.** Moves the release target on the gauge's forward side to any point in its range (Kubb Engine 0.9; Jamie, 2026-11-20: "allow the slider to select any value in a range"): a tap moves it one tick (5 degrees), held it slides a tick a frame. Until B is used the arc follows the target: 3 o'clock at base kubbs, half past 3 at the king, 4 o'clock at field kubbs, half past 1 for a drilled kubb. |
+| Hold B + d-pad up/down | **Plan the arc.** Moves the release target on the gauge's forward side to any point in its range (Kubb Engine 0.9; Jamie, 2026-11-20: "allow the slider to select any value in a range"): a tap moves it one tick (5 degrees), held it slides a tick a frame. Since Kubb Engine 0.16 the range reaches down past half past 5 (the knee, a notch on the clock) to the throw's floor: under the knee is the **drive**, a baton thrown flat or down and hard that does not turn end over end (the owner, 2026-11-22: "We need a way to throw low and hard into a group"). The floor is the lowest the swing can make for that throw (a backswing of at most 140 degrees, and a line the hand can make): 6 o'clock at a kubb up to 1.5 m away, 9 degrees past it at 3 m, 12 at 4 m, the knee from about 6 m; a tap at the floor and back moves the throw at once. While B is held a chip says ARC 22° (the launch angle), or DRIVE -5° white on black under the knee, and a line says what a lower arc does. Until B is used the arc goes by the distance to the circle (Kubb Engine 0.10, lowered in 0.16): firm and low close in (a kubb 1.5 m away is a drive at about -5 degrees, 6.5 m/s, no turn), 4 o'clock at 8 m; half past 1 for a drilled kubb, which has no drive. |
 | Hold B + d-pad left/right | **Plan the tilt** (baton): a tap tilts the baton's spin plane one degree left or right, held it slides a degree a frame, up to 20 (Jamie, 2026-11-15), to steer it after the first kubb it hits in a group. **Plan the spin** (kubb): a tap adds a quarter of spin about the long axis left or right, held it slides, up to three; the spin is kept for the team's next kubb in the same turn and goes when the turn ends. It comes on top of the small spiral every drill gets from the wrist. Spin holds a drilled kubb steady in the air (a gyroscope), so it lands nose first about as it left the hand; once down it moves it only a little, either way (Jamie, 2026-11-16: "at most… one to three rotations"). Measured (2026-11-15, `tools/tiltgroups.lua`): tilt turns the baton after its first hit by only about 0.15 degrees per degree; spin is up to three taps of 22 rad/s each way. |
 
 Everything the plan sets shows on the gauge and the HUD while aiming.
@@ -152,7 +152,8 @@ starts.
 
 | Clock | Backswing (power) | Clock | Forward swing (release) |
 |---|---|---|---|
-| 6 to 7 | dead zone: the throw has not started | 5 | low and flat (field kubbs, a line drive) |
+| 6 to 7 | dead zone: the throw has not started | 6 to half past 5 | the drive (0.16): flat or down, hard, no turn |
+| | | 5 | low and flat (field kubbs, a line drive) |
 | 9 | about 4 m | half past 3 | king shot |
 | 10 | 8 m | 3 | normal throw at a base kubb |
 | 10 to 11 | longer throws (corner to corner is 9.4 m, about 10:20) | 1 to 2 | high: drilling a kubb |
@@ -171,7 +172,9 @@ starts.
 - **Forward swing.** The crank must pass 6 to throw. The throw leaves where the crank
   stops (its farthest forward point). That sets the launch angle: 5 o'clock is about 12
   degrees, 3 o'clock about 32, half past 1 about 47, 12 o'clock about 62 (a line through
-  these). Inside the release target the launch is the planned arc; outside it the throw
+  these). Under half past 5 (7 degrees) a planned drive falls on a steeper line to -15
+  degrees at 6 o'clock (Kubb Engine 0.16); a stop off the plan costs a third of a degree a
+  degree either way, as on the line above. Inside the release target the launch is the planned arc; outside it the throw
   leaves at the angle the crank stopped at and the physics makes it short, long or high.
 - **Flick speed** scales the power: a fast flick (about 1000 deg/s and over, to be tuned) gives
   all the power of the backswing, a slow one as little as 20 percent.

@@ -35,12 +35,15 @@ this throw: "HOW TO THROW" below).
   along the line, back to `backMax`, up to
   the advantage line for a baton, the baseline for a kubb) and sets `s.stanceSet`; until
   then the stance is `plan.stance`, straight behind the circle as far forward as allowed.
-  B + up/down move the planned release within `releaseMinDeg`..`releaseMaxDeg` and set
-  `s.arcSet`; until then the release is `throw.defaultArc(s)`: a drill's half past 1, a
-  baton's by the distance from the stance to the circle (`plan.arcFor("baton", d)`, engine
-  0.10: half past 5 at 2 m and under, 4 o'clock at 8 m, a line between; until 0.10 it went
-  by the target's kind, base 3 o'clock, king half past 3, field 4), read again on every
-  solve, so it follows the circle and the stance until B sets the arc. B + left/right:
+  B + up/down move the planned release (`throw.stepArc`) from the release as planned down
+  to the throw's floor and up to `releaseMaxDeg` and set `s.arcSet` ("The drive" below);
+  until then the release is `throw.defaultArc(s)`: a drill's half past 1, a
+  baton's by the distance from the stance to the circle (`plan.arcFor("baton", d)`: since
+  engine 0.16 the lowered line, 15 at 1 m and under, 6 at 1.5 m, 13.6 at 4 m, 37.5 at 6 m,
+  60 at 8 m; engine 0.10 to 0.15 half past 5 at 2 m and under, 4 o'clock at 8 m, a line
+  between; until 0.10 it went by the target's kind, base 3 o'clock, king half past 3, field
+  4), read again on every solve, so it follows the circle and the stance until B sets the
+  arc. B + left/right:
   a baton's tilt (`s.tilt`, to `tiltMaxDeg`), a kubb's spin (`s.spin`, to `spinSteps`
   taps, fractions too). Any value in range since engine 0.9 (`planTicks`): a tap moves one
   tick (`plan.tune.arcTickDeg` 5, `tiltTickDeg` 1, `spinTick` 0.25), held past
@@ -171,6 +174,81 @@ this throw: "HOW TO THROW" below).
   `releaseV`, `steady`, the nerves' `sideDeg`, `lenShare`, `sideV`, `lenV`, `distance`, and a drill's `mode`, marker, landing, rest and
   thrower. `frames.jsonl` is unchanged.
 
+## The drive
+
+Kubb Engine 0.16 (kubb-engine's docs/notes/throw.md "The drive", docs/CLIENTS.md "0.16 on
+top"). The owner, after playing 0.12.1: "The baton here threw normal and far too soft. A
+real player would throw hard at a tight group this close... We need a way to throw low and
+hard into a group." and "When throwing at a close Kubb players do not even have the baton
+flip. It comes out of the hand and powers into the group." The Playdate vendors the core
+only and plans in `scenes/throw.lua`, so it does the ARC control itself:
+
+- **The default** needs nothing: `plan.arcFor("baton", d)` is the lowered line, so a
+  player who touches nothing throws at a kubb 1.5 m away a release of 6 (under the knee),
+  launch loft -4.6 at 6.5 m/s, with no end over end turn (`plan.solve`'s drive turn), at 4
+  m 13.6 (loft 4.9, 10.3 m/s), at 8 m 60 as before. The computer keeps the line before
+  (`plan.sharedArcFor`, its drive is off).
+- **The floor** (`throw.arcFloor`, `plan.arcFloor` for the plan's question): the lowest
+  release this throw can be planned at (a backswing of at most 140, `driveBackMaxDeg`, and
+  a line the hand can make): 0 at 1 m, 0.3 at 1.5 m, 5 at 2 m, 9.3 at 3 m, 12.3 at 4 m, the
+  knee (15) from about 6 m; a thrown kubb's is the knee. It costs a solve with a 24-step
+  bisection, and from 2 m out that is dear: about 0.5 ms in desktop Lua (a default plan
+  0.02), 4.7 ms in the Simulator at 3 m, so roughly 150 ms on the device by the usual
+  ratio (plan.solve at 1 m: 0.08 ms desktop, 22.5 device). So the scene works it out only
+  when B + down steps ARC (`throw.arcFloor`; up never needs it), keeps it in `s.floorKey`
+  with what it was worked out for (stance, circle, aim height, projectile, meter) and never
+  per frame: with B held the circle and the stance cannot move, so a held slide down works
+  it out once. `throw.knownFloor` reads it without solving (the ARC words).
+- **A drive kept under a new floor.** `plan.solve` raises a kept release under the floor
+  with the same bisection on every solve. While the d-pad moves the circle and the last
+  solve raised the kept drive, the scene waits (`aimInput`'s skip) and solves the frame the
+  circle is let go, once; so moving the circle away from a drive at its floor never costs
+  that bisection per frame. The engine could make it cheap ("What the engine could offer"
+  in performance.md).
+- **B + up/down** (`throw.stepArc`, the session's `stepArc` with the Playdate's tick): `f =
+  throw.arcFloor(s)`, then `max(f, plan.clampRelease(max(s.sol.release, f) + ticks *
+  arcTickDeg, projectile))`. It steps from the release as planned (the default, or a kept
+  release that `plan.solve` raised to the floor), so a tap at the floor and back moves the
+  throw at once. `throw.setArc` (self-tests) clamps by projectile and leaves the floor to
+  `plan.solve`.
+- **The control** (B held, `hud.arcChip` and `hud.hint`): the plan's launch angle in the
+  result flag's place, `ARC 22°`, or under the knee `DRIVE -5°` white on black (DRIVE is the
+  web's word), widening to the left for `DRIVE -15°`; and in the hint over the prompt what
+  a lower arc does (`throw.ARC_WORDS`, `throw.arcWords`): DOWN: LOWER AND HARDER from the
+  knee up, DRIVE: LOW, HARD, NO FLIP under it, NO LOWER FROM HERE at the floor, and for a
+  drilled kubb DOWN: LOWER, IT RUNS ON and A KUBB GOES NO LOWER. The nudge's hint waits
+  while B is held. The clock marks the knee with a notch across the ring at half past 5
+  (black with a white slit: it reads on the bare ring and on a target's rim), part of the
+  cached face (`hud.tune.clock.kneeDeg`). The chip is a plate keyed on the rounded angle
+  and DRIVE; the hint on its text.
+- **HOW TO THROW**: the plan step's after lines get the Playdate's third, `UNDER HALF PAST
+  5 IS THE DRIVE: LOW AND HARD.` (`render.howto.driveLine`; the engine's `howto.STEPS` are
+  vendored).
+- **Drawing it**: the aim arc was already the plain parabola from the hand to the face
+  (`arcLaunch`: `vz = (z1 - h + g T^2 / 2) / T`), so a drive's leaves the hand going down
+  (`vz < 0` at the floor: hand 0.50 m, face 0.15 m at 1.5 m) and the plan view fits it as
+  any arc. At release the baton leaves the short throw's hand tipped forward
+  (`handTip`, 0.30 rad at 1.5 m) and, with no turn, arrives near upright: the `drive`
+  self-test's thrown drive keeps its axis at 0.95 up or more until it touches the kubb.
+- **The crank** is unchanged: the drive is a longer backswing. The default at 3 to 4 m
+  asks for 128 to 131 (its power band about 122 to 136 on the meter), the floor for 140
+  (134 to 147); the clock's hatch starts at 150 (`overDeg`, 11 o'clock), so every drive's
+  band sits under it. Replayed on the desktop (kubb-engine's `tests/fixtures/traces/`, the
+  swings of 2026-11-13 to 15 that today's swing reads as throws: 33; 23 of them recorded
+  with their plan's bars), the recorded backswings have a median of 129 and 22 of 33 went
+  to 120 or more, 18 of those 22 with a full flick: the crank reaches a drive's band
+  comfortably. The 23 planned swings, their misses about their own plan's centre moved
+  onto the plan at the drive positions' group 2 (kubb-engine's
+  `tests/fixtures/drive/positions.lua`) with the nerves on: from 1.42 m 1.30 kubbs a baton
+  and 14 of 23 felling two or more on 0.16's default (loft -2.9, 5.7 m/s) against 1.17 and
+  12 on 0.15's (loft 5.0, 4.4 m/s); from 3.0 m 1.09 and 11 against 0.83 and 8; inside both
+  bars 9 of 23 on either (the bars go by distance, not by the arc).
+- **A thrown kubb** is planned on narrower bars (`kubbPower`, `kubbRelease` 1, were 1.35):
+  nothing to build. The same 23 swings onto a drill at the basket's spot (one tap of spin,
+  20 ground seeds a swing): within 0.3 m of the spot 46% on 0.15's bars and 31% on 0.16's,
+  landed dead 58% and 46%, median rest 40 and 51 cm; the 9 recorded drill swings alone 44%
+  and 39%, dead 58% and 42%.
+
 ## HOW TO PLAY
 
 The rules of Kubb on six cards for someone who has never played (Jamie, 2026-11-15:
@@ -263,7 +341,7 @@ In first person the arc is nearly edge-on (a line up the middle of the screen th
 circle); the plan view below shows it as an arc. `arc = false` turns the arc off.
 
 On a short baton the arc starts at the plan's hand, not the feet (`arcOrigin`, "The short
-throw").
+throw"). A drive's leaves that hand going down and ends on the kubb's face ("The drive").
 
 ## The short throw
 

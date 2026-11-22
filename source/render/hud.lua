@@ -10,9 +10,12 @@
 --   rest flag 250 182 62 15 (hud.cutFlag, the plan chip's place), after a
 --             drilled kubb stops: how far from the target circle it rests
 --   flag      right edge 316, 199, h 15, after a release: the result
+--   arc chip  right edge 316, 199, h 15 (the flag's place), aiming with B held:
+--             ARC 22° or DRIVE -5° (engine 0.16), with the ARC words in the hint
 --   slow      right edge 316, 182, h 15, in flight while the slow motion plays
 --   hint      right edge 396, 140, h 15, aiming: the crank can be flipped (the nudge;
---             the one part inside the clear area, and only while it is needed)
+--             the one part inside the clear area, and only while it is needed);
+--             with B held, what the ARC does (scenes/throw arcWords)
 --   verdicts  73 222 158 15, after a throw: power, release, steadiness, and
 --             the nerves' sideways verdict (a fourth cell, wider plate)
 --   minimap   frame 4 162 49 76, always
@@ -79,7 +82,10 @@ hud.tune = {
 	-- `hand` px from the centre (the idle crank's to `crankHand`); dots on the
 	-- ring for the backswing peak and the last throw (dotR).
 	clock = { x = 351, y = 207, r = 30, frame = 2, ring = 5, tick = 3, tickLong = 5, sliceIn = 5, hand = 20,
-		crankHand = 20, hub = 3, dotR = 3 },
+		crankHand = 20, hub = 3, dotR = 3,
+		-- the drive's knee (engine 0.16, plan.tune.driveKneeDeg: half past 5): a white
+		-- notch across the ring, so the release target under it reads as the drive
+		kneeDeg = 15 },
 	-- After a throw (hud.verdicts): power, release, steadiness as one plate of
 	-- three cells, a miss white on black. Below the clear area, right of the
 	-- minimap.
@@ -90,6 +96,10 @@ hud.tune = {
 	-- While aiming (hud.planChip): the tilt or spin B has set, in the cut
 	-- flag's place (widening to the left)
 	planChip = { x = 250, y = 182, w = 62, h = 15 },
+	-- While B is held (hud.arcChip, engine 0.16): the planned launch angle, ARC 22° or,
+	-- under the knee (half past 5), DRIVE -5° white on black, in the result flag's
+	-- place (no result shows while aiming), widening to the left
+	arcChip = { x = 240, y = 199, w = 76, h = 15 },
 	readoutX = 4, readoutY = 17,  -- the System Menu "Readout" line, just under the rail
 	cardPad = 10, cardGap = 6, cardRise = 20,              -- hand-off and winner card: padding,
 	                                                       -- line gap, px above screen center
@@ -731,6 +741,21 @@ local function drawFace(cx, cy, pLo, pHi, rLo, rHi, dead, over, lastBack, lastSt
 	-- shows over it
 	if pLo and pHi and pHi > pLo then slice(cx, cy, t.sliceIn, ro, -pHi, -pLo, rm, t.ring) end
 	if rLo and rHi and rHi > rLo then slice(cx, cy, t.sliceIn, ro, rLo, rHi, rm, t.ring) end
+	-- the drive's knee (engine 0.16): a notch across the ring at half past 5, black
+	-- with a white slit, so it reads on the bare ring and on a target's black rim
+	if t.kneeDeg then
+		local x0, y0 = onClock(cx, cy, ri, t.kneeDeg)
+		local x1, y1 = onClock(cx, cy, ro, t.kneeDeg)
+		gfx.setColor(BLACK)
+		gfx.setLineWidth(3)
+		gfx.drawLine(x0, y0, x1, y1)
+		gfx.setLineWidth(1)
+		gfx.setColor(WHITE)
+		local x2, y2 = onClock(cx, cy, ri + 1, t.kneeDeg)
+		local x3, y3 = onClock(cx, cy, ro - 1, t.kneeDeg)
+		gfx.drawLine(x2, y2, x3, y3)
+		gfx.setColor(BLACK)
+	end
 	-- the ring's inner edge
 	gfx.drawCircleAtPoint(cx, cy, ri)
 	-- the hours, inside the ring
@@ -945,6 +970,48 @@ function hud.planChip(kind, value)
 		text(f, P.s, x, hud.tune.labelTop)
 		-- the degree sign (the font has none): a 3 px ring, as on the loft plaque
 		if P.deg then gfx.drawRect(x + f:getTextWidth(P.s) + 1, hud.tune.labelTop + 1, 3, 3) end
+		plateEnd(P)
+	end
+	P.img:draw(P.x, P.y)
+end
+
+local arcPlate
+-- The ARC control's readout while B is held (engine 0.16, the drive): loftDeg is the
+-- plan's launch angle (s.sol.loft, after a short throw's flattening), drive true
+-- when the plan is under the knee. ARC 22°, ARC 5°, DRIVE -5°, DRIVE -15°: the
+-- string is made only when the rounded angle or drive changes, and the plate is
+-- keyed on them (a frame that repeats them is one image draw).
+function hud.arcText(loftDeg, drive)
+	return string.format(drive and "DRIVE %d" or "ARC %d", floor(loftDeg + 0.5))
+end
+function hud.arcChip(loftDeg, drive)
+	local t = hud.tune.arcChip
+	local sh = hud.tune.shadow
+	local v = floor(loftDeg + 0.5)
+	drive = drive and true or false
+	local P = arcPlate
+	if not P or P.v ~= v or P.drive ~= drive or not hud.tune.cache then
+		local f = hud.labelFont()
+		local s = hud.arcText(v, drive)
+		local tw_ = f:getTextWidth(s) + 5
+		local w = max(t.w, tw_ + 10)
+		if not P or P.w ~= w + sh then
+			P = newPlate(t.x, t.y, w + sh, t.h + sh)
+			arcPlate = P
+		end
+		P.x = t.x + t.w - w
+		P.s, P.tw, P.v, P.drive = s, tw_, v, drive
+	end
+	if plateBegin(P, v, drive) then
+		local w = P.w - sh
+		plaque(0, 0, w, t.h, drive)
+		local f = hud.labelFont()
+		local x = floor((w - P.tw) / 2)
+		text(f, P.s, x, hud.tune.labelTop, drive)
+		-- the degree sign (the font has none): a 3 px ring, as on the plan chip
+		gfx.setColor(drive and WHITE or BLACK)
+		gfx.drawRect(x + f:getTextWidth(P.s) + 1, hud.tune.labelTop + 1, 3, 3)
+		gfx.setColor(BLACK)
 		plateEnd(P)
 	end
 	P.img:draw(P.x, P.y)
