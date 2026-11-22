@@ -1,8 +1,8 @@
 -- The match options (Jamie, 2026-11-14): after the names, before every match
 -- (PASS + PLAY and VS PLAYDATE): the surface, the opening, who stands the
 -- thrown-in kubbs up and the wind; against the Playdate also COMPUTER, its
--- throw level (a match option since core 0.9; a person's own level stays the
--- System Menu's). Rows from core/matchopts, which has no kubb set since 0.9
+-- throw level (a match option since core 0.9; KID first since engine 0.15, which
+-- makes the match a Kid match: docs/DESIGN.md "Kid matches"). Rows from core/matchopts, which has no kubb set since 0.9
 -- (sets are a look for the web and the iPhone only). A kept choice from an
 -- older build that still holds a set loads all the same (matchopts.valid).
 -- Up/down choose a row, left/right change its value, A starts the match, B
@@ -41,6 +41,8 @@ scene.notes = {
 	computer = "HOW WELL THE PLAYDATE THROWS",
 }
 scene.openingSix = "SIX: SIX BATONS A TURN FROM THE START"
+-- KID: the Kid rules for both teams and the wide meter (kubb-engine docs/notes/kid-mode.md)
+scene.computerKid = "KID RULES: A CLOSER LINE, 3 BASE KUBBS"
 
 -- the rows shown in each mode: core/matchopts' rows, COMPUTER only against
 -- the Playdate
@@ -97,16 +99,19 @@ local function render(s)
 	local key = s.rows[s.row].key
 	local note = scene.notes[key]
 	if key == "opening" and matchopts.value(s.choice, "opening") == "six" then note = scene.openingSix end
+	if key == "computer" and matchopts.value(s.choice, "computer") == "kid" then note = scene.computerKid end
 	ui.text(label, note, t.labelX, t.noteY)
 	ui.button("A", "START", t.labelX, t.buttonY)
 	ui.button("B", "TEAMS", t.labelX + 96, t.buttonY)
 end
 
 -- The scenes/match options this screen makes, on top of `opts` (names, vs);
--- the computer's level only against the Playdate.
+-- the computer's level only against the Playdate, and with it the rules: KID
+-- (engine 0.15) makes a Kid match (opts.rules = "kid", core/matchopts), so PASS +
+-- PLAY, which has no COMPUTER row, keeps the standard rules whatever was kept.
 function scene.apply(s, opts)
 	matchopts.apply(opts, s.choice)
-	if s.mode ~= "vs" then opts.computer = nil end
+	if s.mode ~= "vs" then opts.computer, opts.rules = nil, nil end
 	return opts
 end
 

@@ -334,7 +334,7 @@ end
 local function raiseView(s)
 	local side = s.side
 	local c = s.cam
-	render.advantageY = nil
+	render.advantageY, render.kidY = nil, nil
 	render.draw(c, s.items, s.nitems, nil)
 	-- the footprints on the ground: every choice, the chosen one dotted
 	local f = ui.label()

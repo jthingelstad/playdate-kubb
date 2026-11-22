@@ -191,9 +191,9 @@ local function renderMenu(s)
 	gfx.fillRect(0, 0, t.panelW, 240)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, "PRACTICE", 6, 2, true)
-	-- who is practising (left/right), and at what level
-	-- ("PLAYER:" says what left/right change: who is practising, for their level and records)
-	ui.text(label, "PLAYER: " .. (s.player and (s.player.name .. "  " .. s.player.level) or "NO ONE") .. "  < >",
+	-- who is practising (left/right): their records ("PLAYER:" says what left/right
+	-- change). No level: a person throws on the one meter (engine 0.13)
+	ui.text(label, "PLAYER: " .. (s.player and s.player.name or "NO ONE") .. "  < >",
 		394, 2, true, "right")
 	-- rows a little closer together when the list would run into the buttons
 	local n = #s.items

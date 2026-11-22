@@ -39,6 +39,16 @@ tw.cpu.raising.pro = enginetune.proRaising
 -- raise view offers first and REST OF GAME (one kubb a view, 33 ms each).
 enginetune.autoRaising = "apart"
 
+-- 3. Names up to namegen.max letters (16), not core/names' 10. Every name is generated
+-- since the game's 0.12.0 (kubb-engine docs/NAMES.md 10.2), and core/names.finish, which
+-- the roster, the lineup and the saved players' load all clean a name through, would cut
+-- "Mighty Maple" to "Mighty Map". Fitted on the screens that show a name (the
+-- names-fit self-test measures the widest generated names there).
+import "core/names"
+import "core/namegen"
+enginetune.nameMax = tw.namegen.max.player
+tw.names.max = enginetune.nameMax
+
 -- Kept on (measured, no stall): field.line and inkast.depth at pro (cpu.tune.line,
 -- cpu.tune.depth). autothrow.choose with eight field kubbs standing in a tight group:
 -- 15 ms on 0.9, 50 ms at pro on 0.13.1 (17 at club); the Playdate's choose frame 55

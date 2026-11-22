@@ -12,15 +12,17 @@
 --   hold A + up/down on a team's player: move them up or down the order
 --                    (the order is who throws first, core/order)
 --   A                START: the match options (once both teams have a
---                    player); + PLAYER: the keyboard (a new saved player, at the
---                    default level, onto the bench); + GUEST: the keyboard
---                    (this match only, not saved); a team's name: the
---                    keyboard for its name
+--                    player); + PLAYER: the Names screen (a new saved player,
+--                    onto the bench); + GUEST: the Names screen (this match
+--                    only, not saved); a team's name: the Names screen, a
+--                    generated team name (scenes/names)
 --   B                back to the title
 -- The lineup is kept (datastore "teams", per mode; guests are not) and
--- offered again. The screen is one image redrawn only on a change.
+-- offered again; a kept team name that is not a generated one (typed on an older
+-- build) comes back as a generated team name (device/namepick.fallback). The
+-- screen is one image redrawn only on a change.
 --
--- opts.scripted: the keyboard is scripted (scenes/names), nothing read from
+-- opts.scripted: the Names screen is scripted (scenes/names), nothing read from
 -- or written to the "teams" file; opts.roster: the roster to use.
 import "CoreLibs/graphics"
 import "core/tw"
@@ -30,6 +32,7 @@ import "core/notation"
 import "render/ui"
 import "scenes/names"
 import "players"
+import "device/namepick"
 
 local gfx <const> = playdate.graphics
 local roster, lineup, ui = tw.roster, tw.lineup, tw.render.ui
@@ -90,6 +93,17 @@ function scene.new(provider, mode, opts)
 	s.r = opts.roster or players.load()
 	local kept = (not s.scripted) and playdate.datastore.read(players.fileKey(scene.tune.key)) or nil
 	s.L = lineup.unpack(kept and kept[mode], s.r, mode == "vs")
+	-- a team name typed on an older build: a generated one in its place (the same
+	-- one every time for that name), kept at once
+	local renamed = false
+	for _, side in ipairs { "A", "B" } do
+		local n = s.L.names[side]
+		if n and not tw.namegen.valid("team", n) then
+			lineup.setName(s.L, side, tw.namepick.fallback("team", n, tw.namepick.seedOf(side .. n)))
+			renamed = true
+		end
+	end
+	if renamed then keep(s) end
 	-- the cursor on the first saved player when nobody is on a team yet
 	if not lineup.ready(s.L) and #rows(s, "M") > 3 then s.row = 4 end
 	return s
@@ -98,9 +112,9 @@ end
 local function askName(s, what, side)
 	s.asking, s.askSide = what, side
 	local label = ({ new = "NEW PLAYER", guest = "GUEST", team = "TEAM NAME" })[what]
-	local initial = what == "team" and (s.L.names[side] or "") or ""
+	local initial = what == "team" and s.L.names[side] or nil
 	s.sub = names.new(s.input, "player", { scripted = s.scripted, label = label, nxt = "THEN BACK TO TEAMS",
-		initial = initial,
+		initial = initial, kind = (what == "team") and "team" or "player",
 		check = (what ~= "team") and function(name)
 			if what == "guest" then
 				local n, why = roster.canName(s.r, name)
@@ -217,6 +231,18 @@ local function fitText(font, small, text, w)
 	return (font:getTextWidth(string.upper(text)) <= w) and font or small
 end
 
+-- A name for a column `w` px wide: as it is, or with its first word cut to its
+-- initial ("N. REDWOOD"), or without its "The", when even the label face is too wide (generated names run
+-- to 16 letters; the widest is about 140 px in the label face, the column 133).
+function scene.fitName(text, w)
+	local label = ui.label()
+	if label:getTextWidth(string.upper(text)) <= w then return text end
+	local first, rest = text:match("^(%S+) (.+)$")
+	if first == "The" then return rest end
+	if first then return first:sub(1, 1) .. ". " .. rest end
+	return text
+end
+
 local function render(s)
 	local t = scene.tune
 	local big, label = ui.display(16), ui.label()
@@ -255,10 +281,13 @@ local function render(s)
 			elseif row.kind == "name" then text = lineup.teamName(s.L, col)
 			else
 				text = row.entry.name
-				right = row.entry.guest and "GUEST" or string.upper(row.entry.level or "")
+				-- (a person's level no longer shows: since engine 0.13 it names only the computer)
+				right = row.entry.guest and "GUEST" or nil
 				if col ~= "M" then text = (i - 1) .. " " .. text end
 			end
-			local f = fitText(big, label, text, t.colW - (right and 44 or 14))
+			local room = t.colW - (right and 44 or 14)
+			local f = fitText(big, label, text, room)
+			if f == label then text = scene.fitName(text, room) end
 			ui.text(f, text, x0 + 8, y + ((f == big) and 0 or 3), ink)
 			if right then ui.text(label, right, x0 + t.colW - 8, y + 3, ink, "right") end
 			if row.kind == "name" and not on then

@@ -4,32 +4,32 @@
 --
 -- Modes:
 --   list     the roster on the left (+ NEW PLAYER first, then the players most
---            recently played first, each with their level); the chosen
+--            recently played first); the chosen
 --            player's figures on the right: games and wins, hit rate, kings,
 --            the last ten games as bars. Up/down choose (the list scrolls),
 --            A opens (or makes a new player), B the title.
---   player   one player: rows NAME (A: the keyboard), LEVEL (left/right
---            change it, saved at once and logged in the history), GAMES (A:
---            their recent games) and REMOVE (A: the confirm card); on the
---            right the figures and the drill bests. B back to the list.
+--   player   one player: rows NAME (A: the Names screen), GAMES (A: their
+--            recent games) and REMOVE (A: the confirm card); on the right the
+--            figures and the drill bests. B back to the list. (No LEVEL row since
+--            Kubb Engine 0.13: a level names only the computer, and a person
+--            throws on the one meter; a level kept in the roster is left alone.)
 --   games    their recent games, newest first (date, the other team, won or
 --            lost, hits over batons); A opens the game file's score sheet
 --            (scenes/sheet, from games/ in the Data folder), B back.
 --   confirm  REMOVE <NAME>?: A removes the player and their history file
 --            (game files stay), B keeps them.
---   name     scenes/names in mode "player" (a new player, then the LEVEL row
---            of their page; or a rename), refusing a name another player has.
+--   name     scenes/names, a generated player name (a new player, then their
+--            page; or a rename), refusing a name another player has.
 --
 -- Each screen is one image redrawn only on a change (s.img = nil).
 --
--- opts.scripted (self-tests): the keyboard is scripted (scenes/names).
+-- opts.scripted (self-tests): the Names screen is scripted (scenes/names).
 -- Saves go through tw.players, whose self-test runs use their own files.
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/roster"
 import "core/history"
 import "core/drills"
-import "core/throwplan"
 import "render/ui"
 import "scenes/names"
 import "players"
@@ -37,7 +37,7 @@ import "scenes/sheet"
 import "scenes/games"
 
 local gfx <const> = playdate.graphics
-local roster, history, drills, plan, ui = tw.roster, tw.history, tw.drills, tw.plan, tw.render.ui
+local roster, history, drills, ui = tw.roster, tw.history, tw.drills, tw.render.ui
 local names, players = tw.scenes.names, tw.players
 local floor, max = math.floor, math.max
 local BLACK <const>, WHITE <const> = gfx.kColorBlack, gfx.kColorWhite
@@ -52,10 +52,7 @@ scene.tune = {
 	barsY = 196,        -- the last ten games' bars sit on this line
 }
 
-local ROWS <const> = { "NAME", "LEVEL", "GAMES", "REMOVE" }
-
--- A level's word on screen.
-function scene.levelText(l) return string.upper(l or "") end
+local ROWS <const> = { "NAME", "GAMES", "REMOVE" }
 
 local function refresh(s)
 	s.list = roster.sorted(s.r)
@@ -96,9 +93,9 @@ end
 local function askName(s, rename)
 	local p = s.player
 	s.renaming = rename and p or nil
-	s.sub = names.new(s.input, "player", { scripted = s.scripted,
-		label = rename and "NEW NAME" or "NEW PLAYER", nxt = rename and "THEN BACK" or "THEN THE LEVEL",
-		initial = rename and p.name or "",
+	s.sub = names.new(s.input, "player", { scripted = s.scripted, kind = "player",
+		label = rename and "NEW NAME" or "NEW PLAYER", nxt = rename and "THEN BACK" or "THEN THEIR PAGE",
+		initial = rename and p.name or nil,
 		check = function(name) return roster.canName(s.r, name, rename and p.key or nil) end })
 	s.mode = "name"
 	names.enter(s.sub)
@@ -118,26 +115,12 @@ local function nameDone(s)
 		refresh(s)
 		if p then
 			for i, q in ipairs(s.list) do if q == p then s.choice = i + 1 end end
-			openPlayer(s, p, 2)   -- straight to the level
+			openPlayer(s, p, 1)
 		else
 			s.mode = "list"
 		end
 	end
 	s.renaming = nil
-end
-
-local function setLevel(s, dir)
-	local p = s.player
-	local at = 1
-	for i, l in ipairs(plan.LEVELS) do if l == p.level then at = i end end
-	local to = plan.LEVELS[at + dir]
-	if not to then return end
-	local h = historyOf(s, p.key)
-	if history.setLevel(s.r, h, p.key, to, players.today()) then
-		save(s)
-		players.saveHistory(p.key, h)
-		s.img = nil
-	end
 end
 
 function scene.update(s)
@@ -171,10 +154,6 @@ function scene.update(s)
 	elseif s.mode == "player" then
 		if p:pressed("up") then s.row = (s.row - 2) % #ROWS + 1; s.img = nil end
 		if p:pressed("down") then s.row = s.row % #ROWS + 1; s.img = nil end
-		if ROWS[s.row] == "LEVEL" then
-			if p:pressed("left") then setLevel(s, -1) end
-			if p:pressed("right") then setLevel(s, 1) end
-		end
 		if p:pressed("a") then
 			if ROWS[s.row] == "NAME" then askName(s, true)
 			elseif ROWS[s.row] == "GAMES" then s.mode, s.gi, s.img = "games", 1, nil
@@ -219,7 +198,7 @@ local function rail(label, left, right)
 	if right then ui.text(label, right, 394, 2, true, "right") end
 end
 
--- The figures of player p on the right: name, level, games, hit rate, the
+-- The figures of player p on the right: name, when last played, games, hit rate, the
 -- last ten games as bars (hits over batons).
 local function figures(s, p, withDrills)
 	local t = scene.tune
@@ -228,7 +207,7 @@ local function figures(s, p, withDrills)
 	local f32 = ui.display(32)
 	local nameFont = (f32:getTextWidth(string.upper(p.name)) <= 394 - x) and f32 or big
 	ui.text(nameFont, p.name, x, 24 + ((nameFont == f32) and 0 or 10))
-	ui.textDots(label, { "LEVEL " .. scene.levelText(p.level), p.last and ("PLAYED " .. p.last) or "NOT PLAYED YET" }, x, 64)
+	ui.text(label, p.last and ("PLAYED " .. p.last) or "NOT PLAYED YET", x, 64)
 	local tt = p.totals
 	local rate = roster.hitRate(p)
 	ui.textDots(label, { tt.games .. (tt.games == 1 and " GAME" or " GAMES"), "WON " .. tt.wins }, x, 82)
@@ -284,12 +263,10 @@ local function renderList(s)
 			ui.text(big, "+ NEW PLAYER", 16, y, not on)
 		else
 			local p = s.list[i - 1]
-			-- the level right-aligned; a name too wide to clear it goes in the label font
-			local lv = scene.levelText(p.level)
-			local room = t.panelW - 14 - label:getTextWidth(lv) - 8 - 16
+			-- a name too wide for the panel goes in the label font
+			local room = t.panelW - 14 - 16
 			local f = (big:getTextWidth(string.upper(p.name)) <= room) and big or label
 			ui.text(f, p.name, 16, y + ((f == big) and 0 or 3), not on)
-			ui.text(label, lv, t.panelW - 14, y + 3, not on, "right")
 		end
 	end
 	ui.button("A", s.choice == 1 and "NEW" or "OPEN", 16, 216, true)
@@ -300,7 +277,7 @@ local function renderList(s)
 	else
 		local x = t.rightX
 		ui.text(big, "NEW PLAYER", x, 34)
-		for i, line in ipairs { "TYPE A NAME ONCE", "PICK A THROW LEVEL", "THEN PICK THEM", "FOR ANY MATCH" } do
+		for i, line in ipairs { "CRANK UP A NAME", "THE GAME KEEPS THEIR", "GAMES AND DRILL BESTS", "PICK THEM FOR ANY MATCH" } do
 			ui.text(label, line, x, 64 + (i - 1) * 14)
 		end
 		if #s.r.players >= roster.tune.max then ui.text(label, "NO ROOM FOR MORE PLAYERS", x, 130) end
@@ -325,20 +302,12 @@ local function renderPlayer(s)
 		ui.text(label, row, 16, y, not on)
 		local value
 		if row == "NAME" then value = p.name
-		elseif row == "LEVEL" then value = scene.levelText(p.level)
 		elseif row == "GAMES" then value = (#historyOf(s, p.key).games) .. " RECENT"
 		else value = "REMOVE " .. p.name end
 		local f = (big:getTextWidth(string.upper(value)) <= t.panelW - 48) and big or label
-		local vx = row == "LEVEL" and 30 or 16
-		local w = ui.text(f, value, vx, y + 16, not on)
-		if row == "LEVEL" then
-			-- arrows either side of the level (the display face has no < >)
-			gfx.setColor(on and BLACK or WHITE)
-			gfx.fillTriangle(24, y + 17, 24, y + 31, 17, y + 24)
-			gfx.fillTriangle(vx + w + 6, y + 17, vx + w + 6, y + 31, vx + w + 13, y + 24)
-		end
+		ui.text(f, value, 16, y + 16 + ((f == big) and 0 or 3), not on)
 	end
-	local hint = ({ NAME = "A: RENAME", LEVEL = "LEFT/RIGHT: LEVEL", GAMES = "A: SEE THEIR GAMES",
+	local hint = ({ NAME = "A: A NEW NAME", GAMES = "A: SEE THEIR GAMES",
 		REMOVE = "A: REMOVE" })[ROWS[s.row]]
 	ui.text(label, hint, 16, 190, true)
 	ui.button("B", "BACK", 16, 216, true)

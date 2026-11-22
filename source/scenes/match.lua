@@ -290,11 +290,23 @@ local function over(s)
 	s.card = nil
 end
 
--- The rail's first text: the team, and for a team of several who throws.
+-- The rail's first text: the team, and for a team of several who throws; when the
+-- two do not fit before the pips (generated names run to 16 letters), who throws.
 local function railName(s, setup)
-	local name = cmatch.teamName(setup.side, s.m.game)
-	if #s.m.game.teams[setup.side].players > 1 and setup.thrower then name = name .. ": " .. setup.thrower.name end
-	return string.upper(name)
+	local name = string.upper(cmatch.teamName(setup.side, s.m.game))
+	local room = hud.railRoom(setup.projectile, setup.of)
+	local f = hud.labelFont()
+	if setup.thrower then
+		local who = string.upper(setup.thrower.name)
+		if #s.m.game.teams[setup.side].players > 1 then
+			local both = name .. ": " .. who
+			name = (f:getTextWidth(both) <= room) and both or who
+		elseif f:getTextWidth(name) > room then
+			-- a team of one with a long team name: its player
+			name = who
+		end
+	end
+	return name
 end
 
 -- Whether the Playdate is passed inside this team (pass card, change):
@@ -310,6 +322,13 @@ local function settleCard(s)
 	if s.cpu or s.settleCarded or not s.settle or s.settle.done then return end
 	if s.autoRaise.on and s.settle.mode == "raise" then return end
 	s.settleCard, s.settleCarded, s.settleImg = cards.settle(s.m.game), true, nil
+end
+
+-- The hand-off card (core/cards), saying KID RULES in a Kid match (engine 0.15).
+local function handoffCard(m, setup)
+	local c = cards.handoff(m, setup)
+	c.kid = m.game.rules == "kid" or nil
+	return c
 end
 
 -- Set the next throw up (or end the match).
@@ -384,7 +403,7 @@ local function nextThrow(s)
 		-- (no card before the Playdate's own turn)
 		s.phase = (s.opts.skipHandoff or setup.side == s.cpu) and "play" or "handoff"
 		if s.phase == "handoff" then
-			s.handoff = cards.handoff(m, setup)
+			s.handoff = handoffCard(m, setup)
 			s.card = nil
 		end
 	else
@@ -435,9 +454,11 @@ function scene.new(provider, opts)
 		s.m.raising = personRaising(s)
 	else
 		-- the surface and opening from the match options (scenes/options)
+		-- opts.rules: "kid" for a Kid match (the KID computer, scenes/options; engine 0.15),
+		-- else nil, the standard rules. The game keeps it (g.rules), so a resume does too
 		s.m = cmatch.new { start = now(), surface = s.opts.surface or "Grass", opening = s.opts.opening,
 			teams = cpuLevel(teams(s.opts), s.cpu, s.opts.computer), mode = s.cpu and "Vs Playdate" or nil,
-			cpu = cpuSides(s.cpu), raising = personRaising(s) }
+			cpu = cpuSides(s.cpu), raising = personRaising(s), rules = s.opts.rules }
 	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	-- a resumed match raising for itself goes on doing so: the save's autoRaise
@@ -551,7 +572,7 @@ function scene.update(s)
 				s.lastThrower = setup.thrower.id
 				s.ts.level = setup.thrower.level
 				throw.setRail(s.ts, railName(s, setup), setup.projectile, setup.n, setup.of, s.rail[1], s.rail[2])
-				if s.phase == "handoff" then s.handoff = cards.handoff(s.m, setup)
+				if s.phase == "handoff" then s.handoff = handoffCard(s.m, setup)
 				else s.pass = cards.pass(s.m, setup) end
 				persist(s)
 				s.changing, s.card = nil, nil

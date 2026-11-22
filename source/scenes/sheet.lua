@@ -45,8 +45,34 @@ function sheet.split(text)
 	return out
 end
 
+-- The rail's left text and right parts when both fit 400 px; two long team names
+-- (generated names run to 16 letters) first lose their first words to initials
+-- ("R. HAMMOCKS V W. TOWERS"), then the right side goes.
+local function fitRail(label, left, right)
+	local function rightW()
+		if not right or #right == 0 then return 0 end
+		local w = 0
+		for _, p in ipairs(right) do w = w + label:getTextWidth(string.upper(p)) + 8 end
+		return w
+	end
+	local room = 400 - 12 - 12
+	if label:getTextWidth(string.upper(left)) + rightW() <= room then return left, right end
+	local a, b = left:match("^(.-) V (.+)$")
+	if a then
+		local function cut(n)
+			local first, rest = n:match("^(%S+) (.+)$")
+			if first and first ~= "THE" and first ~= "The" then return first:sub(1, 1) .. ". " .. rest end
+			return n
+		end
+		left = cut(a) .. " V " .. cut(b)
+	end
+	if label:getTextWidth(string.upper(left)) + rightW() <= room then return left, right end
+	return left, nil
+end
+
 local function rail(left, right)
 	local label = ui.label()
+	left, right = fitRail(label, left, right)
 	gfx.setColor(BLACK)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, left, 6, 2, true)

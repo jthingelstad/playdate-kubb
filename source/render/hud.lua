@@ -216,6 +216,22 @@ local railPlate = newPlate(0, 0, 400, 14)
 -- The rail. name: the team (or "PRACTICE"); kind: "baton" | "kubb" | nil
 -- (no pips); n, of: this throw and the throws of its kind this turn; right1,
 -- right2: the targets ("FIELD 2", "BASE 5"), joined by a dot.
+-- The pips' left edge on the rail for `of` of `kind` (nil: no pips).
+local function pipsLeft(kind, of)
+	if not (kind and of and of > 0) then return nil end
+	local t = hud.tune.rail
+	local pw, step = 3, 7
+	if kind == "kubb" then pw, step = 5, 10 end
+	return t.pipsX - floor(((of - 1) * step + pw) / 2)
+end
+-- Px the rail leaves for its name before the pips (their KUBBS / BATONS word is left
+-- out when the name needs its room: generated names run to 16 letters).
+function hud.railRoom(kind, of)
+	local t = hud.tune.rail
+	local x0 = pipsLeft(kind, of)
+	return (x0 and (x0 - t.gap) or t.rightX - 120) - t.nameX
+end
+
 function hud.rail(name, kind, n, of, right1, right2)
 	local P = railPlate
 	if plateBegin(P, name, kind, n, of, right1, right2) then
@@ -246,7 +262,9 @@ function hud.rail(name, kind, n, of, right1, right2)
 				if i == n then gfx.fillRect(x - 1, 12, pw + 2, 1) end
 			end
 			local label = (kind == "kubb") and "KUBBS" or "BATONS"
-			text(f, label, x0 - t.gap - f:getTextWidth(label), top, true)
+			local lx = x0 - t.gap - f:getTextWidth(label)
+			-- the word only where the name leaves room for it
+			if not name or t.nameX + f:getTextWidth(name) + t.gap <= lx then text(f, label, lx, top, true) end
 		end
 		local x = t.rightX
 		if right2 then
@@ -318,7 +336,7 @@ local mapKey = {}
 
 -- state: playerX, lineY, aimX, aimY (aim preview landing), baton (or nil),
 -- landX, landY (or nil), pieces and npieces (render/world items), advY
--- (the advantage line, or nil)
+-- (the advantage line, or nil), kidY (a Kid match's Kid line, or nil)
 function hud.minimap(state)
 	local m = camera.minimap
 	local ox, oy, w, h = m.ox, m.oy, m.w, m.h
@@ -331,8 +349,9 @@ function hud.minimap(state)
 	local ver = rworld.poseVersion()
 	local K = mapKey
 	local adv = state.advY or false
-	local same = K[1] == ver and K[2] == pieces and K[3] == np and K[4] == mask and K[5] == adv
-	K[1], K[2], K[3], K[4], K[5] = ver, pieces, np, mask, adv
+	local kid = state.kidY or false
+	local same = K[1] == ver and K[2] == pieces and K[3] == np and K[4] == mask and K[5] == adv and K[6] == kid
+	K[1], K[2], K[3], K[4], K[5], K[6] = ver, pieces, np, mask, adv, kid
 	local dx, dy = begin(mapLayer, same)
 	if dx then
 		-- the plaque: its 2 px frame is the pitch's edge
@@ -352,6 +371,12 @@ function hud.minimap(state)
 			local _, ay = camera.toMinimap(0, adv)
 			ay = floor(ay + 0.5)
 			for x = 0, w - 1, 2 do gfx.drawPixel(ox + x + dx, ay + dy) end
+		end
+		-- the Kid line (a Kid match): a solid row, as the pitch draws it solid
+		if kid then
+			local _, ky = camera.toMinimap(0, kid)
+			ky = floor(ky + 0.5)
+			gfx.drawLine(ox + dx, ky + dy, ox + w - 1 + dx, ky + dy)
 		end
 		-- standing pieces are solid (the king bigger), fallen ones hollow
 		for i = 1, np do
@@ -492,6 +517,9 @@ end
 -- The advantage line flag (hud.tune.advantage): text from hud.advantageText.
 -- One cached image, redrawn only when the text changes.
 function hud.advantageText(meters) return string.format("ADVANTAGE LINE  %.1f M", meters) end
+-- A Kid match's line (engine 0.15), in the same flag: "KID LINE  2.0 M", as the
+-- session's aim.advText words it.
+function hud.kidLineText(meters) return string.format("KID LINE  %.1f M", meters) end
 function hud.advantage(text)
 	local t = hud.tune.advantage
 	local sh = hud.tune.shadow
@@ -537,6 +565,10 @@ end
 -- PUT BACK did not say what happened; the flag widens to the left, up to
 -- about 180 px). Once per throw, not per frame.
 local SHORT = {
+	-- the Kid rules (engine 0.15): nobody is told they lost or were punished when they were not
+	{ "^king down: stood back up", "KING STOOD BACK UP" },
+	{ "^out twice: stood at the fair spot", "OUT TWICE: STOOD UP FAIR" },
+	{ "^(%d+) out twice: stood at the fair spot", "%1 OUT TWICE: STOOD UP FAIR" },
 	{ "^king down early", "KING TOO EARLY: GAME OVER" }, { "^king down", "KING DOWN" }, { "^resigned", "RESIGNED" },
 	{ "^missed the king", "KING STANDS" }, { "^missed", "MISS" }, { "^helicopter", "HELICOPTER: DOESN'T COUNT" },
 	{ "^own%-half kubb hit", "OWN HALF HIT: PUT BACK" }, { "^own half hit", "OWN HALF HIT: KUBB OUT" },
@@ -545,8 +577,17 @@ local SHORT = {
 	{ "^(%d+) out: rethrown", "%1 OUT: THROW AGAIN" }, { "^out twice", "OUT TWICE: PUNISHMENT" },
 	{ "^(%d+) punishment", "%1 PUNISHMENT KUBBS" }, { "^on a kubb", "ON A KUBB: LOWERED" }, { "rescue", "RESCUE" },
 }
+local shortFirst
 function hud.short(s)
 	if not s then return nil end
+	local out = shortFirst(s)
+	-- a Kid match's king knocked down early by a baton: stood back up, the throw counts
+	if s:find("king down early: stood back up", 1, true) then
+		out = (out == "MISS") and "KING STOOD BACK UP" or (out .. ": KING BACK UP")
+	end
+	return out
+end
+function shortFirst(s)
 	local first = s:match("^[^;]*")
 	for _, r in ipairs(SHORT) do
 		if first:find(r[1]) then return (first:gsub("^.*$", function(m) return (m:gsub(r[1] .. ".*$", r[2])) end)) end

@@ -23,3 +23,9 @@ test("enginetune: a person's sides named in raising win over the advice", functi
 	m.raising = nil
 	expect.eq(cmatch.raisePolicy(m, "A"), "par")
 end)
+
+test("enginetune: names reach the generator's 16 letters", function()
+	expect.eq(tw.names.max, 16)
+	expect.eq(tw.names.finish("Mighty Maple"), "Mighty Maple")
+	expect.eq(tw.names.finish("Wonderful Walnut"), "Wonderful Walnut")
+end)
