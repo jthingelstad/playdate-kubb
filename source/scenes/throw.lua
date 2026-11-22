@@ -235,6 +235,22 @@ function throw.defaultLayout()
 	return l
 end
 
+-- How high a box's center sits on the ground at this orientation: its
+-- half-extent along z (body.lowestZ for a box, what world.addPiece rests it at).
+local function restZ(it, qw, qx, qy, qz)
+	local _, _, _, _, _, _, r31, r32, r33 = tw.quat.toMatrix(qw, qx, qy, qz)
+	return abs(r31) * it.hx + abs(r32) * it.hy + abs(r33) * it.hz
+end
+
+-- A kubb standing plumb is drawn in its seat (core 1.0: world.seat, up to the
+-- surface's `seat` degrees), the pose world.addPiece will give it when the
+-- throw's world is built from these items, so nothing steps at a throw's first
+-- frame. Same inputs as addPiece (the view frame, this pitch's surface); a piece
+-- that is not a plumb kubb comes back as given, seated false.
+local function seatOf(s, kind, x, y, qw, qx, qy, qz)
+	return phys.seat(s.surface or throw.tune.surface, kind, x, y, qw, qx, qy, qz)
+end
+
 -- Stand every piece of the layout up at its spot (a reset).
 function throw.standUp(s)
 	local items = s.items
@@ -245,7 +261,8 @@ function throw.standUp(s)
 			items[i] = it
 		end
 		local yaw = (p.yaw or 0) / 2
-		render.setPose(it, p.x, p.y, it.hz, math.cos(yaw), 0, 0, math.sin(yaw))
+		local qw, qx, qy, qz, seated = seatOf(s, p.kind, p.x, p.y, math.cos(yaw), 0, 0, math.sin(yaw))
+		render.setPose(it, p.x, p.y, seated and restZ(it, qw, qx, qy, qz) or it.hz, qw, qx, qy, qz)
 		it.toppled = false
 		it.base = p.base
 	end
@@ -256,11 +273,6 @@ end
 
 -- Use the match's pieces (core/outcome pieces: id, kind, x, y, qw..qz,
 -- toppled, in the view frame), each resting on the ground. Reuses the items.
-local function restZ(it, qw, qx, qy, qz)
-	-- the half-extent of the box along z: how high its center sits on the ground
-	local _, _, _, _, _, _, r31, r32, r33 = tw.quat.toMatrix(qw, qx, qy, qz)
-	return abs(r31) * it.hx + abs(r32) * it.hy + abs(r33) * it.hz
-end
 -- `debris` (optional, core/debris pieces) follows the pieces: batons and
 -- kubbs lying where earlier throws of the turn left them, each with its full
 -- pose and height. A piece with z (an exact rest pose) keeps it.
@@ -271,7 +283,10 @@ local function setItem(s, i, p)
 		it = render.item(p.id, p.kind)
 		items[i] = it
 	end
-	render.setPose(it, p.x, p.y, p.z or restZ(it, p.qw, p.qx, p.qy, p.qz), p.qw, p.qx, p.qy, p.qz)
+	-- a plumb kubb in its seat (world.addPiece then ignores a given z: it rests
+	-- the seated kubb on its lowest corner)
+	local qw, qx, qy, qz, seated = seatOf(s, p.kind, p.x, p.y, p.qw, p.qx, p.qy, p.qz)
+	render.setPose(it, p.x, p.y, (not seated and p.z) or restZ(it, qw, qx, qy, qz), qw, qx, qy, qz)
 	it.toppled = p.toppled
 	it.base = nil
 	it.role = p.role

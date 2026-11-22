@@ -224,6 +224,40 @@ scene at a time and rebuilds the System Menu for it (the scene's own item; until
   to a winner with physics and wrote game files the notation gate passes; a kept
   "matchopts" with `set` still validates. A resume sets the computer's sides again
   (`m.cpu`) before its first settle.
+- **The seat** (Kubb Engine 1.0, kubb-engine docs/notes/physics.md "The seat"): the
+  throw's world leans a kubb standing plumb (its pose a turn about the vertical alone, as
+  `outcome.pieces` gives every kubb the engine has standing) up to its surface's `seat`
+  (grass 2 degrees, sand 3, snow 1.5, the grid 0) when it is built (`world.addPiece`, by
+  `world.seat`). The Playdate builds its pictures from its own items, so the throw scene
+  puts every plumb kubb in its seat as it sets the items (`throw.standUp` for practice,
+  `setItem` for a match's pieces and debris: `world.seat` with the same view-frame point
+  and the scene's surface, and the height a box rests at), and the world built from those
+  items then takes them as given. Without it a kubb raised, placed or newly stood was drawn
+  plumb and stepped by up to its seat at the throw's first frame; headless on 1.0 with the
+  scene's rule (two matches each on grass, sand and snow, 836 throws) the drawn and the
+  built pose of every standing kubb at a throw's start are the same (0.00000 degrees; 441
+  of 5341 were drawn seated from plumb), and the pose drawn at a throw's start against the
+  last throw's rest for a kubb that did not move differs by at most 0.18 degrees (snow; a
+  millimetre). The other side's view is the same lean (the seed is side A's point, the
+  direction turned with the frame). The raise close-up (`scenes/settle`) draws the standing
+  neighbours in their seats the same way (a kubb stands about 50 px tall there, so its seat
+  is 1 to 3 px at the top; in the aim view a base kubb 8 m away is 12 px, under a pixel). The
+  raised kubb itself is never drawn plumb: the crank's last step to standing raises it and
+  the view moves on in the same update, so the next picture of it is the throw scene's,
+  already seated. Practice: a kubb keeps the seat it was stood up with when the pitch's
+  surface changes (System Menu "Pitch"), until RESET or a fall stands it again; the world
+  takes it as given, so nothing steps.
+  A match saved on 0.14.0 (core 0.18) and resumed: the save holds the engine's poses (x,
+  y, standing, angle) and the debris's exact rest poses, and on 0.18 an untouched kubb's
+  rest pose is exactly plumb, so on 1.0 every standing kubb that has not moved takes its
+  seat at the first throw after the resume (drawn so from the first frame); one that a
+  throw moved keeps its kept pose. That is what a match begun on 1.0 does with the same
+  kubbs. Nothing else of a save is read differently: no format changed (kubb-engine
+  docs/VERSIONING.md 1.0.0), `core/save`, `core/roster`, `core/history`, `core/names` and
+  `core/gamefile` are byte for byte 0.18's, so the names, teams, throw levels, saved
+  players and their histories and the game files read as before (checked headless: a
+  grass and a sand match saved at turn 4 on 0.18, unpacked on 1.0, names kept, 8 of 8
+  standing kubbs seated).
 - Games list (`scenes/games.lua`, board `Games.png`; `core/gamefile.lua` pure and tested
   over every fixture): the title's System Menu "Games" opens it. Every finished game in
   `games/`, newest first (file names start with the date): the date, the teams with a

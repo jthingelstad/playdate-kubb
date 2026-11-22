@@ -69,6 +69,10 @@ function tw.selftest.pitchMatchesEngine(ms)
 			return string.format("%s at (%.3f, %.3f), engine (%.3f, %.3f)", p.id, it.x, it.y, p.x, p.y)
 		end
 		if it.toppled ~= p.toppled then return p.id .. " toppled " .. tostring(it.toppled) end
+		-- core 1.0's seat: a kubb drawn plumb would be leaned by world.addPiece when the
+		-- throw's world is built and step at its first frame (docs/notes/match.md "The seat")
+		local _, _, _, _, seated = tw.world.seat(s.surface, it.kind, it.x, it.y, it.qw, it.qx, it.qy, it.qz)
+		if seated then return p.id .. " is drawn plumb; the throw's world will seat it" end
 	end
 	for i = 1, nd do
 		local d, it = s.debris[i], ts.items[#pieces + i]
