@@ -1,6 +1,10 @@
 -- Scenario "helicopter": a stuttered flick (fast and slow frames
--- alternating) onto the plan's targets, at the Pro level (the shake's full
--- cost): the shake tilts the baton past the helicopter limit. Frames: mid-flight with the baton spinning flat, then at rest
+-- alternating) on the plan's release, wound 40 degrees past the power target's
+-- centre (overpowered: every 30 degrees past the target multiplies the shake's
+-- cost): the shake tilts the baton past the helicopter limit. Until engine 0.13
+-- it was thrown at the Pro level (the shake's full cost) on the targets; on the
+-- person's meter (shakeGain 0.75, the level no longer counts) the same flick
+-- tilts it 19 degrees, legal, so it is overpowered as well. Frames: mid-flight with the baton spinning flat, then at rest
 -- with the readout saying HELICOPTER.
 import "selftest/_throw"
 
@@ -8,8 +12,7 @@ local st = tw.selftest
 local landedAt = nil
 
 st.scenarios.helicopter = st.throwScenario {
-	setup = function(s) s.level = "pro" end,
-	script = function(s) return st.planned(s, 0, 0, 200, { shaky = true }) end,
+	script = function(s) return st.planned(s, 40, 0, 200, { shaky = true }) end,
 	shots = {
 		function(s) return s.mode == "flight" and tw.flight.progress(s.flight) >= 0.5 end,
 		function(s, f)

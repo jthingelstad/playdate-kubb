@@ -1,7 +1,8 @@
 -- Scenario "clock-throw": point and throw (DESIGN 4), no A or B pressed.
 -- The circle starts on the nearest live target (b3), the thrower stands
--- behind it, the arc is the base kubb's (3 o'clock); the crank winds into
--- the power target and stops at 3 o'clock: the baton takes a base kubb
+-- behind it, the arc is the default for its distance (engine 0.10: 8 m, 4
+-- o'clock; 3 o'clock, the base kubb's, until 0.10); the crank winds into
+-- the power target and stops there: the baton takes a base kubb
 -- down. Frames: 1 aiming (the circle, the arc, the clock's targets), 2 the
 -- wind-up inside the power target (FLICK!), 3 in flight, 4 at rest (the
 -- result flag and ON ON STEADY), 5 aiming again (the verdicts and the last
@@ -26,7 +27,8 @@ st.scenarios["clock-throw"] = st.throwScenario {
 	maxFrames = 500,
 	check = function(s)
 		if s.stanceSet or s.arcSet then return "the stance or the arc was set by hand" end
-		if math.abs(s.playerX) > 1e-6 or math.abs(s.sol.release - 90) > 1e-6 then
+		local arc = tw.plan.arcFor("baton", 8)   -- b3 is 8 m straight ahead
+		if math.abs(s.playerX) > 1e-6 or math.abs(s.sol.release - arc) > 1e-6 then
 			return string.format("stance %.2f, release %.0f", s.playerX, s.sol.release)
 		end
 		if promptSeen ~= "FLICK!" then return "in the power target the prompt was " .. tostring(promptSeen) end
@@ -41,7 +43,7 @@ st.scenarios["clock-throw"] = st.throwScenario {
 			return string.format("verdicts %s %s %s", tostring(s.vPower), tostring(s.vRelease), tostring(s.vSteady))
 		end
 		if not s.showVerdicts or not s.lastBack or not s.lastStop then return "no verdicts or dots on the next aim" end
-		if math.abs(s.lastStop - 90) > 0.01 then return "stopped at " .. s.lastStop end
+		if math.abs(s.lastStop - arc) > 0.01 then return "stopped at " .. s.lastStop end
 		return nil, string.format("back=%.0f/%.0f-%.0f down=%d", s.lastBack, s.sol.powerLo, s.sol.powerHi, down)
 	end,
 }

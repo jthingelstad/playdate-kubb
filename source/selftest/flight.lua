@@ -56,7 +56,8 @@ st.scenarios.flight = st.throwScenario {
 		if o.level ~= "club" or o.projectile ~= "baton" or math.abs(o.ty - 8) > 0.01 or math.abs(o.tx) > 0.01 then
 			return "trace plan: " .. line
 		end
-		if math.abs(o.plan - 90) > 0.01 or not o.powerLo or not o.releaseHi or o.powerV ~= 0 or o.legal ~= true then
+		-- the default arc for b3 8 m away (engine 0.10; 90, the base kubb's, until then)
+		if math.abs(o.plan - tw.plan.arcFor("baton", 8)) > 0.01 or not o.powerLo or not o.releaseHi or o.powerV ~= 0 or o.legal ~= true then
 			return "trace targets or verdicts: " .. line
 		end
 		if not o.launchSpeed or not o.swivelOff or o.planTilt ~= 0 then return "trace launch: " .. line end

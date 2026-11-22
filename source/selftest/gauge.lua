@@ -11,6 +11,7 @@ local sol
 
 tw.selftest.scenarios.gauge = tw.selftest.throwScenario {
 	-- wound slowly, 2 degrees a frame, to 25 past the target, then a flick to 3 o'clock
+	-- (past the release target since engine 0.10's arc for 8 m, 4 o'clock: it only has to throw)
 	script = function(s)
 		sol = { lo = s.sol.powerLo, hi = s.sol.powerHi }
 		local back = s.sol.powerHi + 25
@@ -24,7 +25,9 @@ tw.selftest.scenarios.gauge = tw.selftest.throwScenario {
 		end,
 		function(s)
 			local sw = s.swing
-			if sw.phase == "winding" and sw.back >= sol.lo + 2 and sw.back <= sol.hi - 2 then seen[3] = s.promptText; return true end
+			-- anywhere inside it: on the person's meter (engine 0.13) the power target at
+			-- 8 m is 2 degrees either side, so 2 inside each edge was its centre alone
+			if sw.phase == "winding" and sw.back > sol.lo and sw.back < sol.hi then seen[3] = s.promptText; return true end
 		end,
 		function(s)
 			local sw = s.swing

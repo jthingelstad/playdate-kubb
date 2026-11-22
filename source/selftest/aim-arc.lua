@@ -9,7 +9,9 @@
 -- of the fit box and inside the sides, and at least its last few points
 -- showing (its first rise may come in from the lower edge). Then the same
 -- for drills: circles across the area the d-pad allows, the arc down to
--- where the kubb lands.
+-- where the kubb lands; a drill's arc may rise above the box into the gap
+-- under the rail (counted in the note: since engine 0.10 the steepest drills
+-- to the far corners peak a few px over the box at the widest lens).
 import "selftest/_throw"
 
 local throw = tw.scenes.throw
@@ -20,7 +22,10 @@ local function ringOn(ring)
 	return ring[1] >= 0 and ring[3] <= 400 and ring[2] >= 0 and ring[4] <= 240
 end
 
-local function check(s)
+-- drill arcs that rose over the fit box's top (into the gap under the rail)
+local overBox, overMost = 0, nil
+
+local function check(s, drilling)
 	-- first person
 	s.camMix = 0
 	local ring, arc, on, all, behind = throw.arcBox(s)
@@ -41,8 +46,18 @@ local function check(s)
 	end
 	if on < 3 then return "plan view: arc " .. on .. "/" .. all .. " on screen" end
 	local top = camera.tune.shoulder.top
-	if arc[1] < 0 or arc[3] > 400 or arc[2] < top - 1 then
+	-- a drill's highest arcs may rise into the gap between the rail and the box
+	-- (engine 0.10/0.11's drill: the half-past-12 drill to the far corner from the
+	-- far end of the line peaks at 22 px against the box's 24, the widest lens
+	-- reached): still on screen, under the rail; counted in the note
+	local limit = top - 1
+	if drilling then limit = tw.render.hud.tune.rail.h + 1 end
+	if arc[1] < 0 or arc[3] > 400 or arc[2] < limit then
 		return string.format("plan view: arc %.0f,%.0f %.0f,%.0f", arc[1], arc[2], arc[3], arc[4])
+	end
+	if arc[2] < top - 1 then
+		overBox = overBox + 1
+		if not overMost or arc[2] < overMost then overMost = arc[2] end
 	end
 end
 
@@ -82,7 +97,7 @@ tw.selftest.scenarios["aim-arc"] = tw.selftest.throwScenario {
 						throw.aimAt(s, tx, ty)
 						if px then throw.setStance(s, px, 0) end
 						throw.setArc(s, rel)
-						local why = check(s)
+						local why = check(s, true)
 						if why then
 							return string.format("drill circle %.1f %.1f stance %s release %d: %s", tx, ty,
 								px and tostring(px) or "behind", rel, why)
@@ -92,6 +107,7 @@ tw.selftest.scenarios["aim-arc"] = tw.selftest.throwScenario {
 				end
 			end
 		end
-		return nil, "aims=" .. nb .. " drills=" .. (n - nb)
+		return nil, "aims=" .. nb .. " drills=" .. (n - nb) .. " drills over the box top=" .. overBox
+			.. (overMost and string.format(" (highest %.0f px)", overMost) or "")
 	end,
 }
