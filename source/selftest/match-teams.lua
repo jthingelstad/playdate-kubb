@@ -6,9 +6,11 @@
 -- Frames: 1 the first hand-off of Team A naming its first thrower and the
 -- turn's order, 2 the first pass card, 3 the change list, 4 the winner
 -- card with each player's hits.
--- The check: each pass card names the thrower set up and the throw is at
--- their level, the change took, every turn keeps Rules V4.0 II.A.4 and
--- II.B.5 (core/order.checkSheet), and the game file names the levels.
+-- The check: each pass card names the thrower set up and a person's throw is
+-- on the one meter (scenes/throw throw.planBy: no level), the change took,
+-- every turn keeps Rules V4.0 II.A.4 and II.B.5 (core/order.checkSheet), and
+-- the game file has no [Throw Levels] (engine 0.13.2: the header names the
+-- computer's players only, and no computer plays in pass and play).
 import "selftest/_match"
 import "core/order"
 
@@ -19,8 +21,8 @@ local changedTo, changeDone, pressed = nil, false, false
 local notes = ""
 
 local TEAMS = {
-	A = { name = "Snow Kubbs", players = { { name = "Kim", level = "pro" }, { name = "Max" }, { name = "Alex" } } },
-	B = { name = "Baton Rouge", players = { { name = "Sam" }, { name = "Lee", level = "beginner" } } },
+	A = { name = "Wobbly Towers", players = { { name = "Brave Birch" }, { name = "Lucky Larch" }, { name = "Jolly Juniper" } } },
+	B = { name = "Birch Batons", players = { { name = "Mighty Maple" }, { name = "Agreeable Ginkgo" } } },
 }
 
 st.scenarios["match-teams"] = st.matchScenario {
@@ -50,11 +52,9 @@ st.scenarios["match-teams"] = st.matchScenario {
 			h.pressA()
 		elseif ms.phase == "pass" then
 			if ms.pass.name ~= ms.setup.thrower.name then error("the pass card names " .. ms.pass.name) end
-			-- the throw is at the thrower's own level (nil: the System Menu's)
-			if ms.ts.level ~= ms.setup.thrower.level then
-				error("the throw's level is " .. tostring(ms.ts.level) .. ", " .. ms.setup.thrower.name .. "'s "
-					.. tostring(ms.setup.thrower.level))
-			end
+			-- a person's throw is on the one meter, whatever level they may have kept
+			local meter, level = tw.scenes.throw.planBy(ms.ts)
+			if not meter or level then error("a person's throw planned on a level: " .. tostring(level)) end
 			if not shot.pass then ctx:capture(); shot.pass = true end
 			if changedTo and not changeDone then
 				if ms.setup.thrower.id ~= changedTo then
@@ -78,12 +78,9 @@ st.scenarios["match-teams"] = st.matchScenario {
 				local bad = tw.order.checkSheet(ms.m.game)
 				if #bad > 0 then error(bad[1]) end
 				local text = tw.match.file(ms.m, nil, "0.0.1")
-				-- each player by the header's id (engine 0.7.1, notation.fileIds:
-				-- initials on a team of more than one, so "k" for kim, "l" for lee)
-				local kid, lid = text:match('%[Throw Levels "(%w+) pro, (%w+) beginner"%]')
-				if not kid or kid ~= ("kim"):sub(1, #kid) or lid ~= ("lee"):sub(1, #lid) then
-					error("the game file's levels")
-				end
+				-- no computer plays: no [Throw Levels] (engine 0.13.2, match.fileLevels)
+				if text:find("[Throw Levels", 1, true) then error("pass and play wrote [Throw Levels]") end
+				if not text:find('[Base kubbs "5"]', 1, true) then error("the standard game's base kubbs") end
 				notes = notes .. string.format(" winner=%s turns=%d", ms.win.winner, ms.win.turns)
 				h.pressA()
 				pressed = true

@@ -42,6 +42,11 @@
 import "CoreLibs/graphics"
 
 import "core/tw"
+-- core/scenes (engine 0.14) stores itself as tw.scenes, the name this game's screens
+-- register under (tw.scenes.title, tw.scenes.throw, ...). Imported before any of them,
+-- so they add themselves to its table (`tw.scenes = tw.scenes or {}`) and none is lost
+-- when core/matchopts imports it later. No name is shared (main checks below).
+import "core/scenes"
 -- first, so it can count the graphics calls of every module (selftest=drawcalls only)
 import "selftest/_drawcount"
 import "core/vec"
@@ -74,7 +79,9 @@ import "selftest/auto-raise"
 import "selftest/settle-resign"
 import "selftest/settle-crank"
 import "selftest/names"
+import "selftest/names-fit"
 import "selftest/options"
+import "selftest/options-kid"
 import "selftest/set-save"
 import "selftest/resume"
 import "selftest/soak"
@@ -114,6 +121,8 @@ import "selftest/match-sheet"
 import "selftest/match-wind"
 import "selftest/match-vs"
 import "selftest/match-debris"
+import "selftest/match-kid"
+import "selftest/kid-aim"
 import "selftest/cards"
 import "selftest/cards-fit"
 import "selftest/drawcalls"
@@ -136,6 +145,9 @@ import "selftest/crank-flip-mid"
 import "selftest/crank-flip-flight"
 import "selftest/crank-nudge"
 
+-- every screen and core/scenes' catalogue on one table (see the import of core/scenes)
+assert(tw.scenes.throw and tw.scenes.title and tw.scenes.get, "tw.scenes lost a screen or the catalogue")
+
 local function launchArgs()
 	local args = {}
 	for i, a in ipairs(playdate.argv or {}) do
@@ -156,7 +168,7 @@ if args.selftest then
 	end
 else
 	local throw, match, title = tw.scenes.throw, tw.scenes.match, tw.scenes.title
-	local names, games, drillsScene = tw.scenes.names, tw.scenes.games, tw.scenes.drills
+	local games, drillsScene = tw.scenes.games, tw.scenes.drills
 	local optionsScene = tw.scenes.options
 	local nextMatch = nil            -- names and mode on their way through the options screen
 	local lastMatch = nil            -- the options of the last match (a rematch plays them again)
@@ -218,7 +230,10 @@ else
 		menu:removeAllMenuItems()
 		local item
 		if kind == "practice" then
-			local pitchItems = { "play", "how to", "crank", "reset", "drill", "batons", "grass", "sand", "snow", "title" }
+			-- the surfaces are the Black & White scene's (core/scenes, the Playdate's scene)
+			local pitchItems = { "play", "how to", "crank", "reset", "drill", "batons" }
+			for _, k in ipairs(tw.scenes.get(tw.matchopts.scene).surfaces) do pitchItems[#pitchItems + 1] = k end
+			pitchItems[#pitchItems + 1] = "title"
 			if tw.debug then
 				table.insert(pitchItems, 4, "readout")
 				table.insert(pitchItems, #pitchItems, "bench")
@@ -232,7 +247,7 @@ else
 					-- debug only: the line under the rail after each throw
 					showReadout = not showReadout
 					current.showReadout = showReadout
-				elseif v == "grass" or v == "sand" or v == "snow" then
+				elseif tw.world.surfaces[v] then
 					throw.setSurface(current, v)
 				elseif v == "reset" then
 					throw.reset(current)
@@ -355,10 +370,12 @@ else
 			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
 			-- a rematch keeps the resumed match's options (surface and opening
 			-- are the engine's own)
-			-- (and the computer's level, from its lineup entry: nil in a save from before 0.9)
+			-- (and the computer's level, from its lineup entry: nil in a save from before 0.9;
+			-- and the rules, the game's own: "kid" in a Kid match, engine 0.15)
 			local cpu = opts.vs and m.lineup and m.lineup[opts.vs] and m.lineup[opts.vs][1]
 			lastMatch = { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle, set = opts.set,
-				wind = opts.wind, surface = m.game.surface, opening = m.game.opening, computer = cpu and cpu.level }
+				wind = opts.wind, surface = m.game.surface, opening = m.game.opening, computer = cpu and cpu.level,
+				rules = m.game.rules }
 			kind = "match"
 			current = match.new(device, { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle,
 				set = opts.set, wind = opts.wind, autoRaise = opts.autoRaise, resume = m })
@@ -471,15 +488,6 @@ else
 			end
 			if current.exit then return open(current.exit) end
 			tw.scenes.teams.draw(current)
-		elseif kind == "names" then
-			names.update(current)
-			if current.done then
-				-- then the match options
-				nextMatch = { vs = (current.mode == "vs") and "B" or nil, names = current.list }
-				return open("options")
-			end
-			if current.exit then return open(current.exit) end
-			names.draw(current)
 		elseif kind == "options" then
 			optionsScene.update(current)
 			if current.done then

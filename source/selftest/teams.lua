@@ -1,9 +1,10 @@
 -- Scenario "teams": the TEAMS screen (scenes/teams) for PASS + PLAY, the
--- keyboard scripted, over a roster of five (Alex, Kim, Lee, Max, Sam). Alex,
--- Kim and Lee are sent left to Team A, Max and Sam right to Team B; Kim is
--- moved to the top of Team A's order (hold A + up); Team A is named Snow
--- Kubbs; START. Frames: 1 the teams built, 2 the team name keyboard, 3
--- Team A in its new order with its name. The check: the teams given are
+-- Names screen scripted, over a roster of five generated names (Agreeable Ginkgo,
+-- Brave Birch, Jolly Juniper, Lucky Larch, Mighty Maple). The first three are sent
+-- left to Team A, the last two right to Team B; Brave Birch is moved to the top of
+-- Team A's order (hold A + up); Team A is named Wobbly Towers (a generated team
+-- name); START. Frames: 1 the teams built, 2 the team's Names screen, 3 Team A in
+-- its new order with its name. The check: the teams given are
 -- core/match's (3 and 2 players, in that order) and a match starts with
 -- them.
 import "core/tw"
@@ -35,7 +36,9 @@ tw.selftest.scenarios.teams = {
 	step = function(ctx)
 		if not s then
 			local r = tw.roster.new()
-			for _, n in ipairs { "Kim", "Max", "Alex", "Sam", "Lee" } do tw.roster.add(r, n, nil, "2026-11-15") end
+			for _, n in ipairs { "Brave Birch", "Lucky Larch", "Agreeable Ginkgo", "Mighty Maple", "Jolly Juniper" } do
+				tw.roster.add(r, n, nil, "2026-11-15")
+			end
 			inp = manual()
 			s = scene.new(inp, "match", { scripted = true, roster = r })
 			scene.enter()
@@ -45,30 +48,32 @@ tw.selftest.scenarios.teams = {
 				press("left"), press("left"),            -- Alex, Kim, Lee to Team A
 				press("right"), press("right"),          -- Max, Sam to Team B
 				function()
-					if namesOf(s.L.A) ~= "Alex,Kim,Lee" or namesOf(s.L.B) ~= "Max,Sam" then
+					if namesOf(s.L.A) ~= "Agreeable Ginkgo,Brave Birch,Jolly Juniper" or namesOf(s.L.B) ~= "Lucky Larch,Mighty Maple" then
 						return "teams " .. namesOf(s.L.A) .. " / " .. namesOf(s.L.B)
 					end
 					-- (the bench is START, NEW, GUEST now, the cursor on GUEST)
 				end,
 				"capture",
-				press("left"),                           -- to Team A's column, on its third row: Kim
+				press("left"),                           -- to Team A's column, on its third row: Brave Birch
 				function() if s.col ~= "A" then return "column " .. s.col end inp.press, inp.hold = "up", "a" end,
-				function() if namesOf(s.L.A) ~= "Kim,Alex,Lee" then return "order " .. namesOf(s.L.A) end inp.press = "up" end,
+				function() if namesOf(s.L.A) ~= "Brave Birch,Agreeable Ginkgo,Jolly Juniper" then return "order " .. namesOf(s.L.A) end inp.press = "up" end,
 				function() if s.row ~= 1 then return "row " .. s.row end inp.press = "a" end,   -- the name row
-				function() if not s.sub then return "no keyboard" end names.type(s.sub, "Snow Kubbs") end,
+				function() if not s.sub then return "no Names screen" end
+					if s.sub.kind ~= "team" then return "a team name asked as " .. tostring(s.sub.kind) end
+					if not names.set(s.sub, "Wobbly Towers") then return "Wobbly Towers refused" end end,
 				"capture",
 				function() names.ok(s.sub) end,
-				function() if s.L.names.A ~= "Snow Kubbs" then return "team name " .. tostring(s.L.names.A) end end,
+				function() if s.L.names.A ~= "Wobbly Towers" then return "team name " .. tostring(s.L.names.A) end end,
 				"capture",
 				press("right"),                          -- the bench, START
 				function() if s.col ~= "M" or s.row ~= 1 then return "not on START" end inp.press = "a" end,
 				function()
 					if not s.done then return "START did not start" end
 					local t = scene.teams(s)
-					if t.A.name ~= "Snow Kubbs" or t.B.name ~= "Team Max" then return "names " .. t.A.name .. ", " .. t.B.name end
+					if t.A.name ~= "Wobbly Towers" or t.B.name ~= "Team Lucky Larch" then return "names " .. t.A.name .. ", " .. t.B.name end
 					local ms = tw.scenes.match.new(tw.input.scripted({}), { teams = t, seed = 1, instant = true })
 					local g = ms.m.game
-					if #g.teams.A.players ~= 3 or g.teams.A.players[1].id ~= "kim" or #g.teams.B.players ~= 2 then
+					if #g.teams.A.players ~= 3 or g.teams.A.players[1].name ~= "Brave Birch" or #g.teams.B.players ~= 2 then
 						return "the match's teams"
 					end
 				end,

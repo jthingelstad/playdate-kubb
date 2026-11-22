@@ -158,6 +158,10 @@ throw.tune = {
 --                        place of "standing kubbs in the far half"; with them the
 --                        camera also looks nearer (camera.lookDistFor)
 --   s.advY               the advantage line to draw (pitch and minimap)
+--   s.kid, s.kidY        a Kid match (engine 0.15; core/match setup.kid, setup.kidY):
+--                        the Kid line to draw (pitch and minimap), which every kubb and
+--                        baton at a kubb is thrown from (s.forwardY, the setup's), and a
+--                        person's throw planned on the Kid meter (throw.planBy)
 --   s.instant            show a throw's last frame at once (self-tests)
 --   s.scripted           launched by throw.autoLaunch, not the crank: no trace written
 --   s.drill              the throw is a drilled kubb (set by throw.prepare for a
@@ -192,12 +196,14 @@ end
 
 -- What the scene's plan is solved on (engine 0.13, kubb-engine docs/notes/throw.md
 -- "The person's meter"): a person's throw on the one meter (plan.meter(), the same
--- table every call), whatever level they have; the Playdate's (s.watching) on its
--- level. Returns the meter, or nil and the level. plan.launch is then given no
--- level for a person's throw: it reads the meter's table for the distance from the
--- solution (sol.level).
+-- table every call), whatever level they have, and in a Kid match (s.kid, engine
+-- 0.15) on the Kid meter (plan.meter("kid"): much wider bars, a soft flick forgiven;
+-- "The Kid meter"); the Playdate's (s.watching) on its level. Returns the meter, or
+-- nil and the level. plan.launch is then given no level for a person's throw: it
+-- reads the meter's table for the distance from the solution (sol.level).
 function throw.planBy(s)
 	if s.watching then return nil, throw.levelFor(s) end
+	if s.kid then return plan.meter("kid"), nil end
 	return plan.meter(), nil
 end
 local function planKey(s)
@@ -399,9 +405,10 @@ end
 
 -- How far forward this throw may stand: the advantage line for a baton (a
 -- king shot's forwardY is the baseline already), the baseline for a kubb
--- (II.C.1).
+-- (II.C.1); in a Kid match the Kid line for both (the setup's forwardY: kubbs
+-- and batons at kubbs from 2 m in front of the baseline, the king from it).
 local function forwardLimit(s)
-	if s.projectile == "kubb" then return s.lineY end
+	if s.projectile == "kubb" and not s.kid then return s.lineY end
 	return s.forwardY
 end
 
@@ -640,6 +647,7 @@ function throw.prepare(s, setup)
 	render.setSurface(s.surface)
 	throw.setPieces(s, setup.pieces, setup.debris)
 	s.lineY, s.forwardY, s.advY = setup.lineY, setup.forwardY or setup.lineY, setup.advY
+	s.kid, s.kidY = setup.kid, setup.kidY
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
 	s.targetIds = setup.targets
 	s.auto = false
@@ -663,7 +671,7 @@ function throw.prepare(s, setup)
 		s.playerY = max(s.lineY - t.backMax, min(s.forwardY, s.playerY))
 	else
 		s.stanceSet = false
-		s.playerX, s.playerY = 0, (setup.projectile == "baton") and s.forwardY or setup.lineY
+		s.playerX, s.playerY = 0, (setup.projectile == "baton" or s.kid) and s.forwardY or setup.lineY
 	end
 	-- a drill's own stance (AROUND THE PITCH: in front of the next base kubb)
 	if setup.playerX then s.playerX, s.playerY, s.stanceSet = setup.playerX, setup.lineY, true end
@@ -679,10 +687,13 @@ function throw.prepare(s, setup)
 	if keepSpin then s.spin = spin end
 	s.spinTurn, s.spinSide = setup.turn, setup.side
 	-- metres the advantage line is up from the baseline, for the HUD's flag
-	-- (batons only; nil from the baseline and for a king shot)
+	-- (batons only; nil from the baseline and for a king shot). In a Kid match the
+	-- line thrown from is the Kid line unless the advantage line is nearer the middle,
+	-- and kubbs are thrown from it too: KID LINE 2.0 M (the session's aim.advText)
 	local adv = s.forwardY - s.lineY
-	s.advMeters = (setup.projectile == "baton" and adv > 0.05) and adv or nil
-	s.advText = s.advMeters and hud.advantageText(s.advMeters) or nil
+	s.advMeters = ((setup.projectile == "baton" or s.kid) and adv > 0.05) and adv or nil
+	local onKid = s.kid and s.kidY and math.abs(s.forwardY - s.kidY) < 0.01
+	s.advText = s.advMeters and (onKid and hud.kidLineText(s.advMeters) or hud.advantageText(s.advMeters)) or nil
 	-- a kubb is drilled; its circle stays where the team left it last throw
 	-- (setup.markerY, a drill's own from the thrower's line: fixed there)
 	s.markerFixed = false
@@ -1046,8 +1057,9 @@ local function fire(s, L, how, sol)
 		l.restX, l.restY = nil, nil
 	end
 	s.readout, s.restText = nil, nil
-	-- the result flag: a helicopter shows from the release, the rest at rest
-	s.flagText = (not l.legal) and "HELICOPTER" or nil
+	-- the result flag: a helicopter shows from the release, the rest at rest (in a
+	-- Kid match a helicopter counts: it says so, nobody is told off)
+	s.flagText = (not l.legal) and (s.kid and "HELICOPTER: IT COUNTS" or "HELICOPTER") or nil
 	s.mode = "flight"
 	s.throws = s.throws + 1
 end
@@ -1165,7 +1177,7 @@ local function landed(s)
 	end
 	s.readout = hud.readoutText(l)
 	-- the result flag (a match puts its own ruling there: throw.setFlag)
-	if not l.legal then s.flagText = "HELICOPTER"
+	if not l.legal then s.flagText = s.kid and "HELICOPTER: IT COUNTS" or "HELICOPTER"
 	elseif l.drill then s.flagText = nil
 	elseif l.down > 0 then s.flagText = l.down .. " DOWN"
 	else s.flagText = "MISS" end
@@ -1847,6 +1859,7 @@ function throw.drawFrame(s)
 		if s.projectile == "kubb" then n = n + 1 else b = s.baton end
 	end
 	render.advantageY = s.advY
+	render.kidY = s.kidY
 	local cam = s.viewCam or s.aimCam
 	render.draw(cam, s.items, n, b)
 	burst.draw(s.burst, cam)
@@ -1866,6 +1879,7 @@ function throw.drawFrame(s)
 	hs.baton = (not aiming) and s.baton or nil
 	hs.pieces, hs.npieces = s.items, s.nitems
 	hs.advY = s.advY
+	hs.kidY = s.kidY
 	local fl = s.flight
 	if not aiming then
 		hs.landX, hs.landY = fl.lx, fl.ly

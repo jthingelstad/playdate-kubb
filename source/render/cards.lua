@@ -85,14 +85,35 @@ end
 
 local function plural(n, one, many) return n .. " " .. (n == 1 and one or many) end
 
+-- A card's big name (cap top `top`): display 32 when it fits `room` px, else display
+-- 16, else the label font, as the winner card does. Generated names run to 16 letters
+-- (engine 0.12: "WONDERFUL WALNUT"), wider than display 32 leaves beside the map.
+rcards.tune.nameRoom = 266   -- the hand-off, pass and settle cards: left to the map's edge less 8
+local function bigName(text, top, room)
+	local t = rcards.tune
+	local d32, d16 = ui.display(32), ui.display(16)
+	local up = string.upper(text or "")
+	if d32:getTextWidth(up) <= room then return ui.text(d32, up, t.left - 1, top - 1, true) end
+	if d16:getTextWidth(up) <= room then return ui.text(d16, up, t.left - 1, top + 11, true) end
+	return ui.text(ui.label(), up, t.left, top + 14, true)
+end
+
 function rcards.handoff(c)
 	local t = rcards.tune
 	local img = gfx.image.new(400, 240, gfx.kColorBlack)
 	local label, d16, d32 = ui.label(), ui.display(16), ui.display(32)
 	gfx.pushContext(img)
-	ui.text(label, "PASS THE PLAYDATE TO", t.left, 18, true)
+	local pw = ui.text(label, "PASS THE PLAYDATE TO", t.left, 18, true)
+	-- a Kid match (engine 0.15): said once, on the card every turn begins with
+	if c.kid then
+		local kx = t.left + pw + 10
+		local kw = label:getTextWidth("KID RULES")
+		white()
+		gfx.fillRect(kx, 16, kw + 8, 16)
+		ui.text(label, "KID RULES", kx + 4, 18, false)
+	end
 	-- a team of several: the first thrower's name (the team's on the throw line)
-	ui.text(d32, c.thrower or c.toName, t.left - 1, t.nameTop - 1, true)
+	bigName(c.thrower or c.toName, t.nameTop, t.nameRoom)
 	white()
 	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
 
@@ -171,7 +192,7 @@ function rcards.settle(c)
 	local label, d16, d32 = ui.label(), ui.display(16), ui.display(32)
 	gfx.pushContext(img)
 	ui.text(label, "PASS THE PLAYDATE TO", t.left, 18, true)
-	ui.text(d32, c.toName, t.left - 1, t.nameTop - 1, true)
+	bigName(c.toName, t.nameTop, t.nameRoom)
 	white()
 	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
 	ui.text(label, "you raise", t.left, t.tookY, true)
@@ -208,7 +229,7 @@ function rcards.pass(c)
 	local label, d16, d32 = ui.label(), ui.display(16), ui.display(32)
 	gfx.pushContext(img)
 	ui.text(label, "PASS THE PLAYDATE TO", t.left, 18, true)
-	ui.text(d32, c.name, t.left - 1, t.nameTop - 1, true)
+	bigName(c.name, t.nameTop, t.nameRoom)
 	white()
 	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
 	local parts = { c.team }
@@ -298,12 +319,13 @@ function rcards.winner(c, how, saved)
 	if c.players then
 		-- each player's hits over batons, as many to a line as fit between the
 		-- margins; when that takes more lines than there is room for above the
-		-- buttons, the names are cut to their first six letters
+		-- buttons, the names are cut to their last word's first seven letters (a
+		-- generated name's wood: "REDWOOD", "GINKGO"; before 0.12.0 the first six letters)
 		local room = math.max(1, (t.buttonY - 4 - y) // t.statsStep)
 		local function pack(cut)
 			local lines, parts, w = {}, {}, 0
 			for _, p in ipairs(c.players) do
-				local nm = cut and string.sub(p.name, 1, 6) or p.name
+				local nm = cut and string.sub(p.name:match("(%S+)$") or p.name, 1, 7) or p.name
 				local s = nm .. " " .. p.hits .. "/" .. p.thrown
 				local sw = label:getTextWidth(string.upper(s))
 				local add = (#parts > 0) and (sw + 10) or sw

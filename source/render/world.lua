@@ -54,6 +54,7 @@ world.tune = {
 	dash = 0.24,      -- m, the centerline's dash and gap: 6 on 4 off
 	dashGap = 0.16,
 	advDash = 0.10,   -- m, the advantage line's dash and gap: 2 on 2 off
+	kidLineWidth = 1, -- px, the Kid line (a Kid match): thin and solid
 	-- The rough outside the sidelines and past the far baseline: 2 x 1
 	-- dashes on an 8 px grid (pattern bits: 1 = white, 0 = black), never on
 	-- the pitch. Its phase follows the ground (see drawPitch).
@@ -104,6 +105,10 @@ local poseVersion = 0
 -- The advantage line's y (the view frame), or nil for none. Set by the
 -- scene; part of the frame cache key.
 world.advantageY = nil
+-- A Kid match's Kid line (engine 0.15; the view frame), or nil: drawn as a thin
+-- solid line, so it reads apart from the advantage line's dashes and the
+-- centerline's. Set by the scene; part of the frame cache key.
+world.kidY = nil
 
 -- Pieces are drawn from an item list the scene keeps: one item per kubb or
 -- king with a full pose. world.setPose fills the rotation matrix. Item
@@ -362,6 +367,13 @@ local function drawPitch()
 	-- the advantage line (the match, II.B.6): 2 on 2 off
 	local ay = world.advantageY
 	if ay then dashes(-2.5, 2.5, ay, t.advDash, t.advDash) end
+	-- the Kid line (a Kid match): every kubb and every baton at a kubb is thrown from it
+	local ky = world.kidY
+	if ky then
+		setLineWidth(t.kidLineWidth)
+		line(-2.5, ky, 0, 2.5, ky, 0)
+		setLineWidth(t.lineWidth)
+	end
 	-- the stakes (Jamie, 2026-11-14: a real pitch's wooden stakes, 3/4 inch thick
 	-- and 6 inches out of the ground): solid posts their true width at their
 	-- distance, never thinner than stakeMinPx, and no shadow (a shadow line at a
@@ -822,8 +834,9 @@ local function sameKey(items, n, baton)
 		k[19], k[20], k[21], k[22], k[23], k[24] = false, false, false, false, false, false
 	end
 	k[25] = world.advantageY or false
+	k[26] = world.kidY or false
 	local same = true
-	for i = 1, 25 do
+	for i = 1, 26 do
 		local v = k[i]
 		if K[i] ~= v then K[i] = v; same = false end
 	end
@@ -838,7 +851,7 @@ end
 -- test.
 local LK = {}
 local bgImg = nil
-local bgVersion, bgItems, bgN, bgAdv = -1, nil, 0, nil
+local bgVersion, bgItems, bgN, bgAdv, bgKid = -1, nil, 0, nil, nil
 local inBg = {}
 local BX0, BY0, BX1, BY1 = {}, {}, {}, {}
 local group = {}
@@ -955,7 +968,8 @@ end
 -- Is the layer usable for this frame (same camera, same list, no
 -- background piece moved)?
 local function layerValid(items, n)
-	if not layerReady or items ~= bgItems or n ~= bgN or (world.advantageY or false) ~= bgAdv then return false end
+	if not layerReady or items ~= bgItems or n ~= bgN or (world.advantageY or false) ~= bgAdv
+		or (world.kidY or false) ~= bgKid then return false end
 	local k = KEY
 	for i = 1, 15 do if LK[i] ~= k[i] then return false end end
 	for i = 1, n do
@@ -989,7 +1003,7 @@ local function buildLayer(c, items, n)
 		end
 	end
 	for i = 1, 15 do LK[i] = KEY[i] end
-	bgItems, bgN, bgAdv, bgVersion = items, n, world.advantageY or false, poseVersion
+	bgItems, bgN, bgAdv, bgKid, bgVersion = items, n, world.advantageY or false, world.kidY or false, poseVersion
 	layerReady = true
 end
 
