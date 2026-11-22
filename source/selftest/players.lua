@@ -3,12 +3,15 @@
 -- self-test roster: Lucky Larch made (+ NEW PLAYER, straight to their page,
 -- which has no LEVEL row since engine 0.13), Mighty Maple and Agreeable Ginkgo
 -- (16 letters, the longest) made, a second Lucky Larch refused as taken, Mighty
--- Maple renamed Jolly Juniper, then removed; then a roster kept by an older build
--- with typed names comes back with generated ones.
+-- Maple renamed Jolly Juniper, then removed. Then a roster saved by 0.11.0 with
+-- typed names (jamiE, Playdate, Tyler, Montgomery) loads unchanged and is not
+-- rewritten (the owner, 2026-11-21: "Saved players keep their typed names until
+-- someone renames them."), plays a scripted match with those names on its sheet, and
+-- only Montgomery's rename (a generated name) changes one.
 -- Frames: 1 the Names step with Lucky Larch refused, 2 the list (Lucky Larch
--- chosen), 3 their page, 4 the remove card. The check: the roster saved and read
--- back has Lucky Larch and Agreeable Ginkgo and no Jolly Juniper, the scene went
--- to the title on B, and typed names were replaced, the same each load.
+-- chosen), 3 their page, 4 the remove card, 5 the list of typed names. The check:
+-- the roster saved and read back has Lucky Larch and Agreeable Ginkgo and no Jolly
+-- Juniper, the scene went to the title on B, and the typed names as above.
 import "core/tw"
 import "scenes/players"
 import "scenes/names"
@@ -16,6 +19,10 @@ import "players"
 import "core/history"
 import "core/namegen"
 import "core/roster"
+import "core/lineup"
+import "core/match"
+import "scenes/match"
+import "input"
 
 local scene, names, players = tw.scenes.players, tw.scenes.names, tw.players
 
@@ -97,22 +104,71 @@ tw.selftest.scenarios.players = {
 					inp.want = "b"
 				end,
 				function() if s.exit ~= "title" then return "B went to " .. tostring(s.exit) end
-					-- an older build's roster, typed names: generated ones in their place, saved
+					-- a roster saved by 0.11.0 with typed names (the owner, 2026-11-21: "Saved players
+					-- keep their typed names until someone renames them."): loaded unchanged
 					local old = tw.roster.new()
-					tw.roster.add(old, "Kim", "pro", "2026-11-01")
+					tw.roster.add(old, "jamiE", "club", "2026-11-01")
+					tw.roster.add(old, "Playdate", nil, "2026-11-01")
+					tw.roster.add(old, "Tyler", "pro", "2026-11-01")
 					tw.roster.add(old, "Montgomery", nil, "2026-11-01")
-					tw.roster.add(old, "Brave Birch", nil, "2026-11-01")
 					playdate.datastore.write(old, players.fileKey("players"))
+					local before = json.encode(playdate.datastore.read(players.fileKey("players")))
 					local r1 = players.load()
-					local r2 = players.load()
-					local n1 = names_(r1.players)
-					if n1 ~= names_(r2.players) then return "not the same names twice: " .. n1 end
-					for _, p in ipairs(r1.players) do
-						if not tw.namegen.valid("player", p.name) then return "kept a typed name: " .. p.name end
+					players.load()
+					if names_(r1.players) ~= "jamiE,Playdate,Tyler,Montgomery" then return "load changed names: " .. names_(r1.players) end
+					if json.encode(playdate.datastore.read(players.fileKey("players"))) ~= before then return "load rewrote the roster" end
+					-- PLAYERS shows them as they are
+					s = scene.new(inp, { scripted = true })
+					s.choice = 2; s.img = nil
+				end,
+				"capture5",
+				function()
+					-- a match with those names: on the sheet as typed
+					local L = tw.lineup.new(false)
+					local r = players.load()
+					tw.lineup.add(L, "A", tw.lineup.entry(r.players[1]))
+					tw.lineup.add(L, "B", tw.lineup.entry(r.players[3]))
+					tw.lineup.add(L, "B", tw.lineup.entry(r.players[4]))
+					local ms = tw.scenes.match.new(tw.input.scripted({}), { teams = tw.lineup.teams(L), seed = 3, instant = true,
+						skipHandoff = true, maxTurns = 4 })
+					for _ = 1, 4000 do
+						if ms.phase == "over" then break end
+						tw.scenes.match.update(ms)
 					end
-					if r1.players[3].name ~= "Brave Birch" then return "a generated name was changed" end
-					if r1.players[1].key ~= "p1" then return "the key changed" end
-					ctx.note = (ctx.note or "") .. " from=Kim,Montgomery to=" .. n1:gsub(" ", "_")
+					if ms.phase ~= "over" then return "the match did not end" end
+					local text = tw.match.file(ms.m, nil, "0.0.1")
+					if not text:find('[Team A "jamiE"]', 1, true) then return "the sheet's Team A" end
+					local bp = text:match('%[Team B Players "([^"]*)"%]') or ""
+					if not (bp:find("Tyler", 1, true) and bp:find("Montgomery", 1, true)) then return "the sheet's Team B players: " .. bp end
+					ctx.note = (ctx.note or "") .. " sheet=" .. bp:gsub(" ", "_")
+					s.img = nil
+				end,
+				-- only a rename changes one: Montgomery's NAME row gives a generated name
+				function()
+					for i, p in ipairs(s.list) do if p.name == "Montgomery" then s.choice = i + 1 end end
+					s.img = nil; inp.want = "a"
+				end,
+				function()
+					if s.mode ~= "player" then return "no player page" end
+					s.renamedKey = s.player.key
+					inp.want = "a"
+				end,
+				function()
+					if s.mode ~= "name" then return "no Names screen" end
+					if names.text(s.sub) == s.player.name then return "the rename offered the typed name" end
+					names.ok(s.sub)
+				end,
+				function()
+					local r = tw.roster.valid(playdate.datastore.read(players.fileKey("players")))
+					local renamed
+					for _, p in ipairs(r.players) do if p.key == s.renamedKey then renamed = p end end
+					if not renamed or not tw.namegen.valid("player", renamed.name) then return "the rename gave " .. tostring(renamed and renamed.name) end
+					local others = {}
+					for _, p in ipairs(r.players) do if p.key ~= s.renamedKey then others[#others + 1] = p.name end end
+					if table.concat(others, ",") ~= "jamiE,Playdate,Tyler" then
+						return "others changed: " .. table.concat(others, ",")
+					end
+					ctx.note = ctx.note .. " renamed=" .. renamed.name:gsub(" ", "_")
 				end,
 			}
 		end

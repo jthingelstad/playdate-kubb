@@ -619,7 +619,9 @@ kubbs than it can clear, raises to break up lines, and hits about 60% from 8 m.
 
 **Q5. Names, ids and saved games.** (Since the game's 0.12.0 names are generated, not
 typed: two words from the Kubb Engine's lists, chosen with the crank on the Names screen;
-kubb-engine docs/NAMES.md, docs/notes/saved-players.md "Generated names".)
+kubb-engine docs/NAMES.md, docs/notes/saved-players.md "Generated names". A player saved
+with a typed name keeps it: "Saved players keep their typed names until someone renames
+them." Jamie, 2026-11-21.)
 *Recommendation:* one player per side in version 1, named with the Playdate keyboard; the id is the lowercased name with anything but letters removed
 (`j` style ids if two names collide). The computer is team "Playdate" with the level as its
 player. On the device, a Games list opens a scoresheet view of any saved game with hit % and

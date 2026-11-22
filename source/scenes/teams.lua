@@ -18,9 +18,9 @@
 --                    generated team name (scenes/names)
 --   B                back to the title
 -- The lineup is kept (datastore "teams", per mode; guests are not) and
--- offered again; a kept team name that is not a generated one (typed on an older
--- build) comes back as a generated team name (device/namepick.fallback). The
--- screen is one image redrawn only on a change.
+-- offered again; a kept team name typed on an older build stays as it is until it is
+-- renamed (the owner's decision, kubb-engine docs/NAMES.md 10.2). The screen is one
+-- image redrawn only on a change.
 --
 -- opts.scripted: the Names screen is scripted (scenes/names), nothing read from
 -- or written to the "teams" file; opts.roster: the roster to use.
@@ -32,7 +32,6 @@ import "core/notation"
 import "render/ui"
 import "scenes/names"
 import "players"
-import "device/namepick"
 
 local gfx <const> = playdate.graphics
 local roster, lineup, ui = tw.roster, tw.lineup, tw.render.ui
@@ -93,17 +92,6 @@ function scene.new(provider, mode, opts)
 	s.r = opts.roster or players.load()
 	local kept = (not s.scripted) and playdate.datastore.read(players.fileKey(scene.tune.key)) or nil
 	s.L = lineup.unpack(kept and kept[mode], s.r, mode == "vs")
-	-- a team name typed on an older build: a generated one in its place (the same
-	-- one every time for that name), kept at once
-	local renamed = false
-	for _, side in ipairs { "A", "B" } do
-		local n = s.L.names[side]
-		if n and not tw.namegen.valid("team", n) then
-			lineup.setName(s.L, side, tw.namepick.fallback("team", n, tw.namepick.seedOf(side .. n)))
-			renamed = true
-		end
-	end
-	if renamed then keep(s) end
 	-- the cursor on the first saved player when nobody is on a team yet
 	if not lineup.ready(s.L) and #rows(s, "M") > 3 then s.row = 4 end
 	return s
@@ -233,7 +221,8 @@ end
 
 -- A name for a column `w` px wide: as it is, or with its first word cut to its
 -- initial ("N. REDWOOD"), or without its "The", when even the label face is too wide (generated names run
--- to 16 letters; the widest is about 140 px in the label face, the column 133).
+-- to 16 letters; the widest is about 140 px in the label face, the column 133). A single
+-- word (a name typed on an older build) is never cut.
 function scene.fitName(text, w)
 	local label = ui.label()
 	if label:getTextWidth(string.upper(text)) <= w then return text end

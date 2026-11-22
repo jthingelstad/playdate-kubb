@@ -3,5 +3,5 @@ author=Jamie Thingelstad
 description=Backyard Kubb for the Playdate. The crank is your throwing arm.
 bundleID=com.throwingwood.playdate
 version=0.12.0
-buildNumber=12
+buildNumber=13
 imagePath=launcher
