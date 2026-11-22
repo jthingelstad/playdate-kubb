@@ -66,6 +66,7 @@ import "scenes/sheet"
 import "core/wind"
 import "core/history"
 import "players"
+import "device/enginetune"
 
 local gfx <const> = playdate.graphics
 local cmatch, autothrow = tw.match, tw.autothrow
@@ -117,6 +118,31 @@ local function cpuLevel(tm, side, level)
 	t.players = ps
 	out[side] = t
 	return out
+end
+
+-- The sides the computer plays, for core/match's raising by side (engine 0.12,
+-- match.raisePolicy): the Playdate's side against the Playdate, none in PASS +
+-- PLAY. Said outright both ways: without it PASS + PLAY raises a person's kubbs
+-- `apart`, not by the engine's advice (cpu.advice). Not saved: a resume sets it
+-- again.
+local function cpuSides(side)
+	if side then return { side } end
+	return {}
+end
+
+-- The raising core/match uses for a person's sides when the engine raises them in
+-- one call (match.setup: RAISING: AUTOMATIC, scripted matches), named outright
+-- (core/match `raising`, not saved: set again on a resume): device/enginetune's
+-- autoRaising, not the advice, which would stall that frame on the device. nil
+-- when the scene raises a person's kubbs itself (scenes/settle, by hand or REST OF
+-- GAME), where the advice stays.
+local function personRaising(s)
+	if s.byHand then return nil end
+	local r = {}
+	for _, side in ipairs { "A", "B" } do
+		if side ~= s.cpu then r[side] = tw.enginetune.autoRaising end
+	end
+	return r
 end
 
 -- The time now as notation wants it.
@@ -301,7 +327,7 @@ local function nextThrow(s)
 		if (n.kind == "raise" or n.kind == "punish") and n.side ~= s.cpu then
 			s.phase = "settle"
 			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side, m.game)) end, s.input,
-				s.autoRaise)
+				s.autoRaise, function(side) return cmatch.raisePolicy(m, side) end)
 			-- PASS + PLAY: the attacker hands the Playdate to the defender
 			-- first (a card, A to start); against the Playdate the player
 			-- holds it already. Raises the game makes need no one to hold it:
@@ -404,10 +430,14 @@ function scene.new(provider, opts)
 	if s.opts.resume then
 		-- a saved match (core/save.unpack): on from where it was left
 		s.m = s.opts.resume
+		-- the computer's sides are not saved (core/match m.cpu): set them again
+		s.m.cpu = cpuSides(s.cpu)
+		s.m.raising = personRaising(s)
 	else
 		-- the surface and opening from the match options (scenes/options)
 		s.m = cmatch.new { start = now(), surface = s.opts.surface or "Grass", opening = s.opts.opening,
-			teams = cpuLevel(teams(s.opts), s.cpu, s.opts.computer), mode = s.cpu and "Vs Playdate" or nil }
+			teams = cpuLevel(teams(s.opts), s.cpu, s.opts.computer), mode = s.cpu and "Vs Playdate" or nil,
+			cpu = cpuSides(s.cpu), raising = personRaising(s) }
 	end
 	if s.opts.seed then s.rng = autothrow.rng(s.opts.seed) end
 	-- a resumed match raising for itself goes on doing so: the save's autoRaise
