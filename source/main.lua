@@ -12,11 +12,12 @@
 -- tools/replay_traces) only while the "debug" file is there (Jamie's
 -- Settings sheet, 2026-11-20: "yes this is debug info, move it.");
 -- self-tests leave it off.
---   "Level"    the throw level (beginner, club, pro: tw.plan.levels): how wide
---              the clock's targets are and how much a miss costs (DESIGN 4
---              "Throw levels"); kept in the datastore "level", club by default.
---              The throw scene reads it through throw.levelFor (a named
---              player's level can take its place later)
+--   (No "Level" since Kubb Engine 0.13: a person throws on the engine's one
+--              meter, whatever their level, so a person's throw level changes
+--              nothing; the computer's is the match option COMPUTER. The choice an
+--              older build kept in the datastore "level" is still read, as
+--              throw.level: a VS PLAYDATE match saved before engine 0.9 has no
+--              level on the Playdate's player and goes on at it.)
 --   "Pitch"    practice only: play (nothing) / how to (HOW TO THROW over the
 --              pitch, core/howto; chosen while it runs, it ends it) / crank
 --              (see below) / reset (stand every piece back
@@ -55,6 +56,7 @@ import "scenes/names"
 import "scenes/options"
 import "core/save"
 import "device/crank"
+import "device/enginetune"  -- the engine plays switched off on the device (before any match)
 import "scenes/games"
 import "scenes/drills"
 import "scenes/players"
@@ -182,8 +184,9 @@ else
 		return nil
 	end
 
-	-- The throw level (System Menu "Level"): kept in the datastore "level",
-	-- club unless one of tw.plan.LEVELS was chosen
+	-- The throw level an older build's System Menu "Level" kept in the datastore
+	-- "level" (club unless one of tw.plan.LEVELS was chosen): read, never written
+	-- now; only a match saved before engine 0.9 throws at it (the Playdate's)
 	local function readLevel()
 		local d = playdate.datastore.read("level")
 		local v = d and d.level
@@ -208,14 +211,11 @@ else
 		if not tw.selftestRun then playdate.datastore.write({ seen = 2 }, "howto") end
 	end
 
-	-- Level on every scene, then the scene's own options item,
-	-- whose choice acts when the menu closes and then reads "play" again.
+	-- The scene's own options item, whose choice acts when the menu closes and
+	-- then reads "play" again. (Until engine 0.13 a "Level" item came first: a
+	-- person's throw level, which no longer changes their throw.)
 	local function sceneMenu()
 		menu:removeAllMenuItems()
-		menu:addOptionsMenuItem("Level", tw.plan.LEVELS, throw.level, function(v)
-			throw.level = v
-			playdate.datastore.write({ level = v }, "level")
-		end)
 		local item
 		if kind == "practice" then
 			local pitchItems = { "play", "how to", "crank", "reset", "drill", "batons", "grass", "sand", "snow", "title" }
