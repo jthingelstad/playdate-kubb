@@ -161,7 +161,9 @@ scene at a time and rebuilds the System Menu for it (the scene's own item; until
   file left from an abandoned match does nothing), and the file is deleted right after the
   next save, which carries the choice, so it is never in neither place. A rematch starts
   by hand.
-- Names (`scenes/names.lua`, board `Names.png`; pure rules in `core/names.lua`, tested):
+- Names (`scenes/names.lua`, board `Names.png`; pure rules in `core/names.lua`, tested; as
+  built before saved players: since 2026-11-15 TEAMS comes in its place and the Names
+  screen names one player or team, generated or typed, docs/notes/saved-players.md):
   PASS + PLAY asks for both teams' names, VS PLAYDATE for the player's, on the board's
   black panel beside the Playdate's system keyboard (`playdate.keyboard`): whose name it
   is, the name as typed (cap 32, cap 16 when wider than `bigMax`), UP TO 10 LETTERS, the
@@ -174,12 +176,12 @@ scene at a time and rebuilds the System Menu for it (the scene's own item; until
   card's A is `rematch`, the same options again with no names screen. Self-test `names`
   (scripted, no keyboard: `names.type`, `ok`, `back`).
 - Match options (Jamie, 2026-11-14: "the game options for the match you are starting";
-  `scenes/options.lua`, pure rows in `core/matchopts.lua`, tested): after the names, before
+  `scenes/options.lua`, pure rows in `core/matchopts.lua`, tested): after TEAMS, before
   every match (PASS + PLAY and VS PLAYDATE). Four rows: SURFACE (grass, sand, snow),
   OPENING (2-4-6, or six from the start), RAISING (by hand, or automatic: the engine's
   policies, `autoSettle`; against the Playdate "by hand" is the player's side only, as
   before), WIND (off, light, strong; "Wind") and, against the Playdate only, COMPUTER
-  (beginner, club, pro; club by default): the Playdate's throw level, a match option since
+  (kid, beginner, club, pro; club by default; KID makes a Kid match, below): the Playdate's throw level, a match option since
   engine 0.9 (Jamie, 2026-11-20: "yes this should be a real per game setting"). The level
   goes on the Playdate's player in the lineup (`cpuLevel` in `scenes/match`), so its throws
   (`throw.levelFor`), its raising (engine 0.12), the game file's [Throw Levels] and a
@@ -188,9 +190,9 @@ scene at a time and rebuilds the System Menu for it (the scene's own item; until
   their roster entry's and the game file still names it. A match saved before 0.10.0 has
   no level on the Playdate's player and goes on at the level the old System Menu "Level"
   kept in the datastore (the item is gone since 0.13), as it did. The core has no SET row since 0.9 ("Kubb sets"). Up/down choose a row, left/right change it (the chosen row black, with arrows),
-  a line under the rows says what the row is for; A starts, B goes back to the names. The
+  a line under the rows says what the row is for; A starts, B goes back to TEAMS. The
   choice is kept (`playdate.datastore` "matchopts", `matchopts.valid` on reading) and
-  offered next time. `main.lua`: title -> `names` -> `options` -> `play`; a rematch keeps
+  offered next time. `main.lua`: title -> `teams` -> `options` -> `play`; a rematch keeps
   the options; a resumed match keeps its raising (the save's `opts.autoSettle`; surface and
   opening are the engine's own). Self-test `options`.
 - Saved games and resume (`core/save.lua`, pure and tested): as soon as each throw is
@@ -267,7 +269,7 @@ scene at a time and rebuilds the System Menu for it (the scene's own item; until
   or up/down; B back; the same viewer as the match's, `scenes/sheet`); B goes to the title. Files are read and parsed only as their rows
   come on screen; each screen is one image redrawn only on a change. Self-test `games`.
 - VS PLAYDATE (`scenes/match` with `opts.vs = "B"`; `main.lua` opens it as `"vs"`, and a
-  rematch keeps it): the player is Team A (the name entered, "You" by default), the
+  rematch keeps it): the player is Team A (its lineup from TEAMS), the
   Playdate Team B "Playdate" (the
   engine's team names, so cards, labels and the game file say so; mode "Vs Playdate").
   Its throws come from `core/autothrow` (`choose(setup, rng, scale)`, scatter times

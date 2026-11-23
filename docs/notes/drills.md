@@ -9,7 +9,8 @@ PRACTICE on the title opens the drills menu (`scenes/drills.lua`, board `Drills.
 set-ups, scoring and records in `core/drills.lua`, tested). On the left OPEN PITCH (the
 practice pitch below, `main.lua` "pitch") and the drills; on the right the chosen drill's
 pitch from above, three lines on what it is, its best, its last ten runs as bars and its
-hit rate (records in `playdate.datastore` "drills").
+hit rate (records in `playdate.datastore` "drills" for NO PLAYER, else in the practising
+player's history: docs/notes/saved-players.md).
 
 - 8 METERS: six batons at the five base kubbs from the baseline (a point a kubb down; the
   run ends when all five are down). THE HOUSE: six batons at five field kubbs standing

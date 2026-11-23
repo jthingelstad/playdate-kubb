@@ -22,7 +22,8 @@ The look is `docs/design/` (README and boards). What is built of it here:
   filled disc with A or B and one word). Draw them into a cached image.
 - **Title** (`scenes/title.lua`, `boards/Title.png`): `images/title` (the wordmark, band and
   THROWING WOOD, one pre-drawn image) with a menu of what works today (VS PLAYDATE, PASS +
-  PLAY, PRACTICE; d-pad either way) and A START. The System Menu is as before.
+  PLAY, PRACTICE and, since 2026-11-15, PLAYERS, in two rows of two:
+  docs/notes/saved-players.md "The title") and A START. The System Menu is as before.
 - **Cards**: `core/cards.lua` (pure, `test_cards.lua`) works out what the hand-off and winner
   cards say from the engine and its score sheet: who throws, what the other team's batons
   took last turn (field and base), kubbs to throw in and batons, base kubbs standing, the
