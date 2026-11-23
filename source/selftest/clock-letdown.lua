@@ -9,7 +9,6 @@ import "selftest/_throw"
 
 local st = tw.selftest
 local f = tw.swing.tune.forwardSign
-local lets = 0
 
 st.scenarios["clock-letdown"] = st.throwScenario {
 	script = {

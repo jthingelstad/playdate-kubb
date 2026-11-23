@@ -181,7 +181,6 @@ local function moveTo(s, sel)
 		s.img = nil
 	end
 end
-scene.moveTo = moveTo
 
 function scene.update(s)
 	local p = s.input

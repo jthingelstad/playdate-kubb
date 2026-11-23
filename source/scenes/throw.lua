@@ -125,8 +125,6 @@ throw.tune = {
 	-- On the device a hit took 6.7 s release to rest at 40 ms, 4.7 at 60, 4.2
 	-- with no half circle (2026-11-14); in slow motion 60 ms still reads smooth.
 	swingPeriod = 0.060,
-	tossTumble = 0.5,     -- a lobbed kubb turns end over end at this fraction of the swing's
-	                      -- tumble rate (guess: it is heavier and thrown softer than a baton)
 	instantHold = 0.1,    -- s the rest hold lasts in instant mode (self-tests)
 	knockLate = 0.15,     -- s: a knock this far behind the picture is not played (sound.lua)
 	drillKeep = 10,       -- drilled kubbs kept on the practice pitch; the oldest goes past this

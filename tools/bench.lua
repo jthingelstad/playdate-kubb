@@ -1,5 +1,6 @@
 -- The physics benchmark on the desktop (make bench). The same scenario as
--- the System Menu "Bench" item on the device: source/core/bench.lua.
+-- the practice pitch's System Menu "Pitch: bench" on the device (shown with the
+-- debug file): source/core/bench.lua.
 --
 --   lua5.4 tools/bench.lua [runs] [--profile] [--micro]
 -- --profile adds the per-phase breakdown of world.step, --micro the micro

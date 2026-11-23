@@ -97,7 +97,7 @@ local function closeLook(s, it, dist, lens)
 				if sx then gfx.fillRect(math.floor(sx) - 1, math.floor(sy), 2, 2) end
 			end
 			if o == it then
-				local tx, ty = camera.project(c, o.x + o.r13 * o.hz, o.y + o.r23 * o.hz, o.z + o.r33 * o.hz)
+				local tx = camera.project(c, o.x + o.r13 * o.hz, o.y + o.r23 * o.hz, o.z + o.r33 * o.hz)
 				local ux = camera.project(c, fx, fy, 2 * o.hz)
 				if tx and ux then px = math.abs(tx - ux) end
 			end

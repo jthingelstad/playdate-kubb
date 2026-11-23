@@ -191,7 +191,7 @@ perf.throws = {
 -- One throw through the throw scene on the device's clock. Returns a table
 -- of figures.
 local function runThrow(y, case)
-	local fl, ft = tw.framelog, tw.frametel
+	local fl = tw.framelog
 	local write = fl.write
 	local got = {}
 	fl.write = function(t, info) got.t, got.info = t, info end

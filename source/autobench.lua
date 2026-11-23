@@ -502,7 +502,6 @@ local function body()
 		if m > mMax then mMax = m end
 		y()
 	end
-	local pb = s.pb
 	l = timesLines(T, { "aim (windup)", "flight", "impact", "rest" })
 	if nf > 0 then l[#l + 1] = profLines(RPf, nf, "flight render/world") end
 	if ni > 0 then l[#l + 1] = profLines(RPi, ni, "impact render/world") end
