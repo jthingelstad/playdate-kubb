@@ -67,7 +67,8 @@ this throw: "HOW TO THROW" below).
   `q.meter = plan.meter()`, whatever level they have; `plan.solve` keeps the meter's table
   for the throw's distance as `s.sol.level`, and `launch` gives `plan.launch` no level, so
   it reads that table. The bars go by the distance (5.6 and 21 degrees either side at 4 m,
-  3.8 and 14.2 at 6 m, 2 and 7.5 at 8 m; a kubb's 1.35 times): every solve may move them,
+  3.8 and 14.2 at 6 m, 2 and 7.5 at 8 m; a kubb's the same since engine 0.16, 1.35 times
+  before): every solve may move them,
   and the clock reads `powerLo..powerHi` and `releaseLo..releaseHi` from the plan each
   frame (its face is keyed on them), so they are redrawn whenever the circle or the
   stance moves. A release past its bar pulls a person's baton off the line
@@ -136,8 +137,8 @@ this throw: "HOW TO THROW" below).
   edited. `main.lua` reads the datastore `crank` at launch (`crank.valid`: only `{ flipped =
   true }` is flipped; anything else, a damaged file included, is today's direction) and
   sets `throw.crankSaved` to write it back, never in a self-test run (that branch never
-  reads it either, so no scenario depends on a device's choice). The choice is "flip
-  crank" in the scene's own System Menu item on every scene with a throw: Pitch (after
+  reads it either, so no scenario depends on a device's choice). The choice is
+  "crank" in the scene's own System Menu item on every scene with a throw: Pitch (after
   "how to"), Drill and Match (after "play"); it acts when the menu closes and the item reads
   "play" again. `throw.flipCrank(s)` flips it, drops a wind-up in progress (the swing to
   idle unarmed, the arm read afresh, the recorder cleared: nothing is thrown by the
@@ -194,8 +195,8 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
   knee (15) from about 6 m; a thrown kubb's is the knee. On 0.16 it was dear (a
   bisection of carries); 0.18 made it cheap for a repeat (below, "The floor on 0.18":
   `plan.arcFloor` 11.54 ms on the device at 1.5 m, 6.69 at 3 m), and core 1.0 for any
-  stance and circle (below, "The floor on 1.0": about a default plan's cost, 2 to 3 ms on
-  the device by estimate). The scene still works it out only
+  stance and circle (below, "The floor on 1.0": on the device, build 17, `plan.arcFloor`
+  3.53 ms at 1.5 m and 3.15 at 3 m; a kept drive raised to a new floor 34 to 77 ms). The scene still works it out only
   when B + down steps ARC (`throw.arcFloor`; up never needs it), keeps it in `s.floorKey`
   with what it was worked out for (stance, circle, aim height, projectile, meter) and never
   per frame: with B held the circle and the stance cannot move, so a held slide down works
@@ -246,7 +247,8 @@ only and plans in `scenes/throw.lua`, so it does the ARC control itself:
   worst, against a 20 ms aim frame: the guard stays, and so does the floor cache, which
   now saves a default plan's 2 to 3 ms and costs nothing. The perf check gained the
   new-floor case ("a kept drive raised to a new floor", the stance walking and the circle
-  moving at 1.5 and 3 m), so the next device run decides whether the guard can go.
+  moving at 1.5 and 3 m); on the device (build 17) it is 34 ms at 1.5 m and 77 at 3 m, so
+  the guard stays (`docs/notes/performance.md` "Engine 1.0").
 - **B + up/down** (`throw.stepArc`, the session's `stepArc` with the Playdate's tick): `f =
   throw.arcFloor(s)`, then `max(f, plan.clampRelease(max(s.sol.release, f) + ticks *
   arcTickDeg, projectile))`. It steps from the release as planned (the default, or a kept
@@ -571,8 +573,8 @@ Every number that is a guess lives in one table per module, with a comment:
   (`shoulder`: crane, fit box, lens range, swing and refit times; "The aim camera"),
   impact camera, follow margins and mid-flight zoom; `tw.camera.minimap` for the minimap.
 - `tw.swing.tune` (`source/core/swing.lua`): crank sign (`forwardSign`, the one constant
-  to flip if forward feels backwards on hardware; a player flips it per device with "flip
-  crank", "Crank direction" above), the dead zone (`startBackDeg`), the
+  to flip if forward feels backwards on hardware; a player flips it per device with
+  "crank", "Crank direction" above), the dead zone (`startBackDeg`), the
   backswing cap, the flick's start and stop speeds (`swingStartDps`, `releaseStopDps`,
   `speedWindow`), the sky ball (`skyDeg`), the cooldown, the flick's power
   (`fullFlickDps`, `minFlickFrac`), the pull and the shake (`roughFull`).
@@ -583,7 +585,7 @@ Every number that is a guess lives in one table per module, with a comment:
   limit, the shake's tilt and pull, overpower, STEADY, the baton's tumble (`tumbleTurns`,
   `armR`, `wristShare`, `tumbleMin`: "The baton's tumble"), the height a clean baton's
   centre goes through a standing piece (`aimHeightShare` 0.5: "Aimed through the piece");
-  `tw.plan.levels` (beginner, club, pro: the targets' half widths, the error inside a
+  `tw.plan.levels` (kid, beginner, club, pro: the targets' half widths, the error inside a
   target, the shake and overpower costs, the nerves and `tumbleSd`; `plan.LEVELS` in menu
   order).
 - `tw.flight.tune` (`source/core/flight.lua`): gravity, hand height, loft range (5 to 55) and step,
@@ -619,8 +621,8 @@ Every number that is a guess lives in one table per module, with a comment:
   margin, bounce threshold and passes, wood-on-wood friction and bounce (`pairMu`, `pairE`:
   every pair of pieces), sleep and wake
   thresholds, topple angle, out margin, maximum throw time, stake height (0.15 m: a real stake, 6 inches out of the ground).
-  `tw.world.surfaces`: one parameter set per ground (grass, sand, snow; ice is a marked
-  placeholder): friction, bounce, dig, rolling resistance, and the ground's `texture`
+  `tw.world.surfaces`: one parameter set per ground (grass, sand, snow and the Techno
+  scene's grid; no ice): friction, bounce, dig, rolling resistance, and the ground's `texture`
   (Physics, "The ground's texture"). `world.SURFACES` lists the playable ones in order.
 - `tw.collide.tune` (`source/core/collide.lua`): `batonRound`, how rounded a box's edges are
   to a baton ("Physics", "Baton hits"). `world.tune.batonTurnHold`: how the ground holds a
@@ -641,8 +643,8 @@ Every number that is a guess lives in one table per module, with a comment:
   `stakeThick` at their true size, `stakeMinPx` the thinnest; no shadow), the baton's
   bands, the king's drawing (`kingCrown`, `kingCollar`, `kingCollarTop`, `kingRing`,
   `kingDiamond`, `kingDetailFrom`: drawing only, the physics king stays a plain box; the
-  `king` scenario shows it), the kubb set (`set`, `setFrom`, `setDetailFrom`; the
-  sets themselves are `render.world.sets`, see "Kubb sets"), HUD fonts (`labelFont`, `displayFont`) and every HUD box
+  `king` scenario shows it), (the kubb set's `set`, `setFrom`, `setDetailFrom` and
+  `render.world.sets` went on 2026-11-20: docs/notes/match.md "Kubb sets"), HUD fonts (`labelFont`, `displayFont`) and every HUD box
   (`rail`, `prompt`, `clock`, `verdicts`, `planChip`, `cutFlag`, `flag`, `slow`, ...), and `cache` in each (the
   image caches of "Drawing speed"; `false` draws everything from scratch every frame, with
   the same pixels), and `layer` in `render.world.tune` (the background layer of "Drawing
