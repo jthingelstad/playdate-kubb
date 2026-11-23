@@ -57,7 +57,8 @@ games realgames physfuzz mjref:
 # The runner writes its marker in the game's Data folder (the only place Lua
 # can write a text file); this copies it into build/selftest and fails unless
 # it says DONE and every frame it counted exists at 400x240 and 800x480.
-# A marker that names a game file (file=games/...: match-whole) has that file
+# A marker that names a game file (file=games/...: match-whole, match-vs,
+# match-kid, players, auto-raise, set-save) has that file
 # copied into build/selftest/games, and the notation gate runs over them.
 selftest: build
 	@rm -rf build/selftest
@@ -93,7 +94,7 @@ selftest: build
 	exit $$fail
 
 # The physics benchmark on the desktop (the device runs the same scenario from
-# the System Menu "Bench" item).
+# the practice pitch's System Menu "Pitch: bench", shown with the debug file).
 bench:
 	"$(LUA)" tools/bench.lua
 
