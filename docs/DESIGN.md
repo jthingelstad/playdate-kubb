@@ -11,7 +11,7 @@ the 2017 Planet Kubb glossary, and Inside Playdate for SDK 3.1.2.
 
 ## 1. What it is
 
-- Title "Kubb: Throwing Wood", repo `~/Projects/playdate-kubb`, bundle
+- Title "Kubb: Throwing Wood", repo `~/Projects/throwingwood/playdate-kubb`, bundle
   `com.throwingwood.playdate`, Lua, SDK 3.1.2. A plain Kubb game.
 - Modes: Practice (drills), Versus Computer, Pass and Play.
 - The crank is the throwing arm. Outcomes come from a physics simulation at real dimensions,
@@ -474,11 +474,16 @@ winner as the header, and its warnings are listed and reviewed; the target is ze
 source/            what pdc compiles
   main.lua         Playdate shell: scenes, input, drawing, files
   core/            pure Lua, no playdate.* : vec, quat, body, collide, world, swing,
-                   camera math, rules, notation, ai, drills
+                   camera math, rules, notation, ai, drills (the Kubb Engine's core/,
+                   vendored since 2026-11-17: AGENTS.md)
+  device/          the Playdate's own pure modules
   scenes/ render/ selftest/
-tests/lua/         unit and scenario tests for core/, run on desktop Lua 5.4
+tests/lua/         the Playdate's own unit tests (source/device/, the version, older game
+                   files), run on desktop Lua 5.4 (the core's are kubb-engine's)
 tests/node/        notation gate against pk-kubb-score
-tools/             camera mockups, AI-vs-AI game generator, crank trace tools
+tools/             camera mockups, the art and fonts, the desktop bench, film mode,
+                   sounds, the engine's vendoring (the game generator and crank trace
+                   tools are kubb-engine's)
 ```
 
 - `core/` uses Playdate's `import`; the desktop test runner supplies an `import` shim, so the
@@ -487,7 +492,8 @@ tools/             camera mockups, AI-vs-AI game generator, crank trace tools
   `lua@5.4` from Homebrew, installed 2026-11-13 at `/opt/homebrew/opt/lua@5.4/bin/lua5.4`
   (keg-only). Homebrew's plain `lua` is 5.5, which is not what the Playdate runs.
 - **Headless games:** the AI plays itself on the desktop through the same physics and rules,
-  producing hundreds of games for the notation gate and for tuning hit rates.
+  producing hundreds of games for the notation gate and for tuning hit rates (kubb-engine's
+  since 2026-11-17).
 - **Simulator self-test:** `Playdate Simulator <pdx> selftest=<scenario> out=<dir>` (read from
   `playdate.argv`). A scenario scripts crank samples and button presses, saves frames with
   `playdate.simulator.writeToFile`, and quits with `playdate.simulator.exit()`. Lua `print`
