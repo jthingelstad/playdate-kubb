@@ -45,9 +45,9 @@ PLAYDATE match and a resume (under its own key `perfbench-match`, deleted after)
 `plan.solve` at 1, 1.5, 3 and 8 m and a drill, the computer's `autothrow.choose` per level
 on a baseline, toss and field setup from a real match, the aim view with the circle moving
 (the plan solved every frame) at a kubb 1 m and 6 m away, the same through the scene's own
-update with a scripted d-pad (the plan every other frame, then every frame), and four throws through the throw
+update with a scripted d-pad (the plan every other frame, then every frame), and the throws through the throw
 scene as in a match (into a close cluster of six field kubbs from 5 m and from 1 m, an 8 m
-baton at a base kubb, a drilled kubb settling): release to rest, the live flight's frames
+baton at a base kubb, a drilled kubb settling; from engine 0.16 also the drive at 1.5 m): release to rest, the live flight's frames
 and their real frame time (mean, sd, max; the calm tail's frames counted apart, they are
 held by design), update and draw per frame, starved frames, physics steps and ms per step,
 memory. Each throw runs once uncounted, then five times: median [min-max]. Read `perf.txt`
@@ -304,7 +304,7 @@ auto-locks (`main.lua` reads it once at launch). Delete it when the testing is d
 
 An empty file named `debug` in the same Data folder shows the developer's items on the
 practice pitch's System Menu "Pitch": "readout" and "bench", and records the crank traces
-("Crank traces" below) (`tw.debug`, read once at launch). Without it a player sees only play, how to, reset, drill, batons, the surfaces and
+("Crank traces" below) (`tw.debug`, read once at launch). Without it a player sees only play, how to, crank, reset, drill, batons, the surfaces and
 title (RC review, 2026-11-15: a stranger could start the bench, which cannot be stopped).
 
 ### Engine 1.0
@@ -513,5 +513,5 @@ not the cooldown after a release, plus the result: what the swing measured, then
 plan and the launch, "The throw"). kubb-engine's `lua5.4 tools/replay_traces.lua <file>` replays each
 line through the current `core/swing.lua` and prints recorded vs replayed results;
 `--current-sign` replays with today's `forwardSign` instead of the recorded one. The test
-fixture is `tests/fixtures/traces/sample.jsonl`. Drill lines add the fields in "Drilling"
+fixture is kubb-engine's `tests/fixtures/traces/sample.jsonl`. Drill lines add the fields in "Drilling"
 above; `replay_traces` reads them like any other line (the swing is the same).
