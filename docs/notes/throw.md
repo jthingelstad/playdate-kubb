@@ -600,7 +600,7 @@ Every number that is a guess lives in one table per module, with a comment:
   surface, the flight's pacing (`flightRate`, `framePeriod`, `tailPeriod`, `minBudget`;
   `physicsBudget` only for scripted input; see "Playback") and how far ahead the physics
   may record, impact-camera
-  slew and baton framing radius, the tossed kubb's tumble (`tossTumble`), the instant
+  slew and baton framing radius, the instant
   rest hold, the drilled kubbs kept on the practice pitch (`drillKeep`), the target
   circle (`markerRadius`, `markerSegments`), the aim arc ("The aim arc") and HOW TO
   THROW's tap of B (`howtoTap`).

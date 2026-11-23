@@ -156,7 +156,6 @@ local function openKeyboard(s)
 	kb.show(s.typing)
 	draw_(s)
 end
-scene.openKeyboard = openKeyboard
 
 function scene.new(provider, mode, opts)
 	opts = opts or {}

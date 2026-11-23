@@ -39,7 +39,6 @@ tw.selftest.scenarios.games = {
 				fh:write(file(g[2], g[3], g[4], g[5], g[6]))
 				fh:close()
 			end
-			local sign = 1
 			s = games.new(tw.input.scripted {
 				{ n = 1 }, { press = { "down" } }, { n = 1 }, { press = { "a" } }, { n = 1 },
 				{ crank = 20, n = 10 }, { n = 1 }, { press = { "b" } }, { n = 1 }, { press = { "b" } }, { n = 2 },

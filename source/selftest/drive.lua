@@ -62,7 +62,7 @@ end
 
 -- the planned arc from the hand to its end: z at each point (world), falling all the way?
 local function arcFalls(s)
-	local vx, vy, vz, T = throw.arcLaunch(s)
+	local _, _, vz, T = throw.arcLaunch(s)
 	local _, _, h = throw.arcOrigin(s)
 	local g = tw.flight.tune.g
 	local last = h
@@ -77,7 +77,7 @@ end
 
 -- the arc and the circle on screen in the camera as it is
 local function arcOnScreen(s)
-	local ring, box, on, all, off = throw.arcBox(s)
+	local ring, _, on, all, off = throw.arcBox(s)
 	if off then return false end
 	-- the plan view keeps the arc on screen from arcFitFrom on: its first rise by the
 	-- hand may come in from the lower edge (shoulderFit)

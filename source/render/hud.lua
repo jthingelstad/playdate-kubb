@@ -54,7 +54,6 @@ hud.tune = {
 	-- (render/ui, docs/notes/presentation.md "Woodcut type"); the system font if it cannot be loaded.
 	displayFont = "fonts/ThrowingWoodDisplay-16",
 	labelTop = 2,       -- px from a label's box top to its font's cell top (centres the caps)
-	displayTop = -2,    -- the same for the display font
 	shadow = 2,         -- px the plaques' drop shadow sits right and down
 	rail = { h = 14, pennantX = 4, nameX = 17, pipsX = 188, rightX = 395, gap = 6, dotGap = 4 },
 	prompt = { x = 316, y = 158, w = 70, h = 15 },
