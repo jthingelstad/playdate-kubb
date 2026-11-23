@@ -78,7 +78,7 @@ nothing else without asking.
   against the tag.
 - The core's rules (pure Lua, no `playdate.*`, no tables per physics step, tolerances not
   bit-exact) and its notes, tests and tools are in kubb-engine's `AGENTS.md`.
-- Playdate-only pure modules live in `source/device/` (`version`, `frametel`,
+- Playdate-only pure modules live in `source/device/` (`version`, `crank`, `frametel`,
   `microbench`, `namepick`, `enginetune`), tested on the desktop like the core and kept
   free of `playdate.*`.
   Drawing, input and files live in `main.lua`, `input.lua`, `recorder.lua`, `scenes/`,
