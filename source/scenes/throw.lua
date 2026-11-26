@@ -760,6 +760,9 @@ function throw.prepare(s, setup)
 	throw.setPieces(s, setup.pieces, setup.debris)
 	s.lineY, s.forwardY, s.advY = setup.lineY, setup.forwardY or setup.lineY, setup.advY
 	s.kid, s.kidY = setup.kid, setup.kidY
+	-- (1.1.0) a throw's own nearest circle (a baton to go: core/match.togoSetup's
+	-- markerNear 2 m, under the drill area's 3.5), else the drill area's
+	s.markerNear = setup.markerNear
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
 	s.targetIds = setup.targets
 	s.auto = false
@@ -885,13 +888,24 @@ function throw.reset(s)
 	s.planDirty = true
 end
 
+-- The circle kept in its area (drill.clampMarker), with the throw's own nearest
+-- distance when it has one (s.markerNear: a baton to go may aim short of 3.5 m).
+local function clampMarker(s, mx, my)
+	local cx, cy = drill.clampMarker(mx, my)
+	local near = s.markerNear
+	if near and my < cy then
+		cy = my > near and my or near
+	end
+	return cx, cy
+end
+
 -- The aim, for self-tests and callers that set it up directly (each solves
 -- the plan again at once): the circle onto (x, y) (a baton's snaps onto a
 -- standing target within snapRadius: callers aim at a piece; the d-pad's
 -- let-go no longer snaps), the stance (as if A had walked it there), the
 -- planned release (as if B had set it), the tilt or spin.
 function throw.aimAt(s, x, y)
-	local mx, my = drill.clampMarker(x, y - s.lineY)
+	local mx, my = clampMarker(s, x, y - s.lineY)
 	s.markerX, s.markerY = mx, s.lineY + my
 	settleMarker(s, s.projectile ~= "kubb")
 	replan(s)
@@ -994,7 +1008,7 @@ local function aimInput(s, dt)
 		local dtn = drill.tune
 		s.markerHeld = s.markerHeld + dt
 		local v = min(dtn.markerSpeedMax, dtn.markerSpeed + dtn.markerAccel * s.markerHeld)
-		local mx, my = drill.clampMarker(s.markerX + dx * v * dt, s.markerY - s.lineY + dy * v * dt)
+		local mx, my = clampMarker(s, s.markerX + dx * v * dt, s.markerY - s.lineY + dy * v * dt)
 		s.markerX, s.markerY, s.markerOn, s.markerSet = mx, s.lineY + my, nil, true
 		s.planDirty = true
 		moving = true

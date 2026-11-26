@@ -122,7 +122,9 @@ this throw: "HOW TO THROW" below).
   A skip sets `s.instant` and `s.speed` to `scene.tune.skipSpeed` (1000).
 - **A baton to go** (game 1.1.0, `throw.setTogo(s)`, docs/notes/match.md "Throw to go"): the
   circle on the ground `togo.tune.markerShort` (1.4 m) short of the king, on no piece, and
-  the release at `togo.arc()`; the person may move either as for any baton. No wind.
+  the release at `togo.arc()`; the person may move either as for any baton. No wind. The
+  circle may come as near as the set-up's `markerNear` (2 m, `s.markerNear`), under the
+  drill area's 3.5 m that every other throw keeps (Codex on #169).
 - **The Playdate's throws** (`throw.autoLaunch(s, a)`, `s.scripted`): `core/autothrow`'s
   launch as it is, mistakes included (`a.speed`, `a.loftDeg`, `a.swivel`, `a.tumbleRate`,
   `a.tilt`, `a.legal`; a kubb drilled with `a.drill`'s `world.launchDrill` fields, its
