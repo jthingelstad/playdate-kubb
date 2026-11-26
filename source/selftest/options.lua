@@ -2,7 +2,8 @@
 -- driven by the d-pad: right twice on SURFACE (snow), down and right on
 -- OPENING (six), down and left on RAISING (automatic), then A. Frames: 1 as
 -- it opens (the defaults), 2 the surface on SNOW, 3 RAISING chosen. The
--- check: A is done and the options it gives are snow, six and automatic.
+-- check: A is done and the options it gives are snow, six and automatic, and
+-- THROW TO GO on (1.1.0: its default).
 import "core/tw"
 import "scenes/options"
 import "input"
@@ -36,6 +37,7 @@ tw.selftest.scenarios.options = {
 		end
 		if s.done then
 			local o = scene.apply(s, {})
+			if o.togo ~= true then error("THROW TO GO is not on by default") end
 			if o.surface ~= "Snow" or o.opening ~= "six" or not o.autoSettle then
 				error(string.format("options %s %s %s", tostring(o.surface), tostring(o.opening), tostring(o.autoSettle)))
 			end

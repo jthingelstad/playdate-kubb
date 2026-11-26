@@ -7,6 +7,8 @@
 --   rcards.handoff(c)               c = core/cards.handoff
 --   rcards.settle(c)                c = core/cards.settle (the pass card before
 --                                   the defender raises, PASS + PLAY)
+--   rcards.skipping()               the Playdate's turn, skipped (1.1.0)
+--   rcards.togo(c), togoVerdict(c)  the throw to go, before a baton and after both (1.1.0)
 --   rcards.winner(c, how, saved)    c = core/cards.winner; how = the
 --                                   sentence (core/match.howText); saved =
 --                                   the game file was written
@@ -218,6 +220,66 @@ function rcards.settle(c)
 	end
 	ui.text(label, "then hand it back to " .. c.backName, t.left, t.tookY + 24 + #lines * 24 + 4, true)
 	ui.button("A", "ready", t.left, t.buttonY, true)
+	gfx.popContext()
+	return img
+end
+
+-- (1.1.0) The throw to go (scenes/match): before a person's baton,
+--   c = { round, pass (PASS + PLAY: the Playdate changes hands), name (who throws) }
+-- and the verdict after both,
+--   c = { head (the big line), line (what decided it), again (no one first yet) }.
+local function fitText(fonts, text, room)
+	for _, f in ipairs(fonts) do
+		if f:getTextWidth(text) <= room then return f end
+	end
+	return fonts[#fonts]
+end
+function rcards.togo(c)
+	local t = rcards.tune
+	local img = gfx.image.new(400, 240, gfx.kColorBlack)
+	local label, d16 = ui.label(), ui.display(16)
+	gfx.pushContext(img)
+	local head = "THROW TO GO" .. ((c.round or 1) > 1 and (", ROUND " .. c.round) or "")
+	ui.text(label, c.pass and (head .. ": PASS THE PLAYDATE TO") or head, t.left, 18, true)
+	bigName(c.name, t.nameTop, 368)
+	white()
+	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
+	ui.text(d16, "one baton at the king", t.left, t.tookY + 4, true)
+	ui.text(label, "closest without felling it throws first", t.left, t.throwY + 8, true)
+	ui.text(label, "fell the king and the other team throws first", t.left, t.throwY + 24, true)
+	ui.button("A", "throw", t.left, t.buttonY, true)
+	gfx.popContext()
+	return img
+end
+function rcards.togoVerdict(c)
+	local t = rcards.tune
+	local img = gfx.image.new(400, 240, gfx.kColorBlack)
+	local label, d16, d32 = ui.label(), ui.display(16), ui.display(32)
+	gfx.pushContext(img)
+	ui.text(label, "THROW TO GO", t.left, 18, true)
+	local f = fitText({ d32, d16, label }, c.head, 368)
+	ui.text(f, c.head, t.left - 1, (f == d32) and (t.nameTop - 1) or (t.nameTop + 11), true)
+	white()
+	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
+	if c.line then
+		ui.text(fitText({ d16, label }, c.line, 368), c.line, t.left, t.tookY + 4, true)
+	end
+	ui.button("A", c.again and "throw again" or "play", t.left, t.buttonY, true)
+	gfx.popContext()
+	return img
+end
+
+-- (1.1.0) The Playdate's turn, skipped (scenes/match: A SKIP): shown while its
+-- throws and raises run to rest at once.
+function rcards.skipping()
+	local t = rcards.tune
+	local img = gfx.image.new(400, 240, gfx.kColorBlack)
+	gfx.pushContext(img)
+	ui.text(ui.label(), "THE PLAYDATE'S TURN", t.left, 18, true)
+	ui.text(ui.display(32), "SKIPPING", t.left - 1, t.nameTop - 1, true)
+	white()
+	gfx.fillRect(t.left, t.ruleY, t.ruleW, 3)
+	ui.text(ui.display(16), "same throws, no waiting", t.left, t.tookY + 4, true)
 	gfx.popContext()
 	return img
 end

@@ -6,26 +6,39 @@
 -- attacker still holds it, with no pass card; the rail goes on naming the
 -- team whose kubbs are raised: scenes/match, scene.holder.)
 --
--- Raise: a 3D close-up of the lying kubb (render/world, in the defender's
--- view frame, from behind and above), the kubbs and king nearby, and on the
--- ground the 7 x 7 footprint of each end the engine allows; the chosen one
--- is dotted with STANDS HERE under it (MOVED CLEAR when II.D.5 slid it).
--- Left and right choose an end, A raises. Or the crank (Jamie's idea):
--- forward tips the kubb up onto its right-hand end on screen, backward onto
--- its left, slowly (crankPerRaise degrees from lying to standing,
--- raising.tipPose), and all the way up raises it; an end the engine does not
--- allow will not tip, and says why. The highlight starts on the engine's own
--- choice (its raise policy).
+-- Raise (in any order since 1.1.0, engine 1.4 "Raising in any order"): the whole
+-- group the other team threw in, on one view held for the whole raise
+-- (core/camera.fromEnd, kind "raise": from behind the defender's baseline, every
+-- lying kubb, each of its ends and the king in it), and on the ground the 7 x 7
+-- footprint of each end the engine allows for the chosen kubb; the chosen end is
+-- dotted with STANDS HERE under it (MOVED CLEAR when II.D.5 slid it), and a
+-- pointer stands over the chosen kubb. B steps to the next lying kubb
+-- (need().lying, in id order). Left and right choose the end on that side of the
+-- screen, A raises (g:raise(choice, nil, id)). Or the crank (Jamie's idea): forward
+-- tips the chosen kubb up onto its right-hand end on screen, backward onto its
+-- left, slowly (crankPerRaise degrees from lying to standing, raising.tipPose),
+-- and all the way up raises it; an end the engine does not allow will not tip,
+-- and says why. The highlight starts on the engine's own choice (its raise
+-- policy). After a raise the next lying kubb after it is chosen.
 --
--- B, REST OF GAME (the web's and the iPhone's REST OF GAME, Jamie's Settings
--- sheet 2026-11-20: auto raise is a game setting on every platform): this
--- kubb is raised at once on the engine's own end, and every raise after it,
--- this turn and every later one, for both teams, until the match ends. Each
--- of those shows its kubb for autoWait seconds, then raises it with the same
--- call A makes on the engine's end (g:raise(choice)); B there, BY HAND, gives
--- the raising back, starting with the kubb on screen. The choice lives in
--- the table `auto` the match scene hands in ({ on, changed }), which saves it
--- with the match (scenes/match, "Auto raise" in docs/notes/match.md).
+-- REST OF GAME (the web's and the iPhone's, Jamie's Settings sheet 2026-11-20:
+-- auto raise is a game setting on every platform) is the System Menu's "Auto
+-- raise" since 1.1.0 (main.lua; B is NEXT now): every raise from then on, this
+-- turn and every later one, for both teams, until the match ends or it is turned
+-- off, is the game's. Each of those shows its kubb for autoWait seconds, tipping
+-- up over the last autoTip of them, then raises it with the call A makes on the
+-- engine's end (g:raise(choice)); B there, BY HAND, gives the raising back,
+-- starting with the kubb on screen. The choice lives in the table `auto` the
+-- match scene hands in ({ on, changed }), which saves it with the match
+-- (scenes/match, "Auto raise" in docs/notes/match.md).
+--
+-- Watch (opts.watch, 1.1.0: the Playdate's own raises against the Playdate): the
+-- same automatic raise on the computer's policy, seen from the player's end
+-- (opts.view: the player's side; camera.fromEnd kind "end"), at the match's SPEED
+-- (watch.speed: B steps it), A to skip (watch.skipping: every raise left is made at
+-- once). Its punishment kubbs are placed at once (g:autoPunishment, as
+-- core/match.settle does). The same calls core/match.settle makes, in the same
+-- order, so a watched raise and a skipped one leave the same game.
 --
 -- Punish: the defender's half seen from above (5 x 4 m at 40 px a metre), the
 -- grey keep-out circles (a baton length from each stake and from the king),
@@ -49,6 +62,7 @@ import "core/world"
 import "core/match"
 import "render/ui"
 import "render/world"
+import "render/watchbar"
 
 local gfx <const> = playdate.graphics
 local pitch, frame, raising, ui = tw.pitch, tw.frame, tw.raising, tw.render.ui
@@ -60,20 +74,13 @@ tw.scenes = tw.scenes or {}
 local settle = {}
 
 settle.tune = {
-	-- the raise view's camera (Jamie, 2026-11-14: further out than the first
-	-- close-up, so more than the kubb shows; the d-pad turns and zooms it)
-	raiseBack = 2.0,      -- m the raise camera stands behind the kubb (toward the baseline),
-	raiseUp = 0.75,       -- above the ground,
-	raiseSide = -0.5,     -- and to the left (the light comes from the far left: lit faces)
-	raiseLens = 680,      -- px focal length
-	raiseCY = 140,        -- screen y the kubb's centre is put at
-	raiseNear = 4.0,      -- m: other pieces this near are drawn
-	lookTurn = 100,       -- degrees a second left/right turns the view round the kubb
-	lookZoom = 1.8,       -- up/down: the camera's distance changes by this factor a second
-	zoomMin = 0.5,        -- the nearest, as a fraction of the starting distance
-	zoomMax = 2.4,        -- the farthest
 	crankPerRaise = 270,  -- degrees of crank from lying to standing
-	autoWait = 0.7,       -- s an automatic raise shows its kubb lying first (the web's wait)
+	autoWait = 0.7,       -- s an automatic raise shows its kubb (the web's wait)
+	autoTip = 0.4,        -- s of it, at the end, it tips up onto the engine's end
+	-- the raise view's box (camera.fromEnd): under the rail, over the plaques
+	raiseBox = { left = 6, top = 20, right = 394, bottom = 204 },
+	groupMinWidth = 3.6,  -- m: the raise view is at least this wide across the lying kubbs
+	pointerZ = 0.42,      -- m above the chosen kubb its pointer's tip stands
 	punishScale = 40,     -- px per metre in the placement view
 	punishLeft = 100,     -- screen x of the half's left sideline
 	punishTop = 30,       -- screen y of the middle line (the half's far edge)
@@ -176,32 +183,85 @@ end
 
 -- ---------- state ----------
 
-local set3D, raiseCamera   -- (the raising section below)
+local set3D, holdCamera   -- (the raising section below)
+
+-- the frame the raise is drawn in: the viewer's (watch) or the defender's
+local function viewOf(s) return s.view or s.side end
+
+-- Choose lying kubb `id` (one of need().lying): its decision, context and pose, the
+-- end offered first, and the view of it.
+local function choose(s, id)
+	local g = s.g
+	local dec, ctx, k = g:raiseOptions(id)
+	s.kubb, s.dec, s.ctx, s.pose = id, dec, ctx, k.pose
+	-- the end offered first, and what an automatic raise stands it on: the
+	-- defender's policy (engine 0.12: core/match.raisePolicy, a person's the
+	-- engine's advice), else the game's own
+	local policy = s.policyFor and s.policyFor(s.side)
+	s.choice = raising.choose(dec, ctx, policy or g.raisePolicy) or 1
+	s.engineChoice = s.choice
+	s.wait = settle.tune.autoWait
+	s.blocked = nil
+	set3D(s)
+end
+
+-- The kubb chosen after `last` was raised (or B from it): the next in the raise's
+-- order (need().lying when it began) still lying, round to the first.
+local function nextLying(s, last, lying)
+	local still = {}
+	for _, id in ipairs(lying) do still[id] = true end
+	local order = s.order
+	local at = 0
+	for i, id in ipairs(order) do if id == last then at = i end end
+	for k = 1, #order do
+		local id = order[(at + k - 1) % #order + 1]
+		if still[id] then return id end
+	end
+	return lying[1]
+end
 
 -- The next thing to do, from the engine: a raise, a punishment kubb, or done.
 local function begin(s)
 	local g = s.g
 	local n = g:need()
 	s.img = nil
+	s.autoWas = s.auto.on
 	if n.kind == "raise" then
-		s.mode, s.side, s.kubb = "raise", n.side, n.kubb
-		s.pose, s.dec = n.pose, n.decision
-		s.ctx = g:context(n.side, n.kubb)
-		-- the end offered first, and what REST OF GAME raises on: the defender's
-		-- policy (engine 0.12: core/match.raisePolicy, a person's the engine's
-		-- advice), else the game's own
-		local policy = s.policyFor and s.policyFor(n.side)
-		s.choice = raising.choose(s.dec, s.ctx, policy or g.raisePolicy) or 1
-		s.engineChoice = s.choice   -- what an automatic raise stands it on
-		s.wait = settle.tune.autoWait
-		s.blocked = nil
-		set3D(s)
-		if not s.raiseTotal then
-			s.raiseTotal = 0
-			for _, k in ipairs(g:fieldKubbs(n.side)) do
-				if not k.pose.standing then s.raiseTotal = s.raiseTotal + 1 end
+		s.mode, s.side = "raise", n.side
+		if s.watch and s.watch.skipping then
+			-- skipped: every raise left at once, as core/match.settle makes them
+			while g:need().kind == "raise" do
+				g:raise(nil, s.policyFor and s.policyFor(n.side))
+				s.raised = s.raised + 1
 			end
+			return begin(s)
 		end
+		-- one view for the whole raise, made at its start (and again should the
+		-- other team raise in the same settle)
+		if s.raiseSide ~= n.side then
+			s.raiseSide, s.raiseFrom = n.side, s.raised
+			s.raiseTotal = #n.lying
+			s.order = {}
+			for i, id in ipairs(n.lying) do s.order[i] = id end
+			holdCamera(s, n.lying)
+		end
+		-- the game's raises go in the engine's order (need().kubb); a person's
+		-- go on from the kubb raised last, or stay on the one chosen
+		local id = n.kubb
+		if not (s.auto.on or s.watch) then
+			local here = false
+			for _, l in ipairs(n.lying) do if l == s.kubb then here = true end end
+			if here and not s.justRaised then id = s.kubb
+			elseif s.justRaised then id = nextLying(s, s.justRaised, n.lying) end
+		end
+		s.justRaised = nil
+		s.lying = n.lying
+		choose(s, id)
+	elseif n.kind == "punish" and s.watch then
+		-- the computer's punishment kubb: where the engine puts it, at once
+		g:autoPunishment()
+		s.placed = s.placed + 1
+		return begin(s)
 	elseif n.kind == "punish" then
 		s.mode, s.side, s.kubb = "punish", n.side, n.kubb
 		s.ctx = g:context(n.side, n.kubb)
@@ -223,9 +283,12 @@ end
 -- turns it on or off), or nil for a table of this view's own; policyFor(side)
 -- (optional) the raising policy for that side's kubbs (scenes/match: the
 -- match's, core/match.raisePolicy), nil for the game's own (game.raisePolicy).
-function settle.new(game, name, provider, auto, policyFor)
+-- opts (1.1.0, optional): watch, the match's { speed, skipping } for the Playdate's
+-- own raises (see "Watch" above); view, the side whose end the raise is seen from.
+function settle.new(game, name, provider, auto, policyFor, opts)
+	opts = opts or {}
 	local s = { g = game, name = name, input = provider, done = false, raised = 0, placed = 0,
-		auto = auto or { on = false }, policyFor = policyFor,
+		auto = auto or { on = false }, policyFor = policyFor, watch = opts.watch, view = opts.view,
 		-- the pitch's surface (core/match.surfaceName: the seat's depth)
 		surface = tw.match.surfaceName(game) }
 	begin(s)
@@ -291,20 +354,15 @@ local function tipTo(s, tip)
 	s.img = nil
 end
 
--- The 3D close-up: the pieces near the kubb, the camera behind and above it,
--- which end shows on the right.
+-- The pitch as it stands, the chosen kubb lying, and which of its ends shows on the
+-- right of the held view.
 set3D = function(s)
-	local t = settle.tune
-	local side = s.side
-	s.vpose = frame.pose(side, s.pose)
-	local vx, vy = s.vpose.x, s.vpose.y
+	local vf = viewOf(s)
+	s.vpose = frame.pose(vf, s.pose)
 	local items, n = {}, 0
-	local near2 = t.raiseNear * t.raiseNear
 	local function add(id, kind, p)
-		local px, py = frame.point(side, p.x, p.y)
-		if (px - vx) * (px - vx) + (py - vy) * (py - vy) > near2 then return end
 		local it = render.item(id, kind)
-		placeItem(it, side, p, s.surface)
+		placeItem(it, vf, p, s.surface)
 		n = n + 1
 		items[n] = it
 	end
@@ -314,29 +372,45 @@ set3D = function(s)
 	n = n + 1
 	items[n] = s.it
 	s.items, s.nitems = items, n
-	s.cam = s.cam or camera.new()
 	-- a new kubb lies flat: its ends are read afresh (the last one may have
 	-- been raised mid-tip)
-	s.yaw, s.zoom, s.tip = 0, 1, 0
-	raiseCamera(s)
+	s.tip = 0
+	readEnds(s)
 	tipTo(s, 0)
 end
 
--- The raise camera from the look (s.yaw: turned round the kubb, s.zoom: its
--- distance), and which end of the kubb shows on the right (the crank tips
--- forward onto that one). The ends are read again only while the kubb lies
--- flat, so a turn mid-tip does not swap the end being tipped.
-raiseCamera = function(s)
-	local t = settle.tune
-	local c = s.cam
-	local vx, vy = s.vpose.x, s.vpose.y
-	local cy, sy = cos(s.yaw), sin(s.yaw)
-	local ox, oy = t.raiseSide * s.zoom, -t.raiseBack * s.zoom
-	ox, oy = ox * cy - oy * sy, ox * sy + oy * cy
-	camera.lookAt(c, vx + ox, vy + oy, t.raiseUp * s.zoom, vx, vy, SIDE / 2)
-	c.f, c.cy = t.raiseLens, t.raiseCY
-	if not s.tip or s.tip == 0 then readEnds(s) end
-	s.img = nil
+-- The one view for the whole raise (engine 1.4, camera.fromEnd; the session's raise
+-- camera): from behind the viewer's baseline, every lying kubb and each end it may
+-- stand on. The session also keeps the baseline and the king in it; on the
+-- Playdate's 400 x 240 that left a lying kubb about 8 px long, too small to read its
+-- ends or see the crank tip it, so the view keeps the group only, at least
+-- groupMinWidth across (a lone kubb is not blown up to fill the screen). The
+-- defender's own raise is the "raise" framing; the Playdate's, seen from the
+-- player's end, the "end" one.
+holdCamera = function(s, lying)
+	local g, vf = s.g, viewOf(s)
+	local pts = {}
+	local x0, x1, ysum, n = math.huge, -math.huge, 0, 0
+	local function add(x, y)
+		pts[#pts + 1] = { x, y, 0 }
+		if x < x0 then x0 = x end
+		if x > x1 then x1 = x end
+		ysum, n = ysum + y, n + 1
+	end
+	for _, id in ipairs(lying) do
+		local dec, _, k = g:raiseOptions(id)
+		if dec then
+			add(frame.point(vf, k.pose.x, k.pose.y))
+			for _, ch in ipairs(dec.choices) do add(frame.point(vf, ch.pose.x, ch.pose.y)) end
+		end
+	end
+	if n == 0 then add(0, 2) end
+	local w, cx, cy = settle.tune.groupMinWidth, (x0 + x1) / 2, ysum / n
+	if x1 - x0 < w then
+		pts[#pts + 1] = { cx - w / 2, cy, 0 }
+		pts[#pts + 1] = { cx + w / 2, cy, 0 }
+	end
+	s.cam = camera.fromEnd(nil, pts, settle.tune.raiseBox, (vf == s.side) and "raise" or "end")
 end
 
 -- Which end of the lying kubb shows on the right of the raise camera.
@@ -348,13 +422,24 @@ readEnds = function(s)
 end
 
 local function raiseView(s)
-	local side = s.side
+	local side = viewOf(s)
 	local c = s.cam
 	render.advantageY, render.kidY = nil, nil
+	render.setTurned(false)
 	render.draw(c, s.items, s.nitems, nil)
 	-- the footprints on the ground: every choice, the chosen one dotted
 	local f = ui.label()
 	local hk = SIDE / 2
+	-- the pointer over the chosen kubb (when there is more than one to choose from)
+	if #(s.lying or {}) > 1 and not s.watch and not s.auto.on then
+		local px, py = camera.project(c, s.vpose.x, s.vpose.y, settle.tune.pointerZ)
+		if px then
+			gfx.setColor(WHITE)
+			gfx.fillTriangle(px, py + 2, px - 8, py - 11, px + 8, py - 11)
+			gfx.setColor(BLACK)
+			gfx.fillTriangle(px, py, px - 6, py - 9, px + 6, py - 9)
+		end
+	end
 	for i, ch in ipairs(s.dec.choices) do
 		local p = frame.pose(side, ch.pose)
 		local ca, sa = cos(p.angle), sin(p.angle)
@@ -374,7 +459,7 @@ local function raiseView(s)
 				gfx.setLineWidth(1)
 				-- the label under the kubb's group, pointing up at this end
 				local cx, cy = camera.project(c, p.x, p.y, 0)
-				local ly = max(pts[2], pts[4], pts[6], pts[8], cy) + 34
+				local ly = max(pts[2], pts[4], pts[6], pts[8], cy) + 18
 				local label = ch.displaced and "MOVED CLEAR" or "STANDS HERE"
 				local w = f:getTextWidth(label)
 				local lx = max(6 + w // 2, min(394 - w // 2, floor(cx)))
@@ -387,17 +472,19 @@ local function raiseView(s)
 			end
 		end
 	end
-	local done = s.raised
-	rail(s.name(side), "RAISE " .. (done + 1) .. " OF " .. max(s.raiseTotal, done + 1), nil)
+	local done = s.raised - (s.raiseFrom or 0)
+	rail(s.name(s.side), "RAISE " .. (done + 1) .. " OF " .. max(s.raiseTotal, done + 1), nil)
+	-- watching the Playdate: its SPEED and SKIP plaque, drawn over this each frame
+	if s.watch then return end
 	local x = 6
 	if s.auto.on then
 		x = x + buttonPlaque("B", "BY HAND", x, 212) + 8
 		ui.text(f, settle.fit(f, settle.autoText, 394 - x), 394, 216, false, "right")
 		return
 	end
-	x = x + hint("plus", "LOOK", x, 212) + 8
+	if #s.dec.choices > 1 then x = x + hint("lr", "END", x, 212) + 8 end
 	x = x + buttonPlaque("A", "RAISE", x, 212) + 8
-	x = x + buttonPlaque("B", "REST OF GAME", x, 212) + 8
+	if #(s.lying or {}) > 1 then x = x + buttonPlaque("B", "NEXT", x, 212) + 8 end
 	ui.text(f, settle.fit(f, (#s.dec.choices > 1) and settle.crankText or settle.crankText1, 394 - x), 394, 216,
 		false, "right")
 end
@@ -512,45 +599,68 @@ end
 
 -- ---------- update and draw ----------
 
+-- An automatic raise (REST OF GAME, or the Playdate's watched): the kubb shows,
+-- tips up onto the engine's end over the last autoTip seconds, then is raised.
+-- dt: the time to count (the watch's at its speed).
+local function autoStep(s, dt)
+	s.wait = s.wait - dt
+	local t = settle.tune
+	local c = s.dec.choices[s.engineChoice]
+	if c and s.wait < t.autoTip then
+		local u = 1 - max(0, s.wait) / t.autoTip
+		tipTo(s, (c.which == s.rightEnd) and u or -u)
+	end
+	if s.wait <= 0 then
+		s.g:raise(s.engineChoice)
+		s.raised = s.raised + 1
+		begin(s)
+	end
+end
+
 function settle.update(s)
 	local p = s.input
 	p:advance()
 	if s.done then return end
+	-- the System Menu's Auto raise turned on or off under the raise: start again
+	-- from the kubb the game raises next (or the one it was on)
+	if s.mode == "raise" and s.auto.on ~= s.autoWas then begin(s) end
+	if s.mode == "raise" and s.watch then
+		-- the Playdate's: B its speed, A skips the rest (scenes/match keeps both)
+		local w = s.watch
+		if p:pressed("b") then w.speed, w.changed = tw.render.watchbar.nextSpeed(w.speed), true end
+		if p:pressed("a") then
+			w.skipping, w.changed = true, true
+			begin(s)
+			return
+		end
+		autoStep(s, p:dt() * (w.speed or 1))
+		return
+	end
 	if s.mode == "raise" and s.auto.on then
 		-- raising for the rest of the game: B gives it back, else the kubb is
 		-- raised on the engine's end once it has been seen
 		if p:pressed("b") then
 			s.auto.on, s.auto.changed = false, true
-			s.img = nil
+			begin(s)
 			return
 		end
-		s.wait = s.wait - p:dt()
-		if s.wait <= 0 then
-			s.g:raise(s.engineChoice)
-			s.raised = s.raised + 1
-			begin(s)
-		end
+		autoStep(s, p:dt())
 		return
 	end
-	if s.mode == "raise" and p:pressed("b") then
-		-- REST OF GAME: this kubb now, on the engine's end (whatever the crank
-		-- had tipped toward), and every raise after it
-		s.auto.on, s.auto.changed = true, true
-		s.g:raise(s.engineChoice)
-		s.raised = s.raised + 1
-		begin(s)
+	if s.mode == "raise" and p:pressed("b") and #s.lying > 1 then
+		-- NEXT: the next lying kubb (any order, engine 1.4)
+		choose(s, nextLying(s, s.kubb, s.lying))
 		return
 	end
 	if s.mode == "raise" then
-		-- the d-pad looks (Jamie, 2026-11-14): left/right turn the view round
-		-- the kubb, up/down zoom in and out; the end is the crank's choice
-		local turn = (p:held("right") and 1 or 0) - (p:held("left") and 1 or 0)
-		local zoom = (p:held("down") and 1 or 0) - (p:held("up") and 1 or 0)
-		if turn ~= 0 or zoom ~= 0 then
-			local t, dt = settle.tune, p:dt()
-			s.yaw = s.yaw + turn * math.rad(t.lookTurn) * dt
-			s.zoom = max(t.zoomMin, min(t.zoomMax, s.zoom * t.lookZoom ^ (zoom * dt)))
-			raiseCamera(s)
+		-- left/right: the end on that side of the screen (the crank's choice too)
+		local lr = (p:pressed("right") and 1 or 0) - (p:pressed("left") and 1 or 0)
+		if lr ~= 0 and s.tip == 0 then
+			readEnds(s)
+			local which = (lr > 0) and s.rightEnd or (3 - s.rightEnd)
+			local ci = choiceFor(s, which)
+			if ci then s.choice, s.blocked = ci, nil else s.blocked = endWhy(s, which) end
+			s.img = nil
 		end
 		-- the crank tips it: forward toward the right-hand end, back the left
 		local d = p:crank() * swing.tune.forwardSign
@@ -572,8 +682,9 @@ function settle.update(s)
 			if tip ~= s.tip then tipTo(s, tip) else s.img = nil end
 		end
 		if up or p:pressed("a") then
-			s.g:raise(s.choice)
+			s.g:raise(s.choice, nil, s.kubb)
 			s.raised = s.raised + 1
+			s.justRaised = s.kubb
 			begin(s)
 		end
 	elseif s.mode == "punish" then
@@ -641,6 +752,14 @@ function settle.draw(s)
 	elseif s.mode == "raise" and s.blocked then
 		whyFlag(s.blocked)
 	end
+	if s.mode == "raise" and s.watch then tw.render.watchbar.draw(s.watch.speed or 1) end
+end
+
+-- (1.1.0) The System Menu's Auto raise (main.lua): REST OF GAME on or off. The
+-- raise on screen starts again from the game's kubb (settle.update sees it).
+function settle.setAuto(s, on)
+	if s.auto.on == on then return end
+	s.auto.on, s.auto.changed = on, true
 end
 
 tw.scenes.settle = settle

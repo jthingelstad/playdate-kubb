@@ -11,13 +11,21 @@
 --                    team, team -> bench); anywhere else: change column
 --   hold A + up/down on a team's player: move them up or down the order
 --                    (the order is who throws first, core/order)
+--   A (a tap)        on a team's player: their throw level, STANDARD -> HARD ->
+--                    EASY (engine 1.3: the width of the meter's bars, never a
+--                    hidden miss; kubb-engine docs/CLIENTS.md "1.4 on top"). The
+--                    row shows EASY or HARD on the right, nothing for STANDARD;
+--                    the line at the foot says the level of the player under the
+--                    cursor. Kept per saved player in the "teams" file (`throws`,
+--                    by roster key, both modes); a guest's for this visit only
 --   A                START: the match options (once both teams have a
 --                    player); + PLAYER: the Names screen (a new saved player,
 --                    onto the bench); + GUEST: the Names screen (this match
 --                    only, not saved); a team's name: the Names screen, a
 --                    team name generated or typed (scenes/names)
 --   B                back to the title
--- The lineup is kept (datastore "teams", per mode; guests are not) and
+-- The lineup is kept (datastore "teams", per mode; guests are not; the saved
+-- players' throw levels beside it, `throws`) and
 -- offered again; a kept team name typed on an older build stays as it is until it is
 -- renamed (the owner's decision, kubb-engine docs/NAMES.md 10.2). The screen is one
 -- image redrawn only on a change.
@@ -51,6 +59,31 @@ scene.tune = {
 	key = "teams",       -- the datastore file
 }
 
+-- the throw levels (engine 1.3, plan.THROW_LEVELS): what an A tap steps to, and the
+-- words. Standard is the default and is stored as nothing.
+scene.throwNext = { standard = "hard", hard = "easy", easy = "standard" }
+scene.throwWord = { easy = "EASY", standard = "STANDARD", hard = "HARD" }
+
+-- the stored level: "easy" or "hard", else nil (standard)
+local function throwOf(s, e)
+	if not e then return nil end
+	if e.key then return s.throws[e.key] end
+	return s.guestThrows[e.name]
+end
+local function setThrow(s, e, v)
+	if v == "standard" then v = nil end
+	if e.key then s.throws[e.key] = v else s.guestThrows[e.name] = v end
+end
+-- a kept table of levels, cleaned: { [key] = "easy" | "hard" }
+local function validThrows(t)
+	local out = {}
+	if type(t) ~= "table" then return out end
+	for k, v in pairs(t) do
+		if type(k) == "string" and (v == "easy" or v == "hard") then out[k] = v end
+	end
+	return out
+end
+
 local WHY = { full = "SIX A SIDE", taken = "ALREADY ON A TEAM", vs = "THE PLAYDATE PLAYS ALONE" }
 
 local function benchRows(s)
@@ -83,6 +116,7 @@ local function keep(s)
 	if s.scripted then return end
 	local d = playdate.datastore.read(players.fileKey(scene.tune.key)) or {}
 	d[s.mode] = lineup.pack(s.L)
+	d.throws = s.throws
 	playdate.datastore.write(d, players.fileKey(scene.tune.key))
 end
 
@@ -90,10 +124,11 @@ end
 function scene.new(provider, mode, opts)
 	opts = opts or {}
 	local s = { input = provider, mode = mode, scripted = opts.scripted, col = "M", row = 1, img = nil,
-		exit = nil, done = false, guests = {}, flash = nil }
+		exit = nil, done = false, guests = {}, flash = nil, guestThrows = {} }
 	s.r = opts.roster or players.load()
 	local kept = (not s.scripted) and playdate.datastore.read(players.fileKey(scene.tune.key)) or nil
 	s.L = lineup.unpack(kept and kept[mode], s.r, mode == "vs")
+	s.throws = validThrows(kept and kept.throws)
 	-- the cursor on the first saved player when nobody is on a team yet
 	if not lineup.ready(s.L) and #rows(s, "M") > 3 then s.row = 4 end
 	return s
@@ -170,9 +205,21 @@ function scene.update(s)
 		local i = s.row - 1
 		local j = lineup.move(s.L, s.col, i, p:pressed("up") and -1 or 1)
 		s.row = j + 1
+		s.aTap = nil   -- a hold that moved someone is not a tap
 		keep(s)
 		changed(s)
 		return
+	end
+	-- an A tap on a team's player (down and up with nothing moved): their throw level
+	if s.aTap and not p:held("a") then
+		local e = s.aTap
+		s.aTap = nil
+		if r and r.kind == "player" and r.entry == e then
+			setThrow(s, e, scene.throwNext[throwOf(s, e) or "standard"])
+			keep(s)
+			changed(s)
+			return
+		end
 	end
 	if p:pressed("up") then s.row = (s.row - 2) % n + 1; s.img = nil end
 	if p:pressed("down") then s.row = s.row % n + 1; s.img = nil end
@@ -206,14 +253,24 @@ function scene.update(s)
 			end
 		elseif r.kind == "new" then askName(s, "new")
 		elseif r.kind == "guest" then askName(s, "guest")
-		elseif r.kind == "name" and not (s.L.vs and s.col == "B") then askName(s, "team", s.col) end
+		elseif r.kind == "name" and not (s.L.vs and s.col == "B") then askName(s, "team", s.col)
+		elseif r.kind == "player" and s.col ~= "M" then s.aTap = r.entry end
 	elseif p:pressed("b") then
 		s.exit = "title"
 	end
 end
 
--- core/match's teams for the lineup built.
-function scene.teams(s) return lineup.teams(s.L) end
+-- core/match's teams for the lineup built, each person with their throw level
+-- (teams.<side>.players[i].throw: "easy", "hard", or none for standard).
+function scene.teams(s)
+	local t = lineup.teams(s.L)
+	for _, side in ipairs { "A", "B" } do
+		if not (s.L.vs and side == "B") then
+			for i, e in ipairs(s.L[side]) do t[side].players[i].throw = throwOf(s, e) end
+		end
+	end
+	return t
+end
 
 -- ---------- drawing ----------
 
@@ -282,8 +339,10 @@ local function render(s)
 			elseif row.kind == "name" then text = lineup.teamName(s.L, col)
 			else
 				text = row.entry.name
-				-- (a person's level no longer shows: since engine 0.13 it names only the computer)
-				right = row.entry.guest and "GUEST" or nil
+				-- (a person's computer level does not show: it names only the computer.) Their
+				-- throw level does when it is not standard, else GUEST for a guest
+				local lv = throwOf(s, row.entry)
+				right = (lv and scene.throwWord[lv]) or (row.entry.guest and "GUEST") or nil
 				if col ~= "M" then text = (i - 1) .. " " .. text end
 			end
 			local room = t.colW - (right and 44 or 14)
@@ -307,6 +366,12 @@ local function render(s)
 	if s.flash then ui.text(label, s.flash, 200, 220, true, "center")
 	else
 		ui.button("B", "TITLE", t.colW + 8, 218, true)
+		-- on a team's player: what an A tap changes, under that team's column
+		local r = rows(s, s.col)[s.row]
+		if s.col ~= "M" and r and r.kind == "player" then
+			local word = "THROW " .. scene.throwWord[throwOf(s, r.entry) or "standard"]
+			ui.button("A", word, (s.col == "A" and 0 or 2 * t.colW) + 8, 218)
+		end
 	end
 end
 

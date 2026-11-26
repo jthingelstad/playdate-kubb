@@ -58,7 +58,7 @@ games realgames physfuzz mjref:
 # can write a text file); this copies it into build/selftest and fails unless
 # it says DONE and every frame it counted exists at 400x240 and 800x480.
 # A marker that names a game file (file=games/...: match-whole, match-vs,
-# match-kid, players, auto-raise, set-save) has that file
+# match-kid, players, auto-raise, set-save, togo) has that file
 # copied into build/selftest/games, and the notation gate runs over them.
 selftest: build
 	@rm -rf build/selftest

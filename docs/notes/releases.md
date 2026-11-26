@@ -23,6 +23,15 @@ https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository).
 - 0.9.7 (build 8), 2026-11-18. Batons turn over less. Club and Pro aim for a half turn
   and add spin to their drills. Slow impacts can move fallen wood. Open practice keeps
   six batons on the pitch and picks up the oldest for the next throw.
+- 1.0.0 (build 17), 2026-11-22: the 1.0 release on Kubb Engine 1.0.0.
+- 1.1.0 (build 18), 2026-11-26, on Kubb Engine 1.4.0. Each person throws EASY, STANDARD or
+  HARD, set on TEAMS with an A tap (the level is the width of the bars, never a hidden
+  miss). Against the Playdate the screen stays on your side: its throws, inkast and raises
+  come toward you from your end, with B SPEED 1X/2X/4X (remembered) and A SKIP (the same
+  match, no waiting). Raise kubbs in any order: one held view of the group, B NEXT, left
+  and right pick the end, the crank tips it; Auto raise moved to the System Menu. THROW TO
+  GO (on by default, not in a Kid match): one baton each at the king decides who throws
+  first, the person first, written in the game file as `[Engine:first]`.
 
 The bundle id changed on 2026-11-17 from `com.thingelstad.throwingwood` to
 `com.throwingwood.playdate`, so every id is rooted at the game's own domain (the iPhone app

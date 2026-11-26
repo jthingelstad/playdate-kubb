@@ -2,19 +2,19 @@
 -- The engine is driven to turn 3: A tosses a1 into B's half lying (in) and
 -- a2 out over the sideline twice, so B raises a1, then places a2 as a
 -- punishment kubb. Frames: 1 the raise view on the engine's choice, 2 after
--- the d-pad has looked about (right turns the view round the kubb, down
--- zooms out), 3 the placement view at the engine's suggestion, 4 the cursor
--- moved onto the king's keep-out (refused, with the reason). Then the cursor
--- goes back to the suggestion and A places it; the check: the look turned
--- and zoomed out, a1 stands, a2 is a field kubb in B's half, and the engine
--- is on to A's batons.
+-- right and left on the d-pad (each chooses the end on that side, and the
+-- engine's is chosen again), 3 the placement view at the engine's suggestion, 4
+-- the cursor moved onto the king's keep-out (refused, with the reason). Then the
+-- cursor goes back to the suggestion and A places it; the check: the held view
+-- did not move, a1 stands, a2 is a field kubb in B's half, and the engine is on
+-- to A's batons.
 import "core/tw"
 import "core/rules"
 import "scenes/settle"
 import "input"
 
 local settle, rules = tw.scenes.settle, tw.rules
-local s, g, steps, want
+local s, g, steps, want, cam0
 
 local MISS = {}
 local function topple(id) return { toppled = { id } } end
@@ -32,11 +32,12 @@ tw.selftest.scenarios.settle = {
 			g:toss(land(2.8, 5.5, 0))            -- a2 rethrown: out again, a punishment kubb
 			if g:need().kind ~= "raise" then error("expected a raise, got " .. g:need().kind) end
 			steps = tw.input.scripted {
-				{ n = 2 }, { hold = { "right" }, n = 25 }, { hold = { "down" }, n = 25 }, { press = { "a" } },
+				{ n = 2 }, { press = { "right" } }, { n = 24 }, { press = { "left" } }, { n = 24 }, { press = { "a" } },
 				{ n = 6 }, { press = { "a" } }, { n = 2 },
 			}
 			s = settle.new(g, function(side) return side == "A" and "ASH" or "BIRCH" end, steps)
-			want = s.choice   -- the engine's own end: the d-pad only looks
+			want = s.choice   -- the engine's own end
+			cam0 = { s.cam.px, s.cam.py, s.cam.pz }
 		end
 		local f = ctx.frame
 		if f == 55 then
@@ -49,10 +50,13 @@ tw.selftest.scenarios.settle = {
 		settle.update(s)
 		settle.draw(s)
 		if f == 52 then
-			if not (s.yaw > 0.5 and s.zoom > 1.3) then
-				error(string.format("the d-pad did not look about: yaw %.2f zoom %.2f", s.yaw, s.zoom))
+			if s.cam.px ~= cam0[1] or s.cam.py ~= cam0[2] or s.cam.pz ~= cam0[3] then
+				error("the raise view moved")
 			end
-			if s.choice ~= want then error("the d-pad changed the end") end
+			-- left last: the end on the left of the screen, when it may be stood on
+			if #s.dec.choices > 1 and s.dec.choices[s.choice].which ~= 3 - s.rightEnd then
+				error("left did not choose the end on the left")
+			end
 		end
 		if f == 1 or f == 52 or f == 54 or f == 56 then
 			if f == 54 and s.mode ~= "punish" then error("expected the placement view, got " .. tostring(s.mode)) end

@@ -76,6 +76,9 @@ import "selftest/hello"
 import "selftest/title"
 import "selftest/settle"
 import "selftest/auto-raise"
+import "selftest/watch-skip"
+import "selftest/togo"
+import "selftest/throw-level"
 import "selftest/settle-resign"
 import "selftest/settle-crank"
 import "selftest/seat"
@@ -227,11 +230,20 @@ else
 		if not tw.selftestRun then playdate.datastore.write({ seen = 2 }, "howto") end
 	end
 
+	-- the match's "Auto raise" checkmark, kept in step with the match (gameWillPause)
+	local raiseItem
+	function playdate.gameWillPause()
+		if raiseItem and kind == "match" and current and current.autoRaise then
+			raiseItem:setValue(current.autoRaise.on)
+		end
+	end
+
 	-- The scene's own options item, whose choice acts when the menu closes and
 	-- then reads "play" again. (Until engine 0.13 a "Level" item came first: a
 	-- person's throw level, which no longer changes their throw.)
 	local function sceneMenu()
 		menu:removeAllMenuItems()
+		raiseItem = nil
 		local item
 		if kind == "practice" then
 			-- the surfaces are the Black & White scene's (core/scenes, the Playdate's scene)
@@ -292,6 +304,13 @@ else
 				end
 				item:setValue("play")
 			end)
+			-- (1.1.0) raising for the rest of the game, both teams' (B REST OF GAME in
+			-- the raise view before); only where raising is by hand
+			if current and current.byHand then
+				raiseItem = menu:addCheckmarkMenuItem("Auto raise", current.autoRaise.on, function(on)
+					match.setAutoRaise(current, on)
+				end)
+			end
 		end
 	end
 
@@ -371,7 +390,11 @@ else
 			match.enter()
 		elseif which == "resume" and savedMatch() then
 			-- the match saved in progress (core/save), on from where it was left
-			local m, opts = tw.save.unpack(playdate.datastore.read("match"))
+			local d = playdate.datastore.read("match")
+			local m, opts = tw.save.unpack(d)
+			-- (1.1.0) the Playdate's own fields beside the save: saved during the throw
+			-- to go (it is thrown again), and THROW TO GO off for a rematch
+			local togoOn = not d.togoOff
 			-- a rematch keeps the resumed match's options (surface and opening
 			-- are the engine's own)
 			-- (and the computer's level, from its lineup entry: nil in a save from before 0.9;
@@ -379,10 +402,11 @@ else
 			local cpu = opts.vs and m.lineup and m.lineup[opts.vs] and m.lineup[opts.vs][1]
 			lastMatch = { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle, set = opts.set,
 				wind = opts.wind, surface = m.game.surface, opening = m.game.opening, computer = cpu and cpu.level,
-				rules = m.game.rules }
+				rules = m.game.rules, togo = togoOn and m.game.rules ~= "kid" }
 			kind = "match"
 			current = match.new(device, { vs = opts.vs, names = opts.names, teams = opts.teams, autoSettle = opts.autoSettle,
-				set = opts.set, wind = opts.wind, autoRaise = opts.autoRaise, resume = m })
+				set = opts.set, wind = opts.wind, autoRaise = opts.autoRaise, resume = m, togo = togoOn,
+				togoPending = d.togo == true })
 			match.enter()
 		else
 			kind = "title"

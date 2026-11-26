@@ -3,8 +3,10 @@
 -- Brave Birch, Jolly Juniper, Lucky Larch, Mighty Maple). The first three are sent
 -- left to Team A, the last two right to Team B; Brave Birch is moved to the top of
 -- Team A's order (hold A + up); Team A is named Wobbly Towers (a generated team
--- name); START. Frames: 1 the teams built, 2 the team's Names screen, 3 Team A in
--- its new order with its name. The check: the teams given are
+-- name); START. Since 1.1.0 an A tap on Brave Birch steps the throw level STANDARD ->
+-- HARD -> EASY -> STANDARD -> HARD, and the match's player carries "hard". Frames: 1
+-- the teams built, 2 Brave Birch on HARD, 3 the team's Names screen, 4 Team A in its new
+-- order with its name. The check: the teams given are
 -- core/match's (3 and 2 players, in that order) and a match starts with
 -- them.
 import "core/tw"
@@ -56,7 +58,23 @@ tw.selftest.scenarios.teams = {
 				"capture",
 				press("left"),                           -- to Team A's column, on its third row: Brave Birch
 				function() if s.col ~= "A" then return "column " .. s.col end inp.press, inp.hold = "up", "a" end,
-				function() if namesOf(s.L.A) ~= "Brave Birch,Agreeable Ginkgo,Jolly Juniper" then return "order " .. namesOf(s.L.A) end inp.press = "up" end,
+				function() if namesOf(s.L.A) ~= "Brave Birch,Agreeable Ginkgo,Jolly Juniper" then return "order " .. namesOf(s.L.A) end
+					if s.row ~= 2 then return "the moved player's row " .. s.row end
+					inp.press = "a" end,                  -- (1.1.0) an A tap: Brave Birch's throw level
+				function() end,                          -- A comes up: STANDARD -> HARD
+				function()
+					local t = scene.teams(s)
+					if t.A.players[1].throw ~= "hard" then return "A tap gave " .. tostring(t.A.players[1].throw) end
+					if t.A.players[2].throw ~= nil then return "a standard player has a level" end
+					if namesOf(s.L.A) ~= "Brave Birch,Agreeable Ginkgo,Jolly Juniper" then return "the tap moved the order" end
+				end,
+				"capture",
+				function() inp.press = "a" end, function() end,      -- HARD -> EASY
+				function() if scene.teams(s).A.players[1].throw ~= "easy" then return "second tap" end inp.press = "a" end,
+				function() end,                                       -- EASY -> STANDARD
+				function() if scene.teams(s).A.players[1].throw ~= nil then return "third tap" end inp.press = "a" end,
+				function() end,                                       -- STANDARD -> HARD again
+				function() inp.press = "up" end,
 				function() if s.row ~= 1 then return "row " .. s.row end inp.press = "a" end,   -- the name row
 				function() if not s.sub then return "no Names screen" end
 					if s.sub.kind ~= "team" then return "a team name asked as " .. tostring(s.sub.kind) end
@@ -79,6 +97,9 @@ tw.selftest.scenarios.teams = {
 					if #g.teams.A.players ~= 3 or g.teams.A.players[1].name ~= "Brave Birch" or #g.teams.B.players ~= 2 then
 						return "the match's teams"
 					end
+					-- (1.1.0) the throw level reaches the match's thrower
+					local e = tw.match.member(ms.m, "A", g.teams.A.players[1].id)
+					if not e or e.throw ~= "hard" then return "the match lost the throw level" end
 				end,
 			}
 		end

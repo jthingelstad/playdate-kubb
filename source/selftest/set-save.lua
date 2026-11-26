@@ -1,7 +1,7 @@
 -- Scenario "set-save": saved data from before the kubb set left the Playdate
 -- (Jamie's Settings sheet, 2026-11-20; docs/notes/match.md "Kubb sets").
 -- A kept match options choice with SET on USA (core 0.9 has no SET row)
--- opens on four rows in PASS + PLAY with its other choices kept (core
+-- opens on five rows in PASS + PLAY (four and, since 1.1.0, THROW TO GO) with its other choices kept (core
 -- matchopts.valid reads only its rows, so the set is dropped), every row is
 -- stepped through, and the options it gives carry no set and no computer level
 -- (frame 1); VS PLAYDATE adds COMPUTER, club unless chosen. A match saved in progress with set = "usa"
@@ -42,7 +42,7 @@ tw.selftest.scenarios["set-save"] = {
 			for _ = 1, #steps + 1 do options.update(s) end
 			options.draw(s)
 			ctx:capture()
-			if #s.rows ~= 4 then error(#s.rows .. " rows shown") end
+			if #s.rows ~= 5 or s.rows[5].key ~= "togo" then error(#s.rows .. " rows shown") end   -- (1.1.0: THROW TO GO the fifth)
 			for _, row in ipairs(s.rows) do
 				if row.key == "set" or row.key == "computer" then error("the " .. row.label .. " row is shown") end
 			end
@@ -52,16 +52,16 @@ tw.selftest.scenarios["set-save"] = {
 			if o.set ~= nil then error("the options gave the match a set: " .. tostring(o.set)) end
 			if o.surface ~= "Sand" then error("the options lost the surface") end
 			if o.computer ~= nil then error("PASS + PLAY gave a computer level") end
-			-- VS PLAYDATE: COMPUTER is the fifth row, club unless chosen; right makes it pro
+			-- VS PLAYDATE: COMPUTER is the sixth row (after THROW TO GO since 1.1.0), club unless chosen; right makes it pro
 			local v = options.new(tw.input.scripted { { n = 1 }, { press = { "up" } }, { press = { "right" } } }, "vs",
 				{ scripted = true })
 			v.choice = matchopts.valid(kept)
 			for _ = 1, 4 do options.update(v) end
-			if #v.rows ~= 5 or v.rows[5].key ~= "computer" then error("VS PLAYDATE: no COMPUTER row last") end
+			if #v.rows ~= 6 or v.rows[6].key ~= "computer" then error("VS PLAYDATE: no COMPUTER row last") end
 			if matchopts.value(matchopts.valid(kept), "computer") ~= "club" then error("COMPUTER is not club by default") end
 			local ov = options.apply(v, { vs = "B" })
 			if ov.computer ~= "pro" then error("VS PLAYDATE: COMPUTER gave " .. tostring(ov.computer)) end
-			ctx.note = "options: 4 rows, surface kept, no set; vs: COMPUTER row 5, pro"
+			ctx.note = "options: 5 rows, surface kept, no set; vs: COMPUTER row 6, pro"
 
 			-- a match saved in progress with a set, as a build with SET wrote it
 			local m = cmatch.new { start = { year = 2026, month = 11, day = 20, hour = 22, min = 10 },
