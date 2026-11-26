@@ -5,6 +5,9 @@
 -- makes the match a Kid match: docs/DESIGN.md "Kid matches"). Rows from core/matchopts, which has no kubb set since 0.9
 -- (sets are a look for the web and the iPhone only). A kept choice from an
 -- older build that still holds a set loads all the same (matchopts.valid).
+-- Since 1.1.0 also THROW TO GO (ON by default; the Playdate's own row, before
+-- COMPUTER as on the web: core/matchopts has no such row, and its valid() drops
+-- keys it does not know, so the choice is kept in its own datastore file "togo").
 -- Up/down choose a row, left/right change its value, A starts the match, B
 -- goes back to the names. The choice is kept (playdate.datastore
 -- "matchopts") and offered next time.
@@ -28,7 +31,9 @@ scene.tune = {
 	labelX = 16,         -- the row's label
 	valueX = 150,        -- the value (display 16), between arrows
 	arrowGap = 10,
+	rowH6 = 26,          -- px a row when there are six (VS PLAYDATE with THROW TO GO)
 	noteY = 178,         -- the chosen row's line of explanation
+	togoKey = "togo",    -- the datastore file of THROW TO GO ({ on = true | false })
 	buttonY = 214,
 }
 
@@ -39,7 +44,12 @@ scene.notes = {
 	raising = "WHO STANDS UP THE KUBBS THROWN IN",
 	wind = "WIND PUSHES BATONS AND KUBBS IN THE AIR",
 	computer = "HOW WELL THE PLAYDATE THROWS",
+	togo = "ONE BATON AT THE KING: CLOSEST THROWS FIRST",
 }
+scene.togoKid = "NO THROW TO GO IN A KID MATCH"
+
+-- THROW TO GO, the Playdate's own row (1.1.0)
+scene.togoRow = { key = "togo", label = "THROW TO GO" }
 scene.openingSix = "SIX: SIX BATONS A TURN FROM THE START"
 -- KID: the Kid rules for both teams and the wide meter (kubb-engine docs/notes/kid-mode.md)
 scene.computerKid = "KID RULES: A CLOSER LINE, 3 BASE KUBBS"
@@ -49,8 +59,12 @@ scene.computerKid = "KID RULES: A CLOSER LINE, 3 BASE KUBBS"
 function scene.rowsFor(mode)
 	local rows = {}
 	for _, row in ipairs(matchopts.list) do
+		if row.key == "computer" then rows[#rows + 1] = scene.togoRow end
 		if row.key ~= "computer" or mode == "vs" then rows[#rows + 1] = row end
 	end
+	local has = false
+	for _, row in ipairs(rows) do if row == scene.togoRow then has = true end end
+	if not has then rows[#rows + 1] = scene.togoRow end
 	return rows
 end
 
@@ -62,6 +76,8 @@ function scene.new(provider, mode, opts)
 		scripted = opts.scripted, rows = scene.rowsFor(mode) }
 	local kept = (not s.scripted) and playdate.datastore.read(scene.tune.key) or nil
 	s.choice = matchopts.valid(kept)
+	local tk = (not s.scripted) and playdate.datastore.read(scene.tune.togoKey) or nil
+	s.togo = not (type(tk) == "table" and tk.on == false)
 	return s
 end
 
@@ -73,23 +89,26 @@ local function render(s)
 	gfx.fillRect(0, 0, 400, 14)
 	ui.text(label, "MATCH OPTIONS", 6, 2, true)
 	ui.text(label, (s.mode == "vs") and "VS PLAYDATE" or "PASS + PLAY", 394, 2, true, "right")
+	local rowH = (#s.rows > 5) and t.rowH6 or t.rowH
 	for i, row in ipairs(s.rows) do
-		local y = t.top + (i - 1) * t.rowH
+		local y = t.top + (i - 1) * rowH
 		local chosen = (i == s.row)
 		if chosen then
 			gfx.setColor(BLACK)
-			gfx.fillRect(0, y, 400, t.rowH - 6)
+			gfx.fillRect(0, y, 400, rowH - 6)
 		end
-		local boxH = t.rowH - 6
+		local boxH = rowH - 6
 		ui.text(label, row.label, t.labelX, y + (boxH - 10) // 2, chosen)
-		local value = matchopts.shown(s.choice, row.key)
+		local value
+		if row == scene.togoRow then value = scene.togoOn(s) and "ON" or "OFF"
+		else value = matchopts.shown(s.choice, row.key) end
 		local f = (d16:getTextWidth(value) <= 400 - t.valueX - 40) and d16 or label
 		local vy = y + ((f == d16) and (boxH - 16) // 2 or (boxH - 10) // 2)
 		local w = ui.text(f, value, t.valueX + t.arrowGap + 8, vy, chosen)
 		if chosen then
 			-- the arrows that say left/right change it
 			gfx.setColor(WHITE)
-			local cy = y + (t.rowH - 6) // 2
+			local cy = y + (rowH - 6) // 2
 			local lx = t.valueX
 			gfx.fillTriangle(lx, cy, lx + 8, cy - 6, lx + 8, cy + 6)
 			local rx = t.valueX + t.arrowGap + 8 + w + t.arrowGap
@@ -100,6 +119,7 @@ local function render(s)
 	local note = scene.notes[key]
 	if key == "opening" and matchopts.value(s.choice, "opening") == "six" then note = scene.openingSix end
 	if key == "computer" and matchopts.value(s.choice, "computer") == "kid" then note = scene.computerKid end
+	if key == "togo" and scene.isKid(s) then note = scene.togoKid end
 	ui.text(label, note, t.labelX, t.noteY)
 	ui.button("A", "START", t.labelX, t.buttonY)
 	ui.button("B", "TEAMS", t.labelX + 96, t.buttonY)
@@ -109,9 +129,17 @@ end
 -- the computer's level only against the Playdate, and with it the rules: KID
 -- (engine 0.15) makes a Kid match (opts.rules = "kid", core/matchopts), so PASS +
 -- PLAY, which has no COMPUTER row, keeps the standard rules whatever was kept.
+-- A Kid match (COMPUTER: KID against the Playdate)
+function scene.isKid(s)
+	return s.mode == "vs" and matchopts.value(s.choice, "computer") == "kid"
+end
+-- THROW TO GO as it will be played: the choice, never in a Kid match
+function scene.togoOn(s) return s.togo and not scene.isKid(s) end
+
 function scene.apply(s, opts)
 	matchopts.apply(opts, s.choice)
 	if s.mode ~= "vs" then opts.computer, opts.rules = nil, nil end
+	opts.togo = scene.togoOn(s)
 	return opts
 end
 
@@ -123,11 +151,19 @@ function scene.update(s)
 	elseif p:pressed("up") then s.row = (s.row - 2) % n + 1; s.img = nil end
 	local d = (p:pressed("right") and 1 or 0) - (p:pressed("left") and 1 or 0)
 	if d ~= 0 then
-		matchopts.step(s.choice, s.rows[s.row].key, d)
+		local row = s.rows[s.row]
+		if row == scene.togoRow then
+			if not scene.isKid(s) then s.togo = not s.togo end
+		else
+			matchopts.step(s.choice, row.key, d)
+		end
 		s.img = nil
 	end
 	if p:pressed("a") then
-		if not s.scripted then playdate.datastore.write(s.choice, scene.tune.key) end
+		if not s.scripted then
+			playdate.datastore.write(s.choice, scene.tune.key)
+			playdate.datastore.write({ on = s.togo }, scene.tune.togoKey)
+		end
 		s.done = true
 	elseif p:pressed("b") then
 		s.back = true

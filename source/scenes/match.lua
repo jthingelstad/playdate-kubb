@@ -22,11 +22,24 @@
 --            defender, A to start) the defender raises the kubbs thrown in and places punishment
 --            kubbs by hand (scenes/settle), between the attacker's kubb
 --            tosses and its batons; scripted matches (seed, instant,
---            autoSettle) leave it to the engine. B, REST OF GAME, in the
---            raise view hands every raise after it to the game, both teams',
---            for the rest of the match (s.autoRaise, kept in the save:
---            "Auto raise" in docs/notes/match.md); no pass card then while
---            there are only raises to make
+--            autoSettle) leave it to the engine. The System Menu's "Auto
+--            raise" (main.lua, scene.setAutoRaise; B REST OF GAME in the raise
+--            view before 1.1.0) hands every raise to the game, both teams',
+--            until it is turned off (s.autoRaise, kept in the save: "Auto
+--            raise" in docs/notes/match.md); no pass card then while there
+--            are only raises to make. Against the Playdate its own raises are
+--            shown too (1.1.0: scenes/settle's watch, from the player's end)
+--   togo     (1.1.0) the throw to go, before turn 1 (core/togo; match option THROW
+--            TO GO, on by default; never in a Kid match): each team's first player
+--            throws one baton from its own baseline at the king, A's then B's
+--            (against the Playdate the player's, then the Playdate's, seen from
+--            the player's end), each on a world of its own (throw.prepare from
+--            match.togoSetup); a card before each person's baton (PASS + PLAY: it
+--            passes the Playdate), the verdict card after both (togo.decide:
+--            "<TEAM> THROWS FIRST: 0.42 M AGAINST 0.88 M", "TIE: THROW AGAIN",
+--            "BOTH KINGS DOWN: THROW AGAIN"), then match.setFirst and turn 1. A
+--            save made then is the match as it starts, marked `togo` beside
+--            core/save's fields: a resume throws to go again from round 1.
 --   over     the winner card: who won and how, turns, minutes, the winner's
 --            baton hit rate, whether the game file was written to games/ in
 --            the Data folder (DESIGN 7). A: a new match (rematch), B: the
@@ -48,13 +61,25 @@
 -- policies, there is no hand-off card before its turn, and the System Menu
 -- resign always means the player (on the player's own turn).
 --
+-- Since 1.1.0 the view stays on the player's side all match: the Playdate's
+-- throws are seen from the player's end, coming toward the player (throw's
+-- s.turned, core/camera.fromEnd), and so are its raises. While it throws or
+-- raises, B steps its SPEED (1X, 2X, 4X: s.watch.speed, kept across turns and
+-- matches in the datastore file "watch") and A SKIPS the rest of its turn
+-- (s.watch.skipping: its throws are run to rest at once, with the same seeds, so
+-- the match is the one it would have been; a card says SKIPPING while they run).
+-- Skipping ends when a person's throw is set up.
+--
 -- Self-test options (scenes/match.new opts): seed (throws come from
 -- core/autothrow, not the crank), instant (each throw is shown at rest at
--- once), skipHandoff, maxTurns (the attacker resigns past it).
+-- once), skipHandoff, maxTurns (the attacker resigns past it), byHand (settle
+-- as a played match does, though the throws are scripted), instantPlayer (only
+-- the player's throws at once: the Playdate's are watched).
 import "CoreLibs/graphics"
 import "core/tw"
 import "core/match"
 import "core/autothrow"
+import "core/togo"
 import "scenes/throw"
 import "render/hud"
 import "core/cards"
@@ -69,7 +94,7 @@ import "players"
 import "device/enginetune"
 
 local gfx <const> = playdate.graphics
-local cmatch, autothrow = tw.match, tw.autothrow
+local cmatch, autothrow, togo = tw.match, tw.autothrow, tw.togo
 local throw, hud = tw.scenes.throw, tw.render.hud
 local cards, rcards = tw.cards, tw.render.cards
 local settle, sheet = tw.scenes.settle, tw.scenes.sheet
@@ -82,6 +107,7 @@ scene.version = playdate.metadata and playdate.metadata.version or "0.0.1"
 
 scene.tune = {
 	cpuThink = 0.9,      -- s the Playdate's aim shows before it throws
+	skipSpeed = 1000,    -- the speed a skipped swing and rest hold run at (one frame)
 	cpuScatter = 1.0,    -- times core/autothrow's scatter (lower: a steadier opponent)
 }
 
@@ -143,6 +169,27 @@ local function personRaising(s)
 		if side ~= s.cpu then r[side] = tw.enginetune.autoRaising end
 	end
 	return r
+end
+
+-- SPEED for the Playdate's turn (1.1.0), kept across matches in the datastore
+-- file "watch" ({ speed = 1 | 2 | 4 }). Self-test runs neither read nor write it.
+scene.watchKey = "watch"
+local function loadSpeed()
+	if tw.selftestRun then return 1 end
+	local ok, d = pcall(playdate.datastore.read, scene.watchKey)
+	local v = ok and type(d) == "table" and tonumber(d.speed) or 1
+	if v == 2 or v == 4 then return v end
+	return 1
+end
+local function saveSpeed(speed)
+	if tw.selftestRun then return end
+	pcall(playdate.datastore.write, { speed = speed }, scene.watchKey)
+end
+
+-- The player's side against the Playdate (the view's), or nil in PASS + PLAY.
+local function personSide(s)
+	if not s.cpu then return nil end
+	return (s.cpu == "A") and "B" or "A"
 end
 
 -- The time now as notation wants it.
@@ -221,7 +268,14 @@ local function persist(s)
 	else
 		tw.save.write(s.m, { vs = s.opts.vs, names = s.opts.names, teams = s.opts.teams, autoSettle = s.opts.autoSettle,
 			set = s.opts.set, wind = s.opts.wind, autoRaise = s.autoRaise.on or nil },
-			function(d) playdate.datastore.write(d, key) end)
+			function(d)
+				-- (1.1.0, the Playdate's own fields beside core/save's, which unpack
+				-- leaves be) togo: saved during the throw to go, so a resume throws it
+				-- again; togoOff: THROW TO GO was OFF, for a rematch
+				d.togo = s.tg and true or nil
+				d.togoOff = (s.opts.togo == false) or nil
+				playdate.datastore.write(d, key)
+			end)
 		-- the old build's side file, once the save carries what it said
 		if s.oldRaise then
 			s.oldRaise = false
@@ -343,6 +397,16 @@ local function nextThrow(s)
 	-- (scenes/settle); scripted matches leave it to the engine (match.setup)
 	if s.byHand and not cmatch.over(m) then
 		local n = m.game:need()
+		if n.kind == "raise" and n.side == s.cpu and not s.watch.skipping then
+			-- the Playdate's own raises, shown from the player's end at SPEED
+			-- (scenes/settle's watch: the calls core/match.settle would make)
+			s.phase = "settle"
+			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side, m.game)) end, s.input,
+				s.autoRaise, function(side) return cmatch.raisePolicy(m, side) end,
+				{ watch = s.watch, view = personSide(s) })
+			s.settleCard, s.settleCarded, s.settleImg = nil, true, nil
+			return
+		end
 		if (n.kind == "raise" or n.kind == "punish") and n.side ~= s.cpu then
 			s.phase = "settle"
 			s.settle = settle.new(m.game, function(side) return string.upper(cmatch.teamName(side, m.game)) end, s.input,
@@ -362,11 +426,20 @@ local function nextThrow(s)
 	s.resolved = false
 	-- the turn, so a kubb's spin is kept for the side's next kubb in it (throw.prepare)
 	setup.turn = m.game.turn
+	-- against the Playdate: its throws seen from the player's end (throw.endCamera),
+	-- with SPEED and SKIP on screen; a person's throw ends a skip
+	local cpuThrow = s.cpu ~= nil and setup.side == s.cpu
+	if not cpuThrow and s.watch.skipping then s.watch.skipping = false end
+	s.ts.turned = cpuThrow
+	s.ts.watchBar = cpuThrow
+	s.ts.speed = s.watch.skipping and scene.tune.skipSpeed or s.watch.speed
 	throw.prepare(s.ts, setup)
 	-- the thrower's own throw level (docs/PLAYERS.md section 6); nil (a
 	-- match without saved players) is the System Menu's
 	s.ts.level = setup.thrower and setup.thrower.level or nil
-	s.ts.instant = s.opts.instant
+	-- and a person's throw level (engine 1.3: the meter's bars; nil standard)
+	s.ts.throwLevel = setup.thrower and setup.thrower.throw or nil
+	s.ts.instant = s.opts.instant or (cpuThrow and s.watch.skipping) or (not cpuThrow and s.opts.instantPlayer) or nil
 	-- the wind (match option WIND): a direction and speed for each turn, a
 	-- gust of it for each throw, in this side's view frame
 	if s.windLevel then
@@ -422,6 +495,172 @@ local function nextThrow(s)
 	s.ts.watching = s.cpu ~= nil and setup.side == s.cpu
 end
 
+local watchInput   -- (below, with the System Menu's)
+
+-- ---------- the throw to go (1.1.0) ----------
+
+-- Whether this match starts with one: THROW TO GO on (the options give true or
+-- false; scripted matches give nothing, and have none unless asked), never in a Kid
+-- match, and only when a person throws one of the batons (each team's first
+-- player, match.togoThrower). A resumed match only when it was saved during one.
+local function togoWanted(s)
+	if s.opts.resume then
+		if not s.opts.togoPending then return false end
+	elseif s.opts.togo ~= true then
+		return false
+	end
+	local m = s.m
+	if m.game.rules == "kid" then return false end
+	if m.game.turn ~= 1 or (m.tossed or 0) > 0 then return false end
+	for _, side in ipairs { "A", "B" } do
+		if side ~= s.cpu and not cmatch.togoThrower(m, side).cpu then return true end
+	end
+	return false
+end
+
+local function togoCpu(s, side)
+	return side == s.cpu or cmatch.togoThrower(s.m, side).cpu == true
+end
+
+-- The words for the verdict card and the result line.
+scene.togoWords = {
+	first = "%s THROWS FIRST",
+	firstYou = "YOU THROW FIRST",   -- (VS PLAYDATE's player is "You")
+	closer = "%.2f M AGAINST %.2f M",
+	king = "%s FELLED THE KING",
+	tie = "TIE: THROW AGAIN",
+	bothKing = "BOTH KINGS DOWN: THROW AGAIN",
+}
+
+-- The next baton to go, or the verdict once both are in.
+local togoNext
+local function togoVerdict(s)
+	local tg, m = s.tg, s.m
+	local v = togo.decide(tg.e)
+	tg.v, tg.mode, s.card = v, "verdict", nil
+	local W = scene.togoWords
+	if v.how == "again" then
+		tg.card = { head = (v.why == "both king") and W.bothKing or W.tie, again = true }
+		s.result = tg.card.head
+		return
+	end
+	local first = string.upper(cmatch.teamName(v.first, m.game))
+	local other = (v.first == "A") and "B" or "A"
+	local line
+	if v.how == "king" then
+		line = string.format(W.king, string.upper(cmatch.teamName(other, m.game)))
+	else
+		line = string.format(W.closer, togo.mm(tg.e[v.first].gap) / 1000, togo.mm(tg.e[other].gap) / 1000)
+	end
+	tg.card = { head = (first == "YOU") and W.firstYou or string.format(W.first, first), line = line }
+	s.result = tg.card.head .. ": " .. line
+	tg.how = togo.text(tg.e, v, tg.round)
+end
+
+scene.togoVerdict = function(s) return togoVerdict(s) end   -- (self-tests: a forced tie)
+
+togoNext = function(s)
+	local tg, m = s.tg, s.m
+	tg.i = tg.i + 1
+	local side = tg.order[tg.i]
+	if not side then return togoVerdict(s) end
+	local setup = cmatch.togoSetup(m, side)
+	tg.setup, tg.side, tg.measured = setup, side, false
+	local cpu = togoCpu(s, side)
+	tg.cpu = cpu
+	if not cpu and s.watch.skipping then s.watch.skipping = false end
+	local ts = s.ts
+	ts.turned = cpu and s.cpu ~= nil
+	ts.watchBar = cpu and s.cpu ~= nil
+	ts.speed = s.watch.skipping and scene.tune.skipSpeed or s.watch.speed
+	throw.prepare(ts, setup)
+	ts.level = setup.thrower.level
+	ts.throwLevel = setup.thrower.throw
+	ts.instant = s.opts.instant or (cpu and s.watch.skipping) or (not cpu and s.opts.instantPlayer) or nil
+	-- no wind: the two batons are judged against each other
+	throw.setWind(ts, 0, 0, nil)
+	if not cpu then throw.setTogo(ts) end
+	throw.setRail(ts, string.upper(setup.thrower.name or cmatch.teamName(side, m.game)), "baton", 1, 1, "TO GO", nil)
+	ts.watching = cpu
+	s.cpuWait, s.cpuAim = 0, nil
+	s.setup = nil
+	-- a card before each person's baton (PASS + PLAY: the Playdate changes hands)
+	if cpu or s.opts.skipHandoff then
+		tg.mode = "throw"
+	else
+		tg.mode = "card"
+		tg.card = { round = tg.round, pass = s.cpu == nil and (tg.i > 1 or tg.round > 1),
+			name = setup.thrower.name or cmatch.teamName(side, m.game) }
+	end
+	s.card = nil
+end
+
+local function togoBegin(s, round)
+	local order = { "A", "B" }
+	-- against the Playdate the player throws first
+	if s.cpu == "A" then order = { "B", "A" } end
+	s.tg = { round = round or 1, e = {}, i = 0, order = order }
+	s.phase = "togo"
+	s.side, s.result = nil, nil
+	togoNext(s)
+end
+
+local function togoUpdate(s)
+	local tg, ts, p = s.tg, s.ts, s.input
+	if tg.mode == "card" then
+		p:advance()
+		if p:pressed("a") then tg.mode, s.card = "throw", nil end
+		return false
+	end
+	if tg.mode == "verdict" then
+		p:advance()
+		if not (p:pressed("a") or s.opts.skipHandoff) then return false end
+		s.card = nil
+		if tg.v.how == "again" then
+			togoBegin(s, tg.round + 1)
+			return false
+		end
+		cmatch.setFirst(s.m, tg.v.first, tg.how)
+		s.tg = nil
+		s.watch.skipping = false
+		s.lastThrower = nil
+		return true
+	end
+	local setup = tg.setup
+	if ts.mode == "aim" and tg.cpu then
+		ts.input:advance()
+		watchInput(s)
+		if not s.cpuAim then
+			local level = setup.thrower.level or s.opts.computer
+			s.cpuAim = togo.cpuThrow(setup, s.cpuRng or autothrow.rng(1), level, scene.tune.cpuScatter)
+			ts.watching = true
+			throw.showAim(ts, s.cpuAim)
+		end
+		s.cpuWait = s.cpuWait + ts.input:dt() * s.watch.speed
+		if s.watch.skipping or s.cpuWait >= (s.opts.cpuThink or scene.tune.cpuThink) then
+			s.cpuWait = 0
+			local a = s.cpuAim
+			s.cpuAim = nil
+			throw.autoLaunch(ts, a)
+		end
+	elseif ts.mode == "aim" and s.rng then
+		-- scripted matches (self-tests): the person's baton from the seed
+		ts.input:advance()
+		throw.autoLaunch(ts, togo.cpuThrow(setup, s.rng, "club"))
+	else
+		throw.update(ts)
+		if tg.cpu and ts.watching and s.cpu then watchInput(s) end
+	end
+	if (ts.mode == "rest" or ts.mode == "done") and not tg.measured then
+		tg.measured = true
+		local gap, toppled = togo.gap(ts.result, setup.batonId)
+		tg.e[tg.side] = { gap = gap, toppled = toppled }
+		throw.setFlag(ts, toppled and "KING DOWN" or string.format("%.2f M", togo.mm(gap) / 1000))
+	end
+	if ts.mode == "done" then togoNext(s) end
+	return false
+end
+
 function scene.new(provider, opts)
 	local s = {
 		input = provider,
@@ -441,9 +680,12 @@ function scene.new(provider, opts)
 		cpuThrows = 0,           -- the Playdate's throws (VS PLAYDATE)
 	}
 	-- raising and punishment kubbs by hand, except in scripted matches
-	s.byHand = not (s.opts.seed or s.opts.instant or s.opts.autoSettle)
+	-- (opts.byHand: a scripted match that settles as a played one does, self-tests)
+	s.byHand = s.opts.byHand or not (s.opts.seed or s.opts.instant or s.opts.autoSettle)
 	-- REST OF GAME (scenes/settle): every raise by the game from then on
 	s.autoRaise = { on = false, changed = false }
+	-- SPEED and SKIP for the Playdate's turn (1.1.0; scenes/settle reads it too)
+	s.watch = { speed = loadSpeed(), skipping = false, changed = false }
 	s.cpu = s.opts.vs        -- the Playdate's side, or nil
 	if s.cpu then s.cpuRng = autothrow.rng(s.opts.cpuSeed or playdate.getSecondsSinceEpoch()) end
 	if s.opts.resume then
@@ -474,8 +716,42 @@ function scene.new(provider, opts)
 		s.windLevel = s.opts.wind
 		s.windRng = autothrow.rng(s.opts.windSeed or s.opts.seed or playdate.getSecondsSinceEpoch())
 	end
-	nextThrow(s)
+	if togoWanted(s) then
+		togoBegin(s)
+		persist(s)
+	else
+		nextThrow(s)
+	end
 	return s
+end
+
+-- System Menu "Auto raise" (1.1.0; B REST OF GAME in the raise view before):
+-- every raise by the game from now on, both teams', or by hand again. Kept with
+-- the match at once; a raise on screen starts again from the game's kubb.
+function scene.setAutoRaise(s, on)
+	if not (s and s.byHand) or s.autoRaise.on == on then return end
+	s.autoRaise.on, s.autoRaise.changed = on, true
+	if s.phase ~= "settle" then
+		s.autoRaise.changed = false
+		persist(s)
+	end
+end
+
+-- The Playdate's turn: B steps SPEED, A skips (the throw on screen and the rest
+-- of the turn are run at once). Read after the frame's input has advanced.
+watchInput = function(s)
+	local p, w, ts = s.input, s.watch, s.ts
+	if w.skipping then return end
+	if p:pressed("b") then
+		w.speed = tw.render.watchbar.nextSpeed(w.speed)
+		ts.speed = w.speed
+		saveSpeed(w.speed)
+	end
+	if p:pressed("a") then
+		w.skipping = true
+		ts.speed, ts.instant = scene.tune.skipSpeed, true
+		if playdate.display then playdate.display.setRefreshRate(throw.tune.refreshRate) end
+	end
 end
 
 -- System Menu "Match: sheet" (Jamie, 2026-11-14: "an option to see the
@@ -506,6 +782,7 @@ function scene.holder(s)
 		if s.settleCarded then return s.settle.side end
 		return s.m.game.attacker
 	end
+	if s.phase == "togo" then return s.tg and s.tg.side end
 	return s.setup and s.setup.side
 end
 
@@ -515,7 +792,7 @@ end
 function scene.resign(s)
 	-- (a match resumed mid-settle has no throw set up yet: its defender may
 	-- still resign)
-	if s.phase ~= "over" and (s.setup or s.phase == "settle") then
+	if s.phase ~= "over" and (s.setup or s.phase == "settle" or s.phase == "togo") then
 		s.resignWanted = true
 		if s.cpu then
 			-- against the Playdate it is always the player who resigns, on
@@ -527,7 +804,7 @@ function scene.resign(s)
 			-- (the rules allow no other); while the game raises with no pass
 			-- card the attacker still holds it, and it is the attacker's
 			s.resignSide = scene.holder(s)
-			s.resignWait = s.phase == "settle"
+			s.resignWait = s.phase == "settle" or s.phase == "togo"
 		end
 	end
 end
@@ -544,7 +821,8 @@ function scene.update(s)
 		openSheet(s)
 		return
 	end
-	if s.resignWanted and (s.phase == "handoff" or s.phase == "pass" or ts.mode == "aim" or ts.mode == "done") then
+	if s.resignWanted and s.phase ~= "togo"
+		and (s.phase == "handoff" or s.phase == "pass" or ts.mode == "aim" or ts.mode == "done") then
 		s.resignWanted = false
 		if not s.resolved and ts.mode == "done" then
 			cmatch.resolve(s.m, ts.result, not ts.last.legal)
@@ -557,6 +835,14 @@ function scene.update(s)
 		elseif s.resignWait then
 			s.resignWanted = true   -- not that side's turn yet: wait for it
 		end
+	end
+	if s.phase == "togo" then
+		-- the throw to go: decided, the match starts with the side it gave
+		if togoUpdate(s) then
+			persist(s)
+			nextThrow(s)
+		end
+		return
 	end
 	if s.phase == "handoff" or s.phase == "pass" then
 		s.input:advance()
@@ -571,6 +857,7 @@ function scene.update(s)
 				local setup = s.setup
 				s.lastThrower = setup.thrower.id
 				s.ts.level = setup.thrower.level
+				s.ts.throwLevel = setup.thrower.throw
 				throw.setRail(s.ts, railName(s, setup), setup.projectile, setup.n, setup.of, s.rail[1], s.rail[2])
 				if s.phase == "handoff" then s.handoff = handoffCard(s.m, setup)
 				else s.pass = cards.pass(s.m, setup) end
@@ -599,6 +886,11 @@ function scene.update(s)
 		end
 		local before = s.settle.raised + s.settle.placed
 		settle.update(s.settle)
+		-- SPEED stepped while the Playdate raises: kept for next time
+		if s.watch.changed then
+			s.watch.changed = false
+			saveSpeed(s.watch.speed)
+		end
 		-- REST OF GAME or BY HAND: kept with the match at once
 		if s.autoRaise.changed then
 			s.autoRaise.changed = false
@@ -614,6 +906,11 @@ function scene.update(s)
 		end
 		return
 	end
+	-- Auto raise turned on or off from the System Menu outside a settle: kept now
+	if s.autoRaise.changed and s.phase ~= "settle" then
+		s.autoRaise.changed = false
+		persist(s)
+	end
 	if s.phase == "over" then
 		s.input:advance()
 		if s.input:pressed("a") then s.exit = "rematch" elseif s.input:pressed("b") then s.exit = "title" end
@@ -622,14 +919,15 @@ function scene.update(s)
 	if ts.mode == "aim" and s.cpu and s.setup.side == s.cpu then
 		-- the Playdate's throw: its aim shows a moment, then it throws
 		ts.input:advance()
+		watchInput(s)
 		if not s.cpuAim then
 			-- choose now and show it: its stance and aim stay on screen while it thinks
 			s.cpuAim = autothrow.choose(s.setup, s.cpuRng, scene.tune.cpuScatter, throw.levelFor(ts))
 			ts.watching = true
 			throw.showAim(ts, s.cpuAim)
 		end
-		s.cpuWait = s.cpuWait + ts.input:dt()
-		if s.cpuWait >= (s.opts.cpuThink or scene.tune.cpuThink) then
+		s.cpuWait = s.cpuWait + ts.input:dt() * s.watch.speed
+		if s.watch.skipping or s.cpuWait >= (s.opts.cpuThink or scene.tune.cpuThink) then
 			s.cpuWait = 0
 			s.cpuThrows = s.cpuThrows + 1
 			local a = s.cpuAim
@@ -641,6 +939,7 @@ function scene.update(s)
 		throw.autoLaunch(ts, autothrow.choose(s.setup, s.rng))
 	else
 		throw.update(ts)
+		if ts.watching and s.cpu and s.setup.side == s.cpu then watchInput(s) end
 	end
 	if (ts.mode == "rest" or ts.mode == "done") and not s.resolved then
 		-- the throw is at rest: the engine rules on it now, so its result
@@ -662,7 +961,14 @@ end
 
 function scene.draw(s)
 	if s.sheet then return sheet.draw(s.sheet) end
-	s.ts.covered = (s.phase ~= "play")
+	s.ts.covered = not (s.phase == "play" or s.phase == "togo" and s.tg.mode == "throw")
+	if s.phase == "togo" and s.tg.mode ~= "throw" then
+		if not s.card then
+			s.card = (s.tg.mode == "card") and rcards.togo(s.tg.card) or rcards.togoVerdict(s.tg.card)
+		end
+		s.card:draw(0, 0)
+		return
+	end
 	if s.phase == "over" or s.phase == "handoff" or s.phase == "pass" then
 		-- a full-screen card, built once
 		if not s.card then
@@ -682,6 +988,12 @@ function scene.draw(s)
 		return
 	end
 	s.card = nil
+	if s.watch.skipping and (s.phase == "play" or s.phase == "togo" or s.phase == "settle" and s.settle.watch) then
+		-- the Playdate's turn, skipped: a card while its throws run to rest
+		s.skipImg = s.skipImg or rcards.skipping()
+		s.skipImg:draw(0, 0)
+		return
+	end
 	if s.phase == "settle" then
 		if s.settleCard then
 			-- the pass card, built once

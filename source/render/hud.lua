@@ -334,8 +334,17 @@ end
 
 -- ---------- the minimap ----------
 
+-- The minimap's point for (x, y) in the thrower's view frame; turned (state.turned,
+-- the Playdate's turn seen from the player's end, 1.1.0) the pitch is drawn the
+-- player's way up: the Playdate's baseline at the top.
+local mapTurned = false
+local function toMap(x, y)
+	if mapTurned then return camera.toMinimap(-x, 8 - y) end
+	return camera.toMinimap(x, y)
+end
+
 local function dot(x, y, size, ox, oy)
-	local sx, sy = camera.toMinimap(x, y)
+	local sx, sy = toMap(x, y)
 	gfx.fillRect(floor(sx - size / 2 + 0.5) + ox, floor(sy - size / 2 + 0.5) + oy, size, size)
 end
 
@@ -345,8 +354,10 @@ local mapKey = {}
 
 -- state: playerX, lineY, aimX, aimY (aim preview landing), baton (or nil),
 -- landX, landY (or nil), pieces and npieces (render/world items), advY
--- (the advantage line, or nil), kidY (a Kid match's Kid line, or nil)
+-- (the advantage line, or nil), kidY (a Kid match's Kid line, or nil), turned (drawn
+-- from the other end: the thrower at the top, toMap)
 function hud.minimap(state)
+	mapTurned = state.turned or false
 	local m = camera.minimap
 	local ox, oy, w, h = m.ox, m.oy, m.w, m.h
 	-- the frame and the pieces: a layer keyed on the poses and toppled flags
@@ -360,7 +371,8 @@ function hud.minimap(state)
 	local adv = state.advY or false
 	local kid = state.kidY or false
 	local same = K[1] == ver and K[2] == pieces and K[3] == np and K[4] == mask and K[5] == adv and K[6] == kid
-	K[1], K[2], K[3], K[4], K[5], K[6] = ver, pieces, np, mask, adv, kid
+		and K[7] == mapTurned
+	K[1], K[2], K[3], K[4], K[5], K[6], K[7] = ver, pieces, np, mask, adv, kid, mapTurned
 	local dx, dy = begin(mapLayer, same)
 	if dx then
 		-- the plaque: its 2 px frame is the pitch's edge
@@ -377,13 +389,13 @@ function hud.minimap(state)
 		for x = 0, w - 1, 3 do gfx.drawPixel(ox + x + dx, oy + h / 2 + dy) end
 		-- the advantage line: every other pixel, a row of its own
 		if adv then
-			local _, ay = camera.toMinimap(0, adv)
+			local _, ay = toMap(0, adv)
 			ay = floor(ay + 0.5)
 			for x = 0, w - 1, 2 do gfx.drawPixel(ox + x + dx, ay + dy) end
 		end
 		-- the Kid line (a Kid match): a solid row, as the pitch draws it solid
 		if kid then
-			local _, ky = camera.toMinimap(0, kid)
+			local _, ky = toMap(0, kid)
 			ky = floor(ky + 0.5)
 			gfx.drawLine(ox + dx, ky + dy, ox + w - 1 + dx, ky + dy)
 		end
@@ -395,7 +407,7 @@ function hud.minimap(state)
 			if p.baton then
 				dot(p.x, y, 1, dx, dy)
 			elseif p.toppled then
-				local sx, sy = camera.toMinimap(p.x, y)
+				local sx, sy = toMap(p.x, y)
 				gfx.drawRect(floor(sx - 1) + dx, floor(sy - 0.5) + dy, 3, 2)
 			else
 				dot(p.x, y, p.king and 3 or 2, dx, dy)
@@ -406,7 +418,7 @@ function hud.minimap(state)
 	gfx.setColor(BLACK)
 	gfx.setLineWidth(1)
 	-- aim line from the player to the full-power landing point
-	local px, py = camera.toMinimap(state.playerX, state.lineY)
+	local px, py = toMap(state.playerX, state.lineY)
 	if state.aimX then
 		-- clipped to the minimap's frame (a full-power preview can land past
 		-- the far baseline or the sidelines)
@@ -416,14 +428,16 @@ function hud.minimap(state)
 		if y1 > ymax then t = min(t, (ymax - y0) / (y1 - y0)) end
 		if x1 > xmax then t = min(t, (xmax - x0) / (x1 - x0)) end
 		if x1 < -xmax then t = min(t, (-xmax - x0) / (x1 - x0)) end
-		local ax, ay = camera.toMinimap(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
+		local ax, ay = toMap(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)
 		gfx.drawLine(px, py, ax, ay)
 	end
 	-- the player: a small triangle pointing up the pitch, just behind the line
+	-- (turned: down it, from the top)
 	local tx, ty = floor(px + 0.5), floor(py + 0.5)
-	gfx.fillPolygon(tx - 2, ty + 4, tx + 3, ty + 4, tx, ty)
+	if mapTurned then gfx.fillPolygon(tx - 2, ty - 4, tx + 3, ty - 4, tx, ty)
+	else gfx.fillPolygon(tx - 2, ty + 4, tx + 3, ty + 4, tx, ty) end
 	if state.landX then
-		local lx, ly = camera.toMinimap(state.landX, state.landY)
+		local lx, ly = toMap(state.landX, state.landY)
 		gfx.drawLine(lx - 2, ly - 2, lx + 2, ly + 2)
 		gfx.drawLine(lx - 2, ly + 2, lx + 2, ly - 2)
 	end

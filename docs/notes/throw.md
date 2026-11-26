@@ -63,12 +63,18 @@ this throw: "HOW TO THROW" below).
   own stance (`setup.playerX`). For self-tests and callers: `throw.aimAt(s, x, y)` (the
   circle, snapping onto a standing target within `snapRadius`), `setStance`, `setArc`, `setTilt`, `setSpin`.
 - **The person's meter** (Kubb Engine 0.13; kubb-engine's docs/notes/throw.md "The
-  person's meter"). `throw.planBy(s)`: a person's throw is planned on the one meter,
-  `q.meter = plan.meter()`, whatever level they have; `plan.solve` keeps the meter's table
+  person's meter"). `throw.planBy(s)`: a person's throw is planned on their meter,
+  `q.meter = plan.meter(s.throwLevel)` (since game 1.1.0 on Kubb Engine 1.3: the person's
+  own throw level, `"easy"`, `"hard"` or nil for standard, which `scenes/match` sets from
+  `setup.thrower.throw`; docs/notes/saved-players.md "Throw levels"); `plan.solve` keeps the meter's table
   for the throw's distance as `s.sol.level`, and `launch` gives `plan.launch` no level, so
-  it reads that table. The bars go by the distance (5.6 and 21 degrees either side at 4 m,
-  3.8 and 14.2 at 6 m, 2 and 7.5 at 8 m; a kubb's the same since engine 0.16, 1.35 times
-  before): every solve may move them,
+  it reads that table. The bars go by the distance and the level (at 8 m, power and release half
+  widths: easy 5 and 12 degrees, standard 2 and 5 since engine 1.3, was 7.5, hard 2 and
+  3.5; the release bar widens 0.45 a metre closer in; a kubb's the same since engine
+  0.16, 1.35 times before). Since engine 1.3 a person's throw has no nerves at any level:
+  inside both bars and steady it goes where it is aimed, the level is the bars' width only.
+  The crank dial draws whatever bars the plan gives; at hard's 3.5 degrees at 8 m the
+  release bar is the narrowest a person meets (to check on the device): every solve may move them,
   and the clock reads `powerLo..powerHi` and `releaseLo..releaseHi` from the plan each
   frame (its face is keyed on them), so they are redrawn whenever the circle or the
   stance moves. A release past its bar pulls a person's baton off the line
@@ -99,6 +105,24 @@ this throw: "HOW TO THROW" below).
   its outputs (and the flight prediction the cameras use with the same speed, loft and
   swivel). The swing's let-downs (stopped at or before 6) throw nothing. The recorder adds
   no samples in the swing's cooldown.
+- **The view from the player's end** (game 1.1.0; `s.turned`, set by `scenes/match` for the
+  Playdate's throws against the Playdate). The throw is set up and simulated in the
+  thrower's frame as always; only the camera and the drawing turn. `throw.endCamera(s)`
+  makes `camera.fromEnd(s.endCam, pts, throw.tune.endBox, "end")` (box 6..394, 18..212) in
+  the player's frame from the player's baseline, the king, the thrower and the Playdate's
+  circle, then turns it back into the thrower's frame. It is made at `throw.prepare` and
+  again at `throw.showAim`, and held for the whole throw: no follow or impact camera, the
+  baton comes from the far end toward the player. `render.world.setTurned` turns the ground
+  and the light; the HUD's minimap (`hs.turned`, in its layer key) and the wind arrow turn
+  too. Pass and play never sets it.
+- **Speed** (game 1.1.0, `s.speed` 1, 2 or 4, `s.watching` only): the Playdate's swing on
+  the clock, the flight and the rest hold run on `dt * s.speed`. The flight is computed
+  ahead, so the throw is the same at every speed. `s.watchBar` draws the SPEED / SKIP plaque
+  (`render/watchbar`, docs/notes/match.md "VS PLAYDATE: the player's end, SPEED and SKIP").
+  A skip sets `s.instant` and `s.speed` to `scene.tune.skipSpeed` (1000).
+- **A baton to go** (game 1.1.0, `throw.setTogo(s)`, docs/notes/match.md "Throw to go"): the
+  circle on the ground `togo.tune.markerShort` (1.4 m) short of the king, on no piece, and
+  the release at `togo.arc()`; the person may move either as for any baton. No wind.
 - **The Playdate's throws** (`throw.autoLaunch(s, a)`, `s.scripted`): `core/autothrow`'s
   launch as it is, mistakes included (`a.speed`, `a.loftDeg`, `a.swivel`, `a.tumbleRate`,
   `a.tilt`, `a.legal`; a kubb drilled with `a.drill`'s `world.launchDrill` fields, its

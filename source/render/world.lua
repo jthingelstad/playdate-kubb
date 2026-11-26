@@ -168,6 +168,22 @@ end
 -- it."): bare wood, the classic set. The painted sets were here from
 -- 2026-11-14 to 2026-11-20 (docs/notes/match.md "Kubb sets").
 
+-- Seen from the pitch's other end (1.1.0, the Playdate's turn against the Playdate:
+-- scenes/throw s.turned): the pieces and the camera stay in the thrower's view frame,
+-- the camera at the far end looking back. The ground's white runs on behind the
+-- near baseline (y = 8 here) and the rough lies past y = 0, and the light comes from
+-- the viewer's far left as always, so the shadows turn too (shadowX, shadowY).
+-- Only when it changes, then the caches are dropped.
+world.turned = false
+function world.setTurned(on)
+	on = on and true or false
+	if world.turned == on then return end
+	world.turned = on
+	local t = world.tune
+	t.shadowX, t.shadowY = -t.shadowX, -t.shadowY
+	world.invalidate()
+end
+
 function world.invalidate()
 	cacheReady = false
 	layerReady = false
@@ -309,10 +325,13 @@ end
 local function drawPitch()
 	local t = world.tune
 	if ROUGH.base ~= t.roughPattern then makeRough() end
+	-- turned (world.setTurned): the pitch is seen from its other end, so the far
+	-- baseline is y = 0 and the near ground runs on past y = 8
+	local turned = world.turned
 	-- the rough's phase: the far baseline's middle, projected
 	local phase = 1
 	do
-		local dx, dy, dz = -CPX, 8 - CPY, -CPZ
+		local dx, dy, dz = -CPX, (turned and 0 or 8) - CPY, -CPZ
 		local d = dx * CFX + dy * CFY + dz * CFZ
 		if d > NEAR then
 			local s = CF / d
@@ -348,7 +367,12 @@ local function drawPitch()
 			local k = (by - ay) / (bx - ax)
 			fillPolygon(-1, ay + (-1 - ax) * k, 401, ay + (401 - ax) * k, 401, 241, -1, 241)
 			setColor(WHITE)
-			fillPoly(groundQuad(-2.5, t.outsideFrom, 2.5, 8))
+			if turned then fillPoly(groundQuad(-2.5, 0, 2.5, 8 - t.outsideFrom))
+			else fillPoly(groundQuad(-2.5, t.outsideFrom, 2.5, 8)) end
+		elseif turned then
+			fillPoly(groundQuad(-60, 0, -2.5, 8 - t.outsideFrom))
+			fillPoly(groundQuad(2.5, 0, 60, 8 - t.outsideFrom))
+			fillPoly(groundQuad(-60, -far, 60, 0))
 		else
 			fillPoly(groundQuad(-60, t.outsideFrom, -2.5, 8))
 			fillPoly(groundQuad(2.5, t.outsideFrom, 60, 8))

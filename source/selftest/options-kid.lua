@@ -2,7 +2,7 @@
 -- COMPUTER stepped to KID (engine 0.15: Kid first, before BEGINNER, from
 -- core/matchopts' order), then A. Frames: 1 COMPUTER on KID with its line ("KID
 -- RULES: ..."). The check: from CLUB, left reaches BEGINNER then KID, and A gives a
--- Kid match (opts.computer and opts.rules "kid").
+-- Kid match (opts.computer and opts.rules "kid") with no throw to go (1.1.0).
 import "core/tw"
 import "scenes/options"
 import "input"
@@ -32,6 +32,7 @@ tw.selftest.scenarios["options-kid"] = {
 		end
 		if s.done then
 			local o = scene.apply(s, { vs = "B" })
+			if o.togo ~= false then error("a Kid match with a throw to go") end
 			if o.computer ~= "kid" or o.rules ~= "kid" or o.scene ~= "bw" then
 				error(string.format("options %s %s %s", tostring(o.computer), tostring(o.rules), tostring(o.scene)))
 			end

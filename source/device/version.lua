@@ -11,8 +11,8 @@
 import "core/tw"
 import "engine/version"
 
-local VERSION <const> = "1.0.0"
-local BUILD <const> = 17
+local VERSION <const> = "1.1.0"
+local BUILD <const> = 18
 
 local engine = tw.engine and tw.engine.version or "?"
 tw.version = { version = VERSION, build = BUILD, engine = engine, text = VERSION .. " (" .. engine .. ")" }

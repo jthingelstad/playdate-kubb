@@ -25,6 +25,7 @@
 -- stay where they end until "Pitch: reset".
 import "CoreLibs/graphics"
 import "core/tw"
+import "core/togo"
 import "core/camera"
 import "core/swing"
 import "core/flight"
@@ -44,6 +45,7 @@ import "core/drill"
 import "core/throwplan"
 import "core/howto"
 import "render/howto"
+import "render/watchbar"
 import "sound"
 
 local gfx <const> = playdate.graphics
@@ -168,6 +170,15 @@ throw.tune = {
 --                        throw.level (throw.levelFor): since engine 0.13 only the
 --                        Playdate's throws go by it; a person throws on the meter
 --                        (throw.planBy)
+--   s.turned             (1.1.0) the throw is the Playdate's against the Playdate: the
+--                        pitch is shown from the player's end (throw.endCamera, one
+--                        camera for the whole throw), the minimap the player's way
+--                        up, the ground and the light turned (render/world.setTurned)
+--   s.speed              (1.1.0) 1, 2 or 4: how fast the Playdate's swing, flight and
+--                        rest hold play while s.watching (scenes/match: SPEED)
+--   s.watchBar           draw the SPEED / SKIP plaque (render/watchbar) while watching
+--   s.throwLevel         a person's throw level (engine 1.3): "easy", "hard", or nil for
+--                        standard; the meter their throw is planned on (throw.planBy)
 --   s.drillRun           the practice drill's id during a drill run (scenes/drills),
 --                        written to the trace line
 --
@@ -202,7 +213,8 @@ end
 function throw.planBy(s)
 	if s.watching then return nil, throw.levelFor(s) end
 	if s.kid then return plan.meter("kid"), nil end
-	return plan.meter(), nil
+	-- (engine 1.3) the person's own throw level: s.throwLevel "easy" or "hard", nil standard
+	return plan.meter(s.throwLevel), nil
 end
 local function planKey(s)
 	local m, lv = throw.planBy(s)
@@ -822,6 +834,11 @@ function throw.prepare(s, setup)
 	replan(s)
 	aimCamera(s)
 	s.viewCam = s.aimCam
+	-- (1.1.0) the Playdate's throw against the Playdate: seen from the player's end
+	if s.turned then
+		throw.endCamera(s)
+		s.viewCam = s.endCam
+	end
 end
 
 -- Practice: drill kubbs at the far half (on) or throw batons (off). Back to
@@ -888,6 +905,20 @@ end
 function throw.setArc(s, releaseDeg)
 	-- under the floor the plan is solved at the floor (plan.solve, engine 0.16)
 	s.release, s.arcSet = plan.clampRelease(releaseDeg, s.projectile), true
+	replan(s)
+	aimCamera(s)
+end
+-- (1.1.0) A baton to go (scenes/match, core/togo): the circle on the ground short of
+-- the king (togo.tune.markerShort), on no piece, and the arc a baton to go is thrown on
+-- (togo.arc()); the person may move either, as any baton.
+function throw.setTogo(s)
+	local togo = tw.togo
+	s.markerX, s.markerY = pitch.king.x, pitch.king.y - togo.tune.markerShort
+	s.markerSet = true
+	settleMarker(s, false)
+	if togo.tune.arc then
+		s.release, s.arcSet = plan.clampRelease(togo.arc(), s.projectile), true
+	end
 	replan(s)
 	aimCamera(s)
 end
@@ -1497,15 +1528,18 @@ function throw.update(s)
 			showAt(s, 0)
 		end
 	elseif s.mode == "cpuswing" then
-		cpuSwing(s, dt)
+		cpuSwing(s, s.watching and dt * (s.speed or 1) or dt)
 	elseif s.mode == "flight" then
-		flightUpdate(s, dt)
+		-- the Playdate's throw plays at SPEED (scenes/match): the time shown runs
+		-- faster, the physics as fast as it can (playback.pace slows it when it
+		-- falls behind)
+		flightUpdate(s, s.watching and dt * (s.speed or 1) or dt)
 		burst.update(s.burst, s, dt)
 		knocks(s)
 	elseif s.mode == "rest" then
 		burst.update(s.burst, s, dt)
 		knocks(s)
-		s.restTime = s.restTime + dt
+		s.restTime = s.restTime + (s.watching and dt * (s.speed or 1) or dt)
 		if not s.auto and s.restTime >= (s.instant and t.instantHold or t.restHold) then
 			-- the match takes it from here (throw.prepare sets the next throw up)
 			s.mode = "done"
@@ -1538,8 +1572,10 @@ function throw.update(s)
 		end
 	end
 	if s.howto then throw.howtoFrame(s, p, dt) end
-	-- the camera for this frame
-	if s.mode == "aim" or s.mode == "cpuswing" then
+	-- the camera for this frame: turned, the one from the player's end
+	if s.turned and s.endCam then
+		s.viewCam = s.endCam
+	elseif s.mode == "aim" or s.mode == "cpuswing" then
 		s.viewCam = s.aimCam
 	else
 		-- once the baton has touched something it is kept in frame only
@@ -1657,6 +1693,42 @@ function throw.showAim(s, a)
 	-- this one (autothrow.choose names it, a.on, for a label the Playdate does not show)
 	if s.cpuTarget then s.markerX, s.markerY, s.markerOn = P.tx, P.ty, nil end
 	aimCamera(s)
+	if s.turned then throw.endCamera(s) end
+end
+
+-- The camera for a throw seen from the far end (s.turned, 1.1.0): core/camera.fromEnd
+-- at the player's own end (kind "end"), made in the player's view frame from the
+-- player's baseline, the king, the thrower and where it aims (the thrower's frame
+-- turned: x, y -> -x, 8 - y), then turned back into the thrower's frame, where the
+-- pieces and the physics are, so nothing else changes. One camera for the whole
+-- throw: the baton comes from the far end toward the player.
+throw.tune.endBox = { left = 6, top = 18, right = 394, bottom = 212 }
+local endPts = {}
+for i = 1, 6 do endPts[i] = { 0, 0, 0 } end
+function throw.endCamera(s)
+	local n = 0
+	local function add(x, y, z)
+		n = n + 1
+		local p = endPts[n]
+		p[1], p[2], p[3] = -x, 8 - y, z
+	end
+	add(-2.5, 8, 0)
+	add(2.5, 8, 0)
+	add(pitch.king.x, pitch.king.y, 0.3)
+	add(s.playerX, s.playerY, 1.2)
+	if s.cpuTarget or s.drill then add(s.markerX, s.markerY, 0) end
+	local pts = {}
+	for i = 1, n do pts[i] = endPts[i] end
+	local c = camera.fromEnd(s.endCam, pts, throw.tune.endBox, "end")
+	-- into the thrower's frame: a point (x, y, z) -> (-x, 8 - y, z), a direction
+	-- (x, y, z) -> (-x, -y, z)
+	c.px, c.py = -c.px, 8 - c.py
+	c.lx, c.ly = -c.lx, 8 - c.ly
+	c.fx, c.fy = -c.fx, -c.fy
+	c.rx, c.ry = -c.rx, -c.ry
+	c.ux, c.uy = -c.ux, -c.uy
+	s.endCam = c
+	return c
 end
 
 -- The clean swing of the autobench's drill (a circle and no launch): exactly
@@ -1986,6 +2058,7 @@ function throw.drawFrame(s)
 	end
 	render.advantageY = s.advY
 	render.kidY = s.kidY
+	render.setTurned(s.turned and s.endCam ~= nil)
 	local cam = s.viewCam or s.aimCam
 	render.draw(cam, s.items, n, b)
 	burst.draw(s.burst, cam)
@@ -2006,6 +2079,7 @@ function throw.drawFrame(s)
 	hs.pieces, hs.npieces = s.items, s.nitems
 	hs.advY = s.advY
 	hs.kidY = s.kidY
+	hs.turned = (s.turned and s.endCam ~= nil) or false
 	local fl = s.flight
 	if not aiming then
 		hs.landX, hs.landY = fl.lx, fl.ly
@@ -2016,12 +2090,16 @@ function throw.drawFrame(s)
 	end
 	hud.minimap(hs)
 	-- the wind (a match with WIND on): an arrow on the minimap, the speed above it
-	if s.windText and (aiming or s.mode == "flight") then hud.wind(s.windText, s.windX, s.windY) end
+	if s.windText and (aiming or s.mode == "flight") then
+		if hs.turned then hud.wind(s.windText, -s.windX, -s.windY) else hud.wind(s.windText, s.windX, s.windY) end
+	end
 	drawRail(s)
 
 	-- s.covered: a card is over the pitch (the match's hand-off and winner
 	-- cards), so the plaques stay out of the way
 	if s.covered then return end
+	-- the Playdate's turn: SPEED and SKIP (scenes/match)
+	if s.watching and s.watchBar then tw.render.watchbar.draw(s.speed or 1) end
 	-- throwing from the advantage line (yours or the Playdate's): a flag under
 	-- the rail while aiming
 	if aiming and s.advText then hud.advantage(s.advText) end

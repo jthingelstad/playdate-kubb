@@ -1,17 +1,18 @@
--- Scenario "auto-raise": raising for the rest of the game (scenes/settle's
--- B, REST OF GAME; scenes/match's s.autoRaise, kept in the save as core/save's
+-- Scenario "auto-raise": raising for the rest of the game (the System Menu's
+-- "Auto raise" since 1.1.0, scene.setAutoRaise; B REST OF GAME in the raise view
+-- before; scenes/match's s.autoRaise, kept in the save as core/save's
 -- autoRaise since 0.9), six a side in PASS + PLAY, then against the Playdate.
 --
 -- Part 1, B's raise at turn 3 (A tossed a1 and a2 in, lying): the pass card,
--- A, then B, REST OF GAME: a1 is raised at once, a2 by itself after the
--- wait, and the choice is in the save at once. Frames: 1 the raise view
--- with REST OF GAME, 2 the automatic view with BY HAND.
+-- A, then the menu's Auto raise: a1 and a2 are raised by themselves after the
+-- wait, and the choice is in the save at once. Frames: 1 the raise view by
+-- hand, 2 the automatic view with BY HAND.
 -- Part 2, A's raise at turn 4, resumed from the datastore: the match raises
 -- by itself with no pass card and no input; after its first kubb B, BY HAND,
 -- gives it back: the save says so at once, the pass card comes, and the
 -- rest are raised by hand with A. Frame 3: the automatic view of the resumed
 -- match.
--- Part 3, VS PLAYDATE, A's raise at turn 4: no card, B raises them all;
+-- Part 3, VS PLAYDATE, A's raise at turn 4: no card, Auto raise raises them all;
 -- Match: resign after it is the player's, as always.
 -- Part 4, PASS + PLAY resumed into A's raise at turn 4 while the game raises,
 -- as a build before 0.9 left it (the "-raise" side file, no autoRaise in the
@@ -126,7 +127,7 @@ tw.selftest.scenarios["auto-raise"] = {
 			local m = cmatch.new { start = START, teams = TEAMS }
 			toTurn3(m.game)
 			ctx.hand = handCopy(m)
-			ctx.ms = scene.new(tw.input.scripted { { n = 2 }, A, { n = 3 }, B },
+			ctx.ms = scene.new(tw.input.scripted { { n = 2 }, A, { n = 3 } },
 				{ teams = TEAMS, resume = m })
 			scene.enter()
 			if ctx.ms.phase ~= "settle" or not ctx.ms.settleCard then error("no pass card before B's raise") end
@@ -142,17 +143,19 @@ tw.selftest.scenarios["auto-raise"] = {
 			if f == 7 then
 				if ms.settleCard or not st or st.auto.on then error("not on the raise view by hand at frame 7") end
 				ctx:capture()
+				-- the System Menu's Auto raise (main.lua)
+				scene.setAutoRaise(ms, true)
 			end
 			if f == 8 then
-				if not ms.autoRaise.on then error("REST OF GAME did not turn it on") end
-				if st.raised ~= 1 then error("REST OF GAME did not raise the kubb on screen at once") end
+				if not ms.autoRaise.on then error("Auto raise did not turn it on") end
+				if st.raised ~= 0 then error("Auto raise raised a kubb before its wait") end
 				if not savedRaise() then error("the choice was not saved with the match") end
 				if raiseFile() then error("a -raise side file was written") end
 			end
 			if f == 11 then ctx:capture() end
 			if ms.phase ~= "settle" then
-				if f < 30 then error("the second kubb was raised before the wait") end
-				ctx.note = "B: " .. raiseAllByHand(ctx.hand) .. " raised, 1 at once"
+				if f < 40 then error("the kubbs were raised before the wait") end
+				ctx.note = "B: " .. raiseAllByHand(ctx.hand) .. " raised by itself"
 				same(ms.m, ctx.hand, "B's raise")
 				local m, o = save.unpack(playdate.datastore.read(scene.saveKey()))
 				if not (m and m.game.kubbs.a1.pose.standing and m.game.kubbs.a2.pose.standing) then
@@ -199,10 +202,11 @@ tw.selftest.scenarios["auto-raise"] = {
 				while m.game:need().kind == "raise" do m.game:raise(nil) end
 				toTurn4(m.game)
 				ctx.hand = handCopy(m, { "B" })
-				ctx.ms = scene.new(tw.input.scripted { { n = 2 }, B },
+				ctx.ms = scene.new(tw.input.scripted { { n = 2 } },
 					{ teams = TEAMS, vs = "B", resume = m, cpuSeed = 1 })
 				scene.enter()
 				if ctx.ms.phase ~= "settle" or ctx.ms.settleCard then error("VS PLAYDATE: not straight to the raise") end
+				scene.setAutoRaise(ctx.ms, true)
 				ctx.part, ctx.p3 = 3, f
 			end
 			if k > 200 then error("A's raise not done") end

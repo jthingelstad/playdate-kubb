@@ -76,14 +76,15 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   second game chosen, its score sheet, scrolled by the crank); B twice goes back to the
   title.
 - `options`: the match options driven by the d-pad (frames: the defaults, SNOW, the
-  RAISING row); A must give snow, six from the start and automatic raising.
+  RAISING row); A must give snow, six from the start, automatic raising and THROW TO GO on
+  (the default, 1.1.0).
 - `options-kid`: VS PLAYDATE's COMPUTER stepped left from CLUB to BEGINNER then KID
   (frame: KID with its line); A must give a Kid match (`computer` and `rules` kid, scene
-  `bw`).
+  `bw`) and no throw to go.
 - `set-save`: saved data from a build with the kubb set (match.md "Kubb sets"): a kept
-  options choice with SET on USA shows four rows in PASS + PLAY (frame 1), keeps its other
+  options choice with SET on USA shows five rows in PASS + PLAY (four and THROW TO GO since 1.1.0) (frame 1), keeps its other
   choices and gives the match no set and no computer level; VS PLAYDATE shows COMPUTER as
-  a fifth row (club by default, pro after a tap); a match saved with `set = "usa"` resumes (frame 2, its hand-off
+  the sixth row (club by default, pro after a tap); a match saved with `set = "usa"` resumes (frame 2, its hand-off
   card), plays (frame 3), saves again with the set untouched, and its game file, written
   when the team on turn resigns, is gated.
 - `names`: the Names screen through the input provider (frames: the crank stepping a
@@ -100,7 +101,9 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   sheet with unique ids (its game file gated), only a rename changes one (opened typed,
   typed again), and a typed new player with a taken id is refused (frames 5 and 6).
 - `teams`: TEAMS for PASS + PLAY over five generated players, the order changed with hold
-  A, Team A given a generated team name on the Names screen, START.
+  A, A taps stepping a player's throw level STANDARD -> HARD -> EASY -> STANDARD -> HARD
+  (1.1.0; frame 2 the row with HARD) without moving the order, Team A given a generated
+  team name on the Names screen, START; the match's player carries `throw = "hard"`.
 - `match-teams`: three against two in pass and play, a baton handed over through the
   change list; a person's throw on the meter (no level) and no `[Throw Levels]` in the game
   file (engine 0.13.2).
@@ -114,11 +117,13 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   plan view): the stance on the Kid line, the flag, three base kubbs a side, the Kid meter's
   bars wider than the standard's at the same throw.
 - `settle`: raising a kubb and placing a punishment kubb by hand, on an engine driven to
-  turn 3 (frames: the raise view, the view turned and zoomed out by the d-pad, the
-  placement view, a spot refused by the king); the check reads the engine after A places
-  it, and that the d-pad turned and zoomed without changing the end.
-- `auto-raise`: B REST OF GAME, six a side (match.md "Auto raise"): B's raise at turn 3
-  after the pass card (frames: the raise view with REST OF GAME, the automatic view with
+  turn 3 (frames: the held raise view on the engine's end, after right and left on the
+  d-pad (each picks the end on that side; since 1.1.0 the d-pad no longer turns or zooms
+  the view), the placement view, a spot refused by the king); the check reads the engine
+  after A places it, and that the held camera did not move.
+- `auto-raise`: the System Menu's Auto raise (B REST OF GAME before 1.1.0;
+  `match.setAutoRaise`), six a side (match.md "Auto raise"): B's raise at turn 3
+  after the pass card (frames: the raise view by hand, the automatic view with
   BY HAND), its first kubb at once and the second after the wait, `autoRaise` in the save
   at once (no side file); A's raise at turn 4 resumed from the datastore raises by itself
   with no pass card (frame 3), then BY HAND clears it in the save, brings the pass card and the rest are
@@ -129,6 +134,24 @@ Subsystem notes moved out of `AGENTS.md` (2026-11-17). The hard rules are also i
   `g:raise(nil)`'s `apart`). Last, PASS + PLAY resumed into A's automatic raise from an older build's
   `-raise` side file (the first save carries it and the file is deleted): Match: resign there is B's
   (B, the attacker, holds the Playdate; frame 4), A wins, and the game file is gated.
+- `watch-skip` (1.1.0, match.md "VS PLAYDATE: the player's end, SPEED and SKIP"): the same
+  VS PLAYDATE match twice to turn 4 (the player's throws from seed 5, instant; the
+  Playdate's from cpuSeed 7; raising by hand with Auto raise on), first watched with B
+  stepping SPEED to 4X, then with A, SKIP, at the start of every Playdate turn and raise.
+  Both game files must be the same line for line (bar the clock tags), every Playdate throw
+  turned and no player's, and the Playdate's raises shown in the watched run and cut short
+  in the skipped one (frames: its aim from the player's end with the plaque, its baton in
+  flight, its raise watched, the SKIPPING card).
+- `togo` (1.1.0, match.md "Throw to go"): VS PLAYDATE (the card before the player's baton,
+  the Playdate's from the player's end, the verdict, turn 1 on the side it gave, a resign at
+  turn 2 and a gated game file with `[Engine:first]`); PASS + PLAY with a tie forced on the
+  verdict (TIE: THROW AGAIN, round 2's card passes the Playdate); a save during the throw
+  to go marked `togo` resumes into round 1, and THROW TO GO off saves `togoOff` (frames:
+  the card, the Playdate's baton aimed, the verdict, the tie, round 2's card).
+- `throw-level` (1.1.0, saved-players.md "Throw levels"): PASS + PLAY with the first player
+  on HARD, then on EASY (frames: the clock on HARD, the narrowest bars a person meets, and
+  on EASY); each aim must be planned on that meter, HARD's release bar narrower than
+  STANDARD's at the same throw and EASY's bars wider, and `[Throw Levels]` must name it.
 - `settle-crank`: the same raise with the crank turned forward (frame: half way up on the
   right-hand end); all the way up must stand it on that end's footprint.
 - `seat` (core 1.0, `docs/notes/match.md` "The seat"): a new match's first throw on grass

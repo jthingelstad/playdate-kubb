@@ -90,7 +90,18 @@ After everything comes to rest it holds for a beat, then returns to the aim came
 on the landing spot to show the dig, the cut and any clack.
 
 **Raising view** (`e-raising-view.png`). Near top-down close-up of the fallen kubbs, one at a
-time, with both footprints outlined.
+time, with both footprints outlined. Since the game's 1.1.0 (Kubb Engine 1.4) it is one held
+view of the whole group of lying kubbs (`camera.fromEnd`, framed on the kubbs and their
+choices, not the whole half, which made a kubb about 8 px high): B steps to the next kubb in
+any order, left and right pick the end, the crank tips it and A raises it. The Playdate's
+raises in a match against it are shown the same way, from the player's end
+(docs/notes/match.md "Raising in any order").
+
+**The view from the player's end** (game 1.1.0). Against the Playdate the screen stays on the
+player's side for the whole match: the Playdate's inkast and throws are shown from the
+player's end, coming toward the camera (`camera.fromEnd`, kind "end"), with the world, the
+HUD and the minimap turned. Pass and play still turns the pitch at each hand-off, so every
+throw is made from the bottom of the screen.
 
 The mockups come from `tools/camera_mockup.py` (pure Python, same projection math the game
 will use). They are sketches of framing and legibility, not of final art.
@@ -112,8 +123,14 @@ to throw, modelled on how a real player throws, the same for batons and drilled 
   LOW, HIGH, SHAKY or PULLED. A **throw level** (Kid, Beginner, Club, Pro) is the
   computer's only: how wide its targets are and how much a miss costs it. Until 0.13 it
   was the thrower's, a person's included (their roster entry's, else a System Menu
-  setting); since the game's 0.12.0 no screen shows a person's level. In a Kid match a
+  setting); from the game's 0.12.0 to 1.0.0 no screen showed a person's level. In a Kid match a
   person throws on the wider Kid meter ("Kid matches" below).
+- **A person's throw level** (game 1.1.0, Kubb Engine 1.3: "the honest meter"): EASY,
+  STANDARD or HARD, set per player on TEAMS (A on a player's row steps it) and played as
+  `teams.<side>.players[i].throw`. The level is the width of the meter's bars, nothing
+  else: a person's throw has no nerves and no hidden miss at any level, so what the
+  crank does is what the baton does. Saved players keep their level; a guest's lasts for
+  the visit. Practice plays Standard. Detail: docs/notes/saved-players.md "Throw levels".
 
 ### The three steps before the throw (in any order)
 
@@ -613,14 +630,18 @@ worktrees after stage 1.
 **Q1. Opening.** Rules V4.0 use 2-4-6: two batons, then four, then six. The 2015 archive games
 use it; the earlier ones use six from the start. *Recommendation:* 2-4-6 by default with a
 "six from the start" option. First throw decided by a coin flip now, and by a lag at the king
-(closest baton without toppling it, II.A) in stage 7.
+(closest baton without toppling it, II.A) in stage 7. (Built in the game's 1.1.0 on Kubb Engine
+1.4 as the THROW TO GO, an option on by default: one baton a side at the king, the person
+first, the closest without felling it throws first; felling the king gives the first throw to
+the other team; a tie or both kings down throws again. Not in a Kid match, nor when no person
+throws first. Written as `[Engine:first]`. docs/notes/match.md "Throw to go".)
 
 **Q2. Raising and stacking.** By the rules the defender raises each kubb, keeping two corners
 down, and picks the end only when both footprints are clear and in bounds. A kubb that lands
 on top of another is lowered straight down beside it. There are no towers in the U.S. rules.
 *Recommendation:* follow the rules; when a human defends they pick ends in the raising view,
-with a setting to raise automatically (built: the match option RAISING, and REST OF GAME in
-the raise view, docs/notes/match.md "Auto raise"); no tower stacking; write the provisional `N` count
+with a setting to raise automatically (built: the match option RAISING, and since 1.1.0 the
+System Menu's "Auto raise" in place of REST OF GAME, docs/notes/match.md "Auto raise"); no tower stacking; write the provisional `N` count
 when a kubb comes to rest on another.
 
 **Q3. Base kubbs knocked early.** Rule II.B.4a: the base kubb is stood back up and stays a

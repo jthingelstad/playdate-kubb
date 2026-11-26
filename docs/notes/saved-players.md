@@ -86,7 +86,8 @@ the datastore part is `source/players.lua` (`tw.players`).
 - **The throw level** is the thrower's (docs/PLAYERS.md section 6), but since Kubb Engine
   0.13 it changes only the computer's throw: a person throws on the engine's one meter
   whatever level they have (docs/notes/throw.md "The person's meter"), the Kid meter in a
-  Kid match. Since game 0.12.0 a person's level is not shown anywhere (PLAYERS' LEVEL row,
+  Kid match. From game 0.12.0 to 1.0.0 a person's level was not shown anywhere (1.1.0 brings
+  a person's own throw level back, "Throw levels" below, as a separate field) (PLAYERS' LEVEL row,
   the level beside each name on PLAYERS and TEAMS and the practice rail went); the roster
   and the history still keep what they had, so nothing saved breaks, and the game file's
   [Throw Levels] names the computer only (engine 0.13.2). The
@@ -100,6 +101,23 @@ the datastore part is `source/players.lua` (`tw.players`).
   shown on the menu's rail; a drill run and OPEN PITCH throw on the meter, and the run's
   record goes to their history (`history.foldDrill`); NO PLAYER keeps the Playdate's own
   `drills` records. Levels are the computer's: kid (0.15), beginner, club, pro.
+- **Throw levels** (game 1.1.0, Kubb Engine 1.3 "the honest meter"; kubb-engine docs/CLIENTS.md
+  "1.4 on top"): each person throws on EASY, STANDARD or HARD, set on TEAMS. An A tap on a
+  team's player (down and up with nothing moved; hold A + up/down still moves them in the
+  order) steps STANDARD -> HARD -> EASY; the row shows EASY or HARD on the right (nothing
+  for STANDARD) and the foot line says `A THROW <LEVEL>` for the player under the cursor.
+  `scenes/teams` gives it to `core/match` as `teams.<side>.players[i].throw` (`"easy"`,
+  `"hard"`, absent for standard), and the match plays it as `ts.throwLevel` from
+  `setup.thrower.throw` (`plan.meter(level)`, docs/notes/throw.md "The person's meter"); a
+  Kid match plays the Kid meter whatever the level. The level is the width of the bars and
+  nothing else: no nerves and no hidden miss at any level (engine 1.3). At 8 m the bars are
+  easy 5 / 12 degrees (power / release half widths), standard 2 / 5, hard 2 / 3.5. A
+  saved player's level is kept in the datastore "teams" as `throws` (`{ [roster key] =
+  "easy" | "hard" }`, cleaned on reading, one for both modes); a guest's lasts for the visit
+  (`guestThrows`, by name). It is separate from the roster's old `level` (the computer's
+  word), which stays unread. A saved match carries it in `m.lineup`, so a resume keeps it,
+  and the game file's `[Throw Levels]` names it beside the computer's when it is not
+  standard (core/match `fileLevels`). Practice throws on Standard. Self-test `teams`.
 - **The game file** writes `[Throw Levels "playdate club"]` after `[Mode]` when the
   computer plays (engine 0.13.2, `match.fileLevels`: the computer's players only; none in
   pass and play), each player by the id `[Team X Players]` gives them (since engine 0.7.1:
