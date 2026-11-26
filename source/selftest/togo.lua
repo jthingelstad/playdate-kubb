@@ -15,6 +15,8 @@ import "input"
 import "core/save"
 import "scenes/match"
 import "core/match"
+import "core/togo"
+import "core/pitch"
 
 local scene, cmatch, save = tw.scenes.match, tw.match, tw.save
 local A = { press = { "a" } }
@@ -40,6 +42,16 @@ tw.selftest.scenarios.togo = {
 			if ms.phase ~= "togo" or ms.tg.mode ~= "card" or ms.tg.side ~= "A" then
 				error("VS PLAYDATE: no card before the player's baton to go")
 			end
+			-- the circle starts short of the king and may go nearer than the drill area's
+			-- 3.5 m (the throw's own markerNear, 2 m; Codex on #169)
+			local ts, king = ms.ts, tw.pitch.king
+			local y0 = king.y - tw.togo.tune.markerShort
+			if math.abs(ts.markerY - y0) > 1e-6 then error(string.format("the circle starts at %.2f, not %.2f", ts.markerY, y0)) end
+			tw.scenes.throw.aimAt(ts, 0.3, y0)
+			if math.abs(ts.markerY - y0) > 1e-6 then error(string.format("a move across put the circle at %.2f", ts.markerY)) end
+			tw.scenes.throw.aimAt(ts, 0, 1)
+			if math.abs(ts.markerY - 2) > 1e-6 then error(string.format("the circle went to %.2f, under 2 m", ts.markerY)) end
+			tw.scenes.throw.setTogo(ts)
 			ctx.got = {}
 		end
 		local r = ctx.r
