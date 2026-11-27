@@ -112,7 +112,11 @@ this throw: "HOW TO THROW" below).
   the player's frame from the player's baseline, the king, the thrower and the Playdate's
   circle, then turns it back into the thrower's frame. It is made at `throw.prepare` and
   again at `throw.showAim`, and held for the whole throw: no follow or impact camera, the
-  baton comes from the far end toward the player. `render.world.setTurned` turns the ground
+  baton comes from the far end toward the player (engine 1.4.1's `camera.endFollow` is not
+  used; the camera is the fitted one, as the engine's guidance for Reduce Motion holds). From
+  engine 1.4.1 kind "end" is a person's eyes 1.6 m up and 1.2 m behind the middle of the
+  baseline, turned toward the points, where it was 3.2 m back and 3 m up looking straight
+  down the middle. `render.world.setTurned` turns the ground
   and the light; the HUD's minimap (`hs.turned`, in its layer key) and the wind arrow turn
   too. Pass and play never sets it.
 - **Speed** (game 1.1.0, `s.speed` 1, 2 or 4, `s.watching` only): the Playdate's swing on
