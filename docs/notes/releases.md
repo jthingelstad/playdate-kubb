@@ -32,6 +32,10 @@ https://playdate.thingelstad.xyz/throwing-wood/ (that site's repository).
   and right pick the end, the crank tips it; Auto raise moved to the System Menu. THROW TO
   GO (on by default, not in a Kid match): one baton each at the king decides who throws
   first, the person first, written in the game file as `[Engine:first]`.
+- 1.1.1 (build 19), 2026-11-27, on Kubb Engine 1.4.1: the build for the Catalog
+  application. Against the Playdate the end camera keeps the king, the thrower and the
+  circle in view, and its raise watched from your end takes the raise camera. The
+  frame-time log (`frames.jsonl`) is written only while the `debug` file is there.
 
 The bundle id changed on 2026-11-17 from `com.thingelstad.throwingwood` to
 `com.throwingwood.playdate`, so every id is rooted at the game's own domain (the iPhone app

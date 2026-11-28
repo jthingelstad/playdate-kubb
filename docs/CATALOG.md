@@ -33,7 +33,7 @@ is asked how the rule applies (catalog-submissions@play.date).
 | A match resumes after a relaunch | done (B RESUME on the title) |
 | Data folder stays small | done: traces and frame logs are each kept to about 1 MB (`logcap`) |
 | No network, no accelerometer | done |
-| Before the Catalog build | turn the frame log off by default and keep it behind the `debug` file (crank traces moved there on 2026-11-20, with the System Menu's Record item gone), so a buyer's System Menu has no developer item; the version is 1.0.0 (build 17, on Kubb Engine 1.0.0, 2026-11-22) |
+| Frame log behind `debug` | done (1.1.1, build 19): `frames.jsonl` is written only while the `debug` file is in the Data folder, as the crank traces have been since 2026-11-20, so a buyer's Data folder holds only their players, saves and games and the System Menu has no developer item |
 
 ## Listing assets
 

@@ -2,8 +2,9 @@
 -- frames.jsonl in the game's Data folder, once the throw is at rest, never
 -- during the flight. The line is device/frametel's (format there and in
 -- docs/notes/performance.md "Frame-time log"). Separate from the crank recorder's
--- traces.jsonl. On by default outside self-tests; the device autobench
--- turns it off while it runs, as it does the recorder. logcap keeps the file
+-- traces.jsonl. On only while the "debug" file is in the Data folder
+-- (main.lua, since 1.1.1); the device autobench turns it off while it runs,
+-- as it does the recorder. logcap keeps the file
 -- to about 1 MB (older lines in frames-1.jsonl).
 import "core/tw"
 import "logcap"
