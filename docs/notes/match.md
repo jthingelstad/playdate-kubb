@@ -100,14 +100,16 @@ scene at a time and rebuilds the System Menu for it (the scene's own item; until
   kubbs it raises and punishment kubbs it places, THEN HAND IT BACK TO the attacker, A to
   start; none against the Playdate, whose player holds it already, and none after. Raise: since 1.1.0 (Kubb Engine 1.4, "Raising in any order")
   one held 3D view of the whole group of lying kubbs (`render/world` with its own camera,
-  `camera.fromEnd(nil, pts, settle.tune.raiseBox, kind)`, in the viewer's frame: kind
-  `"raise"` when the viewer is the raiser, `"end"` when the Playdate raises and the player
-  watches from their end). It frames the lying kubbs and their ends' footprints only, padded
+  `camera.fromEnd(nil, pts, settle.tune.raiseBox, "raise")`, in the viewer's frame, also
+  when the Playdate raises and the player watches from their end). It frames the lying kubbs and their ends' footprints only, padded
   to at least `groupMinWidth` (3.6 m) wide; framing the whole half with the baselines and
   the king, as the session's raise camera does, left a kubb about 8 px high on the 400 x 240
-  screen. From engine 1.4.1 kind `"raise"` stands over the points' middle from the raiser's
-  side and kind `"end"` is a person's eyes on the viewer's baseline (kubb-engine
-  docs/VERSIONING.md "1.4.1"). The camera is held for the whole raise and moves only when the raising side
+  screen. From engine 1.4.1 kind `"raise"` stands over the points' middle from the viewer's
+  side (kubb-engine docs/VERSIONING.md "1.4.1"). A watched raise used kind `"end"` before
+  1.4.1; from a person's eyes on the player's baseline that left the group small at the top
+  of the screen and a base kubb of the player's, just in front of the eyes, large and cut
+  off behind the SPEED / SKIP plaque, so it takes the raise camera too, standing at the
+  group from the player's side with the player's base kubbs behind it. The camera is held for the whole raise and moves only when the raising side
   changes. Each end the engine allows is drawn on the ground as its 7 x 7 footprint, the
   chosen one dotted with STANDS HERE (MOVED CLEAR when II.D.5 slid it), and a small
   triangle over the chosen kubb marks it when more than one is lying. **B NEXT** steps to

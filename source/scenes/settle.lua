@@ -8,8 +8,8 @@
 --
 -- Raise (in any order since 1.1.0, engine 1.4 "Raising in any order"): the whole
 -- group the other team threw in, on one view held for the whole raise
--- (core/camera.fromEnd, kind "raise": from behind the defender's baseline, every
--- lying kubb, each of its ends and the king in it), and on the ground the 7 x 7
+-- (core/camera.fromEnd, kind "raise": over the group from the viewer's side, every
+-- lying kubb and each of its ends in it), and on the ground the 7 x 7
 -- footprint of each end the engine allows for the chosen kubb; the chosen end is
 -- dotted with STANDS HERE under it (MOVED CLEAR when II.D.5 slid it), and a
 -- pointer stands over the chosen kubb. B steps to the next lying kubb
@@ -34,7 +34,8 @@
 --
 -- Watch (opts.watch, 1.1.0: the Playdate's own raises against the Playdate): the
 -- same automatic raise on the computer's policy, seen from the player's end
--- (opts.view: the player's side; camera.fromEnd kind "end"), at the match's SPEED
+-- (opts.view: the player's side; camera.fromEnd kind "raise" in the player's frame,
+-- engine 1.4.1), at the match's SPEED
 -- (watch.speed: B steps it), A to skip (watch.skipping: every raise left is made at
 -- once). Its punishment kubbs are placed at once (g:autoPunishment, as
 -- core/match.settle does). The same calls core/match.settle makes, in the same
@@ -380,13 +381,18 @@ set3D = function(s)
 end
 
 -- The one view for the whole raise (engine 1.4, camera.fromEnd; the session's raise
--- camera): from behind the viewer's baseline, every lying kubb and each end it may
--- stand on. The session also keeps the baseline and the king in it; on the
+-- camera): every lying kubb and each end it may stand on. From engine 1.4.1 the raise
+-- camera stands over the group from the viewer's side. Before 1.4.1 the session also
+-- kept the baseline and the king in it; on the
 -- Playdate's 400 x 240 that left a lying kubb about 8 px long, too small to read its
 -- ends or see the crank tip it, so the view keeps the group only, at least
 -- groupMinWidth across (a lone kubb is not blown up to fill the screen). The
 -- defender's own raise is the "raise" framing; the Playdate's, seen from the
--- player's end, the "end" one.
+-- player's end, is the "raise" framing too, in the player's frame (engine 1.4.1): the
+-- "end" kind is now a person's eyes on the player's baseline, which left the group
+-- small at the top of the screen and the player's own base kubbs, just in front of the
+-- eyes, large and cut off behind the plaque; the raise camera stands at the group from
+-- the player's side, those kubbs behind it.
 holdCamera = function(s, lying)
 	local g, vf = s.g, viewOf(s)
 	local pts = {}
@@ -410,7 +416,7 @@ holdCamera = function(s, lying)
 		pts[#pts + 1] = { cx - w / 2, cy, 0 }
 		pts[#pts + 1] = { cx + w / 2, cy, 0 }
 	end
-	s.cam = camera.fromEnd(nil, pts, settle.tune.raiseBox, (vf == s.side) and "raise" or "end")
+	s.cam = camera.fromEnd(nil, pts, settle.tune.raiseBox, "raise")
 end
 
 -- Which end of the lying kubb shows on the right of the raise camera.
