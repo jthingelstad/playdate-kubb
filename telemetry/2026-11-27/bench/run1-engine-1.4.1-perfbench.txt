@@ -1,0 +1,51 @@
+perfbench 2026-11-27 19:07; version 1.1.0 (1.4.1); build 18; memory 1804 KB
+match start (ms, 5 each; median [min-max]):
+  new match 99 [99-151]; save 75 [74-80]; resume (read, unpack, scene) 160 [159-171]
+plan.solve (ms, 20 each):
+  1.0m 23.01, 1.5m 3.30, 3.0m 4.94, 8.0m 4.46, drill 6m 5.74
+computer: autothrow.choose (ms, 10 each; median [min-max]):
+  kid: base (baton) 17.55 [16.58-18.44]; toss (toss) 15.71 [15.18-16.88]; field (baton) 15.88 [14.99-16.44]
+  beginner: base (baton) 17.04 [16.35-17.96]; toss (toss) 15.99 [15.33-16.59]; field (baton) 15.79 [13.65-16.32]
+  club: base (baton) 17.65 [16.66-18.64]; toss (toss) 16.04 [15.22-16.38]; field (baton) 16.14 [15.16-16.88]
+  pro: base (baton) 17.16 [16.61-18.36]; toss (toss) 15.74 [15.11-16.48]; field (baton) 17.47 [16.67-18.40]
+computer decisions (ms, 10 each; median [min-max]):
+  one raise, 8 lying (2 ends): apart 0.96 [0.88-1.18]; par 34.06 [33.61-34.83]; cpu kid 0.47 [0.46-0.53]; cpu beginner 0.50 [0.47-0.56]; cpu club 1.31 [1.28-1.59]; cpu pro 1.37 [1.30-1.86]
+  settle of the 8 (match.settle): Playdate kid 338.1 [313.8-343.2]; Playdate beginner 340.9 [338.1-347.4]; club 348.4 [343.0-350.6]; pro 348.9 [341.5-354.7]; a person (advice) 543.0 [532.2-550.9]
+  choose kid: 8 field (8) 17.49 [16.82-18.81] field.roles; toss onto 4 18.16 [17.28-18.55] inkast.corner
+  choose beginner: 8 field (8) 17.36 [16.64-18.33] field.roles; toss onto 4 18.10 [17.39-18.51] inkast.corner
+  choose club: 8 field (8) 18.00 [17.13-18.62] field.roles; toss onto 4 20.32 [19.84-20.74] inkast.roll
+  choose pro: 8 field (8) 52.09 [51.18-53.15] field.roles; toss onto 4 19.98 [19.14-20.54] inkast.depth
+computer turn through the match scene (ms, 3 each; median [min-max]):
+  transition (scene made on the resume, its settle and setup): Playdate club raising 8 221 [221-361]; Playdate pro raising 8 251 [251-253]
+  transition with the person's 8 raised automatically (advice) 406 [401-412]
+  Playdate pro's first baton at 8 field kubbs: slowest frame 111.8 [111.1-114.2]; choose frame 90.3 [88.7-91.3]; flight frames 120 [109-123], mean 50.5 [50.0-52.7]
+kid match (ms; plan.solve 20 each, the rest 10 each, median [min-max]):
+  plan.solve on the Kid meter from the Kid line: 2.0m 4.49, 3.0m 4.85, 6.0m 3.83, drill 4m 6.21
+  choose kid in a Kid match: base (baton) 15.59 [14.28-16.47]; toss (toss) 14.23 [13.91-15.12]; field (toss) 14.19 [13.83-15.21]
+  raising.fairSpot, 8 lying in the half: 43.1 [42.9-43.4]
+aim with the circle moving (plan solved every frame):
+  kubb 1m  30 frames: update (replan) 27.58 ms (max 28.40), draw 12.0 ms (max 71.6)
+  kubb 6m  30 frames: update (replan) 5.41 ms (max 5.96), draw 13.2 ms (max 67.6)
+aim d-pad (scene update with the d-pad held; every other frame / every frame):
+  kubb 1m  every other: update 17.23 ms (max 31.20), draw 29.0 ms (max 33.3), 15 of 30 solved; every: update 30.49 ms (max 31.38), draw 27.5 ms (max 29.4), 30 of 30 solved
+  kubb 6m  every other: update 8.64 ms (max 9.37), draw 31.9 ms (max 35.0), 30 of 30 solved; every: update 8.61 ms (max 9.43), draw 31.8 ms (max 34.3), 30 of 30 solved
+drive (ms, 20 each; the aim parts through the scene's update):
+  1.5m solve at the floor (0.3) 4.44, arcFloor 3.58; 3m solve at the floor (8.9) 155.64, arcFloor 154.92
+  a kept drive raised to a new floor: 1.5m walking 32.82 (max 59.07), circle 32.82 (max 58.82); 3m walking 150.44 (max 160.91), circle 150.50 (max 161.03)
+  aim 1.5m nothing pressed      30 frames: update 3.03 ms (max 3.35), draw 11.9 ms (max 37.8), plan.solve calls 0 (floor 0), release 6.0
+  aim 1.5m B held               30 frames: update 5.72 ms (max 6.87), draw 26.7 ms (max 35.4), plan.solve calls 0 (floor 0), release 6.0
+  aim 1.5m B held, down and up  30 frames: update 7.77 ms (max 34.56), draw 12.7 ms (max 21.8), plan.solve calls 8 (floor 1), release 10.3
+throws (5 each after one not counted; median [min-max]):
+  cluster 5m toppled 2 [2-2]; rest 7.31 [7.27-7.43] s; live flight frames 113 [112-116] (calm tail 4 [4-5]); frame ms mean 62.1 [61.9-62.6] sd 7.8 [7.4-8.0] max 77.8 [77.0-78.8]
+             update ms mean 31.8 [31.4-32.1] max 49.0 [43.3-49.5]; draw ms mean 28.8 [28.7-29.1] max 32.7 [32.4-54.5]; starved 0 [0-0]; steps 383 [383-383] at 8.09 [7.99-8.15] ms; memory KB 1715 [1714-1716], max 1807 [1806-1808]
+  cluster 1m toppled 1 [1-1]; rest 11.12 [10.79-11.59] s; live flight frames 175 [169-182] (calm tail 11 [11-12]); frame ms mean 58.5 [58.3-58.8] sd 6.5 [6.1-7.0] max 71.8 [69.8-73.9]
+             update ms mean 27.4 [26.6-27.8] max 41.6 [38.6-42.7]; draw ms mean 29.4 [29.1-30.6] max 32.7 [32.2-33.6]; starved 39 [34-46]; steps 308 [308-308] at 15.55 [15.34-15.74] ms; memory KB 1716 [1714-1717], max 1802 [1801-1803]
+  drive 1.5m toppled 2 [2-2]; rest 8.29 [7.81-8.41] s; live flight frames 124 [116-127] (calm tail 13 [13-13]); frame ms mean 58.0 [57.8-58.4] sd 6.8 [6.1-7.6] max 75.7 [73.9-75.9]
+             update ms mean 26.1 [25.8-26.9] max 43.3 [42.4-44.1]; draw ms mean 30.4 [29.5-30.6] max 33.6 [32.5-34.1]; starved 26 [22-31]; steps 230 [230-230] at 15.41 [15.12-15.70] ms; memory KB 1719 [1718-1720], max 1804 [1803-1805]
+  8m base    toppled 1 [1-1]; rest 3.66 [3.62-3.78] s; live flight frames 65 [65-68] (calm tail 3 [3-3]); frame ms mean 53.6 [53.0-54.0] sd 10.9 [10.8-11.7] max 67.9 [66.8-69.0]
+             update ms mean 32.5 [32.1-32.7] max 46.0 [45.0-46.1]; draw ms mean 19.5 [19.4-19.7] max 25.2 [25.1-25.4]; starved 0 [0-0]; steps 467 [467-467] at 4.16 [4.10-4.24] ms; memory KB 1714 [1713-1715], max 1786 [1785-1787]
+  drill      toppled 0 [0-0]; rest 6.77 [6.10-6.93] s; live flight frames 145 [131-147] (calm tail 5 [5-5]); frame ms mean 44.5 [43.9-44.8] sd 5.1 [5.0-5.2] max 67.8 [66.8-68.8]
+             update ms mean 13.7 [13.5-14.4] max 32.0 [31.1-32.6]; draw ms mean 29.0 [27.9-29.7] max 46.3 [46.0-46.8]; starved 1 [0-1]; steps 421 [421-421] at 3.83 [3.76-3.84] ms; memory KB 1726 [1725-1727], max 1817 [1816-1819]
+memory after a full collection 1687 KB
+perfbench done
+
