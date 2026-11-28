@@ -1711,14 +1711,24 @@ function throw.showAim(s, a)
 end
 
 -- The camera for a throw seen from the far end (s.turned, 1.1.0): core/camera.fromEnd
--- at the player's own end (kind "end"), made in the player's view frame from the
--- player's baseline, the king, the thrower and where it aims (the thrower's frame
--- turned: x, y -> -x, 8 - y), then turned back into the thrower's frame, where the
--- pieces and the physics are, so nothing else changes. One camera for the whole
--- throw: the baton comes from the far end toward the player.
-throw.tune.endBox = { left = 6, top = 18, right = 394, bottom = 212 }
+-- at the player's own end (kind "end"), made in the player's view frame from the king,
+-- the thrower and where it aims (the thrower's frame turned: x, y -> -x, 8 - y), then
+-- turned back into the thrower's frame, where the pieces and the physics are, so nothing
+-- else changes. The points are the engine session's (session/wide.endCamera, 1.4.1):
+-- from engine 1.4.1 the camera is a person's eyes on the player's baseline, so the
+-- baseline, under their feet, is no longer kept (keeping it put it across the middle of
+-- the screen, its kubbs against the WATCH tab). One camera for the whole throw (the
+-- engine's camera.endFollow is not used): the baton comes from the far end toward the
+-- player.
+-- The box the kept points are fitted into: under the rail, over the SPEED / SKIP plaque
+-- (214), and between the minimap (to x 51) and the WATCH tab and clock (from x 318), so
+-- the circle, the king and the thrower never stand behind them. Engine 1.4.1's eyes on the
+-- baseline put a targeted base kubb behind the clock with the whole screen as the box
+-- (left 6, right 394); a box above the HUD row instead (bottom 156) brought the base kubbs
+-- back on screen, large, against the minimap, the clock and the plaque.
+throw.tune.endBox = { left = 56, top = 18, right = 314, bottom = 212 }
 local endPts = {}
-for i = 1, 6 do endPts[i] = { 0, 0, 0 } end
+for i = 1, 3 do endPts[i] = { 0, 0, 0 } end
 function throw.endCamera(s)
 	local n = 0
 	local function add(x, y, z)
@@ -1726,8 +1736,6 @@ function throw.endCamera(s)
 		local p = endPts[n]
 		p[1], p[2], p[3] = -x, 8 - y, z
 	end
-	add(-2.5, 8, 0)
-	add(2.5, 8, 0)
 	add(pitch.king.x, pitch.king.y, 0.3)
 	add(s.playerX, s.playerY, 1.2)
 	if s.cpuTarget or s.drill then add(s.markerX, s.markerY, 0) end

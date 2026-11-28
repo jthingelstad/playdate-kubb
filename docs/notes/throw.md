@@ -108,15 +108,22 @@ this throw: "HOW TO THROW" below).
 - **The view from the player's end** (game 1.1.0; `s.turned`, set by `scenes/match` for the
   Playdate's throws against the Playdate). The throw is set up and simulated in the
   thrower's frame as always; only the camera and the drawing turn. `throw.endCamera(s)`
-  makes `camera.fromEnd(s.endCam, pts, throw.tune.endBox, "end")` (box 6..394, 18..212) in
-  the player's frame from the player's baseline, the king, the thrower and the Playdate's
-  circle, then turns it back into the thrower's frame. It is made at `throw.prepare` and
-  again at `throw.showAim`, and held for the whole throw: no follow or impact camera, the
-  baton comes from the far end toward the player (engine 1.4.1's `camera.endFollow` is not
-  used; the camera is the fitted one, as the engine's guidance for Reduce Motion holds). From
-  engine 1.4.1 kind "end" is a person's eyes 1.6 m up and 1.2 m behind the middle of the
-  baseline, turned toward the points, where it was 3.2 m back and 3 m up looking straight
-  down the middle. `render.world.setTurned` turns the ground
+  makes `camera.fromEnd(s.endCam, pts, throw.tune.endBox, "end")` in the player's frame
+  from the king, the thrower and the Playdate's circle (the points of the engine session's
+  `wide.endCamera`), then turns it back into the thrower's frame. It is made at
+  `throw.prepare` and again at `throw.showAim`, and held for the whole throw: no follow or
+  impact camera, the baton comes from the far end toward the player (engine 1.4.1's
+  `camera.endFollow` is not used; the camera is the fitted one, as the engine's guidance
+  for Reduce Motion holds). From engine 1.4.1 kind "end" is a person's eyes 1.6 m up and
+  1.2 m behind the middle of the baseline, turned toward the points, where it was 3.2 m
+  back and 3 m up looking straight down the middle. So the player's own baseline, under
+  those eyes, is no longer kept: kept, it slanted across the middle of the screen. The box
+  is 56..314, 18..212, between the minimap and the WATCH tab and clock and over the SPEED /
+  SKIP plaque, so a kept point (a targeted base kubb too) never stands behind them; with
+  the whole screen as the box a targeted base kubb could stand behind the clock, and a box
+  above the HUD row (bottom 156) brought the base kubbs back large against all three. The
+  cost: on a turn at field kubbs the player's base kubbs are just under the frame, and a
+  baton thrown long leaves it at the bottom. `render.world.setTurned` turns the ground
   and the light; the HUD's minimap (`hs.turned`, in its layer key) and the wind arrow turn
   too. Pass and play never sets it.
 - **Speed** (game 1.1.0, `s.speed` 1, 2 or 4, `s.watching` only): the Playdate's swing on
