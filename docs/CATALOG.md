@@ -6,21 +6,57 @@ game stands against it. Read 2026-11-17 from help.play.date ("Submit to Catalog"
 
 ## How it goes
 
-1. **Apply** (the form on help.play.date/developer/submit-to-catalog): name, email,
-   location, a description, screenshots and a zipped `.pdx`. Review takes 1 to 3 weeks.
+1. **Apply** (the form on help.play.date/developer/submit-to-catalog): country, name,
+   email, the title's name, genre and tags, a description, whether generative AI made any
+   content (and how), a price, three screenshots and a zipped `.pdx`. Review takes 1 to 3
+   weeks. Sent 2026-11-27: "The application" below.
 2. **After acceptance**: the Catalog Sales Agreement, an NDA, Stripe and a tax interview;
    the asset checklist; the build through Panic's build form. Releases go out every
    other Tuesday.
 3. **Terms**: price $1 to $100, the developer keeps 75%, non-exclusive (the game can be
    sold elsewhere too).
 
-## Content rule to settle first
+## The application (sent 2026-11-27)
+
+Jamie sent the application on 2026-11-27 through Panic's form
+(forms.panic.com/catalog-submit, linked from "Submit to Catalog"). Panic answers by email,
+usually in 1 to 3 weeks; a title they pass on can be changed and sent again.
+
+- **Build**: 1.1.1 (build 19) on Kubb Engine 1.4.1, tag `v1.1.1`, the zip from
+  `make release` (`ThrowingWood-1.1.1.pdx.zip`).
+- **Screenshots** (three, 400x240, from `make selftest` on that build):
+  `match-opening-02` (aiming a baton, WIND BACK on the clock), `burst-02` (TOK! in slow
+  motion) and `match-opening-06` (kubbs thrown in beside the king, "16 CM AWAY").
+- **Genre**: Sports. Tabletop on that form means board and card games, not lawn games.
+- **Price**: $3 to $5, a range for review only (the Catalog's floor is $1).
+- **Description** (for Panic's review, not shown in Catalog), as it stood on the form
+  before sending:
+
+  > Kubb: Throwing Wood is backyard Kubb, the Swedish lawn game, made for the Playdate.
+  > You throw with the crank by winding it back and flinging forward to throw, being
+  > careful to release at the right moment. Every throw is a physics simulation at the
+  > real size of a tournament pitch. Batons tumble, kubbs topple into each other, and
+  > what happens comes from how you threw. You can play the full rules against the
+  > Playdate, from a forgiving Kid game up to Pro, or pass and play with friends in
+  > singles or teams. Every finished game is kept as a real Kubb score sheet. I am an
+  > expert Kubb player and built this powerful Kubb Engine to power Throwing Wood.
+
+- **Generative AI**: answered Yes, with:
+
+  > Code was written with Claude (Anthropic) under my close direction. Claude also
+  > drafted the on-screen text and the 1-bit art (drawn as code/SVG, no
+  > image-generation models), which I directed and edited. Sounds are my own
+  > recordings of real kubbs; the font is Londrina Solid (OFL).
+
+### The content rule
 
 Panic: "Your title shouldn't use generative AI for art, audio, music, text, or dialog."
-Code written with AI assistance is allowed. The game's code fits. Its on-screen words
-(menus, HOW TO PLAY, HOW TO THROW, cards) and its art direction were drafted with AI
-assistance, so before applying either the words and art are the developer's own, or Panic
-is asked how the rule applies (catalog-submissions@play.date).
+Code written with AI assistance is allowed. The on-screen words (menus, HOW TO PLAY, HOW
+TO THROW, cards, the burst words) and the Woodcut art (`docs/design/`, drawn by
+`tools/art/build.py`) were drafted with Claude, so the application says so in the answer
+above rather than leaving it for Panic to find. If Panic passes on the title for this,
+either make the words and art the developer's own and apply again, or ask Panic how the
+rule applies (catalog-submissions@play.date).
 
 ## The game
 
