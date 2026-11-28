@@ -186,13 +186,14 @@ else
 	local pending = nil              -- a scene to open on the next frame (from a menu callback)
 	local open, savedMatch
 
-	tw.framelog.on = true
 	-- "debug" in the Data folder shows the developer's items (the practice
 	-- pitch's "Pitch: readout" and "bench") and records the crank traces
-	-- (recorder.lua). Read once at launch. Without it nothing is written to
-	-- traces.jsonl, and the traces already there are left as they are.
+	-- (recorder.lua) and the frame-time log (framelog.lua). Read once at
+	-- launch. Without it nothing is written to traces.jsonl or frames.jsonl,
+	-- and the lines already there are left as they are.
 	tw.debug = playdate.file.exists("debug")
 	tw.recorder.on = tw.debug
+	tw.framelog.on = tw.debug
 	local menu = playdate.getSystemMenu()
 
 	-- The throw scene of the current scene (the match keeps one inside).

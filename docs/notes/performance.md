@@ -472,8 +472,8 @@ and copying a full-screen image about 0.7 ms. So:
 ## Frame-time log
 
 To tell the deliberate slow motion from dropped frames, every throw (practice and match)
-appends one JSON line to `frames.jsonl` in the Data folder (`source/framelog.lua`, on outside
-self-tests, no menu item; the line is `device/frametel.encode`, written once in the throw
+appends one JSON line to `frames.jsonl` in the Data folder (`source/framelog.lua`, on only while the `debug` file
+is in the Data folder since 1.1.1, no menu item; the line is `device/frametel.encode`, written once in the throw
 scene's `landed`, never during the flight; not in instant mode). Past
 `logcap.maxBytes` (1 MB) the file becomes `frames-1.jsonl` (replacing an older one) and a
 new one starts (`source/logcap.lua`; checked before each line). Collected with a dozen
