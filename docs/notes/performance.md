@@ -31,8 +31,11 @@ The autobench measures a build on the Playdate with nobody pressing anything:
    other variants switch one part of the look off, so each part's cost reads as shown
    speed. The last line is `autobench done`; then the game carries on. Auto-lock is off
    while the bench runs.
-4. Mount the data disk again and read `bench.txt`. Delete it when done with it; never
-   touch `traces.jsonl` (crank recordings), `frames.jsonl` or `games/`.
+4. Mount the data disk again and read `bench.txt`. Copy it into the repository first,
+   `telemetry/<day>/bench/` with a line in `telemetry/README.md` (the owner, 2026-11-27:
+   "we should track these benchmarks someplace more durable than memory"), `perf.txt`
+   the same; then delete it from the device. Never touch `traces.jsonl` (crank
+   recordings), `frames.jsonl` or `games/`.
 
 ### The performance check
 
@@ -372,6 +375,14 @@ the rest of a plan). **The guard stays, and it was the right call**: per frame t
 would be two to four dropped frames at 3 m. What the player gets from 1.0 is the one solve
 when a walk or the circle stops, 34 to 77 ms where 0.18's was estimated at 120 to 220. A
 cheaper carry is the engine's to find.
+
+Engine 1.4.1 on the device (2026-11-27, game 1.1.0 build 18, with the cameras from the
+player's end; `telemetry/2026-11-27/bench/`): the same as 1.0 within the spread. A throw's
+frame: cluster 5 m 62.1 ms, cluster 1 m 58.5, drive 1.5 m 58.0, 8 m base 53.6, drill 44.5,
+and the same kubbs toppled (2 / 1 / 2 / 1 / 0). `plan.solve` 1.0 / 1.5 / 3.0 / 8.0 m 23.01 /
+3.30 / 4.94 / 4.46 ms. Playdate pro's first baton at 8 field kubbs: slowest frame 111.8 ms,
+choose frame 90.3. New match 99 ms, save 75, resume 160; memory after a full collection
+1687 KB.
 
 ## Drawing speed
 

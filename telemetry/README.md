@@ -8,7 +8,9 @@ tests.
   `core/trace.lua`). Replay with `lua5.4 tools/replay_traces.lua <file>` in kubb-engine.
 - `frames.jsonl`: one line per throw of frame timing (`docs/notes/performance.md`, "Frame-time log").
 - `games/`: the game files the device wrote for finished matches.
-- `bench/`: autobench output (`docs/notes/performance.md`, "Measuring on the device").
+- `bench/`: autobench output (`bench.txt`) and the performance check's (`perf.txt`), every
+  device run of either, copied here before it is deleted from the device
+  (`docs/notes/performance.md`, "Measuring on the device").
 - `watchdog-reset.txt`: the device's crash log entry when a build hung.
 
 ## 2026-11-13
@@ -88,3 +90,13 @@ showed:
   their half past 1 plan (median about 135).
 - Drills at 3 taps of spin moved 4 to 22 cm sideways after landing, nowhere near what a
   spun kubb does.
+
+## 2026-11-27
+
+Game 1.1.0 build 18 (a development build of main) on Kubb Engine v1.4.1 with the cameras
+from the player's end, both runs to their last line, nobody pressing anything.
+
+| Bench file | Build |
+| --- | --- |
+| `run1-engine-1.4.1-autobench.txt` | the autobench: `autobench done` |
+| `run1-engine-1.4.1-perfbench.txt` | the performance check: `perfbench done` |
